@@ -6,7 +6,7 @@
       <div @click="" >
         <BlackCard
           v-if="blackCard"
-          @click="{blackCardFlipped = !blackCardFlipped; notifyflip();}"
+          @click="blackCardFlipped = !blackCardFlipped"
           :cardText=blackCard.text
           :cardPack=blackCard.pack
           :flipped="blackCardFlipped"
@@ -57,17 +57,4 @@ try {
 } catch (err) {
   notify("Failed to fetch cards", "error");
 }
-
-const notifyflip = () => {
-  notify("Card Flipped", "info", { icon: "🔄" });
-};
-
-onMounted(async () => {
-  try {
-    const session = await account.getSession("current");
-    
-  } catch {
-    // notify("Not logged in", "info", { icon: "ℹ️" });
-  }
-});
 </script>
