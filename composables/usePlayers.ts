@@ -3,11 +3,12 @@ import { Query } from 'appwrite'
 import { useAppwrite } from '~/composables/useAppwrite'
 
 export const usePlayers = () => {
-  const { databases } = useAppwrite()
-  const config = useRuntimeConfig()
-
+  const getConfig = () => useRuntimeConfig();
   const getPlayersForLobby = async (lobbyId: string) => {
+    let databases;
     try {
+      const config = getConfig();
+      databases = useAppwrite().databases;
       const res = await databases.listDocuments(
         config.public.appwriteDatabaseId,
         'players',

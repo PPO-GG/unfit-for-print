@@ -9,12 +9,25 @@ import { useUserStore } from "~/stores/userStore";
  * It allows creating, joining, and leaving lobbies, as well as managing players.
  */
 export const useLobby = () => {
-  const { databases, account } = useAppwrite();
-  const config = useRuntimeConfig();
-  const { encodeGameState, decodeGameState } = useGameState();
+  // SSR guard for all Appwrite operations
+  const getAppwrite = () => {
+    if (import.meta.server) {
+      throw new Error("useLobby() cannot be used during SSR");
+    }
+    const { databases, account } = useAppwrite();
+    if (!databases || !account) {
+      throw new Error("Appwrite services not initialized");
+    }
+    return { databases, account };
+  };
+
+  const getConfig = () => useRuntimeConfig();
   const userStore = useUserStore();
+  const { encodeGameState, decodeGameState } = useGameState();
 
   const createLobby = async (hostUserId: string) => {
+    const { databases } = getAppwrite();
+    const config = getConfig();
     const lobbyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     const data = {
@@ -38,16 +51,15 @@ export const useLobby = () => {
     ];
 
     const lobby = await databases.createDocument(
-      config.public.appwriteDatabaseId,
-      "lobby",
-      ID.unique(),
-      data,
-      permissions
+        config.public.appwriteDatabaseId,
+        "lobby",
+        ID.unique(),
+        data,
+        permissions
     );
 
-    // Immediately join the lobby as host
     await joinLobby(lobby.code, {
-      username: userStore.user?.name ?? "",
+      username: userStore.user?.name ?? "Anonymous",
       isHost: true,
     });
 
@@ -62,6 +74,9 @@ export const useLobby = () => {
     username: string,
     isHost: boolean
   ) => {
+
+    const { databases } = getAppwrite();
+    const config = getConfig();
     const existing = await databases.listDocuments(
       config.public.appwriteDatabaseId,
       "players",
@@ -117,6 +132,8 @@ export const useLobby = () => {
     }
   ) => {
     try {
+      const { account, databases } = getAppwrite();
+      const config = getConfig();
       if (!userStore.session && !options?.skipSession) {
         await account.createAnonymousSession();
       }
@@ -127,9 +144,15 @@ export const useLobby = () => {
       const lobby = await getLobbyByCode(code);
       await account.updatePrefs({ name: username });
       await userStore.fetchUserSession();
-      if (!lobby) throw new Error("Lobby not found");
+      if (!lobby) {
+        console.error("Lobby not found");
+        return null;
+      }
       await createPlayerIfNeeded(user, session, lobby.$id, username, false);
-      if (!lobby) throw new Error("Lobby not found");
+      if (!lobby) {
+        console.error("Lobby not found");
+        return null;
+      }
 
       if (session.provider !== "anonymous") {
         // Only allow logged-in users to update gameState
@@ -156,6 +179,8 @@ export const useLobby = () => {
 
   // Leave a lobby
   const leaveLobby = async (lobbyId: string, userId: string) => {
+    const { databases } = getAppwrite();
+    const config = getConfig();
     const lobby = await databases.getDocument(
       config.public.appwriteDatabaseId,
       "lobby",
@@ -243,6 +268,8 @@ export const useLobby = () => {
   // Fetch a lobby by its code
   const getLobbyByCode = async (code: string) => {
     try {
+      const { databases } = getAppwrite();
+      const config = getConfig();
       const result = await databases.listDocuments(
         config.public.appwriteDatabaseId,
         "lobby",
@@ -258,6 +285,8 @@ export const useLobby = () => {
 
   const getActiveLobbyForUser = async (userId: string) => {
     try {
+      const { databases } = getAppwrite();
+      const config = getConfig();
       const res = await databases.listDocuments(
         config.public.appwriteDatabaseId,
         "players",
@@ -284,6 +313,8 @@ export const useLobby = () => {
   };
 
   const getPlayersForLobby = async (lobbyId: string) => {
+    const { databases } = getAppwrite();
+    const config = getConfig();
     const res = await databases.listDocuments(
       config.public.appwriteDatabaseId,
       "players",
@@ -295,6 +326,8 @@ export const useLobby = () => {
   // Check if a user is in a lobby
   // This is used to check if a user is already in a lobby before joining
   const isInLobby = async (userId: string, lobbyId: string) => {
+    const { databases } = getAppwrite();
+    const config = getConfig();
     const res = await databases.listDocuments(
       config.public.appwriteDatabaseId,
       "players",

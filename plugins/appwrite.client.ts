@@ -1,5 +1,5 @@
 // plugins/appwrite.client.ts
-import { Client, Databases, Account, Avatars, Functions, Query } from 'appwrite'
+import { Client, Databases, Account } from 'appwrite'
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
@@ -10,18 +10,12 @@ export default defineNuxtPlugin(() => {
 
   const databases = new Databases(client)
   const account = new Account(client)
-  const avatars = new Avatars(client)
-  const functions = new Functions(client)
-  console.log("Appwrite config:", { account, databases })
   return {
     provide: {
       appwrite: {
         client,
         databases,
         account,
-        avatars,
-        functions,
-        Query,
       }
     }
   }

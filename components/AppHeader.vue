@@ -1,7 +1,13 @@
 <!-- components/AppHeader.vue -->
-<script setup>
-import { useUserStore } from '~/stores/userStore'
-const userStore = useUserStore()
+<script setup lang="ts">
+import { onMounted } from 'vue';
+import { useUserStore } from '~/stores/userStore';
+
+let userStore: ReturnType<typeof useUserStore>
+
+onMounted(() => {
+  userStore = useUserStore()
+})
 </script>
 
 <template>
@@ -10,19 +16,10 @@ const userStore = useUserStore()
       <NuxtLink to="/">Unfit For Print</NuxtLink>
     </div>
 
-    <nav class="flex items-center gap-4">
-      <NuxtLink to="/" class="hover:underline">Home</NuxtLink>
-      <NuxtLink v-if="userStore.isLoggedIn" to="/profile" class="hover:underline">Profile</NuxtLink>
+    <nav class="flex items-center gap-4" v-if="userStore">
+      <NuxtLink to="/profile" class="hover:underline">Profile</NuxtLink>
 
-      <button
-        v-if="!userStore.isLoggedIn"
-        @click="userStore.loginWithDiscord()"
-        class="bg-blue-600 px-3 py-1 rounded-sm"
-      >
-        Login
-      </button>
-
-      <div v-else class="flex items-center gap-2">
+      <div class="flex items-center gap-2">
         <button><NuxtLink to="/lobby">Lobbies</NuxtLink></button>
         <img
           v-if="userStore.user?.prefs?.avatar"
@@ -31,6 +28,19 @@ const userStore = useUserStore()
           class="w-8 h-8 rounded-full"
         />
         <button @click="userStore.logout()" class="text-sm text-red-400 hover:underline">Logout</button>
+      </div>
+    </nav>
+
+    <nav class="flex items-center gap-4" v-else>
+      <div class="flex items-center gap-2">
+        <button><NuxtLink to="/lobby">Lobbies</NuxtLink></button>
+
+        <button
+            @click="userStore.loginWithDiscord()"
+            class="bg-blue-600 px-3 py-1 rounded-sm"
+        >
+          Login
+        </button>
       </div>
     </nav>
   </header>

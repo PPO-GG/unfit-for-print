@@ -46,12 +46,12 @@ import { useRouter, useRoute } from "vue-router";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import { useAppwrite } from "~/composables/useAppwrite";
+import {useNotifications} from "~/composables/useNotifications";
 
 const router = useRouter();
 const route = useRoute();
 const { joinLobby, getLobbyByCode, isInLobby, getActiveLobbyForUser } =
   useLobby();
-const { account } = useAppwrite();
 const userStore = useUserStore();
 const joining = ref(false);
 const username = ref("");
@@ -62,6 +62,7 @@ const { notify } = useNotifications();
 
 onMounted(async () => {
   if (!userStore.session) {
+    const { account } = useAppwrite();
     await account.createAnonymousSession();
   }
 
@@ -71,11 +72,6 @@ onMounted(async () => {
     const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
     if (activeLobby) {
       return router.replace(`/lobby/${activeLobby.$id}`);
-      notify("You've been returned to your lobby", "success", {
-        icon: "🚪",
-        dismissible: true,
-        duration: 3000,
-      });
     }
   }
 
@@ -87,6 +83,7 @@ const handleJoin = async () => {
   joining.value = true;
 
   try {
+    const { account } = useAppwrite();
     error.value = "";
 
     // 1. Ensure session
@@ -113,7 +110,7 @@ const handleJoin = async () => {
     // 5. Join the lobby
     const joinedLobby = await joinLobby(code, { username: username.value });
     if (joinedLobby?.code) {
-      router.push(`/lobby/${joinedLobby.code}`);
+      await router.push(`/lobby/${joinedLobby.code}`);
     } else {
       error.value = "Failed to join the lobby.";
     }

@@ -1,10 +1,11 @@
 import { Query } from 'appwrite'
 export const useCards = () => {
-  const { databases } = useAppwrite()
-  const config = useRuntimeConfig();
 
   const fetchRandomWhiteCard = async () => {
+    if (import.meta.server) return null;
     try {
+      const config = useRuntimeConfig();
+      const { databases } = useAppwrite();
       // First, get total count
       const countRes = await databases.listDocuments(
         config.public.appwriteDatabaseId,
@@ -31,7 +32,10 @@ export const useCards = () => {
   };
 
   const fetchRandomBlackCard = async () => {
+    if (import.meta.server) return null;
     try {
+      const config = useRuntimeConfig();
+      const { databases } = useAppwrite();
       // First, get total count
       const countRes = await databases.listDocuments(
         config.public.appwriteDatabaseId,

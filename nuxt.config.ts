@@ -4,10 +4,12 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   vite: {
     server: {
-      allowedHosts: true,
-    },
+      hmr: {
+        host: 'ufp.ppo.gg'
+      }
+    }
   },
-  ssr: false,
+  ssr: true,
   plugins: [
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
     { src: "~/plugins/init-session.client.ts", mode: "client" },
@@ -26,7 +28,14 @@ export default defineNuxtConfig({
     },
   },
   css: ["~/assets/css/main.css"],
-  modules: ["@nuxt/fonts", "@nuxt/icon", "@pinia/nuxt", "@vueuse/sound/nuxt", "@vueuse/nuxt", "@nuxt/ui"],
+  modules: [
+    "@nuxt/fonts",
+    "@nuxt/icon",
+    "@pinia/nuxt",
+    "@vueuse/sound/nuxt",
+    "@vueuse/nuxt",
+    "@nuxt/ui",
+  ],
   sound: {
     sounds: {
       scan: true,

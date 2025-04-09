@@ -2,7 +2,6 @@
 import { useLobby } from "~/composables/useLobby";
 import type { Lobby } from "~/types/lobby";
 import { useRouter, useRoute } from "vue-router";
-import { Query } from "appwrite";
 import { usePlayers } from "~/composables/usePlayers";
 import { useUserStore } from "~/stores/userStore";
 import { useClipboard } from "@vueuse/core";
@@ -10,7 +9,7 @@ import { onMounted, onUnmounted } from "vue";
 import { useAppwrite } from "~/composables/useAppwrite";
 import { useNotifications } from "~/composables/useNotifications";
 
-const config = useRuntimeConfig();
+
 const { notify } = useNotifications();
 const { copy, copied } = useClipboard();
 const userStore = useUserStore();
@@ -20,7 +19,6 @@ const { getLobbyByCode, leaveLobby } = useLobby();
 const lobby = ref<Lobby | null>(null);
 const loading = ref(true);
 const players = ref<any[]>([]);
-const { client, databases, account } = useAppwrite();
 const { getPlayersForLobby } = usePlayers();
 
 let unsubscribe: (() => void) | null = null;
@@ -29,18 +27,20 @@ const fetchPlayers = async (lobbyId: string) => {
   players.value = await getPlayersForLobby(lobbyId);
 };
 
-onBeforeRouteLeave((to, from) => {
+onBeforeRouteLeave(() => {
   loading.value = true;
   return true;
 });
 
 onMounted(async () => {
   try {
+    const config = useRuntimeConfig();
+    const { client } = useAppwrite();
     const code = route.params.code as string;
     const fetchedLobby = await getLobbyByCode(code);
     if (!fetchedLobby) {
       notify("Lobby not found", "error");
-      router.replace("/");
+      await router.replace("/");
       return; // Return after the router.replace()
     }
 
@@ -72,7 +72,7 @@ onMounted(async () => {
   } catch (err) {
     console.error("Error setting up lobby:", err);
     notify("Failed to load lobby", "error");
-    router.replace("/");
+    await router.replace("/");
   } finally {
     loading.value = false;
   }
@@ -83,6 +83,9 @@ onUnmounted(() => {
 });
 
 const setupRealtime = (lobbyId: string) => {
+
+  const { client } = useAppwrite();
+  const config = useRuntimeConfig();
   unsubscribe = client.subscribe(
     `databases.${config.public.appwriteDatabaseId}.collections.players.documents`,
     async (response) => {
@@ -117,12 +120,13 @@ const setupRealtime = (lobbyId: string) => {
 
 const handleLeave = async () => {
   try {
+    const { account } = useAppwrite();
     const user = userStore.user || (await account.get());
     if (!lobby.value || !user?.$id) return;
 
     await leaveLobby(lobby.value.$id, user.$id);
 
-    router.push("/lobby?error=lobby_deleted");
+    await router.push("/lobby?error=lobby_deleted");
   } catch (err) {
     console.error("Failed to leave lobby:", err);
   }

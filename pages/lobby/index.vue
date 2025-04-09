@@ -2,7 +2,7 @@
 import { useRoute, useRouter } from "vue-router";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
-const { account } = useAppwrite();
+import {useAppwrite} from "~/composables/useAppwrite";
 
 const { getActiveLobbyForUser, createLobby } = useLobby();
 const userStore = useUserStore();
@@ -12,12 +12,16 @@ const router = useRouter();
 const loading = ref(true);
 const error = computed(() => route.query.error);
 
-const isAnonymous = computed(() => {
-  return userStore.session?.provider === "anonymous";
-});
+// const isAnonymous = computed(() => {
+//   return userStore.session?.provider === "anonymous";
+// });
+const isAnonymous = ref(false);
 
 onMounted(async () => {
   try {
+    if (import.meta.client) {
+      let account;
+      account = useAppwrite().account;
     // Ensure session exists
     if (!userStore.session) {
       await account.createAnonymousSession();
@@ -37,12 +41,13 @@ onMounted(async () => {
 
     const activeLobby = await getActiveLobbyForUser(user.$id);
     if (activeLobby) {
-      router.push(`/lobby/${activeLobby.code}`);
+      await router.push(`/lobby/${activeLobby.code}`);
       return;
     }
 
     if (isAnonymous.value) {
-      router.push("/join");
+      await router.push("/join");
+    }
     }
   } catch (err) {
     console.error("Error during session/lobby check:", err);
@@ -54,7 +59,7 @@ onMounted(async () => {
 const handleCreate = async () => {
   if (!userStore.user) return; // guard just in case
   const lobby = await createLobby(userStore.user.$id);
-  router.push(`/lobby/${lobby.code}`);
+  await router.push(`/lobby/${lobby.code}`);
 };
 </script>
 

@@ -1,4 +1,5 @@
 <template>
+  <ClientOnly>
   <div
     class="fixed bottom-4 left-4 z-9999 flex flex-col gap-2 pointer-events-none"
   >
@@ -23,14 +24,13 @@
       </button>
     </div>
   </div>
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
-import { useNotifications } from "~/composables/useNotifications";
 import { useNotificationStore } from "~/stores/notificationStore";
 
 const store = useNotificationStore();
-const notifications = store.notifications;
 const dismiss = store.dismiss;
 
 const handleDismiss = (id: number) => {
