@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { useLobby } from "~/composables/useLobby";
-import { useUserStore } from "~/stores/userStore";
-import { useClipboard } from "@vueuse/core";
-import { useNotifications } from "~/composables/useNotifications";
-import type { Lobby } from '~/types/lobby';
+import {computed, onMounted, onUnmounted, ref} from "vue";
+import {useRoute, useRouter} from "vue-router";
+import {useLobby} from "~/composables/useLobby";
+import {useUserStore} from "~/stores/userStore";
+import {useClipboard} from "@vueuse/core";
+import {useNotifications} from "~/composables/useNotifications";
+import type {Lobby} from '~/types/lobby';
 
 const router = useRouter();
 const route = useRoute();
-const { notify } = useNotifications();
-const { copy, copied } = useClipboard();
+const {notify} = useNotifications();
+const {copy, copied} = useClipboard();
 const userStore = useUserStore();
+
 const {
   getLobbyByCode,
   getPlayersForLobby,
@@ -42,6 +43,16 @@ onMounted(async () => {
       await router.replace("/");
       return;
     }
+    unsubPlayers = setupRealtime(
+        fetchedLobby.$id,
+        async () => {
+          await fetchPlayers(fetchedLobby.$id);
+        },
+        () => {
+          notify("You were kicked from the lobby", "info");
+          router.replace(`/join?code=${fetchedLobby.code}&error=kicked`);
+        }
+    );
     lobby.value = toPlainLobby(fetchedLobby);
     await fetchPlayers(fetchedLobby.$id);
     unsubPlayers = setupRealtime(fetchedLobby.$id, async () => {
@@ -96,7 +107,11 @@ const handleLeave = async () => {
         Leave Lobby
       </button>
       <p class="mt-2">Status: {{ lobby.status }}</p>
-      <PlayerList :players="players" :hostUserId="lobby.hostUserId" />
+      <PlayerList
+          :players="players"
+          :hostUserId="lobby.hostUserId"
+          :lobbyId="lobby.$id"
+      />
     </div>
   </div>
 </template>
@@ -105,8 +120,13 @@ const handleLeave = async () => {
 .animate-fade-out {
   animation: fadeOut 3s forwards;
 }
+
 @keyframes fadeOut {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 </style>

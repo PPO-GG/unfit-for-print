@@ -2,7 +2,23 @@
 
 /**
  * Interface for sound effect (SFX) options.
+ * Simple static sound
+ * play('/sounds/card-flip.wav')
+ *
+ * With random pitch and volume
+ * play('/sounds/join.wav', {
+ *     pitch: [0.95, 1.05],
+ *     volume: [0.4, 0.8],
+ * })
+ *
+ * Pick from a random list of sounds
+ * play(['/sounds/blip1.wav', '/sounds/blip2.wav'], {
+ *     pitch: 1,
+ *     volume: 0.6,
+ * })
  */
+
+
 interface SfxOptions {
     /**
      * Volume level or range for the audio.
@@ -63,12 +79,12 @@ export const useSfx = () => {
 
             // Attempt to play the audio
             audio.play().catch((err) => {
-                if (process.dev) {
+                if (import.meta.dev) {
                     console.warn('SFX play failed:', err);
                 }
             });
         } catch (err) {
-            if (process.dev) {
+            if (import.meta.dev) {
                 console.warn('Failed to load audio:', err);
             }
         }

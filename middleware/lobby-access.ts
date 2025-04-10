@@ -1,15 +1,19 @@
 // middleware/lobby-access.ts
-export default defineNuxtRouteMiddleware(async () => {
+import { useLobby } from "~/composables/useLobby";
+export default defineNuxtRouteMiddleware(async (to) => {
     const userStore = useUserStore();
-    const { account } = useAppwrite();
-    if (!account) throw new Error("Appwrite account not initialized");
+    const { isInLobby, getLobbyByCode } = useLobby();
 
-    if (!userStore.session) {
-        try {
-            await account.createAnonymousSession();
-            await userStore.fetchUserSession();
-        } catch (err) {
-            return navigateTo("/join?error=session_failed");
-        }
+    const code = to.params.code || to.query.code;
+
+    await userStore.fetchUserSession();
+
+    const user = userStore.user;
+    const lobby = await getLobbyByCode(<string>code);
+    if (!user || !lobby) return navigateTo('/join');
+
+    const stillIn = await isInLobby(user.$id, lobby.$id);
+    if (!stillIn) {
+        return navigateTo(`/join?code=${code}&error=kicked`);
     }
 });
