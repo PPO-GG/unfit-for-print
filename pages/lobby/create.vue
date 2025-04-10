@@ -24,18 +24,6 @@ const userStore = useUserStore();
 const { createLobby } = useLobby();
 const router = useRouter();
 
-// const handleCreateLobby = async () => {
-//   try {
-//     const userId = userStore.user?.$id;
-//     if (!userId) throw new Error("User not logged in or missing ID");
-
-//     const lobby = await createLobby(userId);
-//     await router.push(`/lobby/${lobby.code}`);
-//   } catch (err) {
-//     console.error("Failed to create lobby:", err);
-//   }
-// };
-
 const create = async () => {
   if (!userStore.session) await userStore.fetchUserSession();
 

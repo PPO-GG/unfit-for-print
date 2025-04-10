@@ -4,14 +4,14 @@ import {useRoute, useRouter} from "vue-router";
 import {useLobby} from "~/composables/useLobby";
 import {useUserStore} from "~/stores/userStore";
 import {useClipboard} from "@vueuse/core";
-import {useNotifications} from "~/composables/useNotifications";
 import type {Lobby} from '~/types/lobby';
+import type {Player} from '~/types/player';
 
 const router = useRouter();
 const route = useRoute();
-const {notify} = useNotifications();
 const {copy, copied} = useClipboard();
 const userStore = useUserStore();
+const toast = useToast();
 
 const {
   getLobbyByCode,
@@ -20,10 +20,16 @@ const {
   leaveLobby,
   toPlainLobby,
 } = useLobby();
+const { startGame: startGameFromLobby } = useLobby();
 
 const lobby = ref<Lobby | null>(null);
 const players = ref<any[]>([]);
 const loading = ref(true);
+const player = computed(() => {
+  const user = userStore.user;
+  if (!user || !lobby.value) return null;
+  return players.value.find((p: Player) => p.userId === user.$id);
+});
 let unsubPlayers: (() => void) | undefined;
 
 const fetchPlayers = async (lobbyId: string) => {
@@ -39,9 +45,13 @@ onMounted(async () => {
     const code = route.params.code as string;
     const fetchedLobby = await getLobbyByCode(code);
     if (!fetchedLobby) {
-      notify("Lobby not found", "error");
+      // notify("Lobby not found", "error");
       await router.replace("/");
       return;
+    }
+    // ✅ If the game is already in progress, redirect to the game
+    if (fetchedLobby.status === 'playing') {
+      return router.replace(`/game/${fetchedLobby.code}`);
     }
     unsubPlayers = setupRealtime(
         fetchedLobby.$id,
@@ -49,7 +59,7 @@ onMounted(async () => {
           await fetchPlayers(fetchedLobby.$id);
         },
         () => {
-          notify("You were kicked from the lobby", "info");
+          // notify("You were kicked from the lobby", "info");
           router.replace(`/join?code=${fetchedLobby.code}&error=kicked`);
         }
     );
@@ -60,7 +70,7 @@ onMounted(async () => {
     });
   } catch (err) {
     console.error("Error setting up lobby:", err);
-    notify("Failed to load lobby", "error");
+    // notify("Failed to load lobby", "error");
     await router.replace("/");
   } finally {
     loading.value = false;
@@ -79,9 +89,23 @@ const handleLeave = async () => {
     await router.push("/lobby?error=lobby_deleted");
   } catch (err) {
     console.error("Failed to leave lobby:", err);
-    notify("Error leaving lobby", "error");
+    // notify("Error leaving lobby", "error");
   }
 };
+
+const startGame = async () => {
+  if (!lobby.value || !userStore.user?.$id || lobby.value.players.length < 2) {
+    toast.add({
+      title: "Couldn't Start Game",
+      description: 'You need at least 2 players to start the game.',
+      color: "error"
+    })
+    return;
+  }
+  await startGameFromLobby(lobby.value.$id, userStore.user.$id);
+  await router.push(`/game/${lobby.value.code}`);
+}
+
 </script>
 
 <template>
@@ -99,6 +123,15 @@ const handleLeave = async () => {
         <span v-if="copied" class="text-green-500 text-sm animate-fade-out">
           Copied!
         </span>
+        <UButton
+            v-if="player.isHost && lobby.status === 'waiting'"
+            label="Start Game"
+            icon="i-lucide-gamepad"
+            class="mt-6"
+            :disabled="players.length < 2"
+            @click="startGame"
+        />
+        <h1 v-if="players.length < 2" class="font-[Bebas_Neue] text-xl font-bold text-red-600">You need at least 2 players to start the game</h1>
       </div>
       <button
           @click="handleLeave"

@@ -16,9 +16,14 @@ const error = computed(() => route.query.error);
 const isAnonymous = ref(false);
 
 onMounted(async () => {
+  const getAppwrite = () => {
+    if (import.meta.server) throw new Error("useLobby() cannot be used during SSR");
+    const {databases, account, client} = useAppwrite();
+    if (!databases || !account) throw new Error("Appwrite not initialized");
+    return {databases, account, client};
+  };
   try {
-      let account;
-      account = useAppwrite().account;
+    const { account } = getAppwrite();
     // Ensure session exists
     if (!userStore.session) {
       await account.createAnonymousSession();
@@ -36,8 +41,12 @@ onMounted(async () => {
 
     const activeLobby = await getActiveLobbyForUser(user.$id);
     if (activeLobby) {
-      await router.push(`/lobby/${activeLobby.code}`);
-      return;
+      const destination =
+          activeLobby.status === 'playing'
+              ? `/game/${activeLobby.code}`
+              : `/lobby/${activeLobby.code}`;
+
+      await router.replace(destination);
     }
 
     if (isAnonymousUser(user)) {

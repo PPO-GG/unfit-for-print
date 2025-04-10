@@ -25,7 +25,6 @@ exclude:
   - name: All
     paths:
       - components
-      - components/Notifications.vue
       - composables
       - composables/useLobby.ts
       - pages

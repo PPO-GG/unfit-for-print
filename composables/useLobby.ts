@@ -4,6 +4,7 @@ import {useAppwrite} from "~/composables/useAppwrite";
 import {useGameState} from "~/composables/useGameState";
 import {useUserStore} from "~/stores/userStore";
 import {isAnonymousUser} from "~/composables/useUserUtils";
+import { useGameEngine } from '~/composables/useGameEngine';
 import {useSfx} from "~/composables/useSfx";
 import type {Lobby} from "~/types/lobby";
 import type {Player} from '~/types/player'
@@ -20,7 +21,7 @@ export const useLobby = () => {
     const userStore = useUserStore();
     const {encodeGameState, decodeGameState} = useGameState();
     const {playSfx} = useSfx();
-    const toPlainLobby = (doc: any): Lobby => ({...doc} as Lobby);
+    const toPlainLobby = (doc: any): Lobby => ({ ...doc } as Lobby);
 
     const createLobby = async (hostUserId: string) => {
         const {databases} = getAppwrite();
@@ -115,10 +116,7 @@ export const useLobby = () => {
         return res.total > 0;
     };
 
-    const joinLobby = async (
-        code: string,
-        options?: { username?: string; isHost?: boolean; skipSession?: boolean }
-    ) => {
+    const joinLobby = async (code: string, options?: { username?: string; isHost?: boolean; skipSession?: boolean }) => {
         const {databases, account} = getAppwrite();
         const config = getConfig();
         if (!userStore.session && !options?.skipSession) {
@@ -349,6 +347,41 @@ export const useLobby = () => {
         });
     };
 
+
+    const startGame = async (lobbyId: string, hostUserId: string) => {
+        const { databases } = getAppwrite();
+        const config = getConfig();
+        const { generateGameState } = useGameEngine();
+
+        const rawPlayers = await getPlayersForLobby(lobbyId);
+
+        // 👇 Clean, safe mapping to match your Player type
+        const players: Player[] = rawPlayers.map((doc) => ({
+            $id: doc.$id,
+            userId: doc.userId,
+            lobbyId: doc.lobbyId,
+            name: doc.name,
+            avatar: doc.avatar,
+            isHost: doc.isHost,
+            joinedAt: doc.joinedAt,
+            provider: doc.provider,
+        }));
+
+        if (players.length < 3) throw new Error("Not enough players to start");
+
+        const gameState = await generateGameState(players);
+
+        await databases.updateDocument(
+            config.public.appwriteDatabaseId,
+            'lobby',
+            lobbyId,
+            {
+                status: 'playing',
+                gameState: JSON.stringify(gameState),
+            }
+        );
+    };
+
     return {
         createLobby,
         joinLobby,
@@ -364,5 +397,6 @@ export const useLobby = () => {
         toPlainLobby,
         kickPlayer,
         promoteToHost,
+        startGame,
     };
 };
