@@ -9,5 +9,4 @@ export interface Lobby {
     status: 'waiting' | 'playing' | 'complete'
     round: number
     gameState: string
-  }
-  
+}

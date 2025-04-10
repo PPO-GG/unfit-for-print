@@ -1,74 +1,52 @@
-<script lang="ts" setup>
-import { useLobby } from "~/composables/useLobby";
-import type { Lobby } from "~/types/lobby";
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { usePlayers } from "~/composables/usePlayers";
+import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import { useClipboard } from "@vueuse/core";
-import { onMounted, onUnmounted } from "vue";
-import { useAppwrite } from "~/composables/useAppwrite";
 import { useNotifications } from "~/composables/useNotifications";
+import type { Lobby } from '~/types/lobby';
 
-
+const router = useRouter();
+const route = useRoute();
 const { notify } = useNotifications();
 const { copy, copied } = useClipboard();
 const userStore = useUserStore();
-const route = useRoute();
-const router = useRouter();
-const { getLobbyByCode, leaveLobby } = useLobby();
-const lobby = ref<Lobby | null>(null);
-const loading = ref(true);
-const players = ref<any[]>([]);
-const { getPlayersForLobby } = usePlayers();
+const {
+  getLobbyByCode,
+  getPlayersForLobby,
+  setupRealtime,
+  leaveLobby,
+  toPlainLobby,
+} = useLobby();
 
-let unsubscribe: (() => void) | null = null;
+const lobby = ref<Lobby | null>(null);
+const players = ref<any[]>([]);
+const loading = ref(true);
+let unsubPlayers: (() => void) | undefined;
 
 const fetchPlayers = async (lobbyId: string) => {
   players.value = await getPlayersForLobby(lobbyId);
 };
 
-onBeforeRouteLeave(() => {
-  loading.value = true;
-  return true;
-});
+const joinUrl = computed(() =>
+    lobby.value ? `${useRuntimeConfig().public.baseUrl}/join?code=${lobby.value.code}` : ""
+);
 
 onMounted(async () => {
   try {
-    const config = useRuntimeConfig();
-    const { client } = useAppwrite();
     const code = route.params.code as string;
     const fetchedLobby = await getLobbyByCode(code);
     if (!fetchedLobby) {
       notify("Lobby not found", "error");
       await router.replace("/");
-      return; // Return after the router.replace()
+      return;
     }
-
-    // Set the lobby ref
-    lobby.value = fetchedLobby;
-
-    // Set up realtime updates
-    unsubscribe = client.subscribe(
-      [
-        `databases.${config.public.appwriteDatabaseId}.collections.lobby.documents.${fetchedLobby.$id}`,
-      ],
-      (response) => {
-        if (
-          response.events.includes(
-            "databases.*.collections.lobby.documents.*.delete"
-          )
-        ) {
-          notify("Lobby was deleted", "info", { icon: "🚪" });
-          router.replace("/");
-        }
-      }
-    );
-
-    // Fetch initial players
+    lobby.value = toPlainLobby(fetchedLobby);
     await fetchPlayers(fetchedLobby.$id);
-
-    // Set up realtime player updates
-    setupRealtime(fetchedLobby.$id);
+    unsubPlayers = setupRealtime(fetchedLobby.$id, async () => {
+      await fetchPlayers(fetchedLobby.$id);
+    });
   } catch (err) {
     console.error("Error setting up lobby:", err);
     notify("Failed to load lobby", "error");
@@ -79,56 +57,18 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (unsubscribe) unsubscribe();
+  unsubPlayers?.();
 });
-
-const setupRealtime = (lobbyId: string) => {
-
-  const { client } = useAppwrite();
-  const config = useRuntimeConfig();
-  unsubscribe = client.subscribe(
-    `databases.${config.public.appwriteDatabaseId}.collections.players.documents`,
-    async (response) => {
-      const { payload, events } = response as {
-        payload: any;
-        events: string[];
-      };
-
-      if (
-        events.some((e) => e.includes("create")) &&
-        payload.lobbyId === lobbyId
-      ) {
-        await fetchPlayers(lobbyId);
-      }
-
-      if (
-        events.some((e) => e.includes("delete")) &&
-        payload.lobbyId === lobbyId
-      ) {
-        await fetchPlayers(lobbyId);
-      }
-
-      if (
-        events.some((e) => e.includes("update")) &&
-        payload.lobbyId === lobbyId
-      ) {
-        await fetchPlayers(lobbyId);
-      }
-    }
-  );
-};
 
 const handleLeave = async () => {
   try {
-    const { account } = useAppwrite();
-    const user = userStore.user || (await account.get());
+    const user = userStore.user;
     if (!lobby.value || !user?.$id) return;
-
     await leaveLobby(lobby.value.$id, user.$id);
-
     await router.push("/lobby?error=lobby_deleted");
   } catch (err) {
     console.error("Failed to leave lobby:", err);
+    notify("Error leaving lobby", "error");
   }
 };
 </script>
@@ -140,8 +80,8 @@ const handleLeave = async () => {
     <div v-else>
       <div class="flex items-center gap-2">
         <h1
-          class="text-3xl font-bold cursor-pointer hover:text-slate-300"
-          @click="copy(config.public.baseUrl+'/join?code='+lobby.code)"
+            class="text-3xl font-bold cursor-pointer hover:text-slate-300"
+            @click="copy(joinUrl)"
         >
           Lobby Code: {{ lobby.code }}
         </h1>
@@ -150,27 +90,23 @@ const handleLeave = async () => {
         </span>
       </div>
       <button
-        @click="handleLeave"
-        class="text-white hover:text-red-400 bg-red-900 rounded-lg p-2"
+          @click="handleLeave"
+          class="text-white hover:text-red-400 bg-red-900 rounded-lg p-2 mt-4"
       >
         Leave Lobby
       </button>
-      <p>Status: {{ lobby.status }}</p>
+      <p class="mt-2">Status: {{ lobby.status }}</p>
       <PlayerList :players="players" :hostUserId="lobby.hostUserId" />
     </div>
   </div>
 </template>
+
 <style scoped>
 .animate-fade-out {
   animation: fadeOut 3s forwards;
 }
-
 @keyframes fadeOut {
-  0% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 </style>
