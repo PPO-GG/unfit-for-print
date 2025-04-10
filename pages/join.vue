@@ -42,12 +42,13 @@ import { useRouter, useRoute } from "vue-router";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import { useAppwrite } from "~/composables/useAppwrite";
+import { useProfanityFilter } from '~/composables/useProfanityFilter'
 
 const router = useRouter();
 const route = useRoute();
 const { getActiveLobbyForUser, handleJoin } = useLobby();
 const userStore = useUserStore();
-
+const { isBadUsername } = useProfanityFilter()
 const username = ref("");
 const lobbyCode = ref((route.query.code as string) || "");
 const error = ref("");
@@ -80,6 +81,11 @@ const onJoin = async () => {
     return;
   }
 
+  if (isBadUsername(username.value.trim())) {
+    error.value = "That name isn't allowed.";
+    return;
+  }
+
   if (!lobbyCode.value.trim()) {
     error.value = "Lobby code is required.";
     return;
@@ -92,5 +98,5 @@ const onJoin = async () => {
       joining,
       router
   );
-};
+}
 </script>

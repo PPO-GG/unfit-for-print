@@ -1,11 +1,17 @@
 import { Query } from 'appwrite'
 export const useCards = () => {
+  const getAppwrite = () => {
+    if (import.meta.server) throw new Error("useLobby() cannot be used during SSR");
+    const { databases, account, client } = useAppwrite();
+    if (!databases || !account) throw new Error("Appwrite not initialized");
+    return { databases, account, client };
+  };
 
   const fetchRandomWhiteCard = async () => {
     if (import.meta.server) return null;
     try {
       const config = useRuntimeConfig();
-      const { databases } = useAppwrite();
+      const { databases } = getAppwrite();
       // First, get total count
       const countRes = await databases.listDocuments(
         config.public.appwriteDatabaseId,
@@ -35,7 +41,7 @@ export const useCards = () => {
     if (import.meta.server) return null;
     try {
       const config = useRuntimeConfig();
-      const { databases } = useAppwrite();
+      const { databases } = getAppwrite();
       // First, get total count
       const countRes = await databases.listDocuments(
         config.public.appwriteDatabaseId,

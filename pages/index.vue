@@ -28,6 +28,13 @@
           <div v-else class="text-white mt-4">Loading card...</div>
       </div>
     </div>
+    <UButton
+        loading-auto
+        @click="fetchNewCards"
+        class="mt-8 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-lg"
+    >
+      New Cards
+    </UButton>
   </div>
 </template>
 
@@ -42,15 +49,26 @@ const threeDeffect = ref(true);
 const numPick = ref(1);
 const shine = ref(true);
 const {fetchRandomWhiteCard, fetchRandomBlackCard} = useCards();
+const { playSfx } = useSfx();
+
+const fetchNewCards = async () => {
+  playSfx('/sounds/sfx/click1.wav');
+  return new Promise<void>(res => setTimeout(res, 250)
+  ).then(() => {
+    fetchRandomWhiteCard().then((card: any) => {
+      whiteCard.value = card;
+      whiteCardFlipped.value = true;
+    });
+    fetchRandomBlackCard().then((card: any) => {
+      blackCard.value = card;
+      blackCardFlipped.value = true;
+    });
+  });
+};
 
 onMounted(() => {
   if (import.meta.client) {
-    fetchRandomBlackCard().then(card => {
-      blackCard.value = card
-    })
-    fetchRandomWhiteCard().then(card => {
-      whiteCard.value = card
-    })
+    fetchNewCards();
   }
-})
+});
 </script>
