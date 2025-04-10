@@ -93,8 +93,8 @@ function animateShine() {
 
 const shineStyle = computed(() => {
   const angle = (-shineOffset.value.y + shineOffset.value.x) * 2 + 45;
-  const offsetX = -shineOffset.value.y * 1 + 50;
-  const offsetY = -shineOffset.value.x * 1 + 50;
+  const offsetX = -shineOffset.value.y + 50;
+  const offsetY = -shineOffset.value.x + 50;
   return {
     background: `
       linear-gradient(

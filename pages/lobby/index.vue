@@ -3,6 +3,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import {useAppwrite} from "~/composables/useAppwrite";
+import {isAnonymousUser} from "~/composables/useUserUtils";
 
 const { getActiveLobbyForUser, createLobby } = useLobby();
 const userStore = useUserStore();
@@ -12,14 +13,10 @@ const router = useRouter();
 const loading = ref(true);
 const error = computed(() => route.query.error);
 
-// const isAnonymous = computed(() => {
-//   return userStore.session?.provider === "anonymous";
-// });
 const isAnonymous = ref(false);
 
 onMounted(async () => {
   try {
-    if (import.meta.client) {
       let account;
       account = useAppwrite().account;
     // Ensure session exists
@@ -37,17 +34,14 @@ onMounted(async () => {
       return;
     }
 
-    isAnonymous.value = session.provider === "anonymous";
-
     const activeLobby = await getActiveLobbyForUser(user.$id);
     if (activeLobby) {
       await router.push(`/lobby/${activeLobby.code}`);
       return;
     }
 
-    if (isAnonymous.value) {
+    if (isAnonymousUser(user)) {
       await router.push("/join");
-    }
     }
   } catch (err) {
     console.error("Error during session/lobby check:", err);

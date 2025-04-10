@@ -43,10 +43,9 @@ const create = async () => {
     console.log("Creating lobby for user:", userStore.user?.$id);
     const lobby = await createLobby(userStore.user?.$id!);
     console.log("Lobby created:", lobby);
-    router.push(`/lobby/${lobby.code}`);
+    await router.push(`/lobby/${lobby.code}`);
   } catch (err) {
     console.error("Lobby creation failed:", err);
-    notify("Failed to create lobby", "error", { icon: "💥" });
   }
 };
 </script>

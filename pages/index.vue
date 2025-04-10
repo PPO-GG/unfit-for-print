@@ -1,5 +1,4 @@
 <template>
-  <NuxtLayout >
   <div
       class="bg-slate-700 min-h-screen w-screen p-4 flex items-center justify-center flex-col"
   >
@@ -30,7 +29,6 @@
       </div>
     </div>
   </div>
-  </NuxtLayout>
 </template>
 
 <script lang="ts" setup>

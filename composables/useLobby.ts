@@ -3,6 +3,7 @@ import type { Models } from "appwrite";
 import { useAppwrite } from "~/composables/useAppwrite";
 import { useGameState } from "~/composables/useGameState";
 import { useUserStore } from "~/stores/userStore";
+import {isAnonymousUser} from "~/composables/useUserUtils";
 
 /**
  * This composable provides methods to manage game lobbies.
@@ -89,8 +90,7 @@ export const useLobby = () => {
 
     if (existing.total > 0) return;
 
-    const permissions =
-      session.provider === "anonymous"
+    const permissions = isAnonymousUser(user)
         ? [
             'read("any")',
             'update("users")', // allow any user (anon included) to update
@@ -340,6 +340,56 @@ export const useLobby = () => {
     return res.total > 0;
   };
 
+  const handleJoin = async (
+    username: string,
+    lobbyCode: string,
+    error: Ref<string>,
+    joining: Ref<boolean>,
+    router: ReturnType<typeof useRouter>
+  ) => {
+    if (joining.value) return;
+    joining.value = true;
+  
+    try {
+      const { account } = getAppwrite();
+      error.value = "";
+  
+      // 1. Ensure session
+      if (!userStore.session) await account.createAnonymousSession();
+      await userStore.fetchUserSession();
+  
+      // 2. Get user and code
+      const user = await account.get();
+      const code = lobbyCode.toUpperCase();
+  
+      // 3. Get the lobby
+      const lobby = await getLobbyByCode(code);
+      if (!lobby) {
+        error.value = "Lobby not found.";
+        return;
+      }
+  
+      // 4. Check if user already joined
+      const inLobby = await isInLobby(user.$id, lobby.$id);
+      if (inLobby) {
+        return router.push(`/lobby/${lobby.code}`);
+      }
+  
+      // 5. Join the lobby
+      const joinedLobby = await joinLobby(code, { username });
+      if (joinedLobby?.code) {
+        await router.push(`/lobby/${joinedLobby.code}`);
+      } else {
+        error.value = "Failed to join the lobby.";
+      }
+    } catch (err: any) {
+      error.value = err.message || "Something went wrong while joining.";
+      console.error("Join error:", err);
+    } finally {
+      joining.value = false;
+    }
+  };
+
   return {
     createLobby,
     joinLobby,
@@ -349,5 +399,7 @@ export const useLobby = () => {
     leaveLobby,
     createPlayerIfNeeded,
     isInLobby,
+    handleJoin, // Export the function
   };
 };
+

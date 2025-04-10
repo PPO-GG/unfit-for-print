@@ -1,7 +1,6 @@
-// stores/userStore.ts
-import {defineStore} from "pinia";
-import {type Models, OAuthProvider} from "appwrite";
-import {useAppwrite} from "~/composables/useAppwrite";
+import { defineStore } from "pinia";
+import { type Models, OAuthProvider } from "appwrite";
+import { useAppwrite } from "~/composables/useAppwrite";
 
 export const useUserStore = defineStore("user", {
     state: () => ({
@@ -10,19 +9,32 @@ export const useUserStore = defineStore("user", {
         accessToken: "" as string | null,
         isLoggedIn: false,
     }),
+
     actions: {
+        getAccount() {
+            if (import.meta.server) return null;
+
+            try {
+                return useAppwrite().account;
+            } catch (err) {
+                console.warn("useAppwrite() failed in getAccount()", err);
+                return null;
+            }
+        },
+
         async loginWithDiscord() {
             if (import.meta.server) return;
-            let account;
+
+            const account = this.getAccount();
+            if (!account) return;
+
             try {
                 const config = useRuntimeConfig();
-                account = useAppwrite().account;
                 account.createOAuth2Session(
                     OAuthProvider.Discord,
                     config.public.oAuthRedirectUrl,
                     config.public.oAuthFailUrl
                 );
-                // This will redirect, so code after here won’t run until return
             } catch (error) {
                 console.error("Error logging in with Discord:", error);
             }
@@ -30,24 +42,23 @@ export const useUserStore = defineStore("user", {
 
         async fetchUserSession() {
             if (import.meta.server) return;
-            let account;
-            try {
-                account = useAppwrite().account;
-            } catch (err) {
-                console.warn("Appwrite not available", err);
-                return;
-            }
+
+            const account = this.getAccount();
+            if (!account) return;
 
             try {
                 const session = await account.getSession("current");
-                this.session = session;
+                this.session = JSON.parse(JSON.stringify(session));
                 this.accessToken = session.providerAccessToken ?? null;
-                this.isLoggedIn = session.provider !== "anonymous";
+                this.isLoggedIn = isAuthenticatedSession(session);
 
-                this.user = await account.get();
+                const rawUser = await account.get();
+                this.user = {
+                    ...JSON.parse(JSON.stringify(rawUser)),
+                    provider: session.provider, // ✅ attach manually
+                };
 
-                // Only fetch Discord info if logged in via Discord
-                if (this.isLoggedIn && this.accessToken) {
+                if (this.user && this.isLoggedIn && this.accessToken) {
                     const discordData = await this.fetchDiscordUserData(this.accessToken);
                     this.user.prefs.avatar = discordData.avatar;
                     this.user.prefs.discordUserId = discordData.id;
@@ -65,18 +76,21 @@ export const useUserStore = defineStore("user", {
                     Authorization: `Bearer ${accessToken}`,
                 },
             });
+
             if (!response.ok) {
                 throw new Error("Failed to fetch Discord user data");
             }
+
             return response.json();
         },
 
         async logout() {
             if (import.meta.server) return;
 
-            let account;
+            const account = this.getAccount();
+            if (!account) return;
+
             try {
-                account = useAppwrite().account;
                 await account.deleteSessions();
                 this.user = null;
                 this.session = null;
@@ -89,15 +103,12 @@ export const useUserStore = defineStore("user", {
 
         async refreshSession() {
             if (import.meta.server) return;
+            const account = this.getAccount();
+            if (!account || !this.session) return;
 
-            let account;
-            if (
-                this.session?.providerAccessTokenExpiry &&
-                Date.now() / 1000 > Number(this.session.providerAccessTokenExpiry)
-            ) {
-
+            const expiry = Number(this.session.providerAccessTokenExpiry);
+            if (expiry && Date.now() / 1000 > expiry) {
                 try {
-                    account = useAppwrite().account;
                     await account.updateSession(this.session.$id);
                     await this.fetchUserSession();
                 } catch (error) {
@@ -110,17 +121,20 @@ export const useUserStore = defineStore("user", {
         async createAnonymousSession(username: string) {
             if (import.meta.server) return;
 
-            let account;
+            const account = this.getAccount();
+            if (!account) return;
+
             try {
-                account = useAppwrite().account;
                 const session = await account.createAnonymousSession();
-                const user = await account.get();
+                const rawUser = await account.get();
+                await account.updatePrefs({ username });
 
-                // Save name in preferences
-                await account.updatePrefs({username});
-
-                this.user = {...user, name: username};
-                this.session = session;
+                this.user = {
+                    ...JSON.parse(JSON.stringify(rawUser)),
+                    name: username,
+                    provider: session.provider, // ✅ attach provider here too
+                };
+                this.session = JSON.parse(JSON.stringify(session));
                 this.isLoggedIn = true;
             } catch (err) {
                 console.error("Anonymous login failed:", err);

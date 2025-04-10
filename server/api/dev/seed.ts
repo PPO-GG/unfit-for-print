@@ -1,16 +1,16 @@
-import { seedCardsFromJson } from '~/server/utils/seed'
-import { createAppwriteClient } from '~/server/utils/appwrite'
+// noinspection JSUnusedGlobalSymbols
 
-export default defineEventHandler(async (event) => {
+import {seedCardsFromJson} from '~/server/utils/seed'
+import {createAppwriteClient} from '~/server/utils/appwrite'
+
+export default defineEventHandler(async () => {
   const config = useRuntimeConfig()
   const { databases } = createAppwriteClient()
-  
-  const result = await seedCardsFromJson({
+
+  return await seedCardsFromJson({
     databases,
     databaseId: config.public.appwriteDatabaseId,
     whiteCollection: config.public.appwriteWhiteCardCollectionId,
     blackCollection: config.public.appwriteBlackCardCollectionId
   })
-
-  return result
 })
