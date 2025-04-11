@@ -6,12 +6,14 @@
       <BlackCard
           v-if="blackCard"
           @click="blackCardFlipped = !blackCardFlipped"
-          :cardText=blackCard.text
+          :card-id="blackCard.$id"
+          :text="blackCard.text"
           :cardPack=blackCard.pack
           :flipped="blackCardFlipped"
           :threeDeffect="threeDeffect"
           :shine="shine"
-          :numPick="numPick"
+          :back-logo-url="'/img/unfit_logo_alt.png'"
+          :mask-url="'/img/textures/hexa.png'"
       />
       <div v-else class="text-white mt-4">Loading card...</div>
 
@@ -19,11 +21,14 @@
         <WhiteCard
             v-if="whiteCard"
             @click="whiteCardFlipped = !whiteCardFlipped"
-            :cardText="whiteCard.text"
-            :cardPack="whiteCard.pack"
+            :card-id="whiteCard.$id"
+            :text="whiteCard.text"
+            :card-pack="whiteCard.pack"
             :flipped="whiteCardFlipped"
-            :threeDeffect="threeDeffect"
+            :three-deffect="threeDeffect"
             :shine="shine"
+            :back-logo-url="'/img/unfit_logo_alt_dark.png'"
+            :mask-url="'/img/textures/hexa2.png'"
         />
         <div v-else class="text-white mt-4">Loading card...</div>
       </div>
@@ -46,7 +51,6 @@ const blackCard = ref<any>(null);
 const blackCardFlipped = ref(true);
 const whiteCardFlipped = ref(true);
 const threeDeffect = ref(true);
-const numPick = ref(1);
 const shine = ref(true);
 const {fetchRandomWhiteCard, fetchRandomBlackCard} = useCards();
 const {playSfx} = useSfx();

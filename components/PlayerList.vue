@@ -54,6 +54,9 @@ const promote = async (player: any) => {
           <Icon name="solar:crown-minimalistic-bold" class="align-middle text-slate-100"/>
         </span>
         <span>{{ player.name || "Unknown Player" }}</span>
+        <span class="ml-auto font-mono text-sm text-green-400">
+  {{ getScore(player.userId) }}
+</span>
         <button
             v-if="isHost && player.userId !== currentUserId && player.provider !== 'anonymous'"
             @click="promote(player)"

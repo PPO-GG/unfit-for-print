@@ -40,11 +40,11 @@ export const useGameEngine = () => {
         const {databases} = getAppwrite();
         const whiteCards = await databases.listDocuments(
             config.public.appwriteDatabaseId,
-            'white_cards'
+            'cards_white'
         )
         const blackCards = await databases.listDocuments(
             config.public.appwriteDatabaseId,
-            'black_cards'
+            'cards_black'
         )
 
         const whiteDeck = shuffle(whiteCards.documents.map((c) => c.$id))

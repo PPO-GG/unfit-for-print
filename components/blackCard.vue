@@ -14,9 +14,9 @@
             <div class="card-content p-4 text-4xl">
               <span
                 class="absolute top-0 left-0 m-4 p-2 text-xl bg-slate-900/25 rounded-lg"
-                >Pick {{ numPick }}</span
+                >Pick {{ computedNumPick }}</span
               >
-              <p>{{ cardText }}</p>
+              <p>{{ text }}</p>
               <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
                 <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
                 <span class="text-sm align-middle ml-1 text-slate-100">{{ cardPack }}</span>
@@ -68,17 +68,28 @@ function playRandomFlip() {
   sounds[i].play({ playbackRate });
 }
 
-const props = defineProps({
-  cardText: { type: String, default: "" },
-  cardPack: { type: String, default: "" },
-  numPick: { type: Number, default: 1 },
-  cardId: { type: String, default: "" },
-  backLogoUrl: { type: String, default: "/img/unfit_logo_alt.png" },
-  flipped: { type: Boolean, default: false },
-  threeDeffect: { type: Boolean, default: true },
-  shine: { type: Boolean, default: true },
-  maskUrl: { type: String, default: "/img/textures/hexa.png" },
+const props = defineProps<{
+  cardId?: string
+  text?: string
+  cardPack?: string
+  numPick?: number
+  flipped?: boolean
+  threeDeffect?: boolean
+  shine?: boolean
+  backLogoUrl?: string
+  maskUrl?: string
+}>();
+
+const computedNumPick = computed(() => {
+  if (props.numPick) return props.numPick;
+  if (!props.text) return 1;
+  const matches = props.text.match(/_/g);
+  return matches ? matches.length : 1;
 });
+
+const fallbackText = ref('');
+const cardText = computed(() => props.text || fallbackText.value);
+const packName = ref(props.cardPack || 'core');
 
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
@@ -187,7 +198,19 @@ watch(
   { immediate: true }
 );
 
-onMounted(() => {
+onMounted(async () => {
+  if (!props.text && props.cardId) {
+    const { databases } = useAppwrite();
+    const config = useRuntimeConfig();
+    if (!databases) return;
+    const doc = await databases.getDocument(
+        config.public.appwriteDatabaseId,
+        config.public.appwriteBlackCardCollectionId,
+        props.cardId
+    );
+    fallbackText.value = doc.text;
+    packName.value = doc.pack || 'core';
+  }
   resetTransform();
   animateShine();
 });
@@ -204,7 +227,6 @@ onMounted(() => {
   margin: 2rem;
   -webkit-touch-callout: none; /* iOS Safari */
   -webkit-user-select: none; /* Safari */
-  -khtml-user-select: none; /* Konqueror HTML */
   -moz-user-select: none; /* Old versions of Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
   user-select: none;

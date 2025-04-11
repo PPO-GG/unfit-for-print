@@ -9,25 +9,31 @@ export const useCards = () => {
 
   const fetchRandomWhiteCard = async () => {
     if (import.meta.server) return null;
+
     try {
       const config = useRuntimeConfig();
       const { databases } = getAppwrite();
-      // First, get total count
-      const countRes = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteWhiteCardCollectionId,
-        [Query.limit(1)]
+
+      // Step 1: Get total number of white cards
+      const totalRes = await databases.listDocuments(
+          config.public.appwriteDatabaseId,
+          config.public.appwriteWhiteCardCollectionId,
+          [Query.limit(1)]
       );
 
-      const total = countRes.total;
+      const total = totalRes.total;
       if (total === 0) return null;
 
-      // Then, use a valid random offset
+      // Step 2: Random offset
       const offset = Math.floor(Math.random() * total);
+
+      console.log("Fetching white card at offset:", offset);
+
+      // Step 3: Fetch one random card
       const res = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteWhiteCardCollectionId,
-        [Query.limit(1), Query.offset(offset)]
+          config.public.appwriteDatabaseId,
+          config.public.appwriteWhiteCardCollectionId,
+          [Query.offset(offset), Query.limit(1)]
       );
 
       return res.documents[0] ?? null;

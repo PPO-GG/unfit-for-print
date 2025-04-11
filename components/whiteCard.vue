@@ -16,6 +16,7 @@
               <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
                 <Icon name="mdi:cards"  class="align-middle text-slate-900"/>
                 <span class="text-sm align-middle ml-1 text-slate-900">{{ cardPack }}</span>
+                <span class="text-sm align-middle ml-1 text-slate-900">{{ cardId }}</span>
               </div>
             </div>
           </slot>
@@ -42,6 +43,7 @@
 
 <script setup lang="ts">
 import { useSound } from "@vueuse/sound";
+import { useAppwrite } from "~/composables/useAppwrite";
 
 const flipSfx = [
   '/sounds/sfx/flip1.wav',
@@ -60,15 +62,20 @@ function playRandomFlip() {
   sounds[i].play({ playbackRate })
 }
 
-const props = defineProps({
-  cardText: { type: String, default: "" },
-  cardPack: { type: String, default: "" },
-  backLogoUrl: { type: String, default: "/img/unfit_logo_alt_dark.png" },
-  flipped: { type: Boolean, default: false },
-  threeDeffect: { type: Boolean, default: true },
-  shine: { type: Boolean, default: true },
-  maskUrl: { type: String, default: "/img/textures/hexa2.png" },
-});
+const props = defineProps<{
+  cardId: string
+  text?: string
+  cardPack?: string
+  backLogoUrl?: string
+  flipped?: boolean
+  threeDeffect?: boolean
+  shine?: boolean
+  maskUrl?: string
+}>();
+
+const fallbackText = ref('');
+const cardText = computed(() => props.text || fallbackText.value);
+const cardPack = ref(props.cardPack || '');
 
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
@@ -178,7 +185,15 @@ watch(
   { immediate: true }
 );
 
-onMounted(() => {
+onMounted(async () => {
+  if (!props.text) {
+    const { databases } = useAppwrite();
+    if (!databases) return;
+    const config = useRuntimeConfig();
+    const doc = await databases.getDocument(config.public.appwriteDatabaseId, config.public.appwriteWhiteCardCollectionId, props.cardId);
+    fallbackText.value = doc.text;
+    cardPack.value = doc.pack || 'core';
+  }
   resetTransform();
   animateShine();
 });
