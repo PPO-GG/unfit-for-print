@@ -13,7 +13,7 @@ import { getAppwrite } from '~/utils/appwrite';
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
-const { getLobbyByCode, toPlainLobby, getPlayersForLobby } = useLobby();
+const { getLobbyByCode, toPlainLobby, getPlayersForLobby, leaveLobby } = useLobby();
 const { notify } = useNotifications();
 const { databases } = useAppwrite();
 const config = useRuntimeConfig();
@@ -36,6 +36,8 @@ const {
   getRemainingPlayers
 } = useGame(lobby);
 
+const { loadSubmittedCards } = useSubmittedCards(lobby.value!.$id);
+
 const fetchPlayers = async (lobbyId: string) => {
   const rawPlayers = await getPlayersForLobby(lobbyId);
   players.value = rawPlayers.map((doc) => ({
@@ -49,6 +51,19 @@ const fetchPlayers = async (lobbyId: string) => {
     provider: doc.provider,
   }));
 };
+
+useGameRealtime({
+  lobby: lobby.value!, // 👈 non-null assertion here
+  onUpdatePlayedCards: async () => {
+    await loadSubmittedCards(); // 👈 ensure this function is in scope
+  },
+  onPhaseChange: (phase) => {
+    console.log('Phase changed to:', phase);
+  },
+  onLobbyDeleted: () => {
+    router.replace('/join?error=deleted');
+  }
+});
 
 const preloadWhiteCards = async (cardIds: string[]) => {
   if (!databases) return;
@@ -65,22 +80,37 @@ const handleCardSubmit = async (cardId: string) => {
   if (!lobby.value || !userStore.user?.$id || hasSubmittedCard.value) return;
 
   try {
-    const { databases } = getAppwrite();
-    const currentState = JSON.parse(lobby.value.gameState);
-    currentState.playedCards[userStore.user.$id] = cardId;
+    const { functions } = getAppwrite();
+    const payload = {
+      lobbyId: lobby.value.$id,
+      userId: userStore.user.$id,
+      cardId,
+    };
 
-    await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobby.value.$id,
-        {
-          gameState: JSON.stringify(currentState),
-        }
-    );
+    const execution = await functions.createExecution('submitCard', JSON.stringify(payload));
+    if (execution.status !== 'completed') {
+      notify('Card submission failed', 'error');
+      console.error('Function error:', execution);
+    } else {
+      console.log('✅ Card submitted successfully!');
+    }
+// 👇 Force TypeScript to accept `.response`
+    const result = JSON.parse((execution as any).response || '{}');
+    console.log('💬 execution:', execution);
+    console.log('📦 response:', (execution as any).response);
+
+    if (!result.success) {
+      notify('Card submission failed', 'error');
+      console.error('Function error:', result.error || execution);
+    }
   } catch (err) {
-    console.error("Failed to submit card:", err);
-    notify("Failed to submit card", "error");
+    console.error("Function error:", err);
+    notify("Something went wrong submitting your card", "error");
   }
+};
+
+const handleSelectWinner = async (cardId: string) => {
+  // you'll implement this next!
 };
 
 onMounted(async () => {
@@ -111,6 +141,18 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+const handleLeave = async () => {
+  try {
+    const user = userStore.user;
+    if (!lobby.value || !user?.$id) return;
+    await leaveLobby(lobby.value.$id, user.$id);
+    await router.push("/lobby?error=lobby_deleted");
+  } catch (err) {
+    console.error("Failed to leave lobby:", err);
+    // notify("Error leaving lobby", "error");
+  }
+};
 </script>
 
 <template>
@@ -119,6 +161,12 @@ onMounted(async () => {
     <div v-else-if="!lobby">Game not found.</div>
     <div v-else>
       <h1 class="text-3xl font-bold mb-4">Unfit For Print</h1>
+      <button
+          @click="handleLeave"
+          class="text-white hover:text-red-400 bg-red-900 rounded-lg p-2 mt-4"
+      >
+        Leave Lobby
+      </button>
       <p class="mb-2">Game Code: {{ code }}</p>
       <p class="mb-4">Round {{ gameState?.round }} | Phase: {{ gameState?.phase }}</p>
       <PlayerList
@@ -138,6 +186,11 @@ onMounted(async () => {
       <div v-if="isJudge">
         <p class="text-xl font-semibold">You are the Judge 👑</p>
       </div>
+      <SubmittedCards
+          v-if="isJudge && Object.keys(gameState?.playedCards || {}).length"
+          :lobby="lobby"
+          @select="handleSelectWinner"
+      />
 
       <div v-else-if="isPlaying">
         <p class="text-xl font-semibold mb-2">Choose a card to play:</p>

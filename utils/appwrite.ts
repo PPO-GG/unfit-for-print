@@ -1,7 +1,11 @@
 // utils/appwrite.ts
 export const getAppwrite = () => {
     if (import.meta.server) throw new Error("getAppwrite() cannot be used during SSR");
-    const { databases, account, client } = useAppwrite();
-    if (!databases || !account || !client) throw new Error("Appwrite not initialized");
-    return { databases, account, client };
+
+    const { databases, account, client, functions } = useAppwrite();
+
+    if (!databases || !account || !client || !functions)
+        throw new Error("Appwrite not initialized");
+
+    return { databases, account, client, functions };
 };

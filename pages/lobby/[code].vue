@@ -18,7 +18,6 @@ const config = useRuntimeConfig();
 const {
   getLobbyByCode,
   getPlayersForLobby,
-  setupRealtime,
   leaveLobby,
   toPlainLobby,
 } = useLobby();
@@ -45,11 +44,8 @@ const fetchPlayers = async (lobbyId: string) => {
 };
 
 const joinUrl = computed(() =>
-    lobby.value ? `${useRuntimeConfig().public.baseUrl}/join?code=${lobby.value.code}` : ""
+    lobby.value ? `${config.public.baseUrl}/join?code=${lobby.value.code}` : ""
 );
-
-let unsubPlayers: (() => void) | undefined;
-let unsubLobby: (() => void) | undefined;
 
 onMounted(async () => {
   try {
@@ -69,41 +65,13 @@ onMounted(async () => {
     lobby.value = toPlainLobby(fetchedLobby);
     await fetchPlayers(fetchedLobby.$id);
 
-    unsubPlayers = setupRealtime(
-        fetchedLobby.$id,
-        async () => {
-          await fetchPlayers(fetchedLobby.$id);
-        },
-        () => {
-          router.replace(`/join?code=${fetchedLobby.code}&error=kicked`);
-        }
-    );
 
-    // ✅ Add this to detect lobby status change → game started
-    unsubLobby = client.subscribe(
-        [`databases.${config.public.appwriteDatabaseId}.collections.lobby.documents.${fetchedLobby.$id}`],
-        async (response: { payload: Lobby; events: string[] }) => {
-          const {payload, events} = response;
-
-          if (
-              events.some((e) => e.includes('update')) &&
-              payload.status === 'playing'
-          ) {
-            await router.replace(`/game/${payload.code}`);
-          }
-        }
-    );
   } catch (err) {
     console.error("Error setting up lobby:", err);
     await router.replace("/");
   } finally {
     loading.value = false;
   }
-});
-
-onUnmounted(() => {
-  unsubPlayers?.();
-  unsubLobby?.();
 });
 
 const handleLeave = async () => {
