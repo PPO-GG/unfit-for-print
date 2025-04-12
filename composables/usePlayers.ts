@@ -1,6 +1,6 @@
 // composables/usePlayers.ts
 import { Query } from 'appwrite'
-import { useAppwrite } from '~/composables/useAppwrite'
+import { getAppwrite } from '~/utils/appwrite';
 
 export const usePlayers = () => {
   const getConfig = () => useRuntimeConfig();
@@ -8,7 +8,7 @@ export const usePlayers = () => {
     let databases;
     try {
       const config = getConfig();
-      databases = useAppwrite().databases;
+      const databases = getAppwrite().databases;
       const res = await databases.listDocuments(
         config.public.appwriteDatabaseId,
         'players',

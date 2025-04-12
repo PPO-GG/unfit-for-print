@@ -1,3 +1,4 @@
+// lobby/[code].vue
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from "vue";
 import {useRoute, useRouter} from "vue-router";
@@ -6,8 +7,11 @@ import {useUserStore} from "~/stores/userStore";
 import {useClipboard} from "@vueuse/core";
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
-import {useAppwrite} from "~/composables/useAppwrite";
+import { useAppwrite } from "~/composables/useAppwrite";
+import { getAppwrite } from "~/utils/appwrite";
+import { debounce } from "lodash-es";
 
+let unsubscribe: (() => void) | null = null;
 const router = useRouter();
 const route = useRoute();
 const {copy, copied} = useClipboard();
@@ -20,8 +24,8 @@ const {
   getPlayersForLobby,
   leaveLobby,
   toPlainLobby,
+  startGame: startGameFromLobby
 } = useLobby();
-const {startGame: startGameFromLobby} = useLobby();
 
 const lobby = ref<Lobby | null>(null);
 const players = ref<any[]>([]);
@@ -32,16 +36,10 @@ const player = computed(() => {
   return players.value.find((p: Player) => p.userId === user.$id);
 });
 
-const getAppwrite = () => {
-  if (import.meta.server) throw new Error("useLobby() cannot be used during SSR");
-  const {databases, account, client} = useAppwrite();
-  if (!databases || !account) throw new Error("Appwrite not initialized");
-  return {databases, account, client};
-};
-
 const fetchPlayers = async (lobbyId: string) => {
   players.value = await getPlayersForLobby(lobbyId);
 };
+const fetchPlayersDebounced = debounce(fetchPlayers, 250);
 
 const joinUrl = computed(() =>
     lobby.value ? `${config.public.baseUrl}/join?code=${lobby.value.code}` : ""
@@ -52,12 +50,12 @@ onMounted(async () => {
     const { client } = getAppwrite();
     const code = route.params.code as string;
     const fetchedLobby = await getLobbyByCode(code);
+
     if (!fetchedLobby) {
       await router.replace("/");
       return;
     }
 
-    // ✅ Redirect if game already started
     if (fetchedLobby.status === 'playing') {
       return router.replace(`/game/${fetchedLobby.code}`);
     }
@@ -65,7 +63,13 @@ onMounted(async () => {
     lobby.value = toPlainLobby(fetchedLobby);
     await fetchPlayers(fetchedLobby.$id);
 
-
+    useGameRealtime({
+      lobby: lobby.value!,
+      onPlayersUpdated: async () => {
+        fetchPlayersDebounced(fetchedLobby.$id)
+        if (lobby.value) await fetchPlayers(lobby.value.$id)
+      }
+    })
   } catch (err) {
     console.error("Error setting up lobby:", err);
     await router.replace("/");
@@ -119,7 +123,7 @@ const startGame = async () => {
           Copied!
         </span>
         <UButton
-            v-if="player.isHost && lobby.status === 'waiting'"
+            v-if="player?.isHost && lobby.status === 'waiting'"
             label="Start Game"
             icon="i-lucide-gamepad"
             class="mt-6"

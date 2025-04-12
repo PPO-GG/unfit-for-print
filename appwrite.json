@@ -1,0 +1,32 @@
+{
+    "projectId": "unfitforprint",
+    "projectName": "unfitforprint",
+    "functions": [
+        {
+            "$id": "submitCard",
+            "execute": [
+                "any"
+            ],
+            "name": "submitCard",
+            "enabled": true,
+            "logging": true,
+            "runtime": "node-16.0",
+            "scopes": [
+                "users.read"
+            ],
+            "events": [],
+            "schedule": "",
+            "timeout": 15,
+            "entrypoint": "src/main.cjs",
+            "env": {
+                "APPWRITE_ENDPOINT": "https://console.ppo.gg",
+                "APPWRITE_PROJECT_ID": "unfitforprint",
+                "APPWRITE_API_KEY": "standard_2663f1400468aa332bddfc391d31d3b89b0e01ed0d84ba8ae0614a7bfd16643e7a3308b9c02847572e47bbe9dcd7167ebb4b6e886111a7ad36da3dee9716b8485c2a9ca543dd75200e99ae3db580f304057d9ee7f758b0b3cf83c4fe9ca815dc990e79fcbfdc5a09d27cc6e1ccc9689e75515468839ae1829fd6835d46ca62a6",
+                "APPWRITE_DB_ID": "ufp-db",
+                "APPWRITE_LOBBY_COLLECTION": "lobby"
+            },
+            "commands": "npm install",
+            "path": "functions/submitCard"
+        }
+    ]
+}

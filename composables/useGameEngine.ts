@@ -1,5 +1,6 @@
 // composables/useGameEngine.ts
 import { useAppwrite } from '~/composables/useAppwrite'
+import { getAppwrite } from '~/utils/appwrite';
 import type { Player } from '~/types/player'
 
 interface GameState {
@@ -13,13 +14,6 @@ interface GameState {
     whiteDeck: string[]
     blackDeck: string[]
 }
-
-const getAppwrite = () => {
-    if (import.meta.server) throw new Error("useLobby() cannot be used during SSR");
-    const {databases, account, client} = useAppwrite();
-    if (!databases || !account) throw new Error("Appwrite not initialized");
-    return {databases, account, client};
-};
 
 export const useGameEngine = () => {
     const {databases} = getAppwrite();

@@ -1,11 +1,6 @@
 import { Query } from 'appwrite'
+import { getAppwrite } from '~/utils/appwrite';
 export const useCards = () => {
-  const getAppwrite = () => {
-    if (import.meta.server) throw new Error("useLobby() cannot be used during SSR");
-    const { databases, account, client } = useAppwrite();
-    if (!databases || !account) throw new Error("Appwrite not initialized");
-    return { databases, account, client };
-  };
 
   const fetchRandomWhiteCard = async () => {
     if (import.meta.server) return null;

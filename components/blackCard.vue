@@ -20,6 +20,7 @@
               <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
                 <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
                 <span class="text-sm align-middle ml-1 text-slate-100">{{ cardPack }}</span>
+                <span class="text-sm align-middle ml-1 text-slate-100">{{ cardId }}</span>
               </div>
             </div>
           </slot>

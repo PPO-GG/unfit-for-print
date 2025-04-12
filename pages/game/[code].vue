@@ -1,3 +1,4 @@
+//game/[code].vue
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -36,8 +37,6 @@ const {
   getRemainingPlayers
 } = useGame(lobby);
 
-const { loadSubmittedCards } = useSubmittedCards(lobby.value!.$id);
-
 const fetchPlayers = async (lobbyId: string) => {
   const rawPlayers = await getPlayersForLobby(lobbyId);
   players.value = rawPlayers.map((doc) => ({
@@ -53,9 +52,9 @@ const fetchPlayers = async (lobbyId: string) => {
 };
 
 useGameRealtime({
-  lobby: lobby.value!, // 👈 non-null assertion here
-  onUpdatePlayedCards: async () => {
-    await loadSubmittedCards(); // 👈 ensure this function is in scope
+  lobby: lobby.value!,
+  onPlayersUpdated: async () => {
+    await fetchPlayers(lobby.value!.$id);
   },
   onPhaseChange: (phase) => {
     console.log('Phase changed to:', phase);
@@ -153,6 +152,20 @@ const handleLeave = async () => {
     // notify("Error leaving lobby", "error");
   }
 };
+const submittedCards = ref<PlayerCard[]>([])
+let loadSubmittedCards: (playedCards: Record<string, string>) => Promise<void> = async () => {}
+
+watch(
+    () => lobby.value,
+    (lobbyVal) => {
+      if (!lobbyVal) return
+
+      const submitted = useSubmittedCards(lobbyVal.$id)
+      loadSubmittedCards = submitted.loadSubmittedCards
+      submittedCards.value = submitted.submittedCards
+    },
+    { immediate: true }
+)
 </script>
 
 <template>

@@ -10,6 +10,7 @@ interface UseGameRealtimeOptions {
     onUpdatePlayedCards?: (playedCards: Record<string, string>) => Promise<void>;
     onPhaseChange?: (newPhase: string) => void;
     onLobbyDeleted?: () => void;
+    onPlayersUpdated?: () => Promise<void>;
 }
 
 export const useGameRealtime = ({
@@ -17,13 +18,14 @@ export const useGameRealtime = ({
     getPlayedCards,
     onUpdatePlayedCards,
     onPhaseChange,
-    onLobbyDeleted
+    onLobbyDeleted,
+    onPlayersUpdated
 }: UseGameRealtimeOptions) => {
     const { client } = getAppwrite();
     const config = useRuntimeConfig();
     const { notify } = useNotifications();
 
-    const unsubscribe = client.subscribe(
+    const lobbySub = client.subscribe(
         [`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteLobbyCollectionId}.documents.${lobby.$id}`],
         async (response: { events: string[]; payload: any }) => {
             const { events, payload } = response;
@@ -52,7 +54,23 @@ export const useGameRealtime = ({
         }
     );
 
+    const playerSub = client.subscribe(
+        [`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwritePlayersCollectionId}.documents`],
+        async (response: { events: string[]; payload?: any }) => {
+            const { events, payload } = response;
+
+            const isCreateOrUpdate = events.some(e => e.includes('create') || e.includes('update'));
+            const isDelete = events.some(e => e.includes('delete'));
+
+            if ((isCreateOrUpdate && payload?.lobbyId === lobby.$id) || isDelete) {
+                // 🔁 Always refetch on delete (no lobbyId check possible)
+                if (onPlayersUpdated) await onPlayersUpdated();
+            }
+        }
+    );
+
     onUnmounted(() => {
-        unsubscribe();
+        lobbySub(); // unsubscribe both
+        playerSub();
     });
 };

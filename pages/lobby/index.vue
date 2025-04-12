@@ -4,6 +4,7 @@ import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import {useAppwrite} from "~/composables/useAppwrite";
 import {isAnonymousUser} from "~/composables/useUserUtils";
+import { getAppwrite } from '~/utils/appwrite';
 
 const { getActiveLobbyForUser, createLobby } = useLobby();
 const userStore = useUserStore();
@@ -16,12 +17,7 @@ const error = computed(() => route.query.error);
 const isAnonymous = ref(false);
 
 onMounted(async () => {
-  const getAppwrite = () => {
-    if (import.meta.server) throw new Error("useLobby() cannot be used during SSR");
-    const {databases, account, client} = useAppwrite();
-    if (!databases || !account) throw new Error("Appwrite not initialized");
-    return {databases, account, client};
-  };
+
   try {
     const { account } = getAppwrite();
     // Ensure session exists
