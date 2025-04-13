@@ -43,10 +43,12 @@ import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import { useAppwrite } from "~/composables/useAppwrite";
 import { useProfanityFilter } from '~/composables/useProfanityFilter'
+import { useJoinLobby } from "~/composables/useJoinLobby";
 
 const router = useRouter();
 const route = useRoute();
-const { getActiveLobbyForUser, handleJoin } = useLobby();
+const { getActiveLobbyForUser } = useLobby();
+const { joinLobbyWithSession } = useJoinLobby();
 const userStore = useUserStore();
 const { isBadUsername } = useProfanityFilter()
 const username = ref("");
@@ -68,7 +70,7 @@ onMounted(async () => {
   if (userStore.user?.$id) {
     const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
     if (activeLobby) {
-      return router.replace(`/lobby/${activeLobby.code}`);
+      return router.replace(`/game/${activeLobby.code}`);
     }
   }
 
@@ -91,12 +93,11 @@ const onJoin = async () => {
     return;
   }
 
-  await handleJoin(
-      username.value.trim(),
-      lobbyCode.value.trim().toUpperCase(),
-      error,
-      joining,
-      router
+  await joinLobbyWithSession(
+      username.value,
+      lobbyCode.value,
+      (msg) => (error.value = msg),
+      (val) => (joining.value = val)
   );
 }
 </script>

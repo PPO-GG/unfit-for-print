@@ -1,234 +1,181 @@
-//game/[code].vue
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { onMounted, ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useLobby } from '~/composables/useLobby';
-import { useGame } from '~/composables/useGame';
 import { useUserStore } from '~/stores/userStore';
+import { useLobby } from '~/composables/useLobby';
+import { usePlayers } from '~/composables/usePlayers';
+import { useGameRealtime } from '~/composables/useGameRealtime';
+import { useSubmittedCards } from '~/composables/useSubmittedCards';
 import { useNotifications } from '~/composables/useNotifications';
-import { useAppwrite } from '~/composables/useAppwrite';
+import { useJoinLobby } from '~/composables/useJoinLobby'
+import { useUserAccess } from '~/composables/useUserUtils'
+import { useGameContext } from '~/composables/useGameContext'
+
 import type { Lobby } from '~/types/lobby';
 import type { Player } from '~/types/player';
-import { getAppwrite } from '~/utils/appwrite';
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
-const { getLobbyByCode, toPlainLobby, getPlayersForLobby, leaveLobby } = useLobby();
-const { notify } = useNotifications();
-const { databases } = useAppwrite();
-const config = useRuntimeConfig();
-
 const code = route.params.code as string;
 const lobby = ref<Lobby | null>(null);
-const players = ref<Player[]>([]);
 const loading = ref(true);
-const whiteCardTexts = ref<Record<string, string>>({});
+const players = ref<Player[] | null>([]);
+const lobbyCode = route.params.code as string
+const showJoinModal = ref(false)
+const joinedLobby = ref(false)
 
-const {
-  gameState,
-  isJudge,
-  isPlaying,
-  getHand,
-  getScore,
-  getPlayedCard,
-  hasSubmittedCard,
-  canRevealWinner,
-  getRemainingPlayers
-} = useGame(lobby);
-
-const fetchPlayers = async (lobbyId: string) => {
-  const rawPlayers = await getPlayersForLobby(lobbyId);
-  players.value = rawPlayers.map((doc) => ({
-    $id: doc.$id,
-    userId: doc.userId,
-    lobbyId: doc.lobbyId,
-    name: doc.name,
-    avatar: doc.avatar,
-    isHost: doc.isHost,
-    joinedAt: doc.joinedAt,
-    provider: doc.provider,
-  }));
-};
-
-useGameRealtime({
-  lobby: lobby.value!,
-  onPlayersUpdated: async () => {
-    await fetchPlayers(lobby.value!.$id);
-  },
-  onPhaseChange: (phase) => {
-    console.log('Phase changed to:', phase);
-  },
-  onLobbyDeleted: () => {
-    router.replace('/join?error=deleted');
-  }
-});
-
-const preloadWhiteCards = async (cardIds: string[]) => {
-  if (!databases) return;
-  const promises = cardIds.map((id) =>
-      databases.getDocument(config.public.appwriteDatabaseId, config.public.appwriteWhiteCardCollectionId, id)
-  );
-  const results = await Promise.all(promises);
-  for (const card of results) {
-    whiteCardTexts.value[card.$id] = card.text;
-  }
-};
-
-const handleCardSubmit = async (cardId: string) => {
-  if (!lobby.value || !userStore.user?.$id || hasSubmittedCard.value) return;
-
-  try {
-    const { functions } = getAppwrite();
-    const payload = {
-      lobbyId: lobby.value.$id,
-      userId: userStore.user.$id,
-      cardId,
-    };
-
-    const execution = await functions.createExecution('submitCard', JSON.stringify(payload));
-    if (execution.status !== 'completed') {
-      notify('Card submission failed', 'error');
-      console.error('Function error:', execution);
-    } else {
-      console.log('✅ Card submitted successfully!');
-    }
-// 👇 Force TypeScript to accept `.response`
-    const result = JSON.parse((execution as any).response || '{}');
-    console.log('💬 execution:', execution);
-    console.log('📦 response:', (execution as any).response);
-
-    if (!result.success) {
-      notify('Card submission failed', 'error');
-      console.error('Function error:', result.error || execution);
-    }
-  } catch (err) {
-    console.error("Function error:", err);
-    notify("Something went wrong submitting your card", "error");
-  }
-};
-
-const handleSelectWinner = async (cardId: string) => {
-  // you'll implement this next!
-};
+const { notify } = useNotifications();
+const { getLobbyByCode, leaveLobby, toPlainLobby, fetchPlayers } = useLobby();
+const { getPlayersForLobby } = usePlayers();
+const { showIfAnonymous } = useUserAccess()
+const { getActiveLobbyForUser } = useLobby()
+const { initSessionIfNeeded } = useJoinLobby()
+const { loadSubmittedCards } = useSubmittedCards(code);
+const { isPlaying, isWaiting, isComplete, isJudging } = useGameContext(lobby)
 
 onMounted(async () => {
-  try {
-    await userStore.fetchUserSession();
-    const fetchedLobby = await getLobbyByCode(code);
+  await initSessionIfNeeded()
 
-    if (!fetchedLobby) {
-      notify("Lobby not found", "error");
-      return router.replace("/join?error=not_found");
-    }
-
-    if (fetchedLobby.status !== 'playing') {
-      notify("This game hasn't started yet", "info");
-      return router.replace(`/lobby/${code}`);
-    }
-
-    lobby.value = toPlainLobby(fetchedLobby);
-    await fetchPlayers(fetchedLobby.$id);
-
-    const hand = getHand.value;
-    if (hand.length) await preloadWhiteCards(hand);
-  } catch (err) {
-    notify("Failed to load game", "error");
-    console.error("Game load error:", err);
-    await router.replace('/');
-  } finally {
-    loading.value = false;
+  const user = userStore.user
+  if (!user) {
+    showJoinModal.value = true
+    return
   }
-});
+
+  const activeLobby = await getActiveLobbyForUser(user.$id)
+  if (!activeLobby || activeLobby.code !== lobbyCode) {
+    showJoinModal.value = true
+    return
+  }
+
+  joinedLobby.value = true
+
+  try {
+    await userStore.fetchUserSession()
+    const fetchedLobby = await getLobbyByCode(code)
+    if (!fetchedLobby) return router.replace('/join?error=not_found')
+
+    lobby.value = toPlainLobby(fetchedLobby)
+    players.value = await getPlayersForLobby(fetchedLobby.$id)
+
+    useGameRealtime({
+      lobby: lobby.value!,
+      onPlayersUpdated: async () => {
+        console.log('📡 Player list update triggered')
+        const updated = await getPlayersForLobby(lobby.value!.$id)
+        console.log('👥 Updated players:', updated)
+        players.value = updated
+      },
+      onPhaseChange: (phase) => {
+        console.log('Phase changed:', phase)
+      },
+      onLobbyDeleted: () => {
+        notify({
+          title: "Lobby Deleted",
+          color: "error",
+          icon: "i-mdi-alert-circle",
+          duration: 5000,
+        })
+        router.replace('/join?error=deleted')
+      }
+    })
+  } catch (err) {
+    notify({
+      title: "Failed to load game page",
+      color: "error",
+      icon: "i-mdi-alert-circle",
+      duration: 5000,
+    })
+    await router.replace('/')
+  } finally {
+    loading.value = false
+  }
+})
+
+const handleJoinSuccess = async (code: string) => {
+  showJoinModal.value = false
+  joinedLobby.value = true
+
+  const fetchedLobby = await getLobbyByCode(code)
+  if (!fetchedLobby) {
+    notify({
+      title: 'Lobby Not Found',
+      color: 'error',
+      icon: 'i-mdi-alert-circle',
+      duration: 5000
+    })
+    return
+  }
+
+  lobby.value = toPlainLobby(fetchedLobby)
+  players.value = await getPlayersForLobby(fetchedLobby.$id)
+
+  useGameRealtime({
+    lobby: lobby.value!,
+    onPlayersUpdated: async () => {
+      players.value = await getPlayersForLobby(lobby.value!.$id)
+    },
+    onPhaseChange: (phase) => {
+      console.log('Phase changed:', phase)
+    },
+    onLobbyDeleted: () => {
+      notify({ title: 'Lobby Deleted', color: 'error' })
+      router.replace('/join?error=deleted')
+    }
+  })
+}
+
+const handleCardSubmit = (cardId: string) => {
+  // Placeholder — call submitCard function
+  console.log('submitCard', cardId);
+};
+
+const handleWinnerSelect = (cardId: string) => {
+  // Placeholder — call selectWinner function
+  console.log('selectWinner', cardId);
+};
 
 const handleLeave = async () => {
-  try {
-    const user = userStore.user;
-    if (!lobby.value || !user?.$id) return;
-    await leaveLobby(lobby.value.$id, user.$id);
-    await router.push("/lobby?error=lobby_deleted");
-  } catch (err) {
-    console.error("Failed to leave lobby:", err);
-    // notify("Error leaving lobby", "error");
-  }
+  if (!lobby.value || !userStore.user?.$id) return;
+  await leaveLobby(lobby.value.$id, userStore.user.$id);
+  await router.push('/');
 };
-const submittedCards = ref<PlayerCard[]>([])
-let loadSubmittedCards: (playedCards: Record<string, string>) => Promise<void> = async () => {}
 
-watch(
-    () => lobby.value,
-    (lobbyVal) => {
-      if (!lobbyVal) return
-
-      const submitted = useSubmittedCards(lobbyVal.$id)
-      loadSubmittedCards = submitted.loadSubmittedCards
-      submittedCards.value = submitted.submittedCards
-    },
-    { immediate: true }
-)
+const handleDrawBlackCard = () => {
+  // Placeholder — used when judge clicks stack
+  console.log('drawBlackCard');
+};
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-white p-6">
+  <div class="min-h-screen bg-slate-900 text-white p-4">
     <div v-if="loading">Loading game...</div>
-    <div v-else-if="!lobby">Game not found.</div>
-    <div v-else>
-      <h1 class="text-3xl font-bold mb-4">Unfit For Print</h1>
-      <button
-          @click="handleLeave"
-          class="text-white hover:text-red-400 bg-red-900 rounded-lg p-2 mt-4"
-      >
-        Leave Lobby
-      </button>
-      <p class="mb-2">Game Code: {{ code }}</p>
-      <p class="mb-4">Round {{ gameState?.round }} | Phase: {{ gameState?.phase }}</p>
-      <PlayerList
-          :players="players"
-          :hostUserId="lobby.hostUserId"
-          :lobbyId="lobby.$id"
-      />
-      <div v-if="gameState?.blackCard" class="mb-6">
-        <BlackCard
-            :text="gameState.blackCard.text"
-            :card-pack="gameState.blackCard.pack || 'core'"
-            :back-logo-url="'/img/unfit_logo_alt_dark.png'"
-            :mask-url="'/img/textures/hexa2.png'"
-        />
-      </div>
-
-      <div v-if="isJudge">
-        <p class="text-xl font-semibold">You are the Judge 👑</p>
-      </div>
-      <SubmittedCards
-          v-if="isJudge && Object.keys(gameState?.playedCards || {}).length"
-          :lobby="lobby"
-          @select="handleSelectWinner"
-      />
-
-      <div v-else-if="isPlaying">
-        <p class="text-xl font-semibold mb-2">Choose a card to play:</p>
-        <div class="flex flex-wrap gap-4">
-          <WhiteCard
-              v-for="cardId in getHand"
-              :key="cardId"
-              :card-id="cardId"
-              :text="whiteCardTexts[cardId]"
-              :card-pack="'core'"
-              :back-logo-url="'/img/unfit_logo_alt_dark.png'"
-              :mask-url="'/img/textures/hexa2.png'"
-              :disabled="hasSubmittedCard"
-              @click="() => handleCardSubmit(cardId)"
-          />
-        </div>
-      </div>
-
-      <div v-if="canRevealWinner">
-        <p class="mt-6 text-green-400">Ready to pick a winner!</p>
-        <!-- Reveal winner button logic can go here -->
-      </div>
+    <JoinLobbyForm
+        v-if="showJoinModal"
+        :initial-code="lobbyCode"
+        @joined="handleJoinSuccess"
+    />
+    <WaitingRoom
+        v-else-if="isWaiting"
+        :lobby="lobby"
+        :players="players"
+        @leave="handleLeave"
+    />
+    <GameBoard
+        v-else-if="isPlaying || isJudging"
+        :lobby="lobby"
+        :players="players"
+        :white-card-texts="{}"
+        @submit-card="handleCardSubmit"
+        @select-winner="handleWinnerSelect"
+        @draw-black-card="handleDrawBlackCard"
+    @leave="handleLeave"
+    />
+    <div v-else-if="isComplete" class="text-center">
+      <h2 class="text-3xl font-bold">Game Over</h2>
+      <!-- Add FinalScore.vue later -->
     </div>
+    <p v-else>Could not load the game state.</p>
   </div>
 </template>
-
-<style scoped>
-</style>

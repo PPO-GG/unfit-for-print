@@ -16,6 +16,11 @@ export default defineNuxtConfig({
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
     { src: "~/plugins/init-session.client.ts", mode: "client" },
   ],
+  components: [
+    { path: '~/components/game', prefix: '' },
+    { path: '~/components/lobby', prefix: '' },
+    { path: '~/components/', prefix: '' },
+  ],
   runtimeConfig: {
     appwriteApiKey: process.env.APPWRITE_API_KEY,
     public: {

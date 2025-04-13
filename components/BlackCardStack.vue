@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-
+import { useGameContext } from '~/composables/useGameContext'
 import { useGame } from '~/composables/useGame';
-const { updateGameState } = useGame() // your future composable
+const { isJudge, gameState } = useGameContext(lobby)
 
 const reveal = async () => {
   // Only judge can trigger

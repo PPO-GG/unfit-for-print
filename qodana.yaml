@@ -29,8 +29,6 @@ exclude:
       - composables/useLobby.ts
       - pages
       - pages/lobby
-      - pages/lobby/[code].vue
-      - pages/lobby/create.vue
       - pages/lobby/index.vue
       - pages/join.vue
       - server

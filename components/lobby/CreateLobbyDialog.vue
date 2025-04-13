@@ -1,11 +1,41 @@
-<script setup lang="ts">
-
-</script>
-
 <template>
-  $END$
+  <UForm :state="formState" @submit="onSubmit">
+    <UFormGroup label="Lobby Name (optional)" name="name">
+      <UInput v-model="formState.name" placeholder="Optional display name" />
+    </UFormGroup>
+    <UButton type="submit" block class="mt-4">Create Lobby</UButton>
+  </UForm>
 </template>
 
-<style scoped>
+<script setup lang="ts">
+import { reactive } from 'vue';
+import { useRouter } from 'vue-router';
+import { useLobby } from '~/composables/useLobby';
+import { useUserStore } from '~/stores/userStore';
+import { useNotifications } from '~/composables/useNotifications';
 
-</style>
+const emit = defineEmits<{
+  (e: 'created', code: string): void;
+}>();
+
+const { createLobby } = useLobby();
+const userStore = useUserStore();
+const { notify } = useNotifications();
+
+const formState = reactive({ name: '' });
+
+const onSubmit = async () => {
+  try {
+    if (!userStore.user?.$id) throw new Error('User not authenticated');
+
+    const lobby = await createLobby(userStore.user.$id);
+    emit('created', lobby.code);
+  } catch (err) {
+    notify({
+      title: 'Failed to create lobby',
+      color: "error"
+    });
+    console.error(err);
+  }
+};
+</script>

@@ -10,9 +10,9 @@ const { notify } = useNotifications()
 const handleLogout = async () => {
   try {
     await userStore.logout()
-    notify("Logged out", "success")
+    notify({title: "Logged out", color: "success"})
   } catch (err) {
-    notify("Logout failed", "error")
+    notify({title: "Logout failed", color: "error"})
     console.error("Logout error:", err)
   }
 }

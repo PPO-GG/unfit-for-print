@@ -3,11 +3,11 @@ import {computed, ref} from 'vue'
 import {useLobby} from '~/composables/useLobby'
 import {useUserStore} from '~/stores/userStore'
 import type {Player} from '~/types/player'
-import { useGame } from '~/composables/useGame';
+import { useGameContext } from '~/composables/useGameContext'
 import type {Lobby} from "~/types/lobby";
 
 const lobby = ref<Lobby | null>(null);
-const {getScore} = useGame(lobby)
+const { getScoreForPlayer } = useGameContext(lobby)
 
 const props = defineProps<{
   players: Player[]
@@ -60,7 +60,7 @@ const promote = async (player: any) => {
         </span>
         <span>{{ player.name || "Unknown Player" }}</span>
         <span class="ml-auto font-mono text-sm text-green-400">
-          {{ getScore(player.userId) }}
+          {{ getScoreForPlayer(player.userId) }}
         </span>
         <button
             v-if="isHost && player.userId !== currentUserId && player.provider !== 'anonymous'"

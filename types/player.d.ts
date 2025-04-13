@@ -1,4 +1,4 @@
-// types/player.ts
+// types/player.d.ts
 
 export interface Player {
     $id: string;

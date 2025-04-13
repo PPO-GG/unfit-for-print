@@ -15,9 +15,12 @@
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
 import { useRouter } from "vue-router";
+import { isAnonymousUser } from '~/composables/useUserUtils';
 
-definePageMeta({
-  middleware: ["auth"],
+onMounted(() => {
+  if (isAnonymousUser(userStore.user)) {
+    router.replace('/join');
+  }
 });
 
 const userStore = useUserStore();
@@ -31,7 +34,7 @@ const create = async () => {
     console.log("Creating lobby for user:", userStore.user?.$id);
     const lobby = await createLobby(userStore.user?.$id!);
     console.log("Lobby created:", lobby);
-    await router.push(`/lobby/${lobby.code}`);
+    await router.push(`/game/${lobby.code}`);
   } catch (err) {
     console.error("Lobby creation failed:", err);
   }

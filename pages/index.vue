@@ -1,7 +1,5 @@
 <template>
-  <div
-      class="bg-slate-700 min-h-screen w-screen p-4 flex items-center justify-center flex-col"
-  >
+  <div class="p-6 space-y-6 text-white">
     <div class="flex flex-wrap justify-center gap-8">
       <BlackCard
           v-if="blackCard"
@@ -40,11 +38,32 @@
     >
       New Cards
     </UButton>
+
+    <div class="space-x-4">
+      <UButton size="lg" @click="showJoin = true">Join Game</UButton>
+      <UButton size="lg" v-if="showIfAuthenticated" @click="showCreate = true">Create Game</UButton>
+    </div>
+
+    <!-- Modals -->
+    <UModal v-model:open="showJoin" title="Join a Lobby">
+      <template #body>
+        <JoinLobbyForm @joined="handleJoined" />
+      </template>
+    </UModal>
+
+    <UModal v-model:open="showCreate" title="Create a Lobby">
+      <template #body>
+        <CreateLobbyDialog @created="handleJoined" />
+      </template>
+    </UModal>
   </div>
 </template>
 
-<script lang="ts" setup>
+<script setup lang="ts">
+import { ref } from 'vue';
 import {useCards} from "~/composables/useCards";
+import { useRouter } from 'vue-router';
+import { useUserAccess } from '~/composables/useUserUtils';
 
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
@@ -54,7 +73,12 @@ const threeDeffect = ref(true);
 const shine = ref(true);
 const {fetchRandomWhiteCard, fetchRandomBlackCard} = useCards();
 const {playSfx} = useSfx();
-const toast = useToast()
+const { notify } = useNotifications()
+
+const showJoin = ref(false);
+const showCreate = ref(false);
+const router = useRouter();
+const { showIfAuthenticated } = useUserAccess();
 
 const fetchNewCards = async () => {
   playSfx('/sounds/sfx/click1.wav');
@@ -68,7 +92,7 @@ const fetchNewCards = async () => {
       blackCardFlipped.value = true;
       blackCard.value = card;
     });
-    toast.add({
+    notify({
       title: 'Fetched New Cards',
       icon: "i-mdi-cards",
       color: 'info',
@@ -77,9 +101,13 @@ const fetchNewCards = async () => {
   });
 };
 
+const handleJoined = (code: string) => {
+  router.push(`/game/${code}`);
+};
+
 onMounted(() => {
   if (import.meta.client) {
     fetchNewCards();
   }
-});
+})
 </script>
