@@ -16,7 +16,7 @@ export default defineNuxtPlugin(() => {
 
   return {
     provide: {
-      appwrite: {
+      appwrite: { // Provide an object with all services
         client,
         databases,
         account,

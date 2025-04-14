@@ -1,8 +1,8 @@
 <template>
   <UForm :state="formState" @submit="onSubmit">
-    <UFormGroup label="Lobby Name (optional)" name="name">
+    <UFormField label="Lobby Name (optional)" name="name">
       <UInput v-model="formState.name" placeholder="Optional display name" />
-    </UFormGroup>
+    </UFormField>
     <UButton type="submit" block class="mt-4">Create Lobby</UButton>
   </UForm>
 </template>

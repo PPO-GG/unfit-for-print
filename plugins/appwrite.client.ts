@@ -10,15 +10,15 @@ export default defineNuxtPlugin(() => {
 
   const databases = new Databases(client);
   const account = new Account(client);
-  const functions = new Functions(client); // ✅ this must exist
+  const functions = new Functions(client);
 
   return {
     provide: {
-      appwrite: {
+      appwrite: { // Provide an object with all services
         client,
-        account,
         databases,
-        functions // ✅ this must be here too
+        account,
+        functions
       }
     }
   };

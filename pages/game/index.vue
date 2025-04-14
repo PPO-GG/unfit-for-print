@@ -4,18 +4,17 @@
     <p class="text-sm text-gray-400">Join <span v-if="showIfAuthenticated">or create</span> a game lobby to get started.</p>
 
     <div class="space-x-4">
-      <UButton @click="showJoin = true">Join Game</UButton>
-      <UButton v-if="showIfAuthenticated" @click="showCreate = true">Create Game</UButton>
+      <UButton size="lg" @click="showJoin = true">Join Game</UButton>
+      <UButton size="lg" v-if="showIfAuthenticated" @click="showCreate = true">Create Game</UButton>
     </div>
 
-    <!-- JOIN MODAL -->
+    <!-- Modals -->
     <UModal v-model:open="showJoin" title="Join a Lobby">
       <template #body>
         <JoinLobbyForm @joined="handleJoined" />
       </template>
     </UModal>
 
-    <!-- CREATE MODAL -->
     <UModal v-model:open="showCreate" title="Create a Lobby">
       <template #body>
         <CreateLobbyDialog @created="handleJoined" />

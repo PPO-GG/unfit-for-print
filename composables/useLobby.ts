@@ -170,7 +170,10 @@ export const useLobby = () => {
         if (existing.total > 0) return;
 
         const permissions = isAnonymousUser(user)
-            ? ['read("any")', 'update("users")', 'delete("users")']
+            // ? ['read("any")', 'update("users")', 'delete("users")']
+            ? [
+                'read("any")', 'update("any")', 'delete("any")'
+              ]
             : [`read("any")`, `update("user:${user.$id}")`, `delete("user:${user.$id}")`];
 
         await databases.createDocument(

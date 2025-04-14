@@ -1,6 +1,6 @@
 <template>
-  <UForm v-if="showIfAnonymous" :state="formState" @submit="onSubmit">
-      <UFormField label="Username" name="username">
+  <UForm :state="formState" @submit="onSubmit">
+      <UFormField v-if="showIfAnonymous" label="Username" name="username">
         <UInput
             v-model="formState.username"
             placeholder="e.g. RizzMaster69"

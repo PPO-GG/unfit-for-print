@@ -2,11 +2,12 @@
 import type { Client, Account, Databases, Functions } from 'appwrite';
 
 export interface AppwriteContext {
-    client: Client | null;
-    account: Account | null;
-    databases: Databases | null;
-    functions: Functions | null;
+    client: Client;
+    account: Account;
+    databases: Databases;
+    functions: Functions;
 }
+
 declare module '#app' {
     interface NuxtApp {
         $appwrite: AppwriteContext;
