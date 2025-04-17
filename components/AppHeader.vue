@@ -7,7 +7,28 @@ import { useNotifications } from '~/composables/useNotifications'
 const userStore = useUserStore()
 const { notify } = useNotifications()
 
-const handleLogin = async (): Promise<void> => {
+const handleLoginWithDiscord = async (): Promise<void> => {
+  try {
+    await userStore.loginWithProvider('discord');
+
+    // Fetch full session + user info after login
+    await userStore.fetchUserSession();
+
+    notify({ title: "Logged in with Discord", color: "success" });
+  } catch (err: any) {
+    console.error("Login error:", err);
+
+    let message = "Login failed";
+
+    if (err?.message?.includes("already exists")) {
+      message = "This Discord account is already tied to another user.";
+    }
+
+    notify({ title: message, color: "error" });
+  }
+};
+
+const handleLoginWithGoogle = async (): Promise<void> => {
   try {
     await userStore.loginWithProvider('google');
 
@@ -75,7 +96,8 @@ const avatarUrl = computed(() => {
 
       <template v-else>
         <NuxtLink to="/join" class="hover:underline">Join Game</NuxtLink>
-        <UButton @click="handleLogin" color="neutral" variant="outline" icon="i-logos-google-icon">Login With Google</UButton>
+        <UButton @click="handleLoginWithGoogle" color="neutral" variant="outline" icon="i-logos-google-icon">Login With Google</UButton>
+        <UButton @click="handleLoginWithDiscord" color="neutral" variant="outline" icon="i-logos-discord-icon">Login With Discord</UButton>
       </template>
     </nav>
   </header>

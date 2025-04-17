@@ -1,21 +1,21 @@
 <template>
   <UForm :state="formState" @submit="onSubmit">
-      <UFormField v-if="showIfAnonymous" label="Username" name="username">
-        <UInput
-            v-model="formState.username"
-            placeholder="e.g. RizzMaster69"
-            autocomplete="off"
-        />
-      </UFormField>
+    <UFormField v-if="showIfAnonymous" label="Username" name="username">
+      <UInput
+          v-model="formState.username"
+          placeholder="e.g. RizzMaster69"
+          autocomplete="off"
+      />
+    </UFormField>
 
-      <UFormField label="Lobby Code" name="code">
+    <UFormField label="Lobby Code" name="code">
       <UInput
           v-model="formState.code"
           placeholder="e.g. ABC123"
           autocomplete="off"
           class="uppercase"
       />
-      </UFormField>
+    </UFormField>
 
     <UButton type="submit" block class="mt-4" :loading="joining">
       Join Lobby
@@ -26,15 +26,18 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue';
-import { useUserAccess } from '~/composables/useUserUtils';
-import { useJoinLobby } from '~/composables/useJoinLobby';
-defineEmits<{
+import {onMounted, reactive, ref} from 'vue';
+import {useUserAccess} from '~/composables/useUserUtils';
+import {useJoinLobby} from '~/composables/useJoinLobby';
+
+// only *one* defineEmits
+const emit = defineEmits<{
   (e: 'joined', code: string): void;
 }>();
-const props = defineProps<{ initialCode?: string }>()
-const { showIfAnonymous } = useUserAccess();
-const { joinLobbyWithSession, initSessionIfNeeded } = useJoinLobby();
+
+const props = defineProps<{ initialCode?: string }>();
+const {showIfAnonymous} = useUserAccess();
+const {joinLobbyWithSession, initSessionIfNeeded} = useJoinLobby();
 
 const formState = reactive({
   username: '',
@@ -44,14 +47,27 @@ const formState = reactive({
 const error = ref('');
 const joining = ref(false);
 
-onMounted(initSessionIfNeeded);
+onMounted(() => {
+  initSessionIfNeeded();
+
+  // pre-fill code from URL
+  if (props.initialCode) {
+    formState.code = props.initialCode.toUpperCase();
+  }
+});
 
 const onSubmit = async () => {
-  await joinLobbyWithSession(
+  const ok = await joinLobbyWithSession(
       formState.username,
       formState.code,
       (msg) => (error.value = msg),
       (val) => (joining.value = val)
   );
+
+  console.log('🟢 join result:', ok, formState.code);
+
+  if (ok) {
+    emit('joined', formState.code);
+  }
 };
 </script>

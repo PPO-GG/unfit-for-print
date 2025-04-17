@@ -24,43 +24,35 @@ export const useUserStore = defineStore("user", {
 
         async loginWithProvider(provider: 'google' | 'discord') {
             if (import.meta.server) return;
-
             const account = this.getAccount();
             if (!account) return;
 
-            const config = useRuntimeConfig();
-            const success = config.public.oAuthRedirectUrl;
-            const failure = config.public.oAuthFailUrl;
-
+            const config  = useRuntimeConfig();
+            const redirect = config.public.baseUrl
             const providerEnum = {
-                google: OAuthProvider.Google,
-                discord: OAuthProvider.Discord
+                google:  OAuthProvider.Google,
+                discord: OAuthProvider.Discord,
             }[provider];
 
-            const tryLogin = async () => {
-                console.log(`🔐 OAuth login with ${provider}`);
-                return account.createOAuth2Session(providerEnum, success, failure);
-            };
-
+            // 1️⃣ If we’re currently an anonymous session, clear it
             try {
-                // ✅ Ensure session exists
-                try {
-                    await account.getSession('current');
-                } catch {
-                    await account.createAnonymousSession();
-                }
-
-                await tryLogin();
-
-            } catch (err: any) {
-                // 🛑 Handle 409 user already exists error
-                if (err?.message?.includes('already exists')) {
-                    console.warn('⚠️ User exists. Removing session and retrying...');
+                const current = await account.getSession('current');
+                if (current.provider === 'anonymous') {
                     await account.deleteSession('current');
-                    await tryLogin();
-                } else {
-                    console.error(`❌ OAuth login (${provider}) failed:`, err.message || err);
                 }
+            } catch {
+                // no session to delete — ignore
+            }
+
+            // 2️⃣ Kick off the real OAuth flow
+            try {
+                console.log(`🔐 OAuth login with ${provider}`);
+                console.log('⚙️ runtimeConfig.public:', config.public)
+                console.log('⚙️ computed redirect URL:', redirect)
+                await account.createOAuth2Session(providerEnum, redirect, redirect);
+            } catch (err: any) {
+                console.error(`❌ OAuth login (${provider}) failed:`, err.message || err);
+
             }
         },
 
