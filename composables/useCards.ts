@@ -1,5 +1,6 @@
 import { Query } from 'appwrite'
 import { getAppwrite } from '~/utils/appwrite';
+
 export const useCards = () => {
 
   const fetchRandomWhiteCard = async () => {

@@ -1,6 +1,6 @@
-import { defineStore } from "pinia";
-import { type Models, OAuthProvider } from "appwrite";
-import { useAppwrite } from "~/composables/useAppwrite";
+import {defineStore} from "pinia";
+import {type Models, OAuthProvider} from "appwrite";
+import {useAppwrite} from "~/composables/useAppwrite";
 
 export const useUserStore = defineStore("user", {
     state: () => ({
@@ -22,21 +22,45 @@ export const useUserStore = defineStore("user", {
             }
         },
 
-        async loginWithDiscord() {
+        async loginWithProvider(provider: 'google' | 'discord') {
             if (import.meta.server) return;
 
             const account = this.getAccount();
             if (!account) return;
 
+            const config = useRuntimeConfig();
+            const success = config.public.oAuthRedirectUrl;
+            const failure = config.public.oAuthFailUrl;
+
+            const providerEnum = {
+                google: OAuthProvider.Google,
+                discord: OAuthProvider.Discord
+            }[provider];
+
+            const tryLogin = async () => {
+                console.log(`🔐 OAuth login with ${provider}`);
+                return account.createOAuth2Session(providerEnum, success, failure);
+            };
+
             try {
-                const config = useRuntimeConfig();
-                account.createOAuth2Session(
-                    OAuthProvider.Discord,
-                    config.public.oAuthRedirectUrl,
-                    config.public.oAuthFailUrl
-                );
-            } catch (error) {
-                console.error("Error logging in with Discord:", error);
+                // ✅ Ensure session exists
+                try {
+                    await account.getSession('current');
+                } catch {
+                    await account.createAnonymousSession();
+                }
+
+                await tryLogin();
+
+            } catch (err: any) {
+                // 🛑 Handle 409 user already exists error
+                if (err?.message?.includes('already exists')) {
+                    console.warn('⚠️ User exists. Removing session and retrying...');
+                    await account.deleteSession('current');
+                    await tryLogin();
+                } else {
+                    console.error(`❌ OAuth login (${provider}) failed:`, err.message || err);
+                }
             }
         },
 
@@ -55,14 +79,23 @@ export const useUserStore = defineStore("user", {
                 const rawUser = await account.get();
                 this.user = {
                     ...JSON.parse(JSON.stringify(rawUser)),
-                    provider: session.provider, // ✅ attach manually
+                    provider: session.provider,
                 };
 
-                if (this.user && this.isLoggedIn && this.accessToken) {
-                    const discordData = await this.fetchDiscordUserData(this.accessToken);
-                    this.user.prefs.avatar = discordData.avatar;
-                    this.user.prefs.discordUserId = discordData.id;
+                // 🧠 Fetch external profile data
+                if (this.accessToken) {
+                    if (session.provider === 'discord') {
+                        const discord = await this.fetchDiscordUserData(this.accessToken);
+                        this.user!.prefs.avatar = discord.avatar;
+                        this.user!.prefs.discordUserId = discord.id;
+                    } else if (session.provider === 'google') {
+                        const google = await this.fetchGoogleUserData(this.accessToken);
+                        this.user!.prefs.avatar = google.picture;
+                        this.user!.prefs.name = google.name;
+                        this.user!.prefs.email = google.email;
+                    }
                 }
+
             } catch (error) {
                 console.error("Error fetching session:", error);
                 this.isLoggedIn = false;
@@ -82,6 +115,15 @@ export const useUserStore = defineStore("user", {
             }
 
             return response.json();
+        },
+
+        async fetchGoogleUserData(accessToken: string) {
+            const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+
+            if (!res.ok) throw new Error("Failed to fetch Google profile");
+            return res.json();
         },
 
         async logout() {

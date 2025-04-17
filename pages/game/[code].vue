@@ -4,12 +4,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '~/stores/userStore';
 import { useLobby } from '~/composables/useLobby';
 import { usePlayers } from '~/composables/usePlayers';
-import { useGameRealtime } from '~/composables/useGameRealtime';
 import { useNotifications } from '~/composables/useNotifications';
 import { useJoinLobby } from '~/composables/useJoinLobby';
-import { useUserAccess } from '~/composables/useUserUtils';
 import { useGameContext } from '~/composables/useGameContext';
-import { getAppwrite } from '~/utils/appwrite';
 
 import type { Lobby } from '~/types/lobby';
 import type { Player } from '~/types/player';
@@ -34,22 +31,23 @@ const setupRealtime = (lobbyData: Lobby) => {
   const { client } = getAppwrite();
   const config = useRuntimeConfig();
 
-  useGameRealtime({
-    lobby: lobbyData,
-    onPlayersUpdated: async () => {
-      console.log('📡 Player list update triggered');
-      players.value = await getPlayersForLobby(lobbyData.$id);
-    },
-    onPhaseChange: (phase) => {
-      console.log('🌀 Phase changed:', phase);
-    },
-    onLobbyDeleted: () => {
-      notify({ title: 'Lobby Deleted', color: 'error', icon: 'i-mdi-alert-circle' });
-      router.replace('/join?error=deleted');
-    }
-  });
+  // 🧠 Lobby Realtime
+  const unsubscribeLobby = client.subscribe(
+      [`databases.${config.public.appwriteDatabaseId}.collections.lobby.documents.${lobbyData.$id}`],
+      async ({ events, payload }) => {
+        console.log('📡 [Lobby Event]', events);
 
-  client.subscribe(
+        if (events.some(e => e.endsWith('.delete'))) {
+          notify({ title: 'Lobby Deleted', color: 'error', icon: 'i-mdi-alert-circle' });
+          await router.replace('/join?error=deleted');
+        }
+
+        // You can also update gameState here later if needed
+      }
+  );
+
+  // 👥 Player Realtime
+  const unsubscribePlayers = client.subscribe(
       [`databases.${config.public.appwriteDatabaseId}.collections.players.documents`],
       async ({ events, payload }) => {
         const player = payload as Player;
@@ -63,38 +61,46 @@ const setupRealtime = (lobbyData: Lobby) => {
         }
       }
   );
+
+  // Clean up both
+  onUnmounted(() => {
+    console.log('🧹 Unsubscribing from realtime');
+    unsubscribeLobby();
+    unsubscribePlayers();
+  });
 };
 
-const setupLobbyAndRealtime = async (fetchedLobby: Lobby) => {
-  const plainLobby = toPlainLobby(fetchedLobby);
-  lobby.value = plainLobby;
-  players.value = await getPlayersForLobby(plainLobby.$id);
-  setupRealtime(plainLobby);
-};
 
 onMounted(async () => {
-  await initSessionIfNeeded();
-  const user = userStore.user;
-
-  if (!user) {
-    showJoinModal.value = true;
-    return;
-  }
-
-  const activeLobby = await getActiveLobbyForUser(user.$id);
-  if (!activeLobby || activeLobby.code !== code) {
-    showJoinModal.value = true;
-    return;
-  }
-
-  joinedLobby.value = true;
+  loading.value = true;
 
   try {
+    await initSessionIfNeeded();
     await userStore.fetchUserSession();
+
+    const user = userStore.user;
+    if (!user) {
+      showJoinModal.value = true;
+      return;
+    }
+
+    const activeLobby = await getActiveLobbyForUser(user.$id);
+    if (!activeLobby || activeLobby.code !== code) {
+      showJoinModal.value = true;
+      return;
+    }
+
     const fetchedLobby = await getLobbyByCode(code);
-    if (!fetchedLobby) return router.replace('/join?error=not_found');
-    await setupLobbyAndRealtime(fetchedLobby);
+    if (!fetchedLobby) {
+      notify({ title: 'Lobby Not Found', color: 'error', icon: 'i-mdi-alert-circle' });
+      return router.replace('/join?error=not_found');
+    }
+
+    joinedLobby.value = true;
+    setupRealtime(fetchedLobby);
+
   } catch (err) {
+    console.error('❌ onMounted error:', err);
     notify({ title: 'Failed to load game page', color: 'error', icon: 'i-mdi-alert-circle' });
     await router.replace('/');
   } finally {
@@ -111,8 +117,6 @@ const handleJoinSuccess = async (joinedCode: string) => {
     notify({ title: 'Lobby Not Found', color: 'error', icon: 'i-mdi-alert-circle' });
     return;
   }
-
-  await setupLobbyAndRealtime(fetchedLobby);
 };
 
 const handleCardSubmit = (cardId: string) => {

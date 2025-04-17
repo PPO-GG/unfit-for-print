@@ -74,6 +74,7 @@ const shine = ref(true);
 const {fetchRandomWhiteCard, fetchRandomBlackCard} = useCards();
 const {playSfx} = useSfx();
 const { notify } = useNotifications()
+const { client } = useAppwrite()
 
 const showJoin = ref(false);
 const showCreate = ref(false);
@@ -109,5 +110,6 @@ onMounted(() => {
   if (import.meta.client) {
     fetchNewCards();
   }
+  console.log(client.config.project);
 })
 </script>
