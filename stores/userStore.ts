@@ -8,6 +8,7 @@ export const useUserStore = defineStore("user", {
         session: null as Models.Session | null,
         accessToken: "" as string | null,
         isLoggedIn: false,
+        playerDocId: '' as string,
     }),
 
     actions: {
@@ -49,7 +50,7 @@ export const useUserStore = defineStore("user", {
                 console.log(`🔐 OAuth login with ${provider}`);
                 console.log('⚙️ runtimeConfig.public:', config.public)
                 console.log('⚙️ computed redirect URL:', redirect)
-                await account.createOAuth2Session(providerEnum, redirect, redirect);
+                account.createOAuth2Session(providerEnum, redirect, redirect);
             } catch (err: any) {
                 console.error(`❌ OAuth login (${provider}) failed:`, err.message || err);
 

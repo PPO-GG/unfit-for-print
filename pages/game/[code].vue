@@ -11,7 +11,7 @@ import {useGameContext} from '~/composables/useGameContext';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
 
-const selfLeaving = ref(true);
+const selfLeaving = ref(false);
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
