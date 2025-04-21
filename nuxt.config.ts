@@ -11,7 +11,7 @@ export default defineNuxtConfig({
       }
     }
   },
-  ssr: false,
+  ssr: true,
   plugins: [
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
     { src: "~/plugins/init-session.client.ts", mode: "client" },
