@@ -289,10 +289,10 @@ onMounted(async () => {
   border-radius: 12px;
 }
 .card__front {
-  background-color: rgba(243, 239, 235, 0.75);
+  background-color: rgb(231, 225, 222);
 }
 .card__back {
-  background-color: rgba(255, 255, 255, 0.65);
+  background-color: rgba(231, 225, 222);
   transform: rotateY(180deg);
 }
 
@@ -322,7 +322,7 @@ onMounted(async () => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 2; /* Higher z-index to ensure it's on top */
+  z-index: 100; /* Higher z-index to ensure it's on top */
   transition: background-position 250ms linear;
   border-radius: 12px;
   /* Make sure shine is on top of content */

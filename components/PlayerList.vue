@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
-import {useLobby} from '~/composables/useLobby'
-import {useUserStore} from '~/stores/userStore'
-import type {Player} from '~/types/player'
+import { computed, ref } from 'vue'
+import { useLobby } from '~/composables/useLobby'
+import { useUserStore } from '~/stores/userStore'
+import type { Player } from '~/types/player'
 import { useGameContext } from '~/composables/useGameContext'
-import type {Lobby} from "~/types/lobby";
-
-const lobby = ref<Lobby | null>(null);
-const { getScoreForPlayer } = useGameContext(lobby)
+import type { Lobby } from '~/types/lobby'
 
 const props = defineProps<{
   players: Player[]
@@ -15,13 +12,38 @@ const props = defineProps<{
   lobbyId: string
 }>()
 
-const {kickPlayer, promoteToHost} = useLobby()
+// Create a ref for the lobby and initialize it with basic data
+function createLobby(partial: Partial<Lobby>): Lobby {
+  return {
+    $createdAt: new Date().toISOString(),
+    $updatedAt: new Date().toISOString(),
+    code: '',
+    status: 'waiting',
+    round: 0,
+    ...partial
+  } as Lobby
+}
+
+// Then use it like this:
+const lobbyRef = ref<Lobby>(createLobby({
+  $id: props.lobbyId,
+  hostUserId: props.hostUserId,
+  players: props.players.map(player => player.$id),
+  gameState: JSON.stringify({
+    phase: 'waiting',
+    scores: {}
+  })
+}))
+
+
+const { scores } = useGameContext(lobbyRef)
+const { kickPlayer, promoteToHost } = useLobby()
 const userStore = useUserStore()
 
 const currentUserId = computed(() => userStore.user?.$id)
 const isHost = computed(() => props.hostUserId === currentUserId.value)
 
-const kick = async (player: any) => {
+const kick = async (player: Player) => {
   try {
     await kickPlayer(player.$id)
   } catch (err) {
@@ -37,13 +59,17 @@ const sortedPlayers = computed(() =>
     })
 )
 
-const promote = async (player: any) => {
+const promote = async (player: Player) => {
   try {
-    await promoteToHost(props.lobbyId, player);
+    await promoteToHost(props.lobbyId, player)
   } catch (err) {
-    console.error("Failed to promote host:", err);
+    console.error("Failed to promote host:", err)
   }
-};
+}
+
+const getScoreForPlayer = (playerId: string) => {
+  return scores.value[playerId] || 0
+}
 </script>
 
 <template>

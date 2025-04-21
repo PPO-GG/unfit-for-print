@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { useGame } from '~/composables/useGame';
+import { useGame } from '~/composables/not_used/useGame';
 import { getAppwrite } from '~/utils/appwrite';
 import { useUserStore } from '~/stores/userStore';
 import type { Lobby } from '~/types/lobby';

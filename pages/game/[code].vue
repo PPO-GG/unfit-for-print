@@ -7,6 +7,7 @@ import {usePlayers} from '~/composables/usePlayers';
 import {useNotifications} from '~/composables/useNotifications';
 import {useJoinLobby} from '~/composables/useJoinLobby';
 import {useGameContext} from '~/composables/useGameContext';
+import {isAuthenticatedUser} from '~/composables/useUserUtils';
 
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
@@ -46,7 +47,10 @@ const setupRealtime = async (lobbyData: Lobby) => {
           await router.replace('/join?error=deleted');
         }
 
-        // You can also update gameState here later if needed
+        // Update lobby data when it changes
+        if (events.some(e => e.endsWith('.update'))) {
+          lobby.value = payload as Lobby;
+        }
       }
   );
 
@@ -111,10 +115,24 @@ onMounted(async () => {
       return;
     }
 
-    const activeLobby = await getActiveLobbyForUser(user.$id);
-    if (!activeLobby || activeLobby.code !== code) {
-      showJoinModal.value = true;
-      return;
+    // Check if user is the creator of the lobby (from URL query param)
+    // Only allow authenticated users to use the creator parameter
+    const isCreator = route.query.creator === 'true' && isAuthenticatedUser(user);
+
+    // Check if the user is already in an active lobby, regardless of whether they're anonymous or authenticated
+    if (!isCreator) {
+      const activeLobby = await getActiveLobbyForUser(user.$id);
+      if (activeLobby && activeLobby.code === code) {
+        // User is already in this lobby, proceed without showing join modal
+      } else if (activeLobby) {
+        // User is in a different active lobby, redirect them there
+        notify({title: 'Redirecting to your active game', color: 'info', icon: 'i-mdi-controller'});
+        return router.replace(`/game/${activeLobby.code}`);
+      } else {
+        // User is not in any active lobby, show join modal
+        showJoinModal.value = true;
+        return;
+      }
     }
 
     const fetchedLobby = await getLobbyByCode(code);
@@ -162,7 +180,8 @@ const handleLeave = async () => {
   // mark that *we* are leaving
   selfLeaving.value = true;
 
-  // perform the leave (i.e. delete our player doc)
+  // Call the leaveLobby function to handle player document deletion
+  // and update game state if needed
   await leaveLobby(lobby.value.$id, userStore.user.$id);
 
   // navigate away

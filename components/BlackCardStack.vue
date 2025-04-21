@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useGameContext } from '~/composables/useGameContext'
-import { useGame } from '~/composables/useGame';
+import { useGame } from '~/composables/not_used/useGame';
 const { isJudge, gameState } = useGameContext(lobby)
 
 const reveal = async () => {

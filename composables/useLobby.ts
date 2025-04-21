@@ -212,8 +212,10 @@ export const useLobby = () => {
             );
         }
 
+        // Fetch all remaining players
+        await fetchPlayers(lobbyId);
+
         if (lobby.hostUserId === userId) {
-            await fetchPlayers(lobbyId);
             if (players.value.length === 0 || players.value.every((p) => p.provider === 'anonymous')) {
                 for (const player of players.value) {
                     await databases.deleteDocument(config.public.appwriteDatabaseId, 'players', player.$id);
@@ -230,6 +232,18 @@ export const useLobby = () => {
                     isHost: true,
                 });
             }
+        }
+
+        // Check if there are fewer than 3 players left and the game is in progress
+        if (players.value.length < 3 && lobby.status === 'playing') {
+            // Update the game state to "waiting"
+            const state = decodeGameState(lobby.gameState);
+            state.phase = 'waiting';
+
+            await databases.updateDocument(config.public.appwriteDatabaseId, 'lobby', lobbyId, {
+                status: 'waiting',
+                gameState: encodeGameState(state)
+            });
         }
     };
 

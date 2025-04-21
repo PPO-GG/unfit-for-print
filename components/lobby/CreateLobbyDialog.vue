@@ -29,7 +29,7 @@ const onSubmit = async () => {
     if (!userStore.user?.$id) throw new Error('User not authenticated');
 
     const lobby = await createLobby(userStore.user.$id);
-    emit('created', lobby.code);
+    emit('created', lobby.code, true);
   } catch (err) {
     notify({
       title: 'Failed to create lobby',

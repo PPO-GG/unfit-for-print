@@ -1,96 +1,123 @@
+// GameBoard.vue
 <template>
-  <div class="game-board grid grid-cols-[auto_1fr_auto] grid-rows-[auto_1fr_auto] h-screen p-4 gap-4 bg-slate-900 text-white">
-    <!-- Black Card Stack -->
-    <div class="row-span-2 flex flex-col items-center justify-start">
-      <BlackCardStack
-          :is-judge="isJudge"
-          @draw="emit('drawBlackCard')"
-      />
-    </div>
-
-    <!-- Current Black Card -->
-    <div class="flex items-center justify-center">
-      <BlackCard
-          v-if="gameState.blackCard"
-          :text="gameState.blackCard.text"
-          :card-pack="gameState.blackCard.pack || 'core'"
-          :back-logo-url="'/img/unfit_logo_alt_dark.png'"
-          :mask-url="'/img/textures/hexa2.png'"
-      />
-    </div>
-
-    <!-- Player List / Sidebar -->
-    <div class="row-span-2 flex flex-col gap-2 w-64">
-      <PlayerList
-          :players="players"
-          :hostUserId="lobby.hostUserId"
-          :lobbyId="lobby.$id"
-          :allow-moderation="true"
-      />
-      <UButton
-          class="mt-4 bg-red-700 hover:bg-red-600 text-white"
-          icon="i-lucide-log-out"
-          @click="emit('leave')"
+  <div class="p-4">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold">Round {{ state?.round }}</h2>
+      <button 
+        class="leave-button"
+        @click="handleLeave"
       >
-        Leave Lobby
-      </UButton>
+        Leave Game
+      </button>
     </div>
 
-    <!-- Submitted Cards Area -->
-    <div v-if="isJudge && Object.keys(gameState.playedCards || {}).length" class="flex flex-wrap gap-4 justify-center items-start">
-      <SubmittedCards
-          :lobby="lobby"
-          @select="emit('selectWinner', $event)"
+    <!-- Submission Phase -->
+    <div v-if="isSubmitting">
+      <p class="mb-4">🖤 <strong>Prompt:</strong> {{ blackCard.text }}</p>
+
+      <!-- Show message for the Judge -->
+      <div v-if="isCzar" class="text-center p-4">
+        <p class="text-xl font-bold">You are the Judge for this round!</p>
+        <p class="mt-2">Wait for other players to submit their cards.</p>
+      </div>
+
+      <!-- User's hand will be displayed at the bottom of the screen (only for non-Judges) -->
+      <UserHand 
+        v-else
+        :cards="myHand" 
+        :disabled="!!submissions[myId]"
+        :cards-to-select="blackCard.pick"
+        @select-cards="handleCardSubmit"
       />
     </div>
 
-    <!-- White Card Hand -->
-    <div v-if="isPlaying && hand.length" class="col-span-3 flex justify-center gap-4">
-      <WhiteCard
-          v-for="cardId in hand"
-          :key="cardId"
-          :card-id="cardId"
-          :text="whiteCardTexts[cardId]"
-          :disabled="hasSubmittedCard"
-          :card-pack="'core'"
-          :back-logo-url="'/img/unfit_logo_alt_dark.png'"
-          :mask-url="'/img/textures/hexa2.png'"
-          @click="() => emit('submitCard', cardId)"
-      />
+    <!-- Judging Phase -->
+    <div v-else-if="isJudging">
+      <p class="mb-4">👑 <strong>Judge:</strong> {{ czarId }}</p>
+      <div v-if="isCzar" class="grid grid-cols-4 gap-2">
+        <button
+            v-for="sub in otherSubmissions"
+            :key="sub.playerId"
+            class="card submission"
+            @click="handleSelectWinner(sub.playerId)"
+        >
+          {{ sub.cards.join(', ') }}<br><small>(by {{ sub.playerId }})</small>
+        </button>
+      </div>
+      <p v-else class="italic">Waiting for the judge to pick the funniest submission...</p>
+    </div>
+
+    <!-- Game Over -->
+    <div v-else-if="isComplete">
+      <h3 class="text-lg font-semibold">🏁 Game Over</h3>
+      <ul class="mt-2 space-y-1">
+        <li v-for="entry in leaderboard" :key="entry.playerId">
+          {{ entry.playerId }} — {{ entry.points }} points
+        </li>
+      </ul>
+    </div>
+
+    <!-- Fallback -->
+    <div v-else>
+      <p class="italic">Waiting for game state...</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref } from 'vue';
-import type { Lobby } from '~/types/lobby';
-import type { Player } from '~/types/player';
-import { useGame } from '~/composables/useGame';
-import PlayerList from '~/components/PlayerList.vue';
-import WhiteCard from '~/components/whiteCard.vue';
-import BlackCard from '~/components/blackCard.vue';
-import BlackCardStack from '~/components/BlackCardStack.vue';
-import SubmittedCards from '~/components/SubmittedCards.vue';
+import { ref } from 'vue'
+import type { Player } from '~/types/player'
+import type { Lobby } from '~/types/lobby'
+import { useGameContext } from '~/composables/useGameContext'
+import { useGameActions } from '~/composables/useGameActions'
+import { useUserStore } from '~/stores/userStore'
+import { useLobby } from '~/composables/useLobby'
+import UserHand from '~/components/game/UserHand.vue'
 
-const props = defineProps<{
-  lobby: Lobby;
-  players: Player[];
-  whiteCardTexts: Record<string, string>;
-}>();
-
+const props = defineProps<{ lobby: Lobby; players: Player[] }>()
 const emit = defineEmits<{
-  (e: 'submitCard', cardId: string): void;
-  (e: 'selectWinner', cardId: string): void;
-  (e: 'drawBlackCard'): void;
-  (e: 'leave'): void;
-}>();
+  (e: 'leave'): void
+}>()
 
-const { gameState, getHand, hasSubmittedCard, isJudge, isPlaying } = useGame(ref(props.lobby));
-const hand = computed(() => getHand.value);
+const { state, isSubmitting, isJudging, isComplete, isCzar, myHand, submissions, otherSubmissions, czarId, blackCard, leaderboard } = useGameContext(ref(props.lobby))
+const { submitCards, selectWinner } = useGameActions()
+const { leaveLobby } = useLobby()
+const userStore = useUserStore()
+const myId = userStore.user?.$id ?? ''
+
+function handleCardSubmit(cardIds: string[]) {
+  submitCards(props.lobby.$id, myId, cardIds)
+}
+
+function handleSelectWinner(playerId: string) {
+  selectWinner(props.lobby.$id, playerId)
+}
+
+function handleLeave() {
+  // Call the leaveLobby function from useLobby
+  leaveLobby(props.lobby.$id, myId)
+  // Emit the leave event to the parent component
+  emit('leave')
+}
 </script>
 
 <style scoped>
-.game-board {
-  overflow: hidden;
+.card { padding: 1rem; background: white; color: black; border-radius: 0.5rem; }
+.white { background: #f8f8f8; }
+.submission { background: #ffeeba; }
+
+.leave-button {
+  background-color: #e74c3c;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.leave-button:hover {
+  background-color: #c0392b;
 }
 </style>

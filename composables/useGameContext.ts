@@ -1,82 +1,65 @@
 // composables/useGameContext.ts
-import { computed, ref, watch } from 'vue'
 import type { Lobby } from '~/types/lobby'
-import type { GameState } from '~/types/game'
+import { useGameState } from '~/composables/useGameState'
 import { useUserStore } from '~/stores/userStore'
 
-// Decoding JSON safely
-function decodeGameState(raw: string | object | null): GameState | null {
-    try {
-        if (!raw) return null
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-        // Ensure the parsed object matches the GameState type
-        if (parsed && typeof parsed === 'object' && 'phase' in parsed && 'round' in parsed) {
-            return parsed as GameState
-        }
-        return null
-    } catch (err) {
-        console.error('Failed to decode game state:', err)
-        return null
-    }
-}
-
-export const useGameContext = (lobby: Ref<Lobby | null>) => {
+/**
+ * Provides reactive access to the decoded game state stored in lobby.gameState
+ * and useful computed properties for UI phases, current czar, cards, etc.
+ */
+export function useGameContext(lobbyRef: Ref<Lobby | null>) {
     const userStore = useUserStore()
-    const gameState = ref<GameState | null>(null)
+    const { decodeGameState } = useGameState()
 
-    // Watch for changes in lobby.gameState
-    watch(
-        () => lobby.value?.gameState,
-        (rawState) => {
-            if (!rawState) return
-            gameState.value = decodeGameState(rawState)
-        },
-        { immediate: true }
-    )
-
-    const phase = computed(() => gameState.value?.phase || null)
-    const round = computed(() => gameState.value?.round ?? 0)
-    const currentUserId = computed(() => userStore.user?.$id)
-
-    // Phase helpers
-    const isWaiting = computed(() => phase.value === 'waiting')
-    const isPlaying = computed(() => phase.value === 'submitting')
-    const isJudging = computed(() => phase.value === 'judging')
-    const isComplete = computed(() => phase.value === 'complete')
-
-    // Role & state
-    const isJudge = computed(() => currentUserId.value === gameState.value?.judge)
-    const getHand = computed(() => gameState.value?.hands?.[currentUserId.value!] ?? [])
-    const getScoreForPlayer = (userId: string) => gameState.value?.scores?.[userId] ?? 0
-    const hasSubmittedCard = computed(() =>
-        gameState.value?.playedCards?.[currentUserId.value!] !== undefined
-    )
-    const canRevealWinner = computed(() =>
-        isJudge.value &&
-        isJudging.value &&
-        Object.keys(gameState.value?.playedCards ?? {}).length > 0
-    )
-    const getPlayedCard = computed(() => gameState.value?.playedCards?.[currentUserId.value!] ?? null)
-    const getRemainingPlayers = computed(() => {
-        const allPlayers = Object.keys(gameState.value?.players ?? {})
-        const played = Object.keys(gameState.value?.playedCards ?? {})
-        return allPlayers.filter((id) => !played.includes(id))
+    // Decode the game state string into a JS object on every change
+    const state = computed(() => {
+        if (!lobbyRef.value) return null
+        return decodeGameState(lobbyRef.value.gameState)
     })
 
+    // Helper: current user ID
+    const myId = computed(() => userStore.user?.$id ?? '')
+
     return {
-        gameState,
-        phase,
-        round,
-        isWaiting,
-        isPlaying,
-        isJudging,
-        isComplete,
-        isJudge,
-        getHand,
-        getScoreForPlayer,
-        hasSubmittedCard,
-        canRevealWinner,
-        getPlayedCard,
-        getRemainingPlayers
+        state,
+        // UI phases
+        isWaiting:    computed(() => state.value?.phase === 'waiting'),
+        isSubmitting: computed(() => state.value?.phase === 'submitting'),
+        isPlaying:    computed(() => state.value?.phase === 'submitting'),
+        isJudging:    computed(() => state.value?.phase === 'judging'),
+        isComplete:   computed(() => state.value?.phase === 'complete'),
+
+        // Czar info
+        czarId:       computed(() => state.value?.czarId ?? null),
+        isCzar:       computed(() => myId.value === state.value?.czarId),
+
+        // Black card prompt
+        blackCard:    computed(() => state.value?.blackCard ?? null),
+
+        // Submissions map
+        submissions:  computed(() => state.value?.submissions ?? {}),
+        mySubmission: computed(() => state.value?.submissions?.[myId.value] ?? null),
+        otherSubmissions: computed(() => {
+            const subs = state.value?.submissions || {}
+            return Object.entries(subs)
+                .filter(([pid]) => pid !== myId.value)
+                .map(([pid, cards]) => ({ playerId: pid, cards }))
+        }),
+
+        // Hands map
+        hands:        computed(() => state.value?.hands ?? {}),
+        myHand:       computed(() => state.value?.hands?.[myId.value] ?? []),
+
+        // Scoring
+        scores:       computed(() => state.value?.scores ?? {}),
+        leaderboard: computed(() => {
+            // scores are stored as Record<playerId, number>
+            const sc = (state.value?.scores || {}) as Record<string, number>
+            // Typed entries for safe number comparisons
+            const entries = Object.entries(sc) as [string, number][]
+            return entries
+                .map(([pid, pts]) => ({ playerId: pid, points: pts }))
+                .sort((a, b) => b.points - a.points)
+        }),
     }
 }

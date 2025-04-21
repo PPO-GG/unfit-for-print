@@ -1,10 +1,11 @@
 import {defineStore} from "pinia";
 import {type Models, OAuthProvider} from "appwrite";
+import type { AuthUser } from '~/types/auth'
 import {useAppwrite} from "~/composables/useAppwrite";
 
 export const useUserStore = defineStore("user", {
     state: () => ({
-        user: null as Models.User<Models.Preferences> | null,
+        user: null as AuthUser | null,
         session: null as Models.Session | null,
         accessToken: "" as string | null,
         isLoggedIn: false,
@@ -26,34 +27,41 @@ export const useUserStore = defineStore("user", {
         async loginWithProvider(provider: 'google' | 'discord') {
             if (import.meta.server) return;
             const account = this.getAccount();
-            if (!account) return;
+            if (!account) {
+                console.error('No account instance available');
+                return;
+            }
 
-            const config  = useRuntimeConfig();
-            const redirect = config.public.baseUrl
+            const config = useRuntimeConfig();
+            const redirect = config.public.baseUrl + '/auth/callback'  // Make sure this points to your callback page
             const providerEnum = {
-                google:  OAuthProvider.Google,
+                google: OAuthProvider.Google,
                 discord: OAuthProvider.Discord,
             }[provider];
 
-            // 1️⃣ If we’re currently an anonymous session, clear it
+            // Log the configuration
+            console.log(`OAuth login attempt - Provider: ${provider}`);
+            console.log('Redirect URL:', redirect);
+
             try {
                 const current = await account.getSession('current');
                 if (current.provider === 'anonymous') {
+                    console.log('Clearing anonymous session');
                     await account.deleteSession('current');
                 }
-            } catch {
-                // no session to delete — ignore
+            } catch (err) {
+                console.log('No existing session to clear');
             }
 
-            // 2️⃣ Kick off the real OAuth flow
             try {
-                console.log(`🔐 OAuth login with ${provider}`);
-                console.log('⚙️ runtimeConfig.public:', config.public)
-                console.log('⚙️ computed redirect URL:', redirect)
                 account.createOAuth2Session(providerEnum, redirect, redirect);
             } catch (err: any) {
-                console.error(`❌ OAuth login (${provider}) failed:`, err.message || err);
-
+                console.error(`OAuth initialization failed (${provider}):`, {
+                    message: err.message,
+                    stack: err.stack,
+                    type: err.constructor.name
+                });
+                throw err;
             }
         },
 

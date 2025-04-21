@@ -1,5 +1,11 @@
 <template>
-  <div class="p-6 space-y-6 text-white">
+  <div class="p-6 space-y-6 text-white bg-transparent">
+    <ScrollingBackground
+        :scale="0.5"
+        :gap="12"
+        :speedPx="15"
+    />
+
     <div class="flex flex-wrap justify-center gap-8">
       <BlackCard
           v-if="blackCard"
@@ -40,8 +46,8 @@
     </UButton>
 
     <div class="space-x-4">
-      <UButton size="lg" @click="showJoin = true">Join Game</UButton>
-      <UButton size="lg" v-if="showIfAuthenticated" @click="showCreate = true">Create Game</UButton>
+      <UButton size="lg" @click="checkForActiveLobbyAndJoin">Join Game</UButton>
+      <UButton size="lg" v-if="showIfAuthenticated" @click="checkForActiveLobbyAndCreate">Create Game</UButton>
     </div>
 
     <!-- Modals -->
@@ -64,6 +70,9 @@ import { ref } from 'vue';
 import {useCards} from "~/composables/useCards";
 import { useRouter } from 'vue-router';
 import { useUserAccess } from '~/composables/useUserUtils';
+import { useLobby } from '~/composables/useLobby';
+import { useUserStore } from '~/stores/userStore';
+import ScrollingBackground from "~/components/ScrollingBackground.vue";
 
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
@@ -79,6 +88,8 @@ const { client } = useAppwrite()
 const showJoin = ref(false);
 const showCreate = ref(false);
 const router = useRouter();
+const userStore = useUserStore();
+const { getActiveLobbyForUser } = useLobby();
 const { showIfAuthenticated } = useUserAccess();
 
 const fetchNewCards = async () => {
@@ -102,8 +113,58 @@ const fetchNewCards = async () => {
   });
 };
 
-const handleJoined = (code: string) => {
-  router.push(`/game/${code}`);
+const handleJoined = (code: string, isCreator = false) => {
+  router.push(`/game/${code}${isCreator ? '?creator=true' : ''}`);
+};
+
+const checkForActiveLobbyAndJoin = async () => {
+  if (!userStore.user) {
+    showJoin.value = true;
+    return;
+  }
+
+  try {
+    const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
+    if (activeLobby) {
+      notify({
+        title: 'Redirecting to your active game',
+        color: 'info',
+        icon: 'i-mdi-controller',
+        duration: 2000,
+      });
+      router.push(`/game/${activeLobby.code}`);
+    } else {
+      showJoin.value = true;
+    }
+  } catch (error) {
+    console.error('Error checking for active lobby:', error);
+    showJoin.value = true;
+  }
+};
+
+const checkForActiveLobbyAndCreate = async () => {
+  if (!userStore.user) {
+    showCreate.value = true;
+    return;
+  }
+
+  try {
+    const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
+    if (activeLobby) {
+      notify({
+        title: 'Redirecting to your active game',
+        color: 'info',
+        icon: 'i-mdi-controller',
+        duration: 2000,
+      });
+      router.push(`/game/${activeLobby.code}`);
+    } else {
+      showCreate.value = true;
+    }
+  } catch (error) {
+    console.error('Error checking for active lobby:', error);
+    showCreate.value = true;
+  }
 };
 
 onMounted(() => {

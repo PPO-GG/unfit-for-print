@@ -140,7 +140,7 @@ const shineStyle = computed(() => {
     maskSize: "cover",
     WebkitMaskPosition: "center",
     maskPosition: "center",
-    opacity: 0.25,
+    opacity: 0.125,
     transition: "background-position 250ms linear, background 250ms linear",
   };
 });
@@ -309,11 +309,11 @@ onMounted(async () => {
   border-radius: 12px;
 }
 .card__front {
-  background-color: rgba(28, 35, 66, 0.5);
+  background-color: rgba(28, 35, 66);
 }
 
 .card__back {
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(28, 35, 66);
   transform: rotateY(180deg);
 }
 
@@ -326,6 +326,7 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   border-radius: 12px;
+  opacity: 0.25;
 }
 
 /* We'll use backface-visibility instead of display:none to allow 3D effects */
@@ -343,7 +344,7 @@ onMounted(async () => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 2; /* Higher z-index to ensure it's on top */
+  z-index: 100; /* Higher z-index to ensure it's on top */
   border-radius: 12px;
 }
 
