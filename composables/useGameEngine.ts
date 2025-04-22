@@ -4,7 +4,7 @@ import type { Player } from '~/types/player';
 interface GameState {
     phase: 'submitting' | 'judging' | 'reviewing';
     round: number;
-    judge: string;
+    czarId: string;
     blackCard: { id: string; text: string } | null;
     playedCards: Record<string, string>;
     hands: Record<string, string[]>;
@@ -46,12 +46,12 @@ export const useGameEngine = () => {
             hands[player.userId] = whiteDeck.splice(0, 7);
         }
 
-        const judge = players[Math.floor(Math.random() * players.length)].userId;
+        const czarId = players[Math.floor(Math.random() * players.length)].userId;
 
         return {
             phase: 'submitting',
             round: 1,
-            judge,
+            czarId,
             blackCard: blackDeck.shift() ?? null,
             playedCards: {},
             hands,
