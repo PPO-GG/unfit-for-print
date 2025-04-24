@@ -455,6 +455,42 @@ export const useLobby = () => {
         });
     };
 
+    const resetGameState = async (lobbyId: string) => {
+        const { databases } = getAppwrite();
+        const config = getConfig();
+
+        try {
+            // Get the current lobby
+            const lobby = await databases.getDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteLobbyCollectionId,
+                lobbyId
+            );
+
+            // Decode the current game state
+            const state = decodeGameState(lobby.gameState);
+
+            // Update the game state to waiting phase
+            state.phase = 'waiting';
+
+            // Update the lobby status and game state
+            await databases.updateDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteLobbyCollectionId,
+                lobbyId,
+                {
+                    status: 'waiting',
+                    gameState: encodeGameState(state)
+                }
+            );
+
+            return true;
+        } catch (error) {
+            console.error('Error resetting game state:', error);
+            throw error;
+        }
+    };
+
     return {
         players,
         fetchPlayers,
@@ -469,5 +505,6 @@ export const useLobby = () => {
         promoteToHost,
         getActiveLobbyForUser,
         createPlayerIfNeeded,
+        resetGameState,
     };
 };

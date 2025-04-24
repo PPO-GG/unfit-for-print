@@ -15,8 +15,12 @@ import type {Player} from '~/types/player';
 const route = useRoute()
 const code = route.params.code as string
 
-// Optional: fetch lobby data so it exists at SSR time
+const { data: lobbyCode } = await useAsyncData(`lobby-${code}`, () =>
+    $fetch(`/api/lobby/${code}`)
+)
 
+const lobbyName = lobbyCode.value?.name ?? 'Unfit Lobby'
+const lobbyHost = lobbyCode.value?.hostUserId ?? 'Unknown'
 
 useHead({
   title: `Unfit for Print | Game ${code}`,
@@ -44,10 +48,10 @@ const showJoinModal = ref(false);
 const joinedLobby = ref(false);
 
 const {notify} = useNotifications();
-const {getLobbyByCode, leaveLobby, toPlainLobby, getActiveLobbyForUser} = useLobby();
+const {getLobbyByCode, leaveLobby, toPlainLobby, getActiveLobbyForUser, resetGameState} = useLobby();
 const {getPlayersForLobby} = usePlayers();
 const {initSessionIfNeeded} = useJoinLobby();
-const {isPlaying, isWaiting, isComplete, isJudging} = useGameContext(lobby);
+const {isPlaying, isWaiting, isComplete, isJudging, leaderboard} = useGameContext(lobby);
 
 const setupRealtime = async (lobbyData: Lobby) => {
   const {client} = getAppwrite();
@@ -211,6 +215,32 @@ const handleLeave = async () => {
 const handleDrawBlackCard = () => {
   console.log('🖤 drawBlackCard');
 };
+
+const getPlayerName = (playerId: string): string => {
+  const player = players.value.find(p => p.userId === playerId);
+  return player?.name || 'Unknown Player';
+};
+
+const handleContinue = async () => {
+  if (!lobby.value) return;
+
+  try {
+    // Reset the game state to return to the waiting room
+    await resetGameState(lobby.value.$id);
+    notify({
+      title: 'Returned to lobby',
+      color: 'success',
+      icon: 'i-mdi-check-circle'
+    });
+  } catch (err) {
+    console.error('Failed to return to lobby:', err);
+    notify({
+      title: 'Failed to return to lobby',
+      color: 'error',
+      icon: 'i-mdi-alert-circle'
+    });
+  }
+};
 </script>
 
 <template>
@@ -245,9 +275,50 @@ const handleDrawBlackCard = () => {
     />
 
     <!-- Game complete -->
-    <div v-else-if="isComplete">
-      <h2 class="text-3xl font-bold text-center">Game Over</h2>
-      <!-- Add FinalScore.vue or similar component -->
+    <div v-else-if="isComplete && lobby && players" class="max-w-4xl mx-auto py-8 px-4">
+      <h2 class="text-3xl font-bold text-center mb-6">Game Over</h2>
+
+      <!-- Winner display -->
+      <div class="bg-slate-800 rounded-lg p-6 mb-8 text-center">
+        <h3 class="text-2xl font-bold mb-4">Winner</h3>
+        <div v-if="leaderboard.length > 0" class="flex flex-col items-center">
+          <div class="text-yellow-400 text-5xl mb-2">🏆</div>
+          <div class="text-2xl font-bold text-yellow-400">
+            {{ getPlayerName(leaderboard[0].playerId) }}
+          </div>
+          <div class="text-xl mt-2">
+            {{ leaderboard[0].points }} points
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="bg-slate-800 rounded-lg p-6 mb-8">
+        <h3 class="text-xl font-bold mb-4 text-center">Final Scores</h3>
+        <div class="space-y-2">
+          <div v-for="(entry, index) in leaderboard" :key="entry.playerId" 
+               class="flex justify-between items-center p-2 rounded"
+               :class="index === 0 ? 'bg-yellow-900/30' : 'bg-slate-700/50'">
+            <div class="flex items-center">
+              <span class="w-8 text-center">{{ index + 1 }}</span>
+              <span>{{ getPlayerName(entry.playerId) }}</span>
+            </div>
+            <span class="font-bold">{{ entry.points }} pts</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Continue button -->
+      <div class="text-center mt-8">
+        <UButton
+          @click="handleContinue"
+          icon="i-lucide-arrow-right"
+          color="primary"
+          size="lg"
+        >
+          Continue to Lobby
+        </UButton>
+      </div>
     </div>
 
     <!-- Catch-all fallback -->
