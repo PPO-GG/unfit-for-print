@@ -10,17 +10,21 @@
     />
 
     <div class="mt-4">
+      <div v-if="players.length >= 3">
       <UButton
-          v-if="isHost && players.length >= 3"
+          v-if="isHost"
           @click="startGameWrapper"
           icon="i-lucide-play"
       >
         Start Game
       </UButton>
-
-      <p v-if="!isHost" class="text-gray-400 text-sm">
-        Waiting for the host to start...
-      </p>
+        <p v-if="!isHost" class="text-gray-400 text-sm">
+          Waiting for the host to start...
+        </p>
+      </div>
+      <div v-else>
+        <p>We need at least 3 players to start the game!</p>
+      </div>
 
       <button
           @click="leave"
@@ -59,7 +63,7 @@ const isHost = computed(() =>
 const startGameWrapper = async () => {
   if (!props.lobby) return;
   try {
-    await startGame(props.lobby.$id, props.lobby.hostUserId);
+    await startGame(props.lobby.$id);  // Remove hostUserId parameter
   } catch (err) {
     console.error('Failed to start game:', err);
   }

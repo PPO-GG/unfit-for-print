@@ -6,6 +6,7 @@ export interface AppwriteContext {
     account: Account;
     databases: Databases;
     functions: Functions;
+    safeConfig?: any; // Safe configuration with string-enforced collection IDs
 }
 
 declare module '#app' {

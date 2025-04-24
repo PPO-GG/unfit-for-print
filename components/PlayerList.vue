@@ -10,6 +10,10 @@ const props = defineProps<{
   players: Player[]
   hostUserId: string
   lobbyId: string
+  czarId?: string
+  submissions?: Record<string, any>
+  gamePhase?: string
+  scores?: Record<string, number>
 }>()
 
 // Create a ref for the lobby and initialize it with basic data
@@ -68,6 +72,10 @@ const promote = async (player: Player) => {
 }
 
 const getScoreForPlayer = (playerId: string) => {
+  // Use the scores prop if available, otherwise fall back to the scores from useGameContext
+  if (props.scores && playerId in props.scores) {
+    return props.scores[playerId]
+  }
   return scores.value[playerId] || 0
 }
 </script>
@@ -79,30 +87,94 @@ const getScoreForPlayer = (playerId: string) => {
       <li
           v-for="player in sortedPlayers"
           :key="player.$id"
-          class="flex items-center gap-2"
+          class="flex items-center gap-2 p-2 mb-2 rounded-lg"
+          :class="{
+            'bg-yellow-900/30 border border-yellow-500/30': player.userId === czarId,
+            'bg-blue-900/30 border border-blue-500/30': player.userId === currentUserId,
+            'bg-slate-800/50': player.userId !== czarId && player.userId !== currentUserId
+          }"
       >
-        <span v-if="player.userId === hostUserId">
-          <Icon name="solar:crown-minimalistic-bold" class="align-middle text-slate-100"/>
+        <!-- Host Crown -->
+        <span v-if="player.userId === hostUserId" class="text-yellow-400">
+          <Icon name="solar:crown-minimalistic-bold" class="align-middle"/>
         </span>
-        <span>{{ player.name || "Unknown Player" }}</span>
-        <span class="ml-auto font-mono text-sm text-green-400">
+
+        <!-- Player Name -->
+        <span class="font-medium">{{ player.name || "Unknown Player" }}</span>
+
+        <!-- Player Status Indicators -->
+        <div class="flex items-center ml-auto mr-2 gap-2">
+          <!-- Card Czar Indicator -->
+          <span v-if="player.userId === czarId" class="status-badge bg-yellow-500/20 text-yellow-300">
+            <Icon name="mdi:gavel" class="mr-1" />Judge
+          </span>
+
+          <!-- Submitted Indicator -->
+          <span 
+            v-else-if="submissions && submissions[player.userId]" 
+            class="status-badge bg-green-500/20 text-green-300"
+          >
+            <Icon name="mdi:check-circle" class="mr-1" />Submitted
+          </span>
+
+          <!-- Waiting Indicator -->
+          <span 
+            v-else-if="gamePhase === 'submitting'" 
+            class="status-badge bg-blue-500/20 text-blue-300"
+          >
+            <Icon name="mdi:timer-sand" class="mr-1" />Choosing
+          </span>
+        </div>
+
+        <!-- Player Score -->
+        <span class="font-mono text-sm bg-slate-700/50 px-2 py-1 rounded text-green-400">
           {{ getScoreForPlayer(player.userId) }}
         </span>
-        <button
-            v-if="isHost && player.userId !== currentUserId && player.provider !== 'anonymous'"
-            @click="promote(player)"
-            class="text-yellow-400 hover:text-yellow-500 text-xs ml-2"
-        >
-          Promote
-        </button>
-        <button
-            v-if="isHost && player.userId !== currentUserId"
-            @click="kick(player)"
-            class="text-red-400 hover:text-red-500 text-xs"
-        >
-          Kick
-        </button>
+
+        <!-- Admin Actions -->
+        <div class="flex gap-1">
+          <button
+              v-if="isHost && player.userId !== currentUserId && player.provider !== 'anonymous'"
+              @click="promote(player)"
+              class="admin-btn text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/30"
+          >
+            <Icon name="mdi:crown" />
+          </button>
+          <button
+              v-if="isHost && player.userId !== currentUserId"
+              @click="kick(player)"
+              class="admin-btn text-red-400 hover:text-red-300 hover:bg-red-900/30"
+          >
+            <Icon name="mdi:account-remove" />
+          </button>
+        </div>
       </li>
     </ul>
   </div>
 </template>
+
+<style scoped>
+.status-badge {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+}
+
+.admin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.25rem;
+  background-color: rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.admin-btn:hover {
+  transform: translateY(-2px);
+}
+</style>

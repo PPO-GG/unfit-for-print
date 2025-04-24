@@ -6,6 +6,7 @@
       "~/types/appwrite",
       "~/types/lobby",
       "~/types/player",
+      "~/types/game"
     ]
   }
 }

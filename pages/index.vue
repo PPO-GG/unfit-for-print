@@ -46,8 +46,8 @@
     </UButton>
 
     <div class="space-x-4">
-      <UButton size="lg" @click="checkForActiveLobbyAndJoin">Join Game</UButton>
-      <UButton size="lg" v-if="showIfAuthenticated" @click="checkForActiveLobbyAndCreate">Create Game</UButton>
+      <UButton size="lg" @click="checkForActiveLobbyAndJoin" :loading="isJoining">Join Game</UButton>
+      <UButton size="lg" v-if="showIfAuthenticated" @click="checkForActiveLobbyAndCreate" :loading="isCreating">Create Game</UButton>
     </div>
 
     <!-- Modals -->
@@ -73,6 +73,11 @@ import { useUserAccess } from '~/composables/useUserUtils';
 import { useLobby } from '~/composables/useLobby';
 import { useUserStore } from '~/stores/userStore';
 import ScrollingBackground from "~/components/ScrollingBackground.vue";
+const route = useRoute()
+const code = route.params.code as string
+useHead({
+  title: `Unfit for Print`,
+})
 
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
@@ -87,6 +92,8 @@ const { client } = useAppwrite()
 
 const showJoin = ref(false);
 const showCreate = ref(false);
+const isJoining = ref(false);
+const isCreating = ref(false);
 const router = useRouter();
 const userStore = useUserStore();
 const { getActiveLobbyForUser } = useLobby();
@@ -114,41 +121,32 @@ const fetchNewCards = async () => {
 };
 
 const handleJoined = (code: string, isCreator = false) => {
+  notify({
+    title: 'Loading game lobby...',
+    color: 'info',
+    icon: 'i-mdi-loading i-spin',
+    duration: 3000,
+  });
   router.push(`/game/${code}${isCreator ? '?creator=true' : ''}`);
 };
 
-const checkForActiveLobbyAndJoin = async () => {
-  if (!userStore.user) {
-    showJoin.value = true;
-    return;
-  }
-
-  try {
-    const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
-    if (activeLobby) {
-      notify({
-        title: 'Redirecting to your active game',
-        color: 'info',
-        icon: 'i-mdi-controller',
-        duration: 2000,
-      });
-      router.push(`/game/${activeLobby.code}`);
-    } else {
-      showJoin.value = true;
-    }
-  } catch (error) {
-    console.error('Error checking for active lobby:', error);
-    showJoin.value = true;
-  }
-};
-
 const checkForActiveLobbyAndCreate = async () => {
-  if (!userStore.user) {
-    showCreate.value = true;
-    return;
-  }
-
   try {
+    isCreating.value = true;
+
+    if (!userStore.user) {
+      showCreate.value = true;
+      return;
+    }
+
+    // Log runtime configuration for debugging
+    const config = useRuntimeConfig();
+    console.log('Runtime configuration before creating lobby:', {
+      databaseId: config.public.appwriteDatabaseId,
+      lobbyCollectionId: config.public.appwriteLobbyCollectionId,
+      playerCollectionId: config.public.appwritePlayerCollectionId
+    });
+
     const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
     if (activeLobby) {
       notify({
@@ -157,13 +155,64 @@ const checkForActiveLobbyAndCreate = async () => {
         icon: 'i-mdi-controller',
         duration: 2000,
       });
-      router.push(`/game/${activeLobby.code}`);
+      await router.push(`/game/${activeLobby.code}`);
     } else {
       showCreate.value = true;
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    // Check if it's an AppwriteException with collection not found error
+    if (error instanceof Error &&
+        'code' in error &&
+        error.code === 404 &&
+        error.message?.includes('Collection with the requested ID could not be found')) {
+      console.warn('Collections not initialized, showing create dialog');
+      showCreate.value = true;
+      return;
+    }
+
     console.error('Error checking for active lobby:', error);
     showCreate.value = true;
+  } finally {
+    isCreating.value = false;
+  }
+};
+
+const checkForActiveLobbyAndJoin = async () => {
+  try {
+    isJoining.value = true;
+
+    if (!userStore.user) {
+      showJoin.value = true;
+      return;
+    }
+
+    const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
+    if (activeLobby) {
+      notify({
+        title: 'Redirecting to your active game',
+        color: 'info',
+        icon: 'i-mdi-controller',
+        duration: 2000,
+      });
+      await router.push(`/game/${activeLobby.code}`);
+    } else {
+      showJoin.value = true;
+    }
+  } catch (error: unknown) {
+    // Check if it's an AppwriteException with collection not found error
+    if (error instanceof Error &&
+        'code' in error &&
+        error.code === 404 &&
+        error.message?.includes('Collection with the requested ID could not be found')) {
+      console.warn('Collections not initialized, showing join dialog');
+      showJoin.value = true;
+      return;
+    }
+
+    console.error('Error checking for active lobby:', error);
+    showJoin.value = true;
+  } finally {
+    isJoining.value = false;
   }
 };
 

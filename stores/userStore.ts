@@ -33,13 +33,12 @@ export const useUserStore = defineStore("user", {
             }
 
             const config = useRuntimeConfig();
-            const redirect = config.public.baseUrl + '/auth/callback'  // Make sure this points to your callback page
+            const redirect = config.public.baseUrl + '/auth/callback'
             const providerEnum = {
                 google: OAuthProvider.Google,
                 discord: OAuthProvider.Discord,
             }[provider];
 
-            // Log the configuration
             console.log(`OAuth login attempt - Provider: ${provider}`);
             console.log('Redirect URL:', redirect);
 
@@ -54,7 +53,9 @@ export const useUserStore = defineStore("user", {
             }
 
             try {
+                // This will redirect the user and won't actually return anything
                 account.createOAuth2Session(providerEnum, redirect, redirect);
+                // The function execution stops here due to the redirect
             } catch (err: any) {
                 console.error(`OAuth initialization failed (${provider}):`, {
                     message: err.message,

@@ -3,7 +3,7 @@
 
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   vite: {
     server: {
       hmr: {
@@ -29,8 +29,8 @@ export default defineNuxtConfig({
       appwriteDatabaseId: process.env.NUXT_PUBLIC_APPWRITE_DATABASE,
       appwriteWhiteCardCollectionId: process.env.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID,
       appwriteBlackCardCollectionId: process.env.NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID,
-      appwriteLobbyCollectionId: process.env.NUXT_PUBLIC_APPWRITE_LOBBY_COLLECTION_ID,
-      appwritePlayerCollectionId: process.env.NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID,
+      appwriteLobbyCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_LOBBY_COLLECTION_ID}`,
+      appwritePlayerCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID}`,
       baseUrl: process.env.NUXT_PUBLIC_BASE_URL,
       oAuthRedirectUrl: process.env.NUXT_PUBLIC_OAUTH_REDIRECT_URL,
       oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,

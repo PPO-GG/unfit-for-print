@@ -82,7 +82,7 @@ const avatarUrl = computed(() => {
     <nav class="flex items-center gap-4">
       <template v-if="isAuthenticatedUser(userStore.user)">
         <NuxtLink to="/profile" class="hover:underline">Profile</NuxtLink>
-        <NuxtLink to="/lobby" class="hover:underline">Lobbies</NuxtLink>
+        <NuxtLink to="/game" class="hover:underline">Games</NuxtLink>
 
         <img
             v-if="avatarUrl"

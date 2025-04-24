@@ -1,4 +1,6 @@
 // composables/useGameContext.ts
+import { computed } from 'vue'
+import type { Ref } from 'vue'
 import type { Lobby } from '~/types/lobby'
 import { useGameState } from '~/composables/useGameState'
 import { useUserStore } from '~/stores/userStore'
@@ -25,7 +27,17 @@ export function useGameContext(lobbyRef: Ref<Lobby | null>) {
         // UI phases
         isWaiting:    computed(() => state.value?.phase === 'waiting'),
         isSubmitting: computed(() => state.value?.phase === 'submitting'),
-        isPlaying:    computed(() => state.value?.phase === 'submitting'),
+        isPlaying:    computed(() => {
+            // Log the values for debugging
+            console.log('[GameContext] Checking isPlaying:', {
+                lobbyStatus: lobbyRef.value?.status,
+                gamePhase: state.value?.phase
+            });
+            // Consider all active game phases as "playing"
+            const playingPhases = ['submitting', 'judging', 'roundEnd'];
+            return lobbyRef.value?.status === 'playing' || 
+                   (state.value?.phase && playingPhases.includes(state.value.phase));
+        }),
         isJudging:    computed(() => state.value?.phase === 'judging'),
         isComplete:   computed(() => state.value?.phase === 'complete'),
 

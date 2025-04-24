@@ -19,7 +19,7 @@ const decodeGameState = (raw) => {
   }
 }
 
-export default async function ({ req, res, error }) {
+export default async function ({ req, res, log, error }) {
   const client = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
@@ -29,9 +29,32 @@ export default async function ({ req, res, error }) {
   const DB = process.env.APPWRITE_DATABASE_ID
 
   try {
-    const { lobbyId, playerId, cardIds } = req.payload
+    const raw = req.body ?? req.payload ?? ''
+    log('Raw body:', raw)
 
-    const lobby = await databases.getDocument(DB, 'lobby', lobbyId)
+    if (!raw) {
+      throw new Error('Request body is empty')
+    }
+
+    // Parse JSON if needed
+    let payload = raw
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload)
+      } catch (e) {
+        throw new Error(`Failed to parse JSON body: ${e.message}`)
+      }
+    }
+
+    // Extract data from the payload
+    const { lobbyId, playerId, cardIds } = payload
+
+    // Check if required fields are present
+    if (!lobbyId) throw new Error('lobbyId is required')
+    if (!playerId) throw new Error('playerId is required')
+    if (!cardIds || !Array.isArray(cardIds)) throw new Error('cardIds must be an array')
+
+    const lobby = await databases.getDocument(DB, process.env.LOBBY_COLLECTION, lobbyId)
     const state = decodeGameState(lobby.gameState)
 
     if (state.phase !== 'submitting')  throw new Error('Not accepting submissions')
@@ -58,7 +81,7 @@ export default async function ({ req, res, error }) {
       state.phase = 'judging'
     }
 
-    await databases.updateDocument(DB, 'lobby', lobbyId, {
+    await databases.updateDocument(DB,process.env.LOBBY_COLLECTION, lobbyId, {
       gameState: encodeGameState(state)
     })
 

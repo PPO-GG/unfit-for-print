@@ -20,7 +20,7 @@ const decodeGameState = (raw) => {
   }
 }
 
-export default async function ({ req, res, error }) {
+export default async function ({ req, res, log, error }) {
   const client = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
@@ -30,9 +30,31 @@ export default async function ({ req, res, error }) {
   const DB = process.env.APPWRITE_DATABASE_ID
 
   try {
-    const { lobbyId, winnerId } = req.payload
+    const raw = req.body ?? req.payload ?? ''
+    log('Raw body:', raw)
 
-    const lobby = await databases.getDocument(DB, 'lobby', lobbyId)
+    if (!raw) {
+      throw new Error('Request body is empty')
+    }
+
+    // Parse JSON if needed
+    let payload = raw
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload)
+      } catch (e) {
+        throw new Error(`Failed to parse JSON body: ${e.message}`)
+      }
+    }
+
+    // Extract data from the payload
+    const { lobbyId, winnerId } = payload
+
+    // Check if required fields are present
+    if (!lobbyId) throw new Error('lobbyId is required')
+    if (!winnerId) throw new Error('winnerId is required')
+
+    const lobby = await databases.getDocument(DB, process.env.LOBBY_COLLECTION, lobbyId)
     const state = decodeGameState(lobby.gameState)
 
     if (state.phase !== 'judging') throw new Error('Not in judging phase')
@@ -60,13 +82,34 @@ export default async function ({ req, res, error }) {
       // Draw next black card
       state.discardBlack.push(state.blackCard.id)
       const nextBlack = state.blackDeck.shift()
-      const blackDoc = await databases.getDocument(DB, 'cards_black', nextBlack)
+      const blackDoc = await databases.getDocument(DB, process.env.BLACK_CARDS_COLLECTION, nextBlack)
       state.blackCard = { id: nextBlack, text: blackDoc.text, pick: blackDoc.pick }
 
-      // Refill hands
+      // Check if we need to reshuffle the discard pile
+      if (state.whiteDeck.length < Object.keys(state.hands).length * 7) {
+        log('Reshuffling discard pile into deck');
+        // Shuffle the discard pile
+        for (let i = state.discardWhite.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [state.discardWhite[i], state.discardWhite[j]] = [state.discardWhite[j], state.discardWhite[i]];
+        }
+        // Add the discard pile back to the deck
+        state.whiteDeck.push(...state.discardWhite);
+        // Clear the discard pile
+        state.discardWhite = [];
+      }
+
+      // Refill hands - ensure all players have exactly 7 cards
       pids.forEach(pid => {
-        const needed = 1
-        state.hands[pid].push(...state.whiteDeck.splice(0, needed))
+        // Calculate how many cards the player needs to reach 7
+        const currentHandSize = state.hands[pid].length;
+        // Calculate how many cards are needed to get back to 7
+        const cardsNeeded = 7 - currentHandSize;
+
+        // Add cards if needed
+        if (cardsNeeded > 0) {
+          state.hands[pid].push(...state.whiteDeck.splice(0, cardsNeeded));
+        }
       })
 
       // Reset submissions
@@ -75,7 +118,7 @@ export default async function ({ req, res, error }) {
       state.playedCards = {}
     }
 
-    await databases.updateDocument(DB, 'lobby', lobbyId, {
+    await databases.updateDocument(DB, process.env.LOBBY_COLLECTION, lobbyId, {
       status: state.phase === 'complete' ? 'complete' : 'playing',
       gameState: encodeGameState(state)
     })

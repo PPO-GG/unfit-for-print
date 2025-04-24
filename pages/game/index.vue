@@ -45,7 +45,7 @@ onMounted(async () => {
   if (userId) {
     const activeLobby = await getActiveLobbyForUser(userId)
     if (activeLobby?.code) {
-      return router.replace(`/${activeLobby.code}`)
+      return router.replace(`/game/${activeLobby.code}`)
     }
   }
 })

@@ -12,24 +12,55 @@ const encodeGameState = (state) => {
 }
 
 export default async function ({ req, res, log, error }) {
+  log('✅ ENV DEBUG:');
+  log('Endpoint:', process.env.APPWRITE_FUNCTION_API_ENDPOINT);
+  log('Project ID:', process.env.APPWRITE_FUNCTION_PROJECT_ID);
+  log('API Key exists?', !!process.env.APPWRITE_API_KEY);
+  log('Database ID:', process.env.APPWRITE_DATABASE_ID);
   // 1) Initialize Appwrite SDK
   const client = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
       .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-      .setKey(req.headers['x-appwrite-key'] ?? '')
+      .setKey(process.env.APPWRITE_FUNCTION_API_KEY);
 
   const databases = new Databases(client)
   const DB = process.env.APPWRITE_DATABASE_ID
 
   try {
-    const { lobbyId } = req.payload
+    const raw = req.body ?? req.payload ?? ''
+    log('Raw body:', raw)
+
+    if (!raw) {
+      throw new Error('Request body is empty')
+    }
+
+    // Parse JSON if needed
+    let payload = raw
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload)
+      } catch (e) {
+        throw new Error(`Failed to parse JSON body: ${e.message}`)
+      }
+    }
+
+    // Extract lobbyId from the payload
+    const lobbyId = payload.lobbyId
+
+    // Check if lobbyId is undefined or null
+    if (!lobbyId) {
+      throw new Error('lobbyId is undefined or null')
+    }
+
+    // Log the lobbyId for debugging
+    log('Using lobbyId:', lobbyId)
 
     // 2) Fetch lobby document
-    const lobby = await databases.getDocument(DB, 'lobby', lobbyId)
+    const lobby = await databases.getDocument(DB, process.env.LOBBY_COLLECTION, lobbyId)
 
     // 3) Load card decks
-    const whites = await databases.listDocuments(DB, 'cards_white', [])
-    const blacks = await databases.listDocuments(DB, 'cards_black', [])
+    const whites = await databases.listDocuments(DB, process.env.WHITE_CARDS_COLLECTION, [])
+    const blacks = await databases.listDocuments(DB, process.env.BLACK_CARDS_COLLECTION, [])
 
     // 4) Shuffle decks (Fisher–Yates)
     const shuffle = arr => {
@@ -43,7 +74,7 @@ export default async function ({ req, res, log, error }) {
     const blackDeck = shuffle(blacks.documents.map(d => d.$id))
 
     // 5) Deal initial hands
-    const playersRes = await databases.listDocuments(DB, 'players', [])
+    const playersRes = await databases.listDocuments(DB, process.env.PLAYER_COLLECTION, [])
     const playerIds = playersRes.documents.map(d => d.userId)
     const hands = {}
     playerIds.forEach(pid => {
@@ -71,7 +102,7 @@ export default async function ({ req, res, log, error }) {
     }
 
     // 7) Update lobby document
-    await databases.updateDocument(DB, 'lobby', lobbyId, {
+    await databases.updateDocument(DB, process.env.LOBBY_COLLECTION, lobbyId, {
       status: 'playing',
       gameState: encodeGameState(gameState)
     })

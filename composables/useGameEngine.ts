@@ -29,11 +29,11 @@ export const useGameEngine = () => {
     const generateGameState = async (players: Player[]): Promise<GameState> => {
         const whiteCards = await databases.listDocuments(
             config.public.appwriteDatabaseId,
-            'cards_white'
+            config.public.appwriteWhiteCardCollectionId,
         );
         const blackCards = await databases.listDocuments(
             config.public.appwriteDatabaseId,
-            'cards_black'
+            config.public.appwriteBlackCardCollectionId,
         );
 
         const whiteDeck = shuffle(whiteCards.documents.map((c) => c.$id));

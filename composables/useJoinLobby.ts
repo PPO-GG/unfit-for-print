@@ -76,7 +76,7 @@ export const useJoinLobby = () => {
             const config = useRuntimeConfig();
             const res = await databases.listDocuments(
                 config.public.appwriteDatabaseId,
-                'players',
+                config.public.appwritePlayerCollectionId,
                 [
                     Query.equal('userId', user.$id),
                     Query.equal('lobbyId', lobby.$id),

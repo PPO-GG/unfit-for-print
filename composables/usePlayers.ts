@@ -12,7 +12,7 @@ export const usePlayers = () => {
       const config = getConfig();
       const res = await databases.listDocuments(
           config.public.appwriteDatabaseId,
-          'players',
+          config.public.appwritePlayerCollectionId,
           [Query.equal('lobbyId', lobbyId)]
       );
 

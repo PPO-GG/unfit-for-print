@@ -4,15 +4,24 @@ import { ID } from 'appwrite'
 
 export function useGameActions() {
     const { functions } = useAppwrite()
+    const FUNCTIONS = {
+        START_GAME: '6807159b0034f2852a27',
+        PLAY_CARD: '6807155e000e80388d6a',
+        SELECT_WINNER: '680715ac001101e8038f'
+    }
+    const startGame = (lobbyId: string) => {
+        console.log('Calling startGame with lobbyId:', lobbyId)
+        // Convert payload to a JSON string
+        return functions.createExecution(FUNCTIONS.START_GAME, JSON.stringify({ lobbyId }))
+    }
 
-    const startGame = (lobbyId: string) =>
-        functions.createExecution('startGame', JSON.stringify({ lobbyId }))
-
-    const submitCards = (lobbyId: string, playerId: string, cardIds: string[]) =>
-        functions.createExecution('playCard', JSON.stringify({ lobbyId, playerId, cardIds }))
+    const playCard = (lobbyId: string, playerId: string, cardIds: string[]) =>
+        // Convert payload to a JSON string
+        functions.createExecution(FUNCTIONS.PLAY_CARD, JSON.stringify({ lobbyId, playerId, cardIds }))
 
     const selectWinner = (lobbyId: string, winnerId: string) =>
-        functions.createExecution('selectWinner', JSON.stringify({ lobbyId, winnerId }))
+        // Convert payload to a JSON string
+        functions.createExecution(FUNCTIONS.SELECT_WINNER, JSON.stringify({ lobbyId, winnerId }))
 
-    return { startGame, submitCards, selectWinner }
+    return { startGame, playCard, selectWinner }
 }

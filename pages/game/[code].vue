@@ -12,8 +12,29 @@ import {isAuthenticatedUser} from '~/composables/useUserUtils';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
 
+const route = useRoute()
+const code = route.params.code as string
+
+// Optional: fetch lobby data so it exists at SSR time
+
+
+useHead({
+  title: `Unfit for Print | Game ${code}`,
+  meta: [
+    { name: 'description', content: 'Join the chaos in Unfit for Print – a Cards Against Humanity-inspired party game!' },
+    { property: 'og:title', content: `Unfit for Print - Game ${code}` },
+    { property: 'og:description', content: 'A hilarious and chaotic web game. Join this lobby and play with friends!' },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: `https://ufp.ppo.gg/game/${code}` },
+    { property: 'og:image', content: `https://ufp.ppo.gg/api/og?code=${code}` },
+    { name: 'twitter:card', content: 'summary_large_image' },
+    { name: 'twitter:title', content: `Unfit for Print - Game ${code}` },
+    { name: 'twitter:description', content: 'Join this absurd card game and see who has the worst sense of humor.' },
+    { name: 'twitter:image', content: `https://ufp.ppo.gg/api/og?code=${code}` },
+  ],
+})
+
 const selfLeaving = ref(false);
-const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 const lobby = ref<Lobby | null>(null);
@@ -21,7 +42,6 @@ const players = ref<Player[]>([]);
 const loading = ref(true);
 const showJoinModal = ref(false);
 const joinedLobby = ref(false);
-const code = route.params.code as string;
 
 const {notify} = useNotifications();
 const {getLobbyByCode, leaveLobby, toPlainLobby, getActiveLobbyForUser} = useLobby();
