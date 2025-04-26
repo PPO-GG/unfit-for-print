@@ -1,10 +1,6 @@
 <template>
-  <ClientOnly>
-    <UApp>
-      <AppHeader />
-      <main>
-        <slot />
-      </main>
-    </UApp>
-  </ClientOnly>
+  <AppHeader />
+  <main>
+    <slot />
+  </main>
 </template>

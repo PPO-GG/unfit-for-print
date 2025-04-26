@@ -19,9 +19,6 @@ const { data: lobbyCode } = await useAsyncData(`lobby-${code}`, () =>
     $fetch(`/api/lobby/${code}`)
 )
 
-const lobbyName = lobbyCode.value?.name ?? 'Unfit Lobby'
-const lobbyHost = lobbyCode.value?.hostUserId ?? 'Unknown'
-
 useHead({
   title: `Unfit for Print | Game ${code}`,
   meta: [
@@ -49,7 +46,7 @@ const joinedLobby = ref(false);
 
 const {notify} = useNotifications();
 const {getLobbyByCode, leaveLobby, toPlainLobby, getActiveLobbyForUser, resetGameState} = useLobby();
-const {getPlayersForLobby} = usePlayers();
+const {getPlayersForLobby, getUserAvatarUrl} = usePlayers();
 const {initSessionIfNeeded} = useJoinLobby();
 const {isPlaying, isWaiting, isComplete, isJudging, leaderboard} = useGameContext(lobby);
 

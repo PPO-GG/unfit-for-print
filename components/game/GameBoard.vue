@@ -8,12 +8,12 @@
         </div>
         <h2 class="text-xl font-bold">Round {{ state?.round || 1 }}</h2>
       </div>
-      <button 
+      <UButton
         class="leave-button"
         @click="handleLeave"
       >
         Leave Game
-      </button>
+      </UButton>
     </div>
 
     <!-- Enhanced Player List -->
@@ -53,7 +53,7 @@
               :key="playerId" 
               class="card submission p-4"
             >
-              <p class="font-medium">{{ getPlayerName(playerId) }}</p>
+              <p class="font-medium">{{ getPlayerName(sub.playerId) }}</p>
               <p class="text-sm opacity-70">has submitted</p>
             </div>
           </div>
@@ -74,7 +74,7 @@
       </div>
 
       <!-- User's hand will be displayed at the bottom of the screen (only for non-Judges who haven't submitted) -->
-      <UserHand 
+      <UserHand
         v-else
         :cards="myHand" 
         :disabled="!!submissions[myId]"
@@ -142,6 +142,9 @@
                 :key="cardId"
                 :cardId="cardId" 
                 :flipped="!revealedCards[index]"
+                :shine=true
+                :back-logo-url="'/img/unfit_logo_alt_dark.png'"
+                :mask-url="'/img/textures/hexa2.png'"
               />
             </div>
           </div>

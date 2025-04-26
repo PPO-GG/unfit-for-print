@@ -1,45 +1,23 @@
 // composables/useSfx.ts
 
 /**
- * Interface for sound effect (SFX) options.
- * Simple static sound
- * play('/sounds/card-flip.wav')
- *
- * With random pitch and volume
- * play('/sounds/join.wav', {
- *     pitch: [0.95, 1.05],
- *     volume: [0.4, 0.8],
- * })
- *
- * Pick from a random list of sounds
- * play(['/sounds/blip1.wav', '/sounds/blip2.wav'], {
- *     pitch: 1,
- *     volume: 0.6,
- * })
- */
-
-
+ * Represents options for sound effects (SFX).
+ * - `volume`: Sets the volume of the sound. Can be a single number or an array*/
 interface SfxOptions {
-    /**
-     * Volume level or range for the audio.
-     * - If a single number is provided, it sets a fixed volume.
-     * - If a tuple [min, max] is provided, a random volume within the range is used.
-     */
     volume?: number | [number, number];
-
-    /**
-     * Pitch level or range for the audio.
-     * - If a single number is provided, it sets a fixed pitch.
-     * - If a tuple [min, max] is provided, a random pitch within the range is used.
-     */
     pitch?: number | [number, number];
+    id?: string;
 }
 
 /**
- * Utility function to get a random value within a range.
  *
- * @param val - A single number or a range [min, max].
- * @returns A random number within the range, or the number itself if a single value is provided.
+ */
+interface SpriteMap {
+    [key: string]: [startMs: number, durationMs: number];
+}
+
+/**
+ *
  */
 const getRandomInRange = (val: number | [number, number]): number => {
     if (typeof val === 'number') return val;
@@ -48,45 +26,87 @@ const getRandomInRange = (val: number | [number, number]): number => {
 };
 
 /**
- * Composable function to handle sound effects (SFX).
- * Provides a method to play audio files with optional volume and pitch adjustments.
  *
- * @returns An object containing the `play` method.
  */
-export const useSfx = () => {
-    /**
-     * Plays an audio file or a random file from a list of sources.
-     *
-     * @param src - A string representing the audio file path or an array of file paths.
-     * @param options - Optional settings for volume and pitch adjustments.
-     */
-    const playSfx = (src: string | string[], options: SfxOptions = {}) => {
-        // Select a random file if multiple sources are provided
-        const file = Array.isArray(src) ? src[Math.floor(Math.random() * src.length)] : src;
+export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
+    const audioContext = new AudioContext();
+    let spriteAudioBuffer: AudioBuffer | null = null;
 
-        try {
-            const audio = new Audio(file);
-
-            // Adjust playback rate (pitch) if specified
-            if (options.pitch !== undefined) {
-                audio.playbackRate = getRandomInRange(options.pitch);
-            }
-
-            // Adjust volume if specified
-            if (options.volume !== undefined) {
-                audio.volume = getRandomInRange(options.volume);
-            }
-
-            // Attempt to play the audio
-            audio.play().catch((err) => {
-                if (import.meta.dev) {
-                    console.warn('SFX play failed:', err);
-                }
+    if (spriteSrc) {
+        fetch(spriteSrc)
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+            .then(buffer => {
+                spriteAudioBuffer = buffer;
+            })
+            .catch(err => {
+                if (import.meta.dev) console.warn('Failed to load sprite audio:', err);
             });
-        } catch (err) {
-            if (import.meta.dev) {
-                console.warn('Failed to load audio:', err);
+    }
+
+    const playSfx = async (src: string | string[], options: SfxOptions = {}) => {
+        let bufferSource: AudioBufferSourceNode | null = null;
+        let gainNode: GainNode | null = null;
+
+        if (spriteAudioBuffer && spriteMap) {
+            let spriteToPlay: string | null = null;
+
+            if (options.id) {
+                spriteToPlay = options.id;
+            } else {
+                const spriteKeys = Object.keys(spriteMap);
+                if (spriteKeys.length > 0) {
+                    spriteToPlay = spriteKeys[Math.floor(Math.random() * spriteKeys.length)];
+                }
             }
+
+            if (spriteToPlay && spriteMap[spriteToPlay]) {
+                const [startMs, durationMs] = spriteMap[spriteToPlay];
+                const startSec = startMs / 1000;
+                const durationSec = durationMs / 1000;
+
+                bufferSource = audioContext.createBufferSource();
+                bufferSource.buffer = spriteAudioBuffer;
+                bufferSource.start(0, startSec, durationSec);
+
+                gainNode = audioContext.createGain();
+                bufferSource.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                if (options.pitch !== undefined) {
+                    bufferSource.playbackRate.value = getRandomInRange(options.pitch);
+                }
+
+                if (options.volume !== undefined) {
+                    gainNode.gain.value = getRandomInRange(options.volume);
+                }
+            }
+        } else {
+            const file = Array.isArray(src) ? src[Math.floor(Math.random() * src.length)] : src;
+
+            fetch(file)
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(buffer => {
+                    bufferSource = audioContext.createBufferSource();
+                    bufferSource.buffer = buffer;
+                    bufferSource.start(0);
+
+                    gainNode = audioContext.createGain();
+                    bufferSource.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    if (options.pitch !== undefined) {
+                        bufferSource.playbackRate.value = getRandomInRange(options.pitch);
+                    }
+
+                    if (options.volume !== undefined) {
+                        gainNode.gain.value = getRandomInRange(options.volume);
+                    }
+                })
+                .catch(err => {
+                    if (import.meta.dev) console.warn('Failed to load audio:', err);
+                });
         }
     };
 

@@ -6,13 +6,14 @@ import { useGameState } from '~/composables/useGameState';
 import { useGameEngine } from '~/composables/useGameEngine';
 import { useGameActions } from '~/composables/useGameActions';
 import { isAnonymousUser } from '~/composables/useUserUtils';
+import { usePlayers } from '~/composables/usePlayers';
 import { getAppwrite } from '~/utils/appwrite';
 import type { Lobby } from '~/types/lobby';
 import type { Player } from '~/types/player';
 
 export const useLobby = () => {
     const players = ref<Player[]>([]);
-
+    const { getUserAvatarUrl } = usePlayers();
     const getConfig = () => {
         // Try to get the safe config from the Appwrite plugin first
         const { safeConfig: pluginSafeConfig } = useAppwrite();
@@ -227,7 +228,7 @@ export const useLobby = () => {
     };
 
     const joinLobby = async (
-        code: string,
+    code: string,
         options?: { username?: string; isHost?: boolean; skipSession?: boolean }
     ) => {
         const { databases, account } = getAppwrite();
@@ -240,6 +241,7 @@ export const useLobby = () => {
         const username = options?.username ?? user.prefs?.name ?? 'Unknown';
         const lobby = await getLobbyByCode(code);
         if (!lobby) throw new Error('Lobby not found');
+
 
         await account.updatePrefs({ name: username });
         await userStore.fetchUserSession();
@@ -303,21 +305,51 @@ export const useLobby = () => {
     ) => {
         const { databases } = getAppwrite();
         const config = getConfig();
+        const avatarUrl = getUserAvatarUrl(user, session.provider); // Fetch avatar URL
+    
+        // Log the fetched avatar URL
+        console.log('Fetched Avatar URL:', avatarUrl);
+    
         const existing = await databases.listDocuments(config.public.appwriteDatabaseId, config.public.appwritePlayerCollectionId, [
             Query.equal('userId', user.$id),
             Query.equal('lobbyId', lobbyId),
             Query.limit(1),
         ]);
-        if (existing.total > 0) return;
-
+    
+        // If player exists, update their avatar if needed
+        if (existing.total > 0) {
+            const existingPlayer = existing.documents[0];
+            // Only update if we have an avatar URL and it's different from the existing one
+            if (avatarUrl && existingPlayer.avatar !== avatarUrl) {
+                console.log('Updating player avatar:', existingPlayer.$id, avatarUrl);
+                await databases.updateDocument(
+                    config.public.appwriteDatabaseId,
+                    config.public.appwritePlayerCollectionId,
+                    existingPlayer.$id,
+                    {
+                        avatar: avatarUrl
+                    }
+                );
+            }
+            return;
+        }
+    
         const permissions = isAnonymousUser(user)
-            // ? ['read("any")', 'update("users")', 'delete("users")']
-            ? [
-                'read("any")', 'update("any")', 'delete("any")'
-              ]
+            ? ['read("any")', 'update("any")', 'delete("any")']
             : [`read("any")`, `update("user:${user.$id}")`, `delete("user:${user.$id}")`];
-
-        await databases.createDocument(
+    
+        // Log the data being sent to create a new player
+        console.log('Creating new player with data:', {
+            userId: user.$id,
+            lobbyId,
+            name: username,
+            avatar: avatarUrl || user.prefs?.avatar || '',
+            isHost,
+            joinedAt: new Date().toISOString(),
+            provider: session.provider,
+        });
+    
+        const newPlayer = await databases.createDocument(
             config.public.appwriteDatabaseId,
             config.public.appwritePlayerCollectionId,
             ID.unique(),
@@ -325,13 +357,16 @@ export const useLobby = () => {
                 userId: user.$id,
                 lobbyId,
                 name: username,
-                avatar: user.prefs?.avatar ?? '',
+                avatar: avatarUrl || user.prefs?.avatar || '',
                 isHost,
                 joinedAt: new Date().toISOString(),
                 provider: session.provider,
             },
             permissions
         );
+    
+        // Log the response from the database
+        console.log('New player created:', newPlayer);
     };
 
     const leaveLobby = async (lobbyId: string, userId: string) => {

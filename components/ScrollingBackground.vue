@@ -1,6 +1,6 @@
 <template>
   <!-- 45° rotated infinite‑scroll card matrix (JS‑driven for perfect wrap) -->
-  <div ref="wrapper" class="scroll-bg">
+  <div v-if="!isMobile" ref="wrapper" class="scroll-bg">
     <div
         v-for="(col, cIndex) in columns"
         :key="cIndex"
@@ -31,15 +31,21 @@ const props = withDefaults(defineProps<{
 }>(), {
   speedPx: 60,
   gap: 24,
-  scale: 1,
   logoUrl: '/img/unfit_logo_alt.png',
 })
-
+const { width } = useWindowSize()
+const isMobile = computed(() => width.value < 768)
+const computedScale = computed(() => {
+  if (width.value < 480) return 0.3
+  if (width.value < 768) return 0.45
+  if (width.value < 1024) return 0.7
+  return props.scale // fallback
+})
 /* Base card dimensions */
 const BASE_W = 300
 const BASE_H = 400
-const cardW  = computed(() => BASE_W * props.scale)
-const cardH  = computed(() => BASE_H * props.scale)
+const cardW = computed(() => BASE_W * (computedScale.value ?? 1))
+const cardH = computed(() => BASE_H * (computedScale.value ?? 1))
 
 /* Column + row counts */
 const colCount = ref(0)
@@ -58,9 +64,6 @@ function rebuildGrid () {
   const diag = vw + vh
   colCount.value = Math.ceil(diag / (cardW.value + props.gap)) + 3
   rowCount.value = Math.ceil(diag / (cardH.value + props.gap)) + 3
-
-  // --- dev metric ---
-  console.info(`[ScrollingBackground] cols:${colCount.value} rows:${rowCount.value} total:${colCount.value * rowCount.value}`)
 
   const needCols = colCount.value - columns.length
 
@@ -112,13 +115,19 @@ watch(()=>[props.scale,props.gap], rebuildGrid)
 
 /* —— inline styles —— */
 function getColWrapperStyle(idx:number){
-  return { width:`${cardW.value}px`, marginRight:`${props.gap}px`, overflow:'hidden' }
+  return {
+    width: `${cardW.value + props.gap}px`,
+    paddingRight: `${props.gap / 2}px`,
+    paddingLeft: `${props.gap / 2}px`,
+    boxSizing: 'border-box'
+  }
 }
 
 const cardBaseStyle = computed(() => ({
   width: `${cardW.value}px`,
   height: `${cardH.value}px`,
   marginBottom: `${props.gap}px`,
+  '--logo-size': `${Math.max(20, (computedScale.value ?? 1) * 100)}%`
 }))
 
 </script>
@@ -137,13 +146,16 @@ const cardBaseStyle = computed(() => ({
 .col-inner { will-change:transform; }
 
 .card__back {
+  width: 100%;
+  height: 100%;
   position:relative;
   border-radius:12px;
   overflow:hidden;
   box-shadow:0 4px 12px rgb(0 0 0 /.18);
   background-repeat:no-repeat, repeat;
   background-position:center 50%, center;
-  background-size:45%, cover;
+  --logo-size: 45%;
+  background-size: var(--logo-size);
 }
 .card__back.white {
   background-image: url('/img/unfit_logo_alt_dark.png');

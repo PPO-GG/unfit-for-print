@@ -1,5 +1,5 @@
 <template>
-  <div class="card-container">
+  <div class="card-container w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4]">
     <div
       ref="card"
       class="card"
@@ -11,16 +11,17 @@
         <!-- Front Side -->
         <div class="card__face card__front">
           <slot name="front">
-            <div class="card-content p-4 text-4xl">
+            <div class="card-content p-4 max-xl:text-xl min-md:text-4xl">
               <span
                 class="absolute top-0 left-0 m-4 p-2 text-xl bg-slate-900/25 rounded-lg"
                 >Pick {{ computedNumPick }}</span
               >
-              <p>{{ text }}</p>
+              <p>{{ cardText }}</p>
               <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
-                <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
-                <span class="text-sm align-middle ml-1 text-slate-100">{{ cardPack }}</span>
-                <span class="text-sm align-middle ml-1 text-slate-100">{{ cardId }}</span>
+                <UTooltip :text="`Card ID ` + cardId">
+                  <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
+                  <span class="text-sm align-middle ml-1 text-slate-100">{{ cardPack }}</span>
+                </UTooltip>
               </div>
             </div>
           </slot>
@@ -33,7 +34,7 @@
               <img
                 :src="backLogoUrl"
                 alt="Card Back Logo"
-                class="w-48 opacity-85"
+                class="w-3/4 max-w-[10rem] object-contain opacity-85"
                 draggable="false"
               />
             </div>
@@ -50,25 +51,14 @@
 </template>
 
 <script setup lang="ts">
-import { useSound } from "@vueuse/sound";
-
-const flipSfx = [
-  "/sounds/sfx/flip1.wav",
-  "/sounds/sfx/flip2.wav",
-  "/sounds/sfx/flip3.wav",
-];
-const sounds = flipSfx.map((src) => useSound(src, { volume: 0.75 }));
-
-function randomBetween(min: number, max: number): number {
-  return Math.random() * (max - min) + min;
-}
-
+const {playSfx} = useSfx();
 function playRandomFlip() {
-  const i = Math.floor(Math.random() * sounds.length);
-  const playbackRate = randomBetween(0.95, 1.05);
-  sounds[i].play({ playbackRate });
+	playSfx([
+		'/sounds/sfx/flip1.wav',
+		'/sounds/sfx/flip2.wav',
+		'/sounds/sfx/flip3.wav',
+	], { volume: 0.75, pitch: [0.95, 1.05] })
 }
-
 const props = defineProps<{
   cardId?: string
   text?: string
@@ -223,16 +213,15 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 300px;
-  height: 400px;
-  margin: 2rem;
   -webkit-touch-callout: none; /* iOS Safari */
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Old versions of Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
   user-select: none;
 }
-
+.card-container:hover {
+  z-index: 100 !important;
+}
 .card {
   width: 100%;
   height: 100%;

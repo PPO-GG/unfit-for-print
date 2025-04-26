@@ -5,7 +5,6 @@ import { useUserStore } from '~/stores/userStore'
 import type { Player } from '~/types/player'
 import { useGameContext } from '~/composables/useGameContext'
 import type { Lobby } from '~/types/lobby'
-
 const props = defineProps<{
   players: Player[]
   hostUserId: string
@@ -14,6 +13,7 @@ const props = defineProps<{
   submissions?: Record<string, any>
   gamePhase?: string
   scores?: Record<string, number>
+  avatarUrl?: string
 }>()
 
 // Create a ref for the lobby and initialize it with basic data
@@ -78,6 +78,38 @@ const getScoreForPlayer = (playerId: string) => {
   }
   return scores.value[playerId] || 0
 }
+
+const getPlayerAvatarUrl = (player: Player) => {
+  if (!player || !player.avatar) return null;
+
+  // For providers that store direct URLs (like Google)
+  if (player.provider === 'google') {
+    return player.avatar;
+  }
+
+  // For Discord users
+  if (player.provider === 'discord') {
+    // Check if it's already a complete URL
+    if (player.avatar.startsWith('https://cdn.discordapp.com/avatars/')) {
+      return player.avatar;
+    }
+
+    // Otherwise, try to parse it as discordUserId/avatarHash
+    const [discordUserId, avatarHash] = player.avatar.split('/');
+    if (discordUserId && avatarHash) {
+      return `https://cdn.discordapp.com/avatars/${discordUserId}/${avatarHash}.png`;
+    }
+  }
+
+  // For any other provider or format, return the avatar as is if it looks like a URL
+  if (player.avatar.startsWith('http')) {
+    return player.avatar;
+  }
+
+  // Return null if no avatar is available or not in a usable format
+  return null;
+};
+
 </script>
 
 <template>
@@ -94,6 +126,18 @@ const getScoreForPlayer = (playerId: string) => {
             'bg-slate-800/50': player.userId !== czarId && player.userId !== currentUserId
           }"
       >
+
+        <UAvatar
+            v-if="getPlayerAvatarUrl(player)"
+            :src="getPlayerAvatarUrl(player)"
+            size="sm"
+        />
+        <UAvatar
+            v-else
+            size="sm"
+            icon="i-heroicons-user"
+        />
+
         <!-- Host Crown -->
         <span v-if="player.userId === hostUserId" class="text-yellow-400">
           <Icon name="solar:crown-minimalistic-bold" class="align-middle"/>

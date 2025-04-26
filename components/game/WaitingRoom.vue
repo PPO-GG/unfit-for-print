@@ -1,7 +1,16 @@
 <template>
   <div v-if="lobby">
-    <h1 class="text-2xl font-bold">Lobby Code: {{ lobby.code }}</h1>
-
+    <h1 class="text-2xl font-bold font-['Bebas_Neue']">
+      Lobby Code: {{ lobby.code }}
+    <UButton
+        trailing-icon="i-lucide-arrow-right"
+        color="error"
+        size="xl"
+        @click="handleLeave"
+        class="ml-4 cursor-pointer text-white"
+    >
+      Leave Game
+    </UButton></h1>
     <PlayerList
         :players="players"
         :hostUserId="lobby.hostUserId"
@@ -18,20 +27,13 @@
       >
         Start Game
       </UButton>
-        <p v-if="!isHost" class="text-gray-400 text-sm">
+        <p v-if="!isHost" class="text-gray-400 text-center font-['Bebas_Neue'] text-4xl">
           Waiting for the host to start...
         </p>
       </div>
       <div v-else>
         <p>We need at least 3 players to start the game!</p>
       </div>
-
-      <button
-          @click="leave"
-          class="text-sm text-red-400 hover:underline mt-2"
-      >
-        Leave Lobby
-      </button>
     </div>
   </div>
   <div v-else>
@@ -69,7 +71,7 @@ const startGameWrapper = async () => {
   }
 };
 
-const leave = async () => {
+const handleLeave = async () => {
   if (!props.lobby || !userStore.user?.$id) return;
   try {
     await leaveLobby(props.lobby.$id, userStore.user.$id);
@@ -81,7 +83,4 @@ const leave = async () => {
 </script>
 
 <style scoped>
-button {
-  font-size: 0.9rem;
-}
 </style>

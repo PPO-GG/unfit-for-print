@@ -6,7 +6,7 @@
         :speedPx="15"
     />
 
-    <div class="flex flex-wrap justify-center gap-8">
+    <div class="flex flex-wrap justify-center gap-4">
       <BlackCard
           v-if="blackCard"
           @click="blackCardFlipped = !blackCardFlipped"
