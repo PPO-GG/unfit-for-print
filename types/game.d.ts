@@ -14,5 +14,6 @@ export interface GameState {
     discardBlack: CardId[];
     scores: Record<PlayerId, number>;
     round: number;
-    roundWinner?: PlayerId;
+    roundWinner?: PlayerId; // ID of the winner of the last round
+    roundEndStartTime: number | null; // Server timestamp when roundEnd phase started
 }

@@ -66,81 +66,38 @@ export default async function ({ req, res, log, error }) {
     // Award point
     state.scores[winnerId] = (state.scores[winnerId] || 0) + 1;
 
-    // Discard played cards
+    // Discard played cards (ensure discardWhite exists)
+    state.discardWhite = state.discardWhite || [];
     Object.values(state.submissions)
       .flat()
-      .forEach((id) => state.discardedWhiteCards.push(id));
+      .forEach((id) => state.discardWhite.push(id));
+
+    // Clear submissions for the round
+    state.submissions = {};
+    state.playedCards = {}; // Also clear playedCards if used
 
     // Check win condition
     const maxScore = Math.max(...Object.values(state.scores));
-    if (maxScore >= 10) {
+    if (maxScore >= (lobby.winScore || 10)) { // Use configurable win score or default to 10
       state.phase = 'complete';
+      state.roundWinner = winnerId; // Store final winner
+      state.roundEndStartTime = null; // No countdown needed for game end
+      log(`Game complete. Winner: ${winnerId} with ${maxScore} points.`);
     } else {
-      // Next round setup
-      state.phase = 'submitting';
-      state.round += 1;
-
-      // Rotate czar
-      const pids = Object.keys(state.hands);
-      const idx = pids.indexOf(state.judgeId);
-      state.judgeId = pids[(idx + 1) % pids.length];
-
-      // Draw next black card
-      state.discardBlack.push(state.blackCard.id);
-      const nextBlack = state.blackDeck.shift();
-      const blackDoc = await databases.getDocument(
-        DB,
-        process.env.BLACK_CARDS_COLLECTION,
-        nextBlack
-      );
-      state.blackCard = {
-        id: nextBlack,
-        text: blackDoc.text,
-        pick: blackDoc.pick,
-      };
-
-      // Check if we need to reshuffle the discard pile
-      if (state.whiteDeck.length < Object.keys(state.hands).length * 7) {
-        log('Reshuffling discard pile into deck');
-        // Shuffle the discard pile
-        for (let i = state.discardedWhiteCards.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [state.discardedWhiteCards[i], state.discardedWhiteCards[j]] = [
-            state.discardedWhiteCards[j],
-            state.discardedWhiteCards[i],
-          ];
-        }
-        // Add the discard pile back to the deck
-        state.whiteDeck.push(...state.discardedWhiteCards);
-        // Clear the discard pile
-        state.discardedWhiteCards = [];
-      }
-
-      // Refill hands - ensure all players have exactly 7 cards
-      pids.forEach((pid) => {
-        // Calculate how many cards the player needs to reach 7
-        const currentHandSize = state.hands[pid].length;
-        // Calculate how many cards are needed to get back to 7
-        const cardsNeeded = 7 - currentHandSize;
-
-        // Add cards if needed
-        if (cardsNeeded > 0) {
-          state.hands[pid].push(...state.whiteDeck.splice(0, cardsNeeded));
-        }
-      });
-
-      // Reset submissions
-      state.submissions = {};
-      // Also reset playedCards for client-side compatibility
-      state.playedCards = {};
+      // Transition to round end phase
+      state.phase = 'roundEnd';
+      state.roundWinner = winnerId; // Store round winner
+      state.roundEndStartTime = Date.now(); // Record start time for countdown
+      log(`Round ${state.round} ended. Winner: ${winnerId}. Starting countdown.`);
+      // NOTE: Next round setup (judge rotation, card dealing) is moved to startNextRound function
     }
 
     await databases.updateDocument(DB, process.env.LOBBY_COLLECTION, lobbyId, {
-      status: state.phase === 'complete' ? 'complete' : 'playing',
+      status: state.phase === 'complete' ? 'complete' : 'playing', // Keep 'playing' during 'roundEnd'
       gameState: encodeGameState(state),
     });
 
-    return res.json({ success: true });
+    return res.json({ success: true, phase: state.phase });
   } catch (err) {
     error('selectWinner error: ' + err.message);
     return res.json({ success: false, error: err.message });

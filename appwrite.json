@@ -76,6 +76,31 @@
             "entrypoint": "src/main.js",
             "commands": "npm install",
             "path": "functions/selectWinner"
+        },
+        {
+            "$id": "680e7f88000abf0faa9d",
+            "name": "startNextRound",
+            "runtime": "node-16.0",
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [
+                "users.read",
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "documents.read",
+                "documents.write"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
+            "path": "functions/startNextRound"
         }
     ],
     "settings": {

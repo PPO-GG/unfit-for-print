@@ -1,13 +1,13 @@
 // composables/useGameActions.ts
 import { useAppwrite } from '~/composables/useAppwrite'
-import { ID } from 'appwrite'
 
 export function useGameActions() {
     const { functions } = useAppwrite()
     const FUNCTIONS = {
         START_GAME: '6807159b0034f2852a27',
         PLAY_CARD: '6807155e000e80388d6a',
-        SELECT_WINNER: '680715ac001101e8038f'
+        SELECT_WINNER: '680715ac001101e8038f',
+        START_NEXT_ROUND: '680e7f88000abf0faa9d',
     }
     const startGame = (lobbyId: string) => {
         console.log('Calling startGame with lobbyId:', lobbyId)
@@ -23,5 +23,10 @@ export function useGameActions() {
         // Convert payload to a JSON string
         functions.createExecution(FUNCTIONS.SELECT_WINNER, JSON.stringify({ lobbyId, winnerId }))
 
-    return { startGame, playCard, selectWinner }
+    const startNextRound = (lobbyId: string) => {
+        console.log('Calling startNextRound with lobbyId:', lobbyId)
+        return functions.createExecution(FUNCTIONS.START_NEXT_ROUND, JSON.stringify({ lobbyId }))
+    }
+
+    return { startGame, playCard, selectWinner, startNextRound }
 }

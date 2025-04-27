@@ -48,7 +48,7 @@
 						<h3 class="text-xl font-bold text-gray-100">You are the Judge!</h3>
 						<p class="text-gray-400">Waiting for players to submit cards...</p>
 						<div v-if="Object.keys(submissions).length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
-							<div v-for="(_, playerId) in submissions" :key="playerId" class="p-4 bg-gray-800 rounded-xl shadow-md text-center">
+							<div v-for="(playerId) in submissions" :key="playerId" class="p-4 bg-gray-800 rounded-xl shadow-md text-center">
 								<p class="font-medium text-gray-100">{{ getPlayerName(playerId) }}</p>
 								<p class="text-sm text-gray-500">Submitted</p>
 							</div>
@@ -112,15 +112,7 @@
 
 						<!-- Judge selecting a winner after reveal -->
 						<div v-else>
-							<div v-if="winnerSelected" class="text-center mb-8">
-								<p class="text-2xl font-bold text-green-400 mb-4">
-									Winner selected! Next round in {{ countdownTimer }} seconds...
-								</p>
-								<div class="w-full bg-gray-700 rounded-full h-2.5 mb-4">
-									<div class="bg-green-500 h-2.5 rounded-full" :style="{ width: `${(countdownTimer / 10) * 100}%` }"></div>
-								</div>
-							</div>
-							<p v-else class="w-full text-center mb-6 font-semibold text-gray-100 text-4xl font-['Bebas_Neue'] bg-green-500/25 rounded-xl p-2">
+							<p v-if="!winnerSelected" class="w-full text-center mb-6 font-semibold text-gray-100 text-4xl font-['Bebas_Neue'] bg-green-500/25 rounded-xl p-2">
 								Select a Winner
 							</p>
 							<div class="flex justify-center">
@@ -164,17 +156,28 @@
 
 					<!-- Other players view -->
 					<div v-else>
-						<!-- Show countdown timer for all players when winner is selected -->
-						<div v-if="state?.roundWinner" class="text-center mb-8">
-							<p class="text-2xl font-bold text-green-400 mb-4">
-								Winner selected! Next round in {{ countdownTimer }} seconds...
-							</p>
-							<div class="w-full bg-gray-700 rounded-full h-2.5 mb-4">
-								<div class="bg-green-500 h-2.5 rounded-full" :style="{ width: `${(countdownTimer / 10) * 100}%` }"></div>
+						<!-- Current player's submission (always visible) -->
+						<div v-if="submissions[myId]" class="w-full flex justify-center mb-8">
+							<div class="p-4 bg-gray-800 rounded-lg shadow-md flex flex-col items-center">
+								<p class="font-medium text-white mb-2 text-lg">
+									<span class="text-gray-500">Your Submission</span>
+								</p>
+								<div class="inline-flex justify-center gap-2 mb-2">
+									<whiteCard
+											v-for="cardId in submissions[myId]"
+											:key="cardId"
+											:cardId="cardId"
+											:flipped="false"
+											:class="{'border-2 border-green-500': state?.roundWinner === myId}"
+									/>
+								</div>
+								<p v-if="state?.roundWinner === myId" class="text-green-400 font-bold mt-2">
+									🏆 YOU WON! 🏆
+								</p>
 							</div>
 						</div>
 
-						<!-- Other players see revealed cards -->
+						<!-- Other players' revealed submissions -->
 						<div v-if="shuffledSubmissions.length > 0" class="flex flex-wrap justify-center gap-8">
 							<div
 									v-for="(sub) in shuffledSubmissions"
@@ -200,7 +203,8 @@
 								</p>
 							</div>
 						</div>
-						<p v-else-if="!state?.roundWinner" class="text-center italic text-gray-500 mt-6">Waiting for the judge to reveal submissions...</p>
+						<p v-else-if="!state?.roundWinner && !submissions[myId]" class="text-center italic text-gray-500 mt-6">Waiting for the judge to reveal submissions...</p>
+						<p v-else-if="!state?.roundWinner && submissions[myId] && Object.keys(revealedCards).filter(key => revealedCards[key] && key !== myId).length === 0" class="text-center italic text-gray-500 mt-6">Waiting for the judge to reveal other submissions...</p>
 					</div>
 				</div>
 
@@ -225,7 +229,6 @@
 
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, type Ref, onUnmounted } from 'vue'
 import type { Player } from '~/types/player'
 import type { Lobby } from '~/types/lobby'
 import { useGameContext } from '~/composables/useGameContext'
@@ -345,6 +348,12 @@ async function revealCard(playerId: string) {
 
 		console.log('🎮 Updating revealedSubmissions in database:', updatedRevealedSubmissions);
 
+		// Update locally immediately for better UX
+		// This provides instant feedback to the judge
+		revealedCards.value = { ...updatedRevealedSubmissions };
+		console.log('🎮 Updated revealedCards locally before database update:', revealedCards.value);
+
+		// Then update the database
 		await databases.updateDocument(
 				config.public.appwriteDatabaseId,
 				config.public.appwriteLobbyCollectionId,
@@ -356,13 +365,23 @@ async function revealCard(playerId: string) {
 
 		console.log('🎮 Database update successful');
 
-		// After successful update, update locally as a fallback
-		// The watch on props.lobby?.revealedSubmissions should handle this via realtime
-		// but we'll update it here as well just in case
+		// Ensure the local state is in sync with what we sent to the database
+		// This is redundant but ensures consistency
 		revealedCards.value = { ...updatedRevealedSubmissions };
-		console.log('🎮 Updated revealedCards locally after database update:', revealedCards.value);
+		console.log('🎮 Confirmed revealedCards after database update:', revealedCards.value);
 	} catch (err) {
-		console.error('Failed to update revealed submissions:', err)
+		console.error('Failed to update revealed submissions:', err);
+		// Revert the local update if the database update failed
+		if (props.lobby.revealedSubmissions) {
+			try {
+				const parsedReveals = typeof props.lobby.revealedSubmissions === 'string' 
+					? JSON.parse(props.lobby.revealedSubmissions) 
+					: props.lobby.revealedSubmissions;
+				revealedCards.value = { ...parsedReveals };
+			} catch (parseErr) {
+				console.error('Failed to revert local update:', parseErr);
+			}
+		}
 	}
 }
 
@@ -385,6 +404,8 @@ watch(() => props.lobby?.revealedSubmissions, (newReveals) => {
 				}, {} as Record<string, boolean>);
 
 			console.log('🔄 Filtered revealedSubmissions:', filteredReveals);
+
+			// Force reactivity by creating a new object
 			revealedCards.value = { ...filteredReveals }
 			console.log('🔄 Updated revealedCards from watch:', revealedCards.value)
 		} catch (err) {
@@ -392,6 +413,24 @@ watch(() => props.lobby?.revealedSubmissions, (newReveals) => {
 		}
 	}
 }, { immediate: true, deep: true })
+
+// Add a separate watch for individual submissions to ensure reactivity
+watch(shuffledSubmissions, () => {
+	// When submissions change, ensure revealedCards is properly updated
+	if (props.lobby?.revealedSubmissions) {
+		try {
+			const parsedReveals = typeof props.lobby.revealedSubmissions === 'string' 
+				? JSON.parse(props.lobby.revealedSubmissions) 
+				: props.lobby.revealedSubmissions;
+
+			// Update revealedCards to match the current state
+			revealedCards.value = { ...parsedReveals };
+			console.log('🔄 Updated revealedCards after submissions change:', revealedCards.value);
+		} catch (err) {
+			console.error('Failed to update revealed cards after submissions change:', err);
+		}
+	}
+}, { deep: true })
 
 function handleCardSubmit(cardIds: string[]) {
   playCard(props.lobby.$id, myId, cardIds)

@@ -9,5 +9,6 @@ export interface Lobby {
     status: 'waiting' | 'playing' | 'complete'
     round: number
     gameState: string
+    roundEndCountdownDuration: number; // Host-configurable countdown duration (seconds)
     revealedSubmissions?: Record<string, boolean> | string
 }

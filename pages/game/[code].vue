@@ -8,6 +8,7 @@ import {useNotifications} from '~/composables/useNotifications';
 import {useJoinLobby} from '~/composables/useJoinLobby';
 import {useGameContext} from '~/composables/useGameContext';
 import {isAuthenticatedUser} from '~/composables/useUserUtils';
+import RoundEndOverlay from '~/components/game/RoundEndOverlay.vue'; // Import the new component
 
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
@@ -48,7 +49,11 @@ const {notify} = useNotifications();
 const {getLobbyByCode, leaveLobby, toPlainLobby, getActiveLobbyForUser, resetGameState} = useLobby();
 const {getPlayersForLobby, getUserAvatarUrl} = usePlayers();
 const {initSessionIfNeeded} = useJoinLobby();
-const {isPlaying, isWaiting, isComplete, isJudging, leaderboard} = useGameContext(lobby);
+const {
+  isPlaying, isWaiting, isComplete, isJudging, leaderboard, // Existing
+  isRoundEnd, roundWinner, roundEndStartTime, roundEndCountdownDuration, // New context properties
+  myId // Need myId for isWinnerSelf and isHost checks
+} = useGameContext(lobby);
 
 const setupRealtime = async (lobbyData: Lobby) => {
   console.log('🔌 Setting up realtime for lobby:', lobbyData.$id);
@@ -217,9 +222,10 @@ const handleDrawBlackCard = () => {
   console.log('🖤 drawBlackCard');
 };
 
-const getPlayerName = (playerId: string): string => {
+const getPlayerName = (playerId: string | null): string | null => { // Allow null playerId
+  if (!playerId) return null;
   const player = players.value.find(p => p.userId === playerId);
-  return player?.name || 'Unknown Player';
+  return player?.name || 'Unknown Player'; // Keep fallback for safety
 };
 
 const handleContinue = async () => {
@@ -265,7 +271,7 @@ const handleContinue = async () => {
 
     <!-- In-game view -->
     <GameBoard
-        v-else-if="(isPlaying || isJudging) && lobby && players"
+        v-else-if="(isPlaying || isJudging || isRoundEnd) && lobby && players"
         :lobby="lobby"
         :players="players"
         :white-card-texts="{}"
@@ -322,8 +328,19 @@ const handleContinue = async () => {
       </div>
     </div>
 
+    <!-- Round End Overlay -->
+    <RoundEndOverlay
+        v-if="isRoundEnd && lobby"
+        :lobby-id="lobby.$id"
+        :winner-name="getPlayerName(roundWinner)"
+        :is-winner-self="roundWinner === myId"
+        :countdown-duration="roundEndCountdownDuration"
+        :start-time="roundEndStartTime"
+        :is-host="lobby.hostUserId === myId"
+    />
+
     <!-- Catch-all fallback -->
-    <div v-else>
+    <div v-else-if="!lobby"> <!-- Only show fallback if lobby truly failed to load -->
       <p>Could not load the game state.</p>
     </div>
   </div>

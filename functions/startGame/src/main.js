@@ -12,11 +12,6 @@ const encodeGameState = (state) => {
 }
 
 export default async function ({ req, res, log, error }) {
-  log('✅ ENV DEBUG:');
-  log('Endpoint:', process.env.APPWRITE_FUNCTION_API_ENDPOINT);
-  log('Project ID:', process.env.APPWRITE_FUNCTION_PROJECT_ID);
-  log('API Key exists?', !!process.env.APPWRITE_API_KEY);
-  log('Database ID:', process.env.APPWRITE_DATABASE_ID);
   // 1) Initialize Appwrite SDK
   const client = new Client()
       .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)

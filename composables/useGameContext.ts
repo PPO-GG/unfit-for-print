@@ -40,6 +40,7 @@ export function useGameContext(lobbyRef: Ref<Lobby | null>) {
         }),
         isJudging:    computed(() => state.value?.phase === 'judging'),
         isComplete:   computed(() => state.value?.phase === 'complete'),
+        isRoundEnd:   computed(() => state.value?.phase === 'roundEnd'), // New phase check
 
         // Judge info
         judgeId:      computed(() => state.value?.judgeId ?? null),
@@ -73,5 +74,11 @@ export function useGameContext(lobbyRef: Ref<Lobby | null>) {
                 .map(([pid, pts]) => ({ playerId: pid, points: pts }))
                 .sort((a, b) => b.points - a.points)
         }),
+
+        // Round End Info
+        roundWinner: computed(() => state.value?.roundWinner ?? null), // Use existing roundWinner field
+        roundEndStartTime: computed(() => state.value?.roundEndStartTime ?? null),
+        roundEndCountdownDuration: computed(() => lobbyRef.value?.roundEndCountdownDuration ?? 5), // Default 5s
+        myId, // Expose the current user's ID
     }
 }
