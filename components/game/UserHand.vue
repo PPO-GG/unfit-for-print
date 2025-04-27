@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 const props = defineProps<{
-	cards: { id: string, text: string }[]
+	cards: string[]
 	disabled?: boolean
 	cardsToSelect?: number
 }>()
@@ -138,8 +138,8 @@ function handleCardClick(cardId: string) {
 							class="absolute flex items-center justify-center w-full h-full"
 					>
 						<div
-								v-for="(card, index) in props.cards"
-								:key="card.id"
+								v-for="(cardId, index) in props.cards"
+								:key="cardId"
 								:style="{
             transform: `
               translateX(${(index - centerIndex) * maxXOffset
@@ -155,19 +155,19 @@ function handleCardClick(cardId: string) {
             zIndex: props.cards.length - index
           }"
 								class="absolute mb-30 transition-all duration-150 linear cursor-pointer"
-								@click="handleCardClick(card.id)"
+								@click="handleCardClick(cardId)"
 								@mouseenter="handleHover(index)"
 								@mouseleave="hoveredIndex = null"
 						>
 							<div
 									:class="[
               'md:w-48 w-32 text-black rounded-xl shadow-md flex items-center justify-center text-center text-sm font-bold hover:scale-110 hover:-translate-y-5 transition-transform duration-150 linear',
-              selectedCards.includes(card.id)
+              selectedCards.includes(cardId)
                 ? 'outline-green-500 shadow-green-500/50 shadow-xl outline-4'
                 : 'outline-green-500/0 shadow-none rounded-xl outline-4'
             ]"
 							>
-								<whiteCard :cardId="card.id" :text="card.text"/>
+								<whiteCard :cardId="cardId"/>
 							</div>
 						</div>
 					</div>

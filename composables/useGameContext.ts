@@ -41,9 +41,9 @@ export function useGameContext(lobbyRef: Ref<Lobby | null>) {
         isJudging:    computed(() => state.value?.phase === 'judging'),
         isComplete:   computed(() => state.value?.phase === 'complete'),
 
-        // Czar info
-        czarId:       computed(() => state.value?.czarId ?? null),
-        isCzar:       computed(() => myId.value === state.value?.czarId),
+        // Judge info
+        judgeId:      computed(() => state.value?.judgeId ?? null),
+        isJudge:      computed(() => myId.value === state.value?.judgeId),
 
         // Black card prompt
         blackCard:    computed(() => state.value?.blackCard ?? null),

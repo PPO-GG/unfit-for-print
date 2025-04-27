@@ -10,6 +10,7 @@ import { usePlayers } from '~/composables/usePlayers';
 import { getAppwrite } from '~/utils/appwrite';
 import type { Lobby } from '~/types/lobby';
 import type { Player } from '~/types/player';
+import type { GameState } from '~/types/game';
 
 export const useLobby = () => {
     const players = ref<Player[]>([]);
@@ -157,7 +158,9 @@ export const useLobby = () => {
                     whiteDeck: [],
                     blackDeck: [],
                     blackCard: null,
-                    judge: null,
+                    judgeId: null,
+                    discardedWhiteCards: [],
+                    submittedCards: {},
                 }),
             };
 
@@ -306,16 +309,16 @@ export const useLobby = () => {
         const { databases } = getAppwrite();
         const config = getConfig();
         const avatarUrl = getUserAvatarUrl(user, session.provider); // Fetch avatar URL
-    
+
         // Log the fetched avatar URL
         console.log('Fetched Avatar URL:', avatarUrl);
-    
+
         const existing = await databases.listDocuments(config.public.appwriteDatabaseId, config.public.appwritePlayerCollectionId, [
             Query.equal('userId', user.$id),
             Query.equal('lobbyId', lobbyId),
             Query.limit(1),
         ]);
-    
+
         // If player exists, update their avatar if needed
         if (existing.total > 0) {
             const existingPlayer = existing.documents[0];
@@ -333,11 +336,11 @@ export const useLobby = () => {
             }
             return;
         }
-    
+
         const permissions = isAnonymousUser(user)
             ? ['read("any")', 'update("any")', 'delete("any")']
             : [`read("any")`, `update("user:${user.$id}")`, `delete("user:${user.$id}")`];
-    
+
         // Log the data being sent to create a new player
         console.log('Creating new player with data:', {
             userId: user.$id,
@@ -348,7 +351,7 @@ export const useLobby = () => {
             joinedAt: new Date().toISOString(),
             provider: session.provider,
         });
-    
+
         const newPlayer = await databases.createDocument(
             config.public.appwriteDatabaseId,
             config.public.appwritePlayerCollectionId,
@@ -364,7 +367,7 @@ export const useLobby = () => {
             },
             permissions
         );
-    
+
         // Log the response from the database
         console.log('New player created:', newPlayer);
     };
@@ -526,6 +529,117 @@ export const useLobby = () => {
         }
     };
 
+    const reshufflePlayerCards = async (lobbyId: string) => {
+        const { databases } = getAppwrite();
+        const config = getConfig();
+        const { shuffle } = useGameEngine();
+
+        try {
+            // Get the current lobby
+            const lobby = await databases.getDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteLobbyCollectionId,
+                lobbyId
+            );
+
+            // Decode the current game state
+            const state = decodeGameState(lobby.gameState) as GameState;
+
+            // Only allow reshuffling if the game is in progress
+            if (state.phase !== 'submitting' && state.phase !== 'judging') {
+                throw new Error('Cannot reshuffle cards outside of an active game');
+            }
+
+            // Collect all cards from all players' hands
+            const allCards: string[] = [];
+            const playerIds = Object.keys(state.hands);
+
+            // Create a set to track unique cards and prevent duplicates
+            const uniqueCards = new Set<string>();
+
+            // Add all cards from hands to the collection, ensuring no duplicates
+            playerIds.forEach(playerId => {
+                if (state.hands[playerId]) {
+                    state.hands[playerId].forEach(cardId => {
+                        if (!uniqueCards.has(cardId)) {
+                            uniqueCards.add(cardId);
+                            allCards.push(cardId);
+                        } else {
+                            console.warn(`Duplicate card ${cardId} found in player ${playerId}'s hand during reshuffle`);
+                        }
+                    });
+                }
+            });
+
+            // Shuffle all collected cards
+            const shuffledCards = shuffle(allCards);
+
+            // Redistribute 7 cards to each player
+            let cardIndex = 0;
+            playerIds.forEach(playerId => {
+                // Skip the judge
+                if (playerId === state.judgeId) {
+                    state.hands[playerId] = [];
+                    return;
+                }
+
+                // Give each player 7 cards
+                state.hands[playerId] = [];
+                for (let i = 0; i < 7 && cardIndex < shuffledCards.length; i++) {
+                    state.hands[playerId].push(shuffledCards[cardIndex]);
+                    cardIndex++;
+                }
+            });
+
+            // If we need more cards, get them from the deck
+            if (cardIndex >= shuffledCards.length && state.whiteDeck.length > 0) {
+                // Create a set of all cards that have been dealt so far
+                const dealtCards = new Set<string>();
+
+                // Add all cards from player hands to the set
+                playerIds.forEach(playerId => {
+                    if (state.hands[playerId]) {
+                        state.hands[playerId].forEach(cardId => dealtCards.add(cardId));
+                    }
+                });
+
+                // Filter the deck to remove any duplicates of cards already in hands
+                const filteredDeck = state.whiteDeck.filter(cardId => !dealtCards.has(cardId));
+
+                // Update the deck with the filtered version
+                state.whiteDeck = filteredDeck;
+
+                // Now distribute cards from the filtered deck
+                playerIds.forEach(playerId => {
+                    if (playerId !== state.judgeId && state.hands[playerId].length < 7) {
+                        const cardsNeeded = 7 - state.hands[playerId].length;
+                        const cardsToAdd = state.whiteDeck.splice(0, cardsNeeded);
+                        state.hands[playerId].push(...cardsToAdd);
+                    }
+                });
+            }
+
+            // Reset submissions since hands have changed
+            state.submissions = {};
+            state.playedCards = {};
+
+            // Update the game state
+            await databases.updateDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteLobbyCollectionId,
+                lobbyId,
+                {
+                    gameState: encodeGameState(state)
+                }
+            );
+
+            return true;
+        } catch (error) {
+            console.error('Error reshuffling player cards:', error);
+            throw error;
+        }
+    };
+
     return {
         players,
         fetchPlayers,
@@ -541,5 +655,6 @@ export const useLobby = () => {
         getActiveLobbyForUser,
         createPlayerIfNeeded,
         resetGameState,
+        reshufflePlayerCards,
     };
 };

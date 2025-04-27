@@ -3,7 +3,7 @@ type CardId        = string;   // Appwrite card document ID
 
 export interface GameState {
     phase: 'waiting' | 'submitting' | 'judging' | 'roundEnd' | 'complete';
-    czarId: PlayerId | null;
+    judgeId: PlayerId | null;
     blackCard: { id: CardId; text: string; pick: number } | null;
     playedCards: Record<string, string>;
     submissions: Record<PlayerId, CardId[]>;
@@ -14,4 +14,5 @@ export interface GameState {
     discardBlack: CardId[];
     scores: Record<PlayerId, number>;
     round: number;
+    roundWinner?: PlayerId;
 }

@@ -11,12 +11,15 @@
         <!-- Front Side -->
         <div class="card__face card__front">
           <slot name="front">
-            <div class="card-content p-4 max-xl:text-xl min-md:text-4xl">
+            <div class="card-content p-4 max-xl:text-xl min-md:text-4xl leading-none">
               <span
-                class="absolute top-0 left-0 m-4 p-2 text-xl bg-slate-900/25 rounded-lg"
-                >Pick {{ computedNumPick }}</span
+                class="absolute bottom-0 right-0 m-2 p-1 text-xl bg-slate-900/50 rounded-lg"
+                >
+                  <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
+	              {{ computedNumPick }}
+              </span
               >
-              <p>{{ cardText }}</p>
+              <span class="">{{ cardText }}</span>
               <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
                 <UTooltip :text="`Card ID ` + cardId">
                   <Icon name="mdi:cards"  class="align-middle text-slate-100"/>

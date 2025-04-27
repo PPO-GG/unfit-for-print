@@ -1,223 +1,242 @@
-// GameBoard.vue
 <template>
-  <div class="p-4">
-    <div class="flex justify-between items-center mb-4">
-      <div class="flex items-center">
-        <div class="round-indicator mr-3">
-          <span class="round-number">{{ state?.round || 1 }}</span>
-        </div>
-        <h2 class="text-xl font-bold">Round {{ state?.round || 1 }}</h2>
-      </div>
-      <UButton
-        class="leave-button"
-        @click="handleLeave"
-      >
-        Leave Game
-      </UButton>
-    </div>
+	<div class="flex h-screen bg-gray-900 overflow-hidden">
+		<!-- Sidebar -->
+		<aside class="max-w-3/12 w-auto bg-gray-800 border-r border-gray-700 p-4 flex flex-col shadow-inner">
+			<h2 class="text-xl font-semibold mb-4 text-gray-100">Players</h2>
+			<div class="flex-1 overflow-y-auto">
+				<PlayerList
+						:players="props.players"
+						:host-user-id="props.lobby.hostUserId"
+						:lobby-id="props.lobby.$id"
+						:judge-id="judgeId"
+						:submissions="submissions"
+						:game-phase="state?.phase"
+						:scores="state?.scores"
+				/>
+			</div>
+		</aside>
 
-    <!-- Enhanced Player List -->
-    <PlayerList
-      :players="props.players"
-      :host-user-id="props.lobby.hostUserId"
-      :lobby-id="props.lobby.$id"
-      :czar-id="czarId"
-      :submissions="submissions"
-      :game-phase="state?.phase"
-      :scores="state?.scores"
-    />
+		<!-- Main Content -->
+		<div class="flex-1 flex flex-col w-9/12">
+			<header class="flex justify-between items-center bg-gray-800/80 backdrop-blur-sm p-4">
+				<div class="flex items-center space-x-3">
+					<div class="rounded-full bg-emerald-600 text-white w-10 h-10 flex items-center justify-center font-bold shadow">
+						{{ state?.round || 1 }}
+					</div>
+					<h2 class="text-2xl font-bold text-gray-100 tracking-wide">Round {{ state?.round || 1 }}</h2>
+				</div>
+				<UButton class="bg-rose-500 hover:bg-rose-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md" @click="handleLeave">
+					Leave Game
+				</UButton>
+			</header>
 
-    <!-- Submission Phase -->
-    <div v-if="isSubmitting && blackCard">
-      <div class="flex justify-center mb-4">
-        <BlackCardComponent 
-          :text="blackCard.text" 
-          :num-pick="blackCard.pick"
-          :card-id="blackCard.id"
-          :flipped="false"
-          :three-deffect="true"
-        />
-      </div>
+			<main class="flex-1 p-6 overflow-y-auto flex flex-col items-center">
+				<!-- Black Card -->
+				<div v-if="blackCard" class="flex justify-center mb-8">
+					<BlackCard
+							:text="blackCard.text"
+							:num-pick="blackCard.pick"
+							:card-id="blackCard.id"
+							:flipped="false"
+							:three-deffect="true"
+					/>
+				</div>
 
-      <!-- Show message for the Judge -->
-      <div v-if="isCzar" class="text-center p-4">
-        <p class="text-xl font-bold">You are the Judge for this round!</p>
-        <p class="mt-2">Wait for other players to submit their cards.</p>
+				<!-- Submission Phase -->
+				<div v-if="isSubmitting" class="w-full flex flex-col items-center">
+					<div v-if="isJudge" class="text-center space-y-6">
+						<h3 class="text-xl font-bold text-gray-100">You are the Judge!</h3>
+						<p class="text-gray-400">Waiting for players to submit cards...</p>
+						<div v-if="Object.keys(submissions).length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
+							<div v-for="(_, playerId) in submissions" :key="playerId" class="p-4 bg-gray-800 rounded-xl shadow-md text-center">
+								<p class="font-medium text-gray-100">{{ getPlayerName(playerId) }}</p>
+								<p class="text-sm text-gray-500">Submitted</p>
+							</div>
+						</div>
+					</div>
 
-        <!-- Show submitted cards for the Judge -->
-        <div v-if="Object.keys(submissions).length > 0" class="mt-4">
-          <p class="font-semibold mb-2">Submitted cards ({{ Object.keys(submissions).length }} / {{ Object.keys(hands).filter(id => id !== czarId).length }})</p>
-          <div class="grid grid-cols-4 gap-2">
-            <div 
-              v-for="(_, playerId) in submissions" 
-              :key="playerId" 
-              class="card submission p-4"
-            >
-              <p class="font-medium">{{ getPlayerName(sub.playerId) }}</p>
-              <p class="text-sm opacity-70">has submitted</p>
-            </div>
-          </div>
-        </div>
-      </div>
+					<div v-else>
+						<div v-if="submissions[myId]" class="text-center">
+							<p class="font-semibold text-gray-100 mb-4">You've submitted your cards!</p>
+							<div class="flex justify-center gap-4">
+								<whiteCard v-for="cardId in submissions[myId]" :key="cardId" :cardId="cardId" />
+							</div>
+							<p class="mt-4 italic text-gray-500">Waiting for others...</p>
+						</div>
+						<UserHand
+								v-else
+								:cards="myHand"
+								:disabled="!!submissions[myId]"
+								:cards-to-select="blackCard.pick"
+								@select-cards="handleCardSubmit"
+						/>
+					</div>
+				</div>
 
-      <!-- Show submitted cards for non-Judges -->
-      <div v-else-if="submissions[myId]" class="text-center p-4 mb-4">
-        <p class="font-semibold">You've submitted your cards:</p>
-        <div class="flex justify-center mt-2 gap-2">
-          <whiteCard 
-            v-for="cardId in submissions[myId]" 
-            :key="cardId" 
-            :cardId="cardId"
-          />
-        </div>
-        <p class="mt-4 italic">Waiting for other players to submit their cards...</p>
-      </div>
+				<!-- Judging Phase -->
+				<div v-else-if="isJudging" class="w-full">
+					<div class="text-center mb-8">
+						<h3 class="text-xl font-bold text-gray-100">Judging Phase</h3>
+						<p class="text-gray-400">Judge: {{ getPlayerName(judgeId) }}</p>
+					</div>
 
-      <!-- User's hand will be displayed at the bottom of the screen (only for non-Judges who haven't submitted) -->
-      <UserHand
-        v-else
-        :cards="myHand" 
-        :disabled="!!submissions[myId]"
-        :cards-to-select="blackCard.pick"
-        @select-cards="handleCardSubmit"
-      />
-    </div>
-    <div v-else-if="isSubmitting && !blackCard" class="text-center p-4">
-      <p class="text-xl font-bold">Waiting for black card to be drawn...</p>
-    </div>
+					<!-- Judge view -->
+					<div v-if="isJudge">
+						<!-- Judge flipping cards -->
+						<div v-if="!allCardsRevealed">
+							<p class="text-center text-gray-400 mb-6">Click a group to reveal it:</p>
 
-    <!-- Judging Phase -->
-    <div v-else-if="isJudging && blackCard">
-      <div class="flex justify-center mb-4">
-        <BlackCardComponent 
-          :text="blackCard.text" 
-          :num-pick="blackCard.pick"
-          :card-id="blackCard.id"
-          :flipped="false"
-          :three-deffect="true"
-        />
-      </div>
-      <p class="mb-4 text-center">👑 <strong>Judge:</strong> {{ getPlayerName(czarId) }}</p>
+							<div class="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto transition-all duration-300">
+								<div
+										v-for="sub in shuffledSubmissions"
+										:key="sub.playerId"
+										class="flex flex-col items-center space-y-4 cursor-pointer transition-transform hover:scale-105"
+										@click="isJudge ? revealCard(sub.playerId) : null"
+								>
+									<div class="inline-flex justify-center gap-2">
+										<whiteCard
+												v-for="cardId in sub.cards"
+												:key="cardId"
+												:cardId="cardId"
+												:flipped="!revealedCards[sub.playerId]"
+												:shine="true"
+												:back-logo-url="'/img/unfit_logo_alt_dark.png'"
+												:mask-url="'/img/textures/hexa2.png'"
+										/>
+									</div>
 
-      <!-- Card Czar View -->
-      <div v-if="isCzar" class="text-center">
-        <div v-if="allCardsRevealed" class="grid grid-cols-4 gap-4 mt-4">
-          <div 
-            v-for="sub in otherSubmissions" 
-            :key="sub.playerId"
-            class="card-group"
-          >
-            <p class="font-medium mb-2">{{ getPlayerName(sub.playerId) }}</p>
-            <div class="flex flex-col gap-2">
-              <div 
-                v-for="cardId in sub.cards" 
-                :key="cardId"
-                class="card-wrapper"
-              >
-                <whiteCard 
-                  :cardId="cardId" 
-                  :flipped="false"
-                />
-              </div>
-            </div>
-            <button 
-              class="select-winner-btn mt-2" 
-              @click="handleSelectWinner(sub.playerId)"
-            >
-              Select Winner
-            </button>
-          </div>
-        </div>
-        <div v-else>
-          <p class="mb-4">Click on cards to reveal them to everyone:</p>
-          <div class="grid grid-cols-4 gap-4">
-            <div 
-              v-for="(sub, index) in shuffledSubmissions" 
-              :key="index"
-              class="card-wrapper"
-              @click="revealCard(index)"
-            >
-              <whiteCard 
-                v-for="(cardId, cardIndex) in sub.cards" 
-                :key="cardId"
-                :cardId="cardId" 
-                :flipped="!revealedCards[index]"
-                :shine=true
-                :back-logo-url="'/img/unfit_logo_alt_dark.png'"
-                :mask-url="'/img/textures/hexa2.png'"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+									<span v-if="revealedCards[sub.playerId]" class="text-xs text-green-400">Revealed</span>
+								</div>
+							</div>
+						</div>
 
-      <!-- Other Players View -->
-      <div v-else>
-        <div v-if="Object.keys(revealedCards).length > 0" class="mt-4">
-          <p class="font-semibold mb-2">Revealed submissions:</p>
-          <div class="grid grid-cols-4 gap-4">
-            <div 
-              v-for="(sub, index) in shuffledSubmissions" 
-              :key="index"
-              class="card-wrapper"
-              v-show="revealedCards[index]"
-            >
-              <whiteCard 
-                v-for="cardId in sub.cards" 
-                :key="cardId"
-                :cardId="cardId" 
-                :flipped="false"
-              />
-            </div>
-          </div>
-        </div>
-        <div v-else-if="submissions[myId]" class="text-center p-4 mb-4">
-          <p class="font-semibold">You've submitted your cards:</p>
-          <div class="flex justify-center mt-2 gap-2">
-            <whiteCard 
-              v-for="cardId in submissions[myId]" 
-              :key="cardId" 
-              :cardId="cardId"
-            />
-          </div>
-          <p class="mt-4 italic">Waiting for the judge to reveal submissions...</p>
-        </div>
-        <p v-else class="italic text-center mt-4">Waiting for the judge to reveal submissions...</p>
-      </div>
-    </div>
-    <div v-else-if="isJudging && !blackCard" class="text-center p-4">
-      <p class="text-xl font-bold">Waiting for black card to be drawn...</p>
-    </div>
+						<!-- Judge selecting a winner after reveal -->
+						<div v-else>
+							<div v-if="winnerSelected" class="text-center mb-8">
+								<p class="text-2xl font-bold text-green-400 mb-4">
+									Winner selected! Next round in {{ countdownTimer }} seconds...
+								</p>
+								<div class="w-full bg-gray-700 rounded-full h-2.5 mb-4">
+									<div class="bg-green-500 h-2.5 rounded-full" :style="{ width: `${(countdownTimer / 10) * 100}%` }"></div>
+								</div>
+							</div>
+							<p v-else class="w-full text-center mb-6 font-semibold text-gray-100 text-4xl font-['Bebas_Neue'] bg-green-500/25 rounded-xl p-2">
+								Select a Winner
+							</p>
+							<div class="flex justify-center">
+								<div class="flex flex-wrap justify-center gap-6 max-w-6xl w-full">
+									<div
+											v-for="sub in otherSubmissions"
+											:key="sub.playerId"
+											class="p-6 bg-gray-800 rounded-xl shadow-md flex flex-col items-center"
+											:class="{'border-2 border-green-500': state?.roundWinner === sub.playerId}"
+									>
+										<p class="font-medium text-white mb-4 text-xl font-['Bebas_Neue']">
+											<span class="text-gray-500">Submitted by </span>{{ getPlayerName(sub.playerId) }}
+										</p>
+										<div class="inline-flex items-center justify-center gap-2 mb-4">
+											<whiteCard
+													v-for="cardId in sub.cards"
+													:key="cardId"
+													:cardId="cardId"
+													:flipped="false"
+													:class="{'shadow-lg shadow-green-500/50': state?.roundWinner === sub.playerId}"
+											/>
+										</div>
+										<UButton 
+											v-if="!winnerSelected"
+											class="w-full rounded-lg mt-2 cursor-pointer" 
+											color="secondary" 
+											size="lg" 
+											variant="solid" 
+											@click="handleSelectWinner(sub.playerId)"
+										>
+											<span class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">Select Winner</span>
+										</UButton>
+										<p v-else-if="state?.roundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
+											🏆 WINNER! 🏆
+										</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
 
-    <!-- Game Over -->
-    <div v-else-if="isComplete">
-      <h3 class="text-lg font-semibold">🏁 Game Over</h3>
-      <ul class="mt-2 space-y-1">
-        <li v-for="entry in leaderboard" :key="entry.playerId">
-          {{ getPlayerName(entry.playerId) }} — {{ entry.points }} points
-        </li>
-      </ul>
-    </div>
+					<!-- Other players view -->
+					<div v-else>
+						<!-- Show countdown timer for all players when winner is selected -->
+						<div v-if="state?.roundWinner" class="text-center mb-8">
+							<p class="text-2xl font-bold text-green-400 mb-4">
+								Winner selected! Next round in {{ countdownTimer }} seconds...
+							</p>
+							<div class="w-full bg-gray-700 rounded-full h-2.5 mb-4">
+								<div class="bg-green-500 h-2.5 rounded-full" :style="{ width: `${(countdownTimer / 10) * 100}%` }"></div>
+							</div>
+						</div>
 
-    <!-- Fallback -->
-    <div v-else>
-      <p class="italic">Waiting for game state...</p>
-    </div>
-  </div>
+						<!-- Other players see revealed cards -->
+						<div v-if="shuffledSubmissions.length > 0" class="flex flex-wrap justify-center gap-8">
+							<div
+									v-for="(sub) in shuffledSubmissions"
+									:key="sub.playerId"
+									v-show="revealedCards[sub.playerId] && sub.playerId !== myId"
+									class="p-4 bg-gray-800 rounded-lg shadow-md flex flex-col items-center"
+									:class="{'border-2 border-green-500': state?.roundWinner === sub.playerId}"
+							>
+								<p class="font-medium text-white mb-2 text-lg">
+									<span class="text-gray-500">Submitted by </span>{{ getPlayerName(sub.playerId) }}
+								</p>
+								<div class="inline-flex justify-center gap-2 mb-2">
+									<whiteCard
+											v-for="cardId in sub.cards"
+											:key="cardId"
+											:cardId="cardId"
+											:flipped="false"
+											:class="{'shadow-lg shadow-green-500/50': state?.roundWinner === sub.playerId}"
+									/>
+								</div>
+								<p v-if="state?.roundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
+									🏆 WINNER! 🏆
+								</p>
+							</div>
+						</div>
+						<p v-else-if="!state?.roundWinner" class="text-center italic text-gray-500 mt-6">Waiting for the judge to reveal submissions...</p>
+					</div>
+				</div>
+
+				<!-- Game Over -->
+				<div v-else-if="isComplete" class="text-center mt-10">
+					<h3 class="text-2xl font-bold text-gray-100">🏁 Game Over</h3>
+					<ul class="mt-6 space-y-2">
+						<li v-for="entry in leaderboard" :key="entry.playerId" class="font-medium text-gray-400">
+							{{ getPlayerName(entry.playerId) }} — {{ entry.points }} points
+						</li>
+					</ul>
+				</div>
+
+				<!-- Waiting State -->
+				<div v-else class="text-center italic text-gray-500 mt-10">
+					Waiting for game state...
+				</div>
+			</main>
+		</div>
+	</div>
 </template>
 
+
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, type Ref } from 'vue'
+import { ref, computed, onMounted, watch, type Ref, onUnmounted } from 'vue'
 import type { Player } from '~/types/player'
 import type { Lobby } from '~/types/lobby'
 import { useGameContext } from '~/composables/useGameContext'
 import { useGameActions } from '~/composables/useGameActions'
 import { useUserStore } from '~/stores/userStore'
 import { useLobby } from '~/composables/useLobby'
+import { useNotifications } from '~/composables/useNotifications'
 import UserHand from '~/components/game/UserHand.vue'
 import whiteCard from '~/components/whiteCard.vue'
-import BlackCardComponent from '~/components/blackCard.vue'
 import PlayerList from '~/components/PlayerList.vue'
+import {getAppwrite} from "~/utils/appwrite";
 
 const props = defineProps<{ lobby: Lobby; players: Player[] }>()
 const emit = defineEmits<{
@@ -230,11 +249,14 @@ watch(() => props.lobby, (newLobby) => {
   lobbyRef.value = newLobby
 }, { immediate: true })
 
-const { state, isSubmitting, isJudging, isComplete, isCzar, myHand, submissions, otherSubmissions, czarId, blackCard, leaderboard, hands } = useGameContext(lobbyRef)
+// Real-time updates are now handled by the parent component ([code].vue)
+
+const { state, isSubmitting, isJudging, isComplete, isJudge, myHand, submissions, otherSubmissions, judgeId, blackCard, leaderboard, hands } = useGameContext(lobbyRef)
 const { playCard, selectWinner } = useGameActions()
 const { leaveLobby } = useLobby()
 const userStore = useUserStore()
 const myId = userStore.user?.$id ?? ''
+const { notify } = useNotifications()
 
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string): string => {
@@ -242,8 +264,8 @@ const getPlayerName = (playerId: string): string => {
   return player?.name || "Unknown Player"
 }
 
-// Track which cards have been revealed (index -> boolean)
-const revealedCards = ref<Record<number, boolean>>({})
+// Track which cards have been revealed (playerId -> boolean)
+const revealedCards = ref<Record<string, boolean>>({})
 // Store shuffled submissions to prevent re-shuffling on every render
 const shuffledSubmissions = ref<any[]>([])
 
@@ -263,25 +285,168 @@ watch([isJudging, otherSubmissions], ([newIsJudging, newSubmissions]) => {
   }
 }, { immediate: true })
 
-// Check if all cards are revealed
+
+// Check if all submissions are revealed
 const allCardsRevealed = computed(() => {
-  return Object.keys(revealedCards.value).length === shuffledSubmissions.value.length
+  // Get all unique player IDs from shuffled submissions
+  const playerIds = shuffledSubmissions.value.map(sub => sub.playerId);
+
+  // Check if all player IDs are in the revealed cards object
+  return playerIds.every(playerId => revealedCards.value[playerId]);
 })
 
-// Reveal a card
-function revealCard(index: number) {
-  if (!revealedCards.value[index]) {
-    revealedCards.value = { ...revealedCards.value, [index]: true }
-  }
+// Reveal only the clicked submission
+async function revealCard(playerId: string) {
+	console.log('🎮 revealCard called with playerId:', playerId);
+	console.log('🎮 Current revealedCards:', JSON.stringify(revealedCards.value));
+	console.log('🎮 Current props.lobby.revealedSubmissions:', props.lobby.revealedSubmissions);
+
+	// Don't do anything if this card is already revealed
+	if (revealedCards.value[playerId]) {
+		console.log('🎮 Card already revealed, skipping');
+		return;
+	}
+
+	// Update revealed cards in Appwrite
+	try {
+		const config = useRuntimeConfig();
+		const { databases } = getAppwrite();
+
+		// Get the current revealed submissions from the database
+		let currentRevealedSubmissions = {};
+		if (props.lobby.revealedSubmissions) {
+			try {
+				const parsedSubmissions = typeof props.lobby.revealedSubmissions === 'string' 
+					? JSON.parse(props.lobby.revealedSubmissions) 
+					: props.lobby.revealedSubmissions;
+
+				console.log('🎮 Parsed current revealedSubmissions:', parsedSubmissions);
+
+				// Filter out numeric indexes and only keep string player IDs
+				// This ensures we don't mix numeric indexes with player IDs
+				currentRevealedSubmissions = Object.entries(parsedSubmissions)
+					.filter(([key]) => isNaN(Number(key)) || key.length > 5) // Player IDs are long strings
+					.reduce((acc, [key, value]) => {
+						acc[key] = value;
+						return acc;
+					}, {} as Record<string, boolean>);
+
+				console.log('🎮 Filtered current revealedSubmissions:', currentRevealedSubmissions);
+			} catch (parseErr) {
+				console.error('Failed to parse current revealed submissions:', parseErr);
+			}
+		}
+
+		// Update only the clicked submission
+		const updatedRevealedSubmissions = { 
+			...currentRevealedSubmissions, 
+			[playerId]: true 
+		};
+
+		console.log('🎮 Updating revealedSubmissions in database:', updatedRevealedSubmissions);
+
+		await databases.updateDocument(
+				config.public.appwriteDatabaseId,
+				config.public.appwriteLobbyCollectionId,
+				props.lobby.$id,
+				{
+					revealedSubmissions: JSON.stringify(updatedRevealedSubmissions)
+				}
+		);
+
+		console.log('🎮 Database update successful');
+
+		// After successful update, update locally as a fallback
+		// The watch on props.lobby?.revealedSubmissions should handle this via realtime
+		// but we'll update it here as well just in case
+		revealedCards.value = { ...updatedRevealedSubmissions };
+		console.log('🎮 Updated revealedCards locally after database update:', revealedCards.value);
+	} catch (err) {
+		console.error('Failed to update revealed submissions:', err)
+	}
 }
+
+
+watch(() => props.lobby?.revealedSubmissions, (newReveals) => {
+	console.log('🔄 Watch triggered for revealedSubmissions:', newReveals);
+	if (newReveals) {
+		try {
+			// Parse the JSON string if it's a string, otherwise use as is
+			const parsedReveals = typeof newReveals === 'string' ? JSON.parse(newReveals) : newReveals
+			console.log('🔄 Parsed revealedSubmissions:', parsedReveals);
+
+			// Filter out numeric indexes and only keep string player IDs
+			// This ensures we don't mix numeric indexes with player IDs
+			const filteredReveals = Object.entries(parsedReveals)
+				.filter(([key]) => isNaN(Number(key)) || key.length > 5) // Player IDs are long strings
+				.reduce((acc, [key, value]) => {
+					acc[key] = value;
+					return acc;
+				}, {} as Record<string, boolean>);
+
+			console.log('🔄 Filtered revealedSubmissions:', filteredReveals);
+			revealedCards.value = { ...filteredReveals }
+			console.log('🔄 Updated revealedCards from watch:', revealedCards.value)
+		} catch (err) {
+			console.error('Failed to parse revealed submissions:', err)
+		}
+	}
+}, { immediate: true, deep: true })
 
 function handleCardSubmit(cardIds: string[]) {
   playCard(props.lobby.$id, myId, cardIds)
 }
 
+// Track the winner and show notification
+const winnerSelected = ref(false)
+const countdownTimer = ref(10) // 10 seconds countdown
+const countdownInterval = ref<NodeJS.Timeout | null>(null)
+
+// Watch for changes to roundWinner to start countdown for all players
+watch(() => state.value?.roundWinner, (newWinner) => {
+  if (newWinner) {
+    winnerSelected.value = true
+
+    // Show notification to the winner
+    if (newWinner === myId) {
+      notify({
+        title: '🏆 You Won This Round!',
+        description: 'You get a point!',
+        color: 'success',
+        icon: 'i-mdi-trophy',
+        duration: 5000
+      })
+    }
+
+    // Start countdown to next round for all players
+    if (countdownInterval.value) {
+      clearInterval(countdownInterval.value)
+    }
+
+    countdownTimer.value = 10
+    countdownInterval.value = setInterval(() => {
+      countdownTimer.value--
+      if (countdownTimer.value <= 0) {
+        clearInterval(countdownInterval.value as NodeJS.Timeout)
+        // Reset for next round
+        winnerSelected.value = false
+        countdownTimer.value = 10
+      }
+    }, 1000)
+  }
+})
+
 function handleSelectWinner(playerId: string) {
   selectWinner(props.lobby.$id, playerId)
+  winnerSelected.value = true
 }
+
+// Clean up interval when component is unmounted
+onUnmounted(() => {
+  if (countdownInterval.value) {
+    clearInterval(countdownInterval.value)
+  }
+})
 
 function handleLeave() {
   // Call the leaveLobby function from useLobby
@@ -292,86 +457,5 @@ function handleLeave() {
 </script>
 
 <style scoped>
-.card { padding: 1rem; background: white; color: black; border-radius: 0.5rem; }
-.white { background: #f8f8f8; }
-.submission { background: #ffeeba; }
 
-.leave-button {
-  background-color: #e74c3c;
-  color: white;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.25rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.leave-button:hover {
-  background-color: #c0392b;
-}
-
-.card-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.card-group:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-}
-
-.card-wrapper {
-  cursor: pointer;
-  transition: transform 0.3s ease;
-}
-
-.card-wrapper:hover {
-  transform: translateY(-5px);
-}
-
-.select-winner-btn {
-  background-color: #4CAF50;
-  color: white;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.25rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.select-winner-btn:hover {
-  background-color: #45a049;
-}
-
-/* Round indicator styles */
-.round-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background-color: rgba(255, 215, 0, 0.2);
-  border: 2px solid rgba(255, 215, 0, 0.5);
-  border-radius: 50%;
-}
-
-.round-number {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: rgba(255, 215, 0, 0.9);
-}
-
-.player-score {
-  background-color: rgba(0, 0, 0, 0.2);
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: rgba(255, 215, 0, 0.9);
-}
 </style>

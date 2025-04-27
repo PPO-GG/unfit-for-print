@@ -51,17 +51,19 @@ const {initSessionIfNeeded} = useJoinLobby();
 const {isPlaying, isWaiting, isComplete, isJudging, leaderboard} = useGameContext(lobby);
 
 const setupRealtime = async (lobbyData: Lobby) => {
+  console.log('🔌 Setting up realtime for lobby:', lobbyData.$id);
   const {client} = getAppwrite();
   const config = useRuntimeConfig();
   const lobbyId = lobbyData.$id;
   // initial fetch
   players.value = await getPlayersForLobby(lobbyId);
+  console.log('🔌 Initial players:', players.value);
 
   // 🧠 Lobby Realtime
   const unsubscribeLobby = client.subscribe(
       [`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteLobbyCollectionId}.documents.${lobbyData.$id}`],
       async ({events, payload}) => {
-        console.log('📡 [Lobby Event]', events);
+        console.log('📡 [Lobby Event]', events, payload);
 
         if (events.some(e => e.endsWith('.delete'))) {
           notify({title: 'Lobby Deleted', color: 'error', icon: 'i-mdi-alert-circle'});
@@ -70,7 +72,9 @@ const setupRealtime = async (lobbyData: Lobby) => {
 
         // Update lobby data when it changes
         if (events.some(e => e.endsWith('.update'))) {
-          lobby.value = payload as Lobby;
+          // Create a new lobby object to trigger reactivity
+          lobby.value = { ...payload as Lobby };
+          console.log('📡 [Lobby Updated]', lobby.value);
         }
       }
   );
@@ -241,7 +245,7 @@ const handleContinue = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-white p-4">
+  <div class="min-h-screen bg-slate-900 text-white">
     <div v-if="loading">Loading game...</div>
 
     <!-- Show join modal if user isn't in the game -->

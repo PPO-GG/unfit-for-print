@@ -11,7 +11,13 @@
             ],
             "events": [],
             "scopes": [
-                "users.read"
+                "users.read",
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "documents.read",
+                "documents.write"
             ],
             "schedule": "",
             "timeout": 15,
@@ -30,7 +36,13 @@
             ],
             "events": [],
             "scopes": [
-                "users.read"
+                "users.read",
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "documents.read",
+                "documents.write"
             ],
             "schedule": "",
             "timeout": 15,
@@ -49,7 +61,13 @@
             ],
             "events": [],
             "scopes": [
-                "users.read"
+                "users.read",
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "documents.read",
+                "documents.write"
             ],
             "schedule": "",
             "timeout": 15,
@@ -251,6 +269,14 @@
                 },
                 {
                     "key": "gameState",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 4096,
+                    "default": null
+                },
+                {
+                    "key": "revealedSubmissions",
                     "type": "string",
                     "required": false,
                     "array": false,

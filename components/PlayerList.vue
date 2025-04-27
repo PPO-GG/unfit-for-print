@@ -5,11 +5,12 @@ import { useUserStore } from '~/stores/userStore'
 import type { Player } from '~/types/player'
 import { useGameContext } from '~/composables/useGameContext'
 import type { Lobby } from '~/types/lobby'
+
 const props = defineProps<{
   players: Player[]
   hostUserId: string
   lobbyId: string
-  czarId?: string
+	judgeId?: string
   submissions?: Record<string, any>
   gamePhase?: string
   scores?: Record<string, number>
@@ -41,8 +42,9 @@ const lobbyRef = ref<Lobby>(createLobby({
 
 
 const { scores } = useGameContext(lobbyRef)
-const { kickPlayer, promoteToHost } = useLobby()
+const { kickPlayer, promoteToHost, reshufflePlayerCards } = useLobby()
 const userStore = useUserStore()
+const { notify } = useNotifications()
 
 const currentUserId = computed(() => userStore.user?.$id)
 const isHost = computed(() => props.hostUserId === currentUserId.value)
@@ -68,6 +70,24 @@ const promote = async (player: Player) => {
     await promoteToHost(props.lobbyId, player)
   } catch (err) {
     console.error("Failed to promote host:", err)
+  }
+}
+
+const reshuffleCards = async () => {
+  try {
+    await reshufflePlayerCards(props.lobbyId)
+	  notify({
+			title: 'Cards Reshuffled',
+			description: 'All player cards have been reshuffled',
+			color: 'success'
+		})
+  } catch (err) {
+    console.error("Failed to reshuffle cards:", err)
+    notify({
+      title: 'Error',
+      description: 'Failed to reshuffle cards',
+      color: 'error'
+    })
   }
 }
 
@@ -114,19 +134,32 @@ const getPlayerAvatarUrl = (player: Player) => {
 
 <template>
   <div class="mt-6 font-['Bebas_Neue'] bg-slate-600 rounded-xl p-6 shadow-lg w-full max-w-xs">
-    <h2 class="text-3xl font-bold mb-2">Players</h2>
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="text-3xl font-bold">Players</h2>
+      <UButton
+        v-if="isHost && (gamePhase === 'submitting' || gamePhase === 'judging')"
+        size="sm"
+        color="warning"
+        variant="ghost"
+        icon="i-heroicons-arrow-path"
+        @click="reshuffleCards"
+        class="debug-btn"
+        title="Debug: Reshuffle all player cards"
+      >
+        Reshuffle
+      </UButton>
+    </div>
     <ul class="uppercase text-lg">
       <li
           v-for="player in sortedPlayers"
           :key="player.$id"
           class="flex items-center gap-2 p-2 mb-2 rounded-lg"
           :class="{
-            'bg-yellow-900/30 border border-yellow-500/30': player.userId === czarId,
+            'bg-yellow-900/30 border border-yellow-500/30': player.userId === judgeId,
             'bg-blue-900/30 border border-blue-500/30': player.userId === currentUserId,
-            'bg-slate-800/50': player.userId !== czarId && player.userId !== currentUserId
+            'bg-slate-800/50': player.userId !== judgeId && player.userId !== currentUserId
           }"
       >
-
         <UAvatar
             v-if="getPlayerAvatarUrl(player)"
             :src="getPlayerAvatarUrl(player)"
@@ -144,12 +177,12 @@ const getPlayerAvatarUrl = (player: Player) => {
         </span>
 
         <!-- Player Name -->
-        <span class="font-medium">{{ player.name || "Unknown Player" }}</span>
-
+        <span class="font-medium truncate">{{ player.name || "Unknown Player" }}</span>
+	      <span v-if="player.userId === currentUserId" class="text-xs text-gray-400">(YOU)</span>
         <!-- Player Status Indicators -->
         <div class="flex items-center ml-auto mr-2 gap-2">
           <!-- Card Czar Indicator -->
-          <span v-if="player.userId === czarId" class="status-badge bg-yellow-500/20 text-yellow-300">
+          <span v-if="player.userId === judgeId" class="status-badge bg-yellow-500/20 text-yellow-300">
             <Icon name="mdi:gavel" class="mr-1" />Judge
           </span>
 
@@ -220,5 +253,12 @@ const getPlayerAvatarUrl = (player: Player) => {
 
 .admin-btn:hover {
   transform: translateY(-2px);
+}
+
+.debug-btn {
+  border: 1px dashed rgba(255, 215, 0, 0.5);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 </style>

@@ -37,7 +37,7 @@ const props = {
   ],
   hostUserId: 'player1',
   lobbyId: 'lobby123',
-  czarId: 'player2',
+	judgeId: 'player2',
   submissions: [
     { playerId: 'player1', cardId: 'card1', text: 'Mock submission 1' },
     { playerId: 'player3', cardId: 'card2', text: 'Mock submission 2' },
@@ -91,7 +91,7 @@ const sliderValue = ref(2);
       :players="props.players"
       :host-user-id="props.hostUserId"
       :lobby-id="props.lobbyId"
-      :czar-id="props.czarId"
+      :czar-id="props.judgeId"
       :scores="props.scores"
   />
     <USlider v-model="sliderValue" :min="1" :max="7" :default-value="2" class="w-64 mt-4" /><p>{{sliderValue}} cards</p>

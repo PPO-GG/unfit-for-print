@@ -1,6 +1,6 @@
 <template>
   <div v-if="lobby">
-    <h1 class="text-2xl font-bold font-['Bebas_Neue']">
+    <h1 class="text-2xl font-bold font-['Bebas_Neue'] p-4">
       Lobby Code: {{ lobby.code }}
     <UButton
         trailing-icon="i-lucide-arrow-right"

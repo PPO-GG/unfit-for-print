@@ -90,7 +90,7 @@ export const gameTestUtils = {
       isPlaying: ref(!isComplete),
       isJudging: ref(false),
       isComplete: ref(isComplete),
-      czarId: ref(null),
+      judgeId: ref(null),
       isCzar: ref(false),
       blackCard: ref(null),
       submissions: ref({}),
