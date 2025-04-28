@@ -14,6 +14,7 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@basitcodeenv/vue3-device-detect": "^1.0.3",
     "@fontsource/inter": "^5.2.5",
     "@nuxt/fonts": "0.11.1",
     "@nuxt/icon": "1.11.0",

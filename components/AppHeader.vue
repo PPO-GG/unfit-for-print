@@ -1,14 +1,17 @@
 <!-- components/AppHeader.vue -->
 <script setup lang="ts">
 import { useUserStore } from '~/stores/userStore'
-import { isAnonymousUser, isAuthenticatedUser } from '~/composables/useUserUtils'
+import { isAuthenticatedUser } from '~/composables/useUserUtils'
 import { useNotifications } from '~/composables/useNotifications'
 import {ref} from "vue";
 import {useRouter} from "#vue-router";
 import {useLobby} from "~/composables/useLobby";
+import { useUiStore } from '~/stores/uiStore';
+
 const { getActiveLobbyForUser } = useLobby();
 const router = useRouter();
 const userStore = useUserStore()
+const uiStore = useUiStore();
 const { notify } = useNotifications()
 const isMobileMenuOpen = ref(false);
 const showJoin = ref(false);
@@ -166,6 +169,12 @@ const handleJoined = (code: string, isCreator = false) => {
 	});
 	router.push(`/game/${code}${isCreator ? '?creator=true' : ''}`);
 };
+
+const openPolicyModal = () => {
+	isMobileMenuOpen.value = false;
+	uiStore.togglePolicyModal(true);
+};
+
 </script>
 
 <template>
@@ -176,12 +185,12 @@ const handleJoined = (code: string, isCreator = false) => {
 				variant="ghost"
 				size=""
 				@click="isMobileMenuOpen = true"
-				class="md:hidden absolute right-2 w-8 h-8"
+				class="lg:hidden absolute right-4 p-4"
 		/>
 		<div class="flex-1">
 			<NuxtLink to="/" class="">Unfit For Print</NuxtLink>
 		</div>
-		<nav class="flex items-center gap-2 justify-end not-md:hidden">
+		<nav class="flex items-center gap-2 justify-end not-lg:hidden">
 			<div class="mr-2">
 				<img
 						v-if="avatarUrl"
@@ -190,8 +199,8 @@ const handleJoined = (code: string, isCreator = false) => {
 						class="w-8 h-8 rounded-full"
 				/>
 			</div>
-			<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl text-slate-300">Welcome! {{userStore.user.name.toUpperCase()}}</span>
-			<UButton size="lg" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" icon="i-solar-magic-stick-3-bold-duotone">{{ isAuthenticatedUser(userStore.user) ? 'Create Game' : 'Log In To Create Game'}}</UButton>
+			<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl text-slate-300">Welcome, {{userStore.user.name.toUpperCase()}}!</span>
+			<UButton @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" icon="i-solar-magic-stick-3-bold-duotone">{{ isAuthenticatedUser(userStore.user) ? 'Create Game' : 'Log In To Create Game'}}</UButton>
 			<UButton @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer" color="success" variant="ghost" icon="i-solar-hand-shake-line-duotone">Join Game</UButton>
 
 			<template v-if="isAuthenticatedUser(userStore.user)">
@@ -208,9 +217,9 @@ const handleJoined = (code: string, isCreator = false) => {
 	</header>
 
 	<!-- Mobile Navigation Slideover -->
-	<USlideover v-model:open="isMobileMenuOpen" class="md:hidden">
+	<USlideover v-model:open="isMobileMenuOpen" class="lg:hidden">
 		<template #content>
-			<div class="p-4 flex flex-col gap-4">
+			<div class="p-4 flex flex-col gap-4 font-['Bebas_Neue']">
 				<div class="flex justify-between items-center mb-6">
 					<UButton
 						icon="i-lucide-x"
@@ -218,7 +227,7 @@ const handleJoined = (code: string, isCreator = false) => {
 						variant="ghost"
 						size="xl"
 						@click="isMobileMenuOpen = false"
-						class="absolute right-4 top-4 w-8 h-8 "
+						class="absolute right-4 top-4 p-4"
 					/>
 				</div>
 
@@ -229,14 +238,14 @@ const handleJoined = (code: string, isCreator = false) => {
 						alt="avatar"
 						class="w-10 h-10 rounded-full"
 					/>
-					<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl">Welcome! {{userStore.user.name.toUpperCase()}}</span>
+					<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl">Welcome, {{userStore.user.name.toUpperCase()}}!</span>
 				</div>
 
-				<UButton block size="xl" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="mb-2 text-xl py-3" color="warning" variant="soft" icon="i-solar-magic-stick-3-bold-duotone">
+				<UButton block size="xl" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="mb-2 text-xl py-3 cursor-pointer" color="warning" variant="soft" icon="i-solar-magic-stick-3-bold-duotone">
 					{{ isAuthenticatedUser(userStore.user) ? 'Create Game' : 'Log In To Create Game'}}
 				</UButton>
 
-				<UButton block size="xl" @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="mb-2 text-xl py-3" color="success" variant="soft" icon="i-solar-hand-shake-line-duotone">
+				<UButton block size="xl" @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="mb-2 text-xl py-3 cursor-pointer" color="success" variant="soft" icon="i-solar-hand-shake-line-duotone">
 					Join Game
 				</UButton>
 
@@ -259,6 +268,14 @@ const handleJoined = (code: string, isCreator = false) => {
 					<UButton block @click="handleLoginWithDiscord" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-logos-discord-icon">
 						Login With Discord
 					</UButton>
+					<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
+						<USeparator class="my-2" />
+						<UButton block @click="openPolicyModal" class="mb-2 text-xl py-3" color="neutral" variant="soft" icon="i-solar-shield-check-line-duotone">
+							Privacy Policy
+						</UButton>
+						<p class="text-sm">© 2025 Unfit for Print. All rights reserved.</p>
+						<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
+					</div>
 				</template>
 			</div>
 

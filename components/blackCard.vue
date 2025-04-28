@@ -50,8 +50,10 @@
 </template>
 
 <script setup lang="ts">
-const {playSfx} = useSfx();
+const {playSfx, getRandomInRange} = useSfx();
+const { vibrate, stop, isSupported } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
 function playRandomFlip() {
+	vibrate()
 	playSfx([
 		'/sounds/sfx/flip1.wav',
 		'/sounds/sfx/flip2.wav',
@@ -206,7 +208,7 @@ onMounted(async () => {
 		if (!databases) {
 			console.error("Appwrite database service not available.");
 			return;
-		};
+		}
 		try {
 			console.log(`Fetching full card data for ID: ${props.cardId}`);
 			const doc = await databases.getDocument(
@@ -308,9 +310,9 @@ onMounted(async () => {
   pointer-events: none;
   z-index: 10;
   border-radius: 12px;
-  -webkit-box-shadow: inset 0px 0px 100px 0px rgba(0, 0, 0, 0.25);
-  -moz-box-shadow: inset 0px 0px 100px 0px rgba(0, 0, 0, 0.25);
-  box-shadow: inset 0px 0px 100px 0px rgba(0, 0, 0, 0.25);
+  -webkit-box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
+  -moz-box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
 }
 
 .card__front,
@@ -376,38 +378,5 @@ onMounted(async () => {
   z-index: 1;
   color: white;
   border-radius: 12px;
-}
-
-.card-content-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-.card-content-wrapper::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-color: rgba(12, 13, 17, 0.05); /* Your overlay tint */
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* Ensure actual content is above the overlay */
-.frontside-text,
-.backside-logo {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-}
-.frontside-text {
-  padding: 1rem;
-  text-align: center;
-  font-family: "Bebas Neue", sans-serif;
-  color: white;
 }
 </style>
