@@ -43,10 +43,6 @@
             </div>
           </slot>
           <div v-if="shine" class="card__shine" :style="shineStyle"></div>
-          <!-- <div
-            class="card__shine"
-            :style="{...shineStyle, opacity: props.shine ? (isHovered ? '0.125' : '0.125') : '0.125',}"
-          /> -->
         </div>
       </div>
     </div>
@@ -74,12 +70,22 @@ const props = defineProps<{
   maskUrl?: string
 }>();
 
+const fallbackNumPick = ref<number | undefined>(undefined);
+
 const computedNumPick = computed(() => {
-  if (props.numPick) return props.numPick;
-  if (!props.text) return 1;
-  const matches = props.text.match(/_/g);
-  return matches ? matches.length : 1;
+	// 1. Prioritize the explicitly passed prop
+	if (props.numPick !== undefined) {
+		return props.numPick;
+	}
+	// 2. Use the value fetched via cardId if the prop wasn't passed
+	if (fallbackNumPick.value !== undefined) {
+		return fallbackNumPick.value;
+	}
+	// 3. Default to 1 if neither prop nor fetched value is available
+	return 1;
+	// Note: The underscore counting logic is removed as we prioritize the database value.
 });
+
 
 const fallbackText = ref('');
 const cardText = computed(() => props.text || fallbackText.value);
@@ -193,21 +199,40 @@ watch(
 );
 
 onMounted(async () => {
-  if (!props.text && props.cardId) {
-    const { databases } = useAppwrite();
-    const config = useRuntimeConfig();
-    if (!databases) return;
-    const doc = await databases.getDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteBlackCardCollectionId,
-        props.cardId
-    );
-    fallbackText.value = doc.text;
-    packName.value = doc.pack || 'core';
-  }
-  resetTransform();
-  animateShine();
+	// Fetch card data only if text AND numPick are not provided, but cardId is.
+	if ((!props.text || props.numPick === undefined) && props.cardId) {
+		const { databases } = useAppwrite();
+		const config = useRuntimeConfig();
+		if (!databases) {
+			console.error("Appwrite database service not available.");
+			return;
+		};
+		try {
+			console.log(`Fetching full card data for ID: ${props.cardId}`);
+			const doc = await databases.getDocument(
+					config.public.appwriteDatabaseId,
+					config.public.appwriteBlackCardCollectionId,
+					props.cardId
+			);
+			// Update fallbacks only if the corresponding prop wasn't provided
+			if (!props.text) {
+				fallbackText.value = doc.text;
+			}
+			if (props.numPick === undefined) {
+				fallbackNumPick.value = doc.pick; // Store the fetched pick value
+			}
+			packName.value = doc.pack || 'core'; // Always update packName if fetching
+		} catch (error) {
+			console.error(`Failed to fetch card data for ID ${props.cardId}:`, error);
+			// Set sensible defaults on error if needed
+			if (!props.text) fallbackText.value = 'Error loading text.';
+			if (props.numPick === undefined) fallbackNumPick.value = 1;
+		}
+	}
+	resetTransform();
+	animateShine();
 });
+
 </script>
 
 <style scoped>

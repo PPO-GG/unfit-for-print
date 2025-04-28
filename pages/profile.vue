@@ -1,6 +1,6 @@
 <template>
   <div>
-    
+    THIS IS YOUR PROFILE
   </div>
 </template>
 
