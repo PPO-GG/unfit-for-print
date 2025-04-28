@@ -9,9 +9,13 @@ import {useJoinLobby} from '~/composables/useJoinLobby';
 import {useGameContext} from '~/composables/useGameContext';
 import {isAuthenticatedUser} from '~/composables/useUserUtils';
 import RoundEndOverlay from '~/components/game/RoundEndOverlay.vue'; // Import the new component
-
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
+
+
+definePageMeta({
+	layout: 'game'
+})
 
 const route = useRoute()
 const code = route.params.code as string
@@ -251,7 +255,7 @@ const handleContinue = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-white">
+  <div class="bg-slate-900 text-white">
     <div v-if="loading">Loading game...</div>
 
     <!-- Show join modal if user isn't in the game -->
