@@ -59,7 +59,11 @@
 </template>
 
 <script setup>
+useHead({
+	title: 'Privacy Policy | Unfit for Print'
+})
 </script>
 
 <style scoped>
+/* Add any component-specific styles here if needed */
 </style>
