@@ -44,8 +44,10 @@
 
 <script setup lang="ts">
 import { useAppwrite } from "~/composables/useAppwrite";
-const {playSfx} = useSfx();
+const {playSfx, getRandomInRange} = useSfx();
+const { vibrate, stop, isSupported } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
 function playRandomFlip() {
+	vibrate()
 	playSfx([
 		'/sounds/sfx/flip1.wav',
 		'/sounds/sfx/flip2.wav',
@@ -259,9 +261,9 @@ onMounted(async () => {
   pointer-events: none;
   z-index: 10;
   border-radius: 12px;
-  -webkit-box-shadow: inset 0px 0px 100px 0px rgba(0, 0, 0, 0.25);
-  -moz-box-shadow: inset 0px 0px 100px 0px rgba(0, 0, 0, 0.25);
-  box-shadow: inset 0px 0px 100px 0px rgba(0, 0, 0, 0.25);
+  -webkit-box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
+  -moz-box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
 }
 
 .card__front,
@@ -310,11 +312,9 @@ onMounted(async () => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 100; /* Higher z-index to ensure it's on top */
+  z-index: 100;
   transition: background-position 250ms linear;
   border-radius: 12px;
-  /* Make sure shine is on top of content */
-  pointer-events: none;
 }
 
 .card-content {
@@ -324,26 +324,8 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  /* Ensure content is above the texture */
   z-index: 1;
   color: black;
   border-radius: 12px;
-}
-
-/* Ensure actual content is above the overlay */
-.frontside-text,
-.backside-logo {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-}
-.frontside-text {
-  padding: 1rem;
-  text-align: center;
-  font-family: "Bebas Neue", sans-serif;
-  color: black;
 }
 </style>

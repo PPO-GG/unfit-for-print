@@ -8,7 +8,7 @@
 	  />
     <slot />
   </main>
+	<AppFooter />
 </template>
 <script setup lang="ts">
-import ScrollingBackground from "~/components/ScrollingBackground.vue";
 </script>

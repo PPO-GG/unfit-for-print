@@ -53,6 +53,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import {useCards} from "~/composables/useCards";
+import { useVibrate } from '@vueuse/core'
+
+// import { isMobile, isDesktop, isChromium, isFirefox } from '@basitcodeenv/vue3-device-detect'
+
+const { vibrate, stop, isSupported } = useVibrate({ pattern: [10, 7, 5] })
 useHead({
   title: `Unfit for Print`,
 })
@@ -74,6 +79,7 @@ const fetchNewCards = async () => {
 	await playSfx('/sounds/sfx/submit.wav',{ pitch: [0.8, 1.2], volume: 0.75});
   return new Promise<void>(res => setTimeout(res, 1000)
   ).then(() => {
+	  vibrate()
     fetchRandomWhiteCard().then((card: any) => {
       whiteCard.value = card;
 	    whiteCardFlipped.value = false;

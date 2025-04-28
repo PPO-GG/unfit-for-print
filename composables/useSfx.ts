@@ -19,7 +19,7 @@ interface SpriteMap {
 /**
  *
  */
-const getRandomInRange = (val: number | [number, number]): number => {
+export const getRandomInRange = (val: number | [number, number]): number => {
     if (typeof val === 'number') return val;
     const [min, max] = val;
     return Math.random() * (max - min) + min;
@@ -110,5 +110,5 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
         }
     };
 
-    return { playSfx };
+    return { playSfx, getRandomInRange };
 };
