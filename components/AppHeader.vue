@@ -269,6 +269,14 @@ const openPolicyModal = () => {
 					<UButton block @click="handleLoginWithDiscord" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-logos-discord-icon">
 						Login With Discord
 					</UButton>
+					<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
+						<USeparator class="my-2" />
+						<UButton block @click="openPolicyModal" class="mb-2 text-xl py-3" color="neutral" variant="soft" icon="i-solar-shield-check-line-duotone">
+							Privacy Policy
+						</UButton>
+						<p class="text-sm">© 2025 Unfit for Print. All rights reserved.</p>
+						<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
+					</div>
 				</template>
 
 				<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
