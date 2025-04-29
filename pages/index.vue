@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 space-y-6 text-white bg-transparent mt-24">
+  <div class="">
 	  <img
 			class="mx-auto mb-4 w-xl"
 			src="/img/unfit_logo.png"
