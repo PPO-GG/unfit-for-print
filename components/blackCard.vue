@@ -1,5 +1,5 @@
 <template>
-  <div class="card-container w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4]">
+  <div class="select-none perspective-distant justify-center flex items-center w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] hover:z-[100]">
     <div
       ref="card"
       class="card"
@@ -52,6 +52,7 @@
 <script setup lang="ts">
 const {playSfx, getRandomInRange} = useSfx();
 const { vibrate, stop, isSupported } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
+import { isMobile } from '@basitcodeenv/vue3-device-detect'
 function playRandomFlip() {
 	vibrate()
 	playSfx([
@@ -148,6 +149,7 @@ const shineStyle = computed(() => {
 
 function handleMouseMove(e: MouseEvent) {
   if (!card.value) return;
+	if (isMobile) return;
 
   const cardRect = card.value.getBoundingClientRect();
   const x = e.clientX - cardRect.left;
@@ -238,20 +240,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.card-container {
-  perspective: 1500px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  -webkit-touch-callout: none; /* iOS Safari */
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Old versions of Firefox */
-  -ms-user-select: none; /* Internet Explorer/Edge */
-  user-select: none;
-}
-.card-container:hover {
-  z-index: 100 !important;
-}
 .card {
   width: 100%;
   height: 100%;
