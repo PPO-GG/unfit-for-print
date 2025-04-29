@@ -1,11 +1,11 @@
 <template>
   <!-- 45° rotated infinite‑scroll card matrix (JS‑driven for perfect wrap) -->
-  <div v-if="!isMobile" ref="wrapper" class="scroll-bg">
+  <div v-if="!isMobile && !isLowPerf" ref="wrapper" class="fixed inset-[-60vw] flex rotate-45 scale-[1.8] pointer-events-none z-[-1] opacity-5 ">
     <div
         v-for="(col, cIndex) in columns"
         :key="cIndex"
-        class="scroll-col"
-        :style="getColWrapperStyle(cIndex)"
+        class="flex-col;"
+        :style="getColWrapperStyle()"
     >
       <!-- moving stack wrapper -->
       <div class="col-inner" :style="{ transform: `translateY(${col.offset}px)` }">
@@ -22,127 +22,136 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useThrottleFn, useWindowSize } from '@vueuse/core'
+import { isMobile } from '@basitcodeenv/vue3-device-detect'
 
 const props = withDefaults(defineProps<{
-  speedPx?: number
-  gap?: number
-  scale?: number
-  logoUrl?: string
+	speedPx?: number
+	gap?: number
+	scale?: number
+	logoUrl?: string
 }>(), {
-  speedPx: 60,
-  gap: 24,
-  logoUrl: '/img/unfit_logo_alt.png',
+	speedPx: 60,
+	gap: 24,
+	logoUrl: '/img/unfit_logo_alt.png',
 })
+
 const { width } = useWindowSize()
-const isMobile = computed(() => width.value < 768)
+const isLowPerf = computed(() => navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4)
+
 const computedScale = computed(() => {
-  if (width.value < 480) return 0.3
-  if (width.value < 768) return 0.45
-  if (width.value < 1024) return 0.7
-  return props.scale // fallback
+	if (width.value < 480) return 0.3
+	if (width.value < 768) return 0.45
+	if (width.value < 1024) return 0.7
+	return props.scale
 })
-/* Base card dimensions */
+
 const BASE_W = 300
 const BASE_H = 400
 const cardW = computed(() => BASE_W * (computedScale.value ?? 1))
 const cardH = computed(() => BASE_H * (computedScale.value ?? 1))
 
-/* Column + row counts */
 const colCount = ref(0)
 const rowCount = ref(0)
 
-/* Column reactive state */
-interface ColState { offset:number; dir:1|-1; cards:{key:number}[] }
+interface ColState { offset: number; dir: 1 | -1; cards: { key: number }[] }
 const columns = reactive<ColState[]>([])
 let keyCounter = 0
 
-function rebuildGrid () {
-  const vw = window.innerWidth
-  const vh = window.innerHeight
+function rebuildGrid() {
+	const vw = window.innerWidth
+	const vh = window.innerHeight
+	const diag = vw + vh
+	const safetyFactor = isLowPerf.value ? 0.7 : 1
+	const newColCount = Math.ceil((diag / (cardW.value + props.gap)) * safetyFactor) + 3
+	const newRowCount = Math.ceil(diag / (cardH.value + props.gap)) + 3
 
-  // Bounding box for the 45°‑rotated rectangle
-  const diag = vw + vh
-  colCount.value = Math.ceil(diag / (cardW.value + props.gap)) + 3
-  rowCount.value = Math.ceil(diag / (cardH.value + props.gap)) + 3
+	if (newColCount === colCount.value && newRowCount === rowCount.value) return
 
-  const needCols = colCount.value - columns.length
+	colCount.value = newColCount
+	rowCount.value = newRowCount
 
-  // Add columns if we need more
-  if (needCols > 0) {
-    for (let i = 0; i < needCols; i++) {
-      const idx = columns.length
-      const dir: 1 | -1 = idx % 2 === 0 ? -1 : 1 // even cols scroll up
-      const cards = Array.from({ length: rowCount.value }, () => ({ key: keyCounter++ }))
-      columns.push({ offset: 0, dir, cards })
-    }
-  }
-  // Remove extra columns if viewport shrank
-  else if (needCols < 0) {
-    columns.splice(needCols)
-  }
+	const needCols = colCount.value - columns.length
+	if (needCols > 0) {
+		for (let i = 0; i < needCols; i++) {
+			const idx = columns.length
+			const dir: 1 | -1 = idx % 2 === 0 ? -1 : 1
+			const cards = Array.from({ length: rowCount.value }, () => ({ key: keyCounter++ }))
+			columns.push({ offset: 0, dir, cards })
+		}
+	} else if (needCols < 0) {
+		columns.splice(newColCount) // ✅
+	}
 
-  // Ensure each column has correct number of rows
-  columns.forEach(col => {
-    const diff = rowCount.value - col.cards.length
-    if (diff > 0) {
-      for (let i = 0; i < diff; i++) col.cards.push({ key: keyCounter++ })
-    } else if (diff < 0) {
-      col.cards.splice(diff)
-    }
-    // reset offset so new grid starts aligned
-    col.offset = 0
-  })
+	columns.forEach(col => {
+		const diff = rowCount.value - col.cards.length
+		if (diff > 0) {
+			for (let i = 0; i < diff; i++) col.cards.push({ key: keyCounter++ })
+		} else if (diff < 0) {
+			col.cards.splice(diff)
+		}
+		col.offset = 0
+	})
 }
 
 /* Animation loop */
-let last=0, raf=0
-function tick(ts:number){
-  if(!last) last=ts
-  const dt=(ts-last)/1000; last=ts
-  const step= props.speedPx*dt
-  const travel=cardH.value+props.gap
-  columns.forEach(col=>{
-    col.offset+=step*col.dir
-    if(col.dir===-1 && col.offset<=-travel){ col.offset+=travel; col.cards.push(col.cards.shift()!) }
-    if(col.dir===1 && col.offset>=travel){ col.offset-=travel; col.cards.unshift(col.cards.pop()!) }
-  })
-  raf=requestAnimationFrame(tick)
+let last = 0, raf = 0
+const travel = ref(0)
+
+watch([cardH, () => props.gap], () => {
+	travel.value = cardH.value + props.gap
+}, { immediate: true })
+
+function tick(ts: number) {
+	if (!last) last = ts
+	const dt = (ts - last) / 1000
+	last = ts
+	const step = props.speedPx * dt
+	columns.forEach(col => {
+		col.offset += step * col.dir
+		if (col.dir === -1 && col.offset <= -travel.value) {
+			col.offset += travel.value
+			col.cards.push(col.cards.shift()!)
+		}
+		if (col.dir === 1 && col.offset >= travel.value) {
+			col.offset -= travel.value
+			col.cards.unshift(col.cards.pop()!)
+		}
+	})
+	raf = requestAnimationFrame(tick)
 }
 
-onMounted(()=>{ rebuildGrid(); window.addEventListener('resize',rebuildGrid); raf=requestAnimationFrame(tick) })
-onUnmounted(()=>{ window.removeEventListener('resize',rebuildGrid); cancelAnimationFrame(raf) })
-watch(()=>[props.scale,props.gap], rebuildGrid)
+const rebuildGridThrottled = useThrottleFn(rebuildGrid, 100)
+onMounted(() => {
+	rebuildGrid()
+	window.addEventListener('resize', rebuildGridThrottled)
+	raf = requestAnimationFrame(tick)
+})
+onUnmounted(() => {
+	window.removeEventListener('resize', rebuildGridThrottled)
+	cancelAnimationFrame(raf)
+})
+watch(() => [props.scale, props.gap], rebuildGrid)
 
 /* —— inline styles —— */
-function getColWrapperStyle(idx:number){
-  return {
-    width: `${cardW.value + props.gap}px`,
-    paddingRight: `${props.gap / 2}px`,
-    paddingLeft: `${props.gap / 2}px`,
-    boxSizing: 'border-box'
-  }
+function getColWrapperStyle() { // 🔥
+	return {
+		width: `${cardW.value + props.gap}px`,
+		paddingRight: `${props.gap / 2}px`,
+		paddingLeft: `${props.gap / 2}px`,
+		boxSizing: 'border-box'
+	}
 }
 
 const cardBaseStyle = computed(() => ({
-  width: `${cardW.value}px`,
-  height: `${cardH.value}px`,
-  marginBottom: `${props.gap}px`,
-  '--logo-size': `${Math.max(20, (computedScale.value ?? 1) * 100)}%`
+	width: `${cardW.value}px`,
+	height: `${cardH.value}px`,
+	marginBottom: `${props.gap}px`,
+	'--logo-size': `${Math.max(20, (computedScale.value ?? 1) * 100)}%`
 }))
-
 </script>
 
 <style scoped>
-.scroll-bg {
-  position:fixed;
-  inset:-60vh -60vw;
-  display:flex;
-  transform:rotate(45deg) scale(1.8);
-  pointer-events:none;
-  z-index:-1;
-  opacity:0.05;
-}
-.scroll-col { display:flex; flex-direction:column; }
 .col-inner { will-change:transform; }
 
 .card__back {
@@ -172,21 +181,38 @@ const cardBaseStyle = computed(() => ({
 }
 
 .card__back::before {
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:12px;
-  pointer-events:none;
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: 12px;
+	opacity: 0.04;
+	animation: glowPulse 8s ease-in-out infinite alternate;
+	pointer-events: none;
+	background: radial-gradient(circle at center, rgba(255,255,255,0.2) 0%, transparent 70%);
+}
+@keyframes shine {
+	0% {
+		transform: translate(-120%, -50%) rotate(20deg);
+	}
+	100% {
+		transform: translate(120%, 50%) rotate(20deg);
+	}
+}
+@keyframes glowPulse {
+	0% { opacity: 0.02; transform: scale(1); }
+	100% { opacity: 0.08; transform: scale(1.02); }
 }
 .card__back::after {
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:12px;
-  opacity:.08;
-  mix-blend-mode:screen;
-  transform:translateX(-100%);
-  animation:shine 6s linear infinite;
-  pointer-events:none;
+	content: "";
+	position: absolute;
+	top: -50%;
+	left: -50%;
+	width: 200%;
+	height: 200%;
+	background: linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 70%);
+	opacity: .08;
+	animation: shine 6s linear infinite;
+	pointer-events: none;
+	border-radius: 50%;
 }
 </style>
