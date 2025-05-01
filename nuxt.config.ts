@@ -38,6 +38,7 @@ export default defineNuxtConfig({
       appwriteLobbyCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_LOBBY_COLLECTION_ID}`,
       appwritePlayerCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID}`,
       appwriteGamecardsCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID}`,
+      appwriteGamechatCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMECHAT_COLLECTION_ID}`,
       baseUrl: process.env.NUXT_PUBLIC_BASE_URL,
       oAuthRedirectUrl: process.env.NUXT_PUBLIC_OAUTH_REDIRECT_URL,
       oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,

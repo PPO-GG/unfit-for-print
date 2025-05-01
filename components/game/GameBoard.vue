@@ -3,7 +3,7 @@
 		<!-- Sidebar -->
 		<aside class="max-w-3/12 w-auto bg-gray-800 border-r border-gray-700 p-4 flex flex-col shadow-inner">
 			<h2 class="text-xl font-semibold mb-4 text-gray-100">Players</h2>
-			<div class="flex-1 overflow-y-auto">
+			<div class="flex-1 overflow-y-auto space-y-6">
 				<PlayerList
 						:game-phase="state?.phase"
 						:host-user-id="props.lobby.hostUserId"
@@ -12,6 +12,10 @@
 						:players="props.players"
 						:scores="state?.scores"
 						:submissions="submissions"
+				/>
+				<ChatBox
+						:lobby-id="props.lobby.$id"
+						:current-user-id="myId"
 				/>
 			</div>
 		</aside>
