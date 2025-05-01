@@ -1,84 +1,100 @@
 <template>
-  <div v-if="lobby">
-    <h1 class="text-2xl font-bold font-['Bebas_Neue'] p-4">
-      Lobby Code: {{ lobby.code }}
-    <UButton
-        trailing-icon="i-lucide-arrow-right"
-        color="error"
-        size="xl"
-        @click="handleLeave"
-        class="ml-4 cursor-pointer text-white"
-    >
-      Leave Game
-    </UButton></h1>
-    <PlayerList
-        :players="players"
-        :hostUserId="lobby.hostUserId"
-        :lobbyId="lobby.$id"
-        :allow-moderation="true"
-    />
-
-    <div class="mt-4">
-      <div v-if="players.length >= 3">
-      <UButton
-          v-if="isHost"
-          @click="startGameWrapper"
-          icon="i-lucide-play"
-      >
-        Start Game
-      </UButton>
-        <p v-if="!isHost" class="text-gray-400 text-center font-['Bebas_Neue'] text-4xl">
-          Waiting for the host to start...
-        </p>
-      </div>
-      <div v-else>
-        <p>We need at least 3 players to start the game!</p>
-      </div>
-    </div>
-  </div>
-  <div v-else>
-    <p class="text-red-400 text-sm">Lobby data is unavailable.</p>
-  </div>
+	<div v-if="lobby">
+		<aside class="max-w-128 w-1/4 min-w-72 h-screen p-4 flex flex-col shadow-inner border-r-1 border-slate-800 space-y-4">
+			<h1 class="text-2xl font-bold font-['Bebas_Neue'] p-4">
+				Lobby Code: {{ lobby.code }}
+				<UButton
+						class="ml-4 cursor-pointer text-white justify-end"
+						color="error"
+						size="xl"
+						trailing-icon="i-lucide-arrow-right"
+						@click="handleLeave"
+				>
+					Leave Game
+				</UButton>
+			</h1>
+			<PlayerList
+					:allow-moderation="true"
+					:hostUserId="lobby.hostUserId"
+					:lobbyId="lobby.$id"
+					:players="players"
+			/>
+			<div v-if="players.length >= 3">
+				<UButton
+						v-if="isHost && !isStarting"
+						icon="i-lucide-play"
+						@click="startGameWrapper"
+				>
+					Start Game
+				</UButton>
+				<UButton
+						v-if="isHost && isStarting"
+						:loading="true"
+						disabled
+				>
+					Starting Game...
+				</UButton>
+				<p v-if="!isHost && !isStarting" class="text-gray-400 text-center font-['Bebas_Neue'] text-4xl">
+					Waiting for the host to start...
+				</p>
+				<p v-if="!isHost && isStarting" class="text-green-400 text-center font-['Bebas_Neue'] text-4xl">
+					Game is starting...
+				</p>
+			</div>
+			<div v-else>
+				<p class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">We need at least 3 players to start the
+					game!</p>
+			</div>
+		</aside>
+	</div>
+	<div v-else>
+		<p class="text-red-400 text-sm">Lobby data is unavailable.</p>
+	</div>
 </template>
 
-<script setup lang="ts">
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { useUserStore } from '~/stores/userStore';
-import { useLobby } from '~/composables/useLobby';
-import type { Lobby } from '~/types/lobby';
-import type { Player } from '~/types/player';
+<script lang="ts" setup>
+import {computed} from 'vue';
+import {useRouter} from 'vue-router';
+import {useUserStore} from '~/stores/userStore';
+import {useLobby} from '~/composables/useLobby';
+import type {Lobby} from '~/types/lobby';
+import type {Player} from '~/types/player';
+import PlayerList from "~/components/PlayerList.vue";
 
 const props = defineProps<{
-  lobby: Lobby | null;
-  players: Player[];
+	lobby: Lobby | null;
+	players: Player[];
 }>();
 
 const router = useRouter();
 const userStore = useUserStore();
-const { startGame, leaveLobby } = useLobby();
+const {startGame, leaveLobby} = useLobby();
 
 const isHost = computed(() =>
-    props.lobby?.hostUserId === userStore.user?.$id
+		props.lobby?.hostUserId === userStore.user?.$id
 );
 
+const isStarting = ref(false);
+
 const startGameWrapper = async () => {
-  if (!props.lobby) return;
-  try {
-    await startGame(props.lobby.$id);  // Remove hostUserId parameter
-  } catch (err) {
-    console.error('Failed to start game:', err);
-  }
+	if (!props.lobby) return;
+	try {
+		isStarting.value = true;
+		await startGame(props.lobby.$id);  // Remove hostUserId parameter
+	} catch (err) {
+		console.error('Failed to start game:', err);
+		isStarting.value = false;
+	}
 };
 
 const handleLeave = async () => {
-  if (!props.lobby || !userStore.user?.$id) return;
-  try {
-    await leaveLobby(props.lobby.$id, userStore.user.$id);
-    await router.push('/');
-  } catch (err) {
-    console.error('Failed to leave lobby:', err);
-  }
+	if (!props.lobby || !userStore.user?.$id) return;
+	try {
+		await leaveLobby(props.lobby.$id, userStore.user.$id);
+		await router.push('/');
+	} catch (err) {
+		console.error('Failed to leave lobby:', err);
+	}
 };
 </script>
 

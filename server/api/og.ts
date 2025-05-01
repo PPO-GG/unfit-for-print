@@ -8,8 +8,20 @@ const fontPath = join(process.cwd(), 'node_modules/@fontsource/inter/files/inter
 const fontData = readFileSync(fontPath)
 
 export default defineEventHandler(async (event) => {
-    const { code = '????' } = getQuery(event)
+    const query = getQuery(event)
+    const code = query.code?.toString().toUpperCase()
+    if (!code) {
+        throw createError({
+            statusCode: 400,
+            message: 'Missing code parameter'
+        })
+    }
+    setResponseHeaders(event, {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'Access-Control-Allow-Origin': '*'
 
+    })
     const svg = await satori(
         {
             type: 'div',
@@ -84,6 +96,5 @@ export default defineEventHandler(async (event) => {
     )
 
     const png = new Resvg(svg).render().asPng()
-    setHeader(event, 'Content-Type', 'image/png')
     return send(event, png)
 })

@@ -1,4 +1,4 @@
-// functions/startNextRound/src/main.js
+// startNextRound/src/main.js
 import { Client, Databases, Query } from 'node-appwrite';
 
 // Utility functions (consider moving to a shared lib)
@@ -30,16 +30,35 @@ const shuffle = (array) => {
   return copy;
 };
 
+// Helper to fetch all IDs from a collection
+async function fetchAllIds(collectionId, databases, DB) {
+  const BATCH = 100;
+  // get total count
+  const { total } = await databases.listDocuments(DB, collectionId, [
+    Query.limit(1),
+  ]);
+  const ids = [];
+  for (let offset = 0; offset < total; offset += BATCH) {
+    const res = await databases.listDocuments(DB, collectionId, [
+      Query.limit(BATCH),
+      Query.offset(offset),
+    ]);
+    ids.push(...res.documents.map((d) => d.$id));
+  }
+  return ids;
+}
+
 export default async function ({ req, res, log, error }) {
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
     .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-    .setKey(process.env.APPWRITE_FUNCTION_API_KEY);
+    .setKey(req.headers['x-appwrite-key'] ?? '');
   const databases = new Databases(client);
   const DB = process.env.APPWRITE_DATABASE_ID;
   const LOBBY_COLLECTION = process.env.LOBBY_COLLECTION;
   const WHITE_CARDS_COLLECTION = process.env.WHITE_CARDS_COLLECTION;
   const BLACK_CARDS_COLLECTION = process.env.BLACK_CARDS_COLLECTION;
+  const GAMECARDS_COLLECTION = process.env.GAMECARDS_COLLECTION;
 
   try {
     const raw = req.body ?? req.payload ?? '';
@@ -66,6 +85,30 @@ export default async function ({ req, res, log, error }) {
     const state = decodeGameState(lobby.gameState);
     const countdownDuration = (lobby.roundEndCountdownDuration || 5) * 1000; // In ms, default 5s
 
+    // --- Fetch GameCards document ---
+    const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS_COLLECTION, [
+      Query.equal('lobbyId', lobbyId)
+    ]);
+
+    if (gameCardsQuery.documents.length === 0) {
+      throw new Error(`No gamecards document found for lobby ${lobbyId}`);
+    }
+
+    const gameCards = gameCardsQuery.documents[0];
+
+    // Merge card data from gameCards into state for processing
+    state.whiteDeck = gameCards.whiteDeck;
+    state.blackDeck = gameCards.blackDeck;
+    state.discardWhite = gameCards.discardWhite;
+    state.discardBlack = gameCards.discardBlack;
+
+    // Convert playerHands array to hands object
+      state.hands = {};
+      gameCards.playerHands.forEach(handString => {
+          const hand = JSON.parse(handString);
+          state.hands[hand.playerId] = hand.cards;
+      });
+
     // --- Validations ---
     if (state.phase !== 'roundEnd') {
       log(`Attempted to start next round for lobby ${lobbyId} but phase was ${state.phase}. Aborting.`);
@@ -75,7 +118,7 @@ export default async function ({ req, res, log, error }) {
 
     // Optional: Time validation (prevent starting too early)
     const timeElapsed = Date.now() - (state.roundEndStartTime || 0);
-    if (timeElapsed < countdownDuration - 500) { // Allow a small buffer (500ms)
+    if (timeElapsed < countdownDuration - 600) { // Allow a buffer (600ms) to account for timing variations
         log(`Attempted to start next round too early for lobby ${lobbyId}. Time elapsed: ${timeElapsed}ms, Required: ${countdownDuration}ms`);
         return res.json({ success: false, message: 'Countdown not finished' });
     }
@@ -113,16 +156,60 @@ export default async function ({ req, res, log, error }) {
     }
 
     // Check and refill black deck if needed
-    if (!state.blackDeck || state.blackDeck.length < 1) {
-        log('Black deck empty or missing, refilling from discard pile.');
-        if (state.discardBlack && state.discardBlack.length > 0) {
-            state.blackDeck = shuffle([...state.discardBlack]);
-            state.discardBlack = [];
-            log(`Refilled black deck with ${state.blackDeck.length} cards.`);
-        } else {
-            // If discard is also empty, fetch new cards (implement if needed)
-            log('Warning: Black deck and discard pile are empty. Cannot draw new black card.');
-            state.blackCard = null; // Set to null if no cards available
+    // We want to maintain a minimum number of black cards in the deck
+    const MIN_BLACK_CARDS = 5;
+    if (!state.blackDeck || state.blackDeck.length < MIN_BLACK_CARDS) {
+        log(`Black deck low (${state.blackDeck?.length || 0} cards), fetching new cards from database.`);
+
+        // Fetch all black card IDs from the database
+        try {
+            // Get all black card IDs
+            const allBlackIds = await fetchAllIds(BLACK_CARDS_COLLECTION, databases, DB);
+
+            // Filter out cards that are in the discard pile or currently in the deck
+            state.discardBlack = state.discardBlack || [];
+            const currentDeck = state.blackDeck || [];
+
+            // Cards that are already in use (in discard or in current deck)
+            const cardsInUse = [...state.discardBlack, ...currentDeck];
+            if (state.blackCard?.id) {
+                cardsInUse.push(state.blackCard.id);
+            }
+
+            const availableBlackIds = allBlackIds.filter(id => !cardsInUse.includes(id));
+
+            if (availableBlackIds.length > 0) {
+                // If we have new cards available, use them
+                // Limit the number of black cards
+                const MAX_BLACK_CARDS = 50; // Set desired limit
+                const newCards = shuffle(availableBlackIds).slice(0, MAX_BLACK_CARDS);
+                state.blackDeck = [...(state.blackDeck || []), ...newCards];
+                log(`Fetched and added ${newCards.length} new black cards from database. Deck now has ${state.blackDeck.length} cards.`);
+            } else if (state.discardBlack && state.discardBlack.length > 0) {
+                // If all cards have been used, refill from discard pile
+                log('All black cards have been used, refilling from discard pile.');
+                const discardedCards = shuffle([...state.discardBlack]);
+                state.blackDeck = [...(state.blackDeck || []), ...discardedCards];
+                state.discardBlack = [];
+                log(`Refilled black deck with ${discardedCards.length} cards from discard pile. Deck now has ${state.blackDeck.length} cards.`);
+            } else {
+                // If both database and discard are empty
+                log('Warning: No black cards available in database or discard pile.');
+                if (!state.blackDeck || state.blackDeck.length === 0) {
+                    state.blackCard = null; // Set to null if no cards available and deck is empty
+                }
+            }
+        } catch (fetchError) {
+            error(`Failed to fetch black cards from database: ${fetchError.message}`);
+            // Fall back to discard pile if database fetch fails
+            if (state.discardBlack && state.discardBlack.length > 0) {
+                const discardedCards = shuffle([...state.discardBlack]);
+                state.blackDeck = [...(state.blackDeck || []), ...discardedCards];
+                state.discardBlack = [];
+                log(`Fallback: Refilled black deck with ${discardedCards.length} cards from discard pile. Deck now has ${state.blackDeck.length} cards.`);
+            } else if (!state.blackDeck || state.blackDeck.length === 0) {
+                state.blackCard = null;
+            }
         }
     }
 
@@ -149,15 +236,53 @@ export default async function ({ req, res, log, error }) {
     // Check and refill white deck if needed
     const requiredWhiteCards = playerIds.length * 7; // Estimate needed for full hands
     if (!state.whiteDeck || state.whiteDeck.length < requiredWhiteCards) {
-        log(`White deck low (${state.whiteDeck?.length || 0} cards), refilling from discard pile.`);
-        state.discardWhite = state.discardWhite || [];
-        if (state.discardWhite.length > 0) {
-            state.whiteDeck = shuffle([...(state.whiteDeck || []), ...state.discardWhite]);
-            state.discardWhite = [];
-            log(`Refilled white deck with ${state.whiteDeck.length} cards.`);
-        } else {
-            // If discard is also empty, fetch new cards (implement if needed)
-            log('Warning: White deck and discard pile are empty. Cannot guarantee full hands.');
+        log(`White deck low (${state.whiteDeck?.length || 0} cards), fetching new cards from database.`);
+
+        // Fetch all white card IDs from the database
+        try {
+            // Get all white card IDs
+            const allWhiteIds = await fetchAllIds(WHITE_CARDS_COLLECTION, databases, DB);
+
+            // Filter out cards that are in the discard pile or already in players' hands
+            state.discardWhite = state.discardWhite || [];
+            const currentDeck = state.whiteDeck || [];
+
+            // Collect all cards that are already in use (in discard, in deck, or in hands)
+            const cardsInUse = [...state.discardWhite, ...currentDeck];
+            Object.values(state.hands || {}).forEach(hand => {
+                cardsInUse.push(...hand);
+            });
+
+            // Filter to get only cards not in use
+            const availableWhiteIds = allWhiteIds.filter(id => !cardsInUse.includes(id));
+
+            if (availableWhiteIds.length > 0) {
+                // If we have new cards available, use them
+                // Limit the number of white cards
+                const MAX_WHITE_CARDS = 100; // Set desired limit
+                const newCards = shuffle(availableWhiteIds).slice(0, MAX_WHITE_CARDS);
+                state.whiteDeck = [...(state.whiteDeck || []), ...newCards];
+                log(`Fetched and added ${newCards.length} new white cards from database. Deck now has ${state.whiteDeck.length} cards.`);
+            } else if (state.discardWhite.length > 0) {
+                // If all cards have been used, refill from discard pile
+                log('All white cards have been used, refilling from discard pile.');
+                state.whiteDeck = shuffle([...(state.whiteDeck || []), ...state.discardWhite]);
+                state.discardWhite = [];
+                log(`Refilled white deck with ${state.whiteDeck.length} cards from discard pile.`);
+            } else {
+                // If both database and discard are empty
+                log('Warning: No white cards available in database or discard pile. Cannot guarantee full hands.');
+            }
+        } catch (fetchError) {
+            error(`Failed to fetch white cards from database: ${fetchError.message}`);
+            // Fall back to discard pile if database fetch fails
+            if (state.discardWhite.length > 0) {
+                state.whiteDeck = shuffle([...(state.whiteDeck || []), ...state.discardWhite]);
+                state.discardWhite = [];
+                log(`Fallback: Refilled white deck with ${state.whiteDeck.length} cards from discard pile.`);
+            } else {
+                log('Warning: Failed to fetch white cards and discard pile is empty. Cannot guarantee full hands.');
+            }
         }
     }
 
@@ -181,16 +306,58 @@ export default async function ({ req, res, log, error }) {
 
     log(`Setup complete for round ${state.round}. Phase: ${state.phase}`);
 
-    // --- Update Lobby ---
+    // --- Extract card data for gameCards document ---
+    // Convert hands object back to playerHands array
+      const handsArray = Object.entries(state.hands || {}).map(
+          ([playerId, cards]) => JSON.stringify({ playerId, cards })
+      );
+
+      const updatedGameCards = {
+          whiteDeck: state.whiteDeck || [],
+          blackDeck: state.blackDeck || [],
+          discardWhite: state.discardWhite || [],
+          discardBlack: state.discardBlack || [],
+          playerHands: handsArray,
+          // Keep the lobbyId unchanged
+          lobbyId: lobbyId
+      };
+
+    // --- Create a clean state object without card data ---
+    // Instead of modifying the original state object, create a new object with only the core game state properties
+    const coreState = {
+        phase: state.phase,
+        judgeId: state.judgeId,
+        blackCard: state.blackCard,
+        submissions: state.submissions || {},
+        playedCards: state.playedCards || {},
+        scores: state.scores || {},
+        round: state.round,
+        roundWinner: state.roundWinner,
+        roundEndStartTime: state.roundEndStartTime,
+        returnedToLobby: state.returnedToLobby,
+        gameEndTime: state.gameEndTime
+    };
+
+    // --- Update both documents ---
+    // Update gameCards document
+    await databases.updateDocument(DB, GAMECARDS_COLLECTION, gameCards.$id, updatedGameCards);
+
+    // Update lobby document
     await databases.updateDocument(DB, LOBBY_COLLECTION, lobbyId, {
       // status remains 'playing'
-      gameState: encodeGameState(state),
+      gameState: encodeGameState(coreState),
     });
 
     return res.json({ success: true });
 
   } catch (err) {
-    error(`startNextRound error for lobby ${payload?.lobbyId || 'UNKNOWN'}: ${err.message} \n Stack: ${err.stack}`);
+    // Use req.body or req.payload if available, otherwise use a safe fallback
+    const requestData = req.body ?? req.payload ?? {};
+    const lobbyId = typeof requestData === 'string' 
+      ? JSON.parse(requestData)?.lobbyId || 'UNKNOWN'
+      : requestData?.lobbyId || 'UNKNOWN';
+
+    error(`startNextRound error for lobby ${lobbyId}: ${err.message} \n Stack: ${err.stack}`);
     return res.json({ success: false, error: err.message });
   }
 }

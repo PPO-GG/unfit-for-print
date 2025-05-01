@@ -1,4 +1,5 @@
-import { Client, Databases } from 'node-appwrite';
+//playCard/src/main.js
+import { Client, Databases, Query } from 'node-appwrite';
 
 // Utility functions for encoding/decoding game state
 const encodeGameState = (state) => {
@@ -27,6 +28,8 @@ export default async function ({ req, res, log, error }) {
 
   const databases = new Databases(client);
   const DB = process.env.APPWRITE_DATABASE_ID;
+  const LOBBY_COLLECTION = process.env.LOBBY_COLLECTION;
+  const GAMECARDS_COLLECTION = process.env.GAMECARDS_COLLECTION;
 
   try {
     const raw = req.body ?? req.payload ?? '';
@@ -55,12 +58,29 @@ export default async function ({ req, res, log, error }) {
     if (!cardIds || !Array.isArray(cardIds))
       throw new Error('cardIds must be an array');
 
-    const lobby = await databases.getDocument(
-      DB,
-      process.env.LOBBY_COLLECTION,
-      lobbyId
-    );
+    const lobby = await databases.getDocument(DB, LOBBY_COLLECTION, lobbyId);
     const state = decodeGameState(lobby.gameState);
+
+    // Fetch the gamecards document
+    const gameCardsQuery = await databases.listDocuments(
+      DB,
+      GAMECARDS_COLLECTION,
+      [Query.equal('lobbyId', lobbyId)]
+    );
+
+    if (gameCardsQuery.documents.length === 0) {
+      throw new Error(`No gamecards document found for lobby ${lobbyId}`);
+    }
+
+    const gameCards = gameCardsQuery.documents[0];
+
+    // Use player hands from gameCards
+    // Convert playerHands array to hands object
+    state.hands = {};
+    gameCards.playerHands.forEach((handString) => {
+      const hand = JSON.parse(handString);
+      state.hands[hand.playerId] = hand.cards;
+    });
 
     if (state.phase !== 'submitting')
       throw new Error('Not accepting submissions');
@@ -89,8 +109,47 @@ export default async function ({ req, res, log, error }) {
       state.phase = 'judging';
     }
 
-    await databases.updateDocument(DB, process.env.LOBBY_COLLECTION, lobbyId, {
-      gameState: encodeGameState(state),
+    // Extract updated player hands for gameCards document
+    // Convert hands object back to playerHands array
+    const handsArray = Object.entries(state.hands).map(([playerId, cards]) =>
+      JSON.stringify({ playerId, cards })
+    );
+
+    // Only include the fields we need, excluding metadata fields like $databaseId
+    const updatedGameCards = {
+      lobbyId: gameCards.lobbyId,
+      whiteDeck: gameCards.whiteDeck,
+      blackDeck: gameCards.blackDeck,
+      discardWhite: gameCards.discardWhite,
+      discardBlack: gameCards.discardBlack,
+      playerHands: handsArray,
+    };
+
+    // Create a clean state object without hands data
+    const coreState = {
+        phase: state.phase,
+        judgeId: state.judgeId,
+        blackCard: state.blackCard,
+        submissions: state.submissions || {},
+        playedCards: state.playedCards || {},
+        scores: state.scores || {},
+        round: state.round,
+        roundWinner: state.roundWinner,
+        roundEndStartTime: state.roundEndStartTime,
+        returnedToLobby: state.returnedToLobby,
+        gameEndTime: state.gameEndTime
+    };
+
+    // Update both documents
+    await databases.updateDocument(
+      DB,
+      GAMECARDS_COLLECTION,
+      gameCards.$id,
+      updatedGameCards
+    );
+
+    await databases.updateDocument(DB, LOBBY_COLLECTION, lobbyId, {
+      gameState: encodeGameState(coreState),
     });
 
     return res.json({ success: true });

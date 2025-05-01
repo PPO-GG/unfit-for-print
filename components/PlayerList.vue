@@ -133,7 +133,7 @@ const getPlayerAvatarUrl = (player: Player) => {
 </script>
 
 <template>
-  <div class="font-['Bebas_Neue'] bg-slate-600 rounded-xl p-6 shadow-lg max-w-1/4 mx-auto">
+  <div class="font-['Bebas_Neue'] bg-slate-600 rounded-xl p-6 shadow-lg w-full mx-auto">
     <div class="flex justify-between items-center mb-2">
       <h2 class="text-3xl font-bold">Players</h2>
       <UButton

@@ -2,25 +2,38 @@
 import { computed } from 'vue'
 import type { Ref } from 'vue'
 import type { Lobby } from '~/types/lobby'
+import type { GameState, PlayerId, CardId } from '~/types/game'
 import { useGameState } from '~/composables/useGameState'
 import { useUserStore } from '~/stores/userStore'
 
-/**
- * Provides reactive access to the decoded game state stored in lobby.gameState
- * and useful computed properties for UI phases, current czar, cards, etc.
- */
-export function useGameContext(lobbyRef: Ref<Lobby | null>) {
+const PLAYING_PHASES: GameState['phase'][] = ['submitting', 'judging', 'roundEnd']
+const DEFAULT_COUNTDOWN_DURATION = 5
+
+export function useGameContext(
+    lobbyRef: Ref<Lobby | null>,
+    externalPlayerHands?: Ref<Record<PlayerId, CardId[]>>
+) {
     const userStore = useUserStore()
     const { decodeGameState } = useGameState()
 
-    // Decode the game state string into a JS object on every change
-    const state = computed(() => {
+    const state = computed<GameState | null>(() => {
         if (!lobbyRef.value) return null
-        return decodeGameState(lobbyRef.value.gameState)
+        try {
+            return decodeGameState(lobbyRef.value.gameState) as GameState
+        } catch (error) {
+            console.error('Failed to decode game state:', error)
+            return null
+        }
     })
 
-    // Helper: current user ID
-    const myId = computed(() => userStore.user?.$id ?? '')
+    const myId = computed<PlayerId>(() => {
+        const id = userStore.user?.$id
+        if (!id) {
+            console.warn('User ID not available')
+            return ''
+        }
+        return id
+    })
 
     return {
         state,
@@ -28,57 +41,97 @@ export function useGameContext(lobbyRef: Ref<Lobby | null>) {
         isWaiting:    computed(() => state.value?.phase === 'waiting'),
         isSubmitting: computed(() => state.value?.phase === 'submitting'),
         isPlaying:    computed(() => {
-            // Log the values for debugging
-            console.log('[GameContext] Checking isPlaying:', {
-                lobbyStatus: lobbyRef.value?.status,
-                gamePhase: state.value?.phase
-            });
-            // Consider all active game phases as "playing"
-            const playingPhases = ['submitting', 'judging', 'roundEnd'];
-            return lobbyRef.value?.status === 'playing' || 
-                   (state.value?.phase && playingPhases.includes(state.value.phase));
+            if (import.meta.dev) {
+                console.log('[GameContext] Checking isPlaying:', {
+                    lobbyStatus: lobbyRef.value?.status,
+                    gamePhase: state.value?.phase
+                })
+            }
+            return lobbyRef.value?.status === 'playing' ||
+                (state.value?.phase && PLAYING_PHASES.includes(state.value.phase))
         }),
         isJudging:    computed(() => state.value?.phase === 'judging'),
         isComplete:   computed(() => state.value?.phase === 'complete'),
-        isRoundEnd:   computed(() => state.value?.phase === 'roundEnd'), // New phase check
+        isRoundEnd:   computed(() => state.value?.phase === 'roundEnd'),
 
         // Judge info
-        judgeId:      computed(() => state.value?.judgeId ?? null),
+        judgeId:      computed((): PlayerId | null => state.value?.judgeId ?? null),
         isJudge:      computed(() => myId.value === state.value?.judgeId),
 
         // Black card prompt
         blackCard:    computed(() => state.value?.blackCard ?? null),
 
         // Submissions map
-        submissions:  computed(() => state.value?.submissions ?? {}),
-        mySubmission: computed(() => state.value?.submissions?.[myId.value] ?? null),
+        submissions:  computed((): Record<PlayerId, CardId[]> => state.value?.submissions ?? {}),
+        mySubmission: computed((): CardId[] | null => state.value?.submissions?.[myId.value] ?? null),
         otherSubmissions: computed(() => {
             const subs = state.value?.submissions || {}
             return Object.entries(subs)
                 .filter(([pid]) => pid !== myId.value)
-                .map(([pid, cards]) => ({ playerId: pid, cards }))
+                .map(([pid, cards]) => ({ playerId: pid as PlayerId, cards }))
         }),
 
         // Hands map
-        hands:        computed(() => state.value?.hands ?? {}),
-        myHand:       computed(() => state.value?.hands?.[myId.value] ?? []),
+        hands:        computed((): Record<PlayerId, CardId[]> => {
+            // Use external player hands if provided, otherwise fall back to state.hands
+            if (externalPlayerHands?.value) {
+                return externalPlayerHands.value;
+            }
+            return state.value?.hands ?? {};
+        }),
+        myHand:       computed((): CardId[] => {
+            // Use external player hands if provided, otherwise fall back to state.hands
+            if (externalPlayerHands?.value && myId.value) {
+                const cards = externalPlayerHands.value[myId.value] ?? [];
+                console.log('🃏 [useGameContext] myHand from externalPlayerHands:', 
+                    { playerId: myId.value, cards, externalHandsAvailable: !!externalPlayerHands?.value });
+
+                // If cards array is empty but we know external hands are available,
+                // this might be because the player ID in the game cards doesn't match the user ID
+                // Let's try to find the player's hand by iterating through all hands
+                if (cards.length === 0 && externalPlayerHands.value && Object.keys(externalPlayerHands.value).length > 0) {
+                    console.log('🃏 [useGameContext] No cards found for player ID, checking all player hands');
+
+                    // Log all available player IDs for debugging
+                    console.log('🃏 [useGameContext] Available player IDs:', Object.keys(externalPlayerHands.value));
+
+                    // Try to find a matching player ID by checking if any player ID contains the current user ID
+                    // This handles cases where the player ID might be formatted differently
+                    for (const [pid, playerCards] of Object.entries(externalPlayerHands.value)) {
+                        console.log(`🃏 [useGameContext] Checking player ID: ${pid}`);
+                        if (pid.includes(myId.value) || myId.value.includes(pid)) {
+                            console.log(`🃏 [useGameContext] Found matching player ID: ${pid} for user ID: ${myId.value}`);
+                            return playerCards;
+                        }
+                    }
+                }
+
+                return cards;
+            }
+            const cards = state.value?.hands?.[myId.value] ?? [];
+            console.log('🃏 [useGameContext] myHand from state:', 
+                { playerId: myId.value, cards, stateHandsAvailable: !!state.value?.hands });
+            return cards;
+        }),
 
         // Scoring
-        scores:       computed(() => state.value?.scores ?? {}),
+        scores:       computed((): Record<PlayerId, number> => state.value?.scores ?? {}),
         leaderboard: computed(() => {
-            // scores are stored as Record<playerId, number>
-            const sc = (state.value?.scores || {}) as Record<string, number>
-            // Typed entries for safe number comparisons
-            const entries = Object.entries(sc) as [string, number][]
-            return entries
-                .map(([pid, pts]) => ({ playerId: pid, points: pts }))
+            const scores = state.value?.scores ?? {}
+            return Object.entries(scores)
+                .map(([pid, points]) => ({
+                    playerId: pid as PlayerId,
+                    points: points
+                }))
                 .sort((a, b) => b.points - a.points)
         }),
 
         // Round End Info
-        roundWinner: computed(() => state.value?.roundWinner ?? null), // Use existing roundWinner field
-        roundEndStartTime: computed(() => state.value?.roundEndStartTime ?? null),
-        roundEndCountdownDuration: computed(() => lobbyRef.value?.roundEndCountdownDuration ?? 5), // Default 5s
-        myId, // Expose the current user's ID
+        roundWinner: computed((): PlayerId | undefined => state.value?.roundWinner),
+        roundEndStartTime: computed((): number | null => state.value?.roundEndStartTime ?? null),
+        roundEndCountdownDuration: computed((): number =>
+            lobbyRef.value?.roundEndCountdownDuration ?? DEFAULT_COUNTDOWN_DURATION
+        ),
+        myId,
     }
 }

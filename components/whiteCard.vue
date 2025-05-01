@@ -11,7 +11,7 @@
         <!-- Front Side -->
         <div class="card__face card__front">
           <slot name="front">
-            <div class="card-content p-4 max-xl:text-xl min-md:text-4xl leading-none">
+            <div class="card-content p-4 xl:text-4xl md:text-3xl sm:text-2xl leading-none">
               <p>{{ cardText }}</p>
               <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
                 <UTooltip :text="`Card ID ` + cardId">

@@ -37,7 +37,7 @@ const props = withDefaults(defineProps<{
 })
 
 const { width } = useWindowSize()
-const isLowPerf = computed(() => navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4)
+const isLowPerf = computed(() => typeof navigator !== 'undefined' && navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4)
 
 const computedScale = computed(() => {
 	if (width.value < 480) return 0.3
