@@ -20,6 +20,7 @@ const showJoin = ref(false);
 const showCreate = ref(false);
 const isJoining = ref(false);
 const isCreating = ref(false);
+const config = useRuntimeConfig();
 
 const handleLoginWithDiscord = async (): Promise<void> => {
   try {
@@ -276,6 +277,7 @@ const openPolicyModal = () => {
 						</UButton>
 						<p class="text-sm">© 2025 Unfit for Print. All rights reserved.</p>
 						<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
+						<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">V-{{ $config.public.appVersion }}</NuxtLink>
 					</div>
 				</template>
 
@@ -286,6 +288,7 @@ const openPolicyModal = () => {
 					</UButton>
 					<p class="text-sm">© 2025 Unfit for Print. All rights reserved.</p>
 					<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
+					<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">V-{{ $config.public.appVersion }}</NuxtLink>
 				</div>
 			</div>
 
