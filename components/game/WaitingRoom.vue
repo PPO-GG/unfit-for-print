@@ -1,6 +1,6 @@
 <template>
-	<div v-if="lobby">
-		<aside class="max-w-128 w-1/4 min-w-72 h-screen p-4 flex flex-col shadow-inner border-r-1 border-slate-800 space-y-4">
+	<div v-if="lobby" class="flex h-screen bg-gray-900 overflow-hidden">
+		<aside class="max-w-3/12 w-auto h-screen p-4 flex flex-col shadow-inner border-r-1 border-slate-800 space-y-4">
 			<h1 class="text-2xl font-bold font-['Bebas_Neue'] p-4">
 				Lobby Code: {{ lobby.code }}
 				<UButton
@@ -18,6 +18,10 @@
 					:hostUserId="lobby.hostUserId"
 					:lobbyId="lobby.$id"
 					:players="players"
+			/>
+			<ChatBox
+					:lobby-id="props.lobby.$id"
+					:current-user-id="myId"
 			/>
 			<div v-if="players.length >= 3">
 				<UButton
@@ -61,15 +65,17 @@ import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
 import PlayerList from "~/components/PlayerList.vue";
 
-const props = defineProps<{
-	lobby: Lobby | null;
-	players: Player[];
-}>();
+const props = defineProps<{ lobby: Lobby; players: Player[] }>()
+const lobbyRef = ref(props.lobby)
+// Keep lobbyRef in sync with props.lobby
+watch(() => props.lobby, (newLobby) => {
+	lobbyRef.value = newLobby
+}, {immediate: true})
 
 const router = useRouter();
 const userStore = useUserStore();
 const {startGame, leaveLobby} = useLobby();
-
+const myId = userStore.user?.$id ?? ''
 const isHost = computed(() =>
 		props.lobby?.hostUserId === userStore.user?.$id
 );

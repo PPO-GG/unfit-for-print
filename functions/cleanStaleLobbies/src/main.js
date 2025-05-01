@@ -13,6 +13,7 @@ export default async function ({ req, res, log, error }) {
   const LOBBY_COLLECTION = process.env.LOBBY_COLLECTION
   const PLAYER_COLLECTION = process.env.PLAYER_COLLECTION
   const GAMECARDS_COLLECTION = process.env.GAMECARDS_COLLECTION
+  const GAMECHAT_COLLECTION = process.env.GAMECHAT_COLLECTION
 
   try {
     log('Starting stale lobby cleanup process');
@@ -30,6 +31,7 @@ export default async function ({ req, res, log, error }) {
     let staleLobbiesCount = 0;
     let deletedPlayersCount = 0;
     let deletedGamecardsCount = 0;
+    let deletedChatsCount = 0;
 
     // Process each lobby
     for (const lobby of lobbies.documents) {
@@ -69,6 +71,20 @@ export default async function ({ req, res, log, error }) {
 
         log(`Deleted ${lobbyGamecardsCount} gamecards documents for lobby ${lobby.$id}`);
 
+        // Find and delete chat documents for this lobby
+        const chats = await databases.listDocuments(DB, GAMECHAT_COLLECTION, [
+          Query.equal('lobbyId', lobby.$id)
+        ]);
+
+        let lobbyChatsCount = 0;
+        for (const chat of chats.documents) {
+          await databases.deleteDocument(DB, GAMECHAT_COLLECTION, chat.$id);
+          lobbyChatsCount++;
+          deletedChatsCount++;
+        }
+
+        log(`Deleted ${lobbyChatsCount} chat documents for lobby ${lobby.$id}`);
+
         // Delete the lobby document
         await databases.deleteDocument(DB, LOBBY_COLLECTION, lobby.$id);
         log(`Deleted stale lobby: ${lobby.$id}`);
@@ -81,7 +97,8 @@ export default async function ({ req, res, log, error }) {
       success: true,
       staleLobbiesDeleted: staleLobbiesCount,
       playersDeleted: deletedPlayersCount,
-      gamecardsDeleted: deletedGamecardsCount
+      gamecardsDeleted: deletedGamecardsCount,
+      chatsDeleted: deletedChatsCount
     });
   } catch (err) {
     error('cleanStaleLobbies error: ' + err.message);

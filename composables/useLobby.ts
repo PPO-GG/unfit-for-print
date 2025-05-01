@@ -413,6 +413,15 @@ export const useLobby = () => {
                     await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteGamecardsCollectionId, gamecard.$id);
                 }
 
+                // Delete chat messages associated with this lobby
+                const chatMessages = await databases.listDocuments(config.public.appwriteDatabaseId, config.public.appwriteGamechatCollectionId, [
+                    Query.equal('lobbyId', lobbyId),
+                ]);
+
+                for (const message of chatMessages.documents) {
+                    await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteGamechatCollectionId, message.$id);
+                }
+
                 await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteLobbyCollectionId, lobbyId);
                 return;
             }
