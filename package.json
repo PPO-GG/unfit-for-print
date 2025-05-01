@@ -1,6 +1,6 @@
 {
   "name": "nuxt-app",
-  "version": "2025.05.01-1634",
+  "version": "2025.05.01-1711",
   "private": true,
   "type": "module",
   "scripts": {
@@ -45,6 +45,7 @@
   "devDependencies": {
     "@types/lodash-es": "^4.17.12",
     "@vitest/ui": "^3.1.2",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
     "jsdom": "^26.1.0",
     "prompts": "^2.4.2",
     "vitest": "^3.1.2"
