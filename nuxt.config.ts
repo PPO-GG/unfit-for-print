@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-// noinspection JSUnusedGlobalSymbols
-
+import { readFileSync } from 'fs'
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: false },
@@ -42,6 +42,7 @@ export default defineNuxtConfig({
       baseUrl: process.env.NUXT_PUBLIC_BASE_URL,
       oAuthRedirectUrl: process.env.NUXT_PUBLIC_OAUTH_REDIRECT_URL,
       oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,
+      appVersion: pkg.version,
     },
   },
   css: ["~/assets/css/main.css"],

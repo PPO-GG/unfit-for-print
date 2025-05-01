@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useUiStore } from '~/stores/uiStore';
 const uiStore = useUiStore();
+const config = useRuntimeConfig();
 </script>
 
 <template>
@@ -13,6 +14,7 @@ const uiStore = useUiStore();
 
 			<div class="flex-1 flex justify-center">
 				<p class="text-sm">Made with ❤️ by MYND @ <NuxtLink to="https://ppo.gg" target="_blank">PPO.GG</NuxtLink></p>
+				<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="text-sm text-gray-400 ml-4">V-{{ $config.public.appVersion }}</NuxtLink>
 			</div>
 
 			<div class="flex-1 flex justify-end">
