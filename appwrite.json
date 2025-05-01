@@ -101,6 +101,31 @@
             "entrypoint": "src/main.js",
             "commands": "npm install",
             "path": "functions/startNextRound"
+        },
+        {
+            "$id": "68118d78003272199009",
+            "name": "cleanStaleLobbies",
+            "runtime": "node-16.0",
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [
+                "users.read",
+                "databases.read",
+                "databases.write",
+                "collections.read",
+                "collections.write",
+                "documents.read",
+                "documents.write"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
+            "path": "functions/cleanStaleLobbies"
         }
     ],
     "settings": {

@@ -43,12 +43,18 @@ const updateTimer = () => {
   if (remainingTime.value <= 0 && props.isHost && !hasTriggeredNextRound.value) {
     hasTriggeredNextRound.value = true; // Set flag immediately
     console.log(`[Host] Countdown finished for lobby ${props.lobbyId}. Triggering next round.`);
-    startNextRound(props.lobbyId)
-      .catch((err: unknown) => { // Explicitly type err as unknown
-        console.error("Failed to trigger next round:", err);
-        // Optionally reset flag if call fails and needs retry?
-        // hasTriggeredNextRound.value = false;
-      });
+
+    // Add a 500ms buffer to ensure the server-side countdown is complete
+    setTimeout(() => {
+      console.log(`[Host] Buffer time elapsed, now calling startNextRound for lobby ${props.lobbyId}`);
+      startNextRound(props.lobbyId)
+        .catch((err: unknown) => { // Explicitly type err as unknown
+          console.error("Failed to trigger next round:", err);
+          // Optionally reset flag if call fails and needs retry?
+          // hasTriggeredNextRound.value = false;
+        });
+    }, 500); // 500ms buffer
+
     if (timerInterval.value) {
       clearInterval(timerInterval.value); // Stop timer once triggered
     }
@@ -80,18 +86,18 @@ watch(() => props.startTime, () => {
 <template>
   <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
     <div class="bg-slate-800 p-8 rounded-lg shadow-xl text-center max-w-md w-full">
-      <h2 class="text-3xl font-bold mb-4 text-yellow-400">
+      <h2 class="text-3xl font-bold mb-4 text-yellow-400 font-['Bebas_Neue']">
         {{ winnerMessage }}
       </h2>
-      <p class="text-6xl font-mono font-bold text-white mb-6">
+      <p class="text-6xl font-bold text-white mb-6 font-['Bebas_Neue']">
         {{ remainingTime }}
       </p>
-      <p class="text-lg text-slate-300">
+      <p class="text-lg text-slate-300 font-['Bebas_Neue']">
         Next round starting soon...
       </p>
       <!-- Optional: Add a visual timer bar -->
-      <div class="w-full bg-slate-700 rounded-full h-2.5 mt-4">
-        <div class="bg-blue-600 h-2.5 rounded-full" :style="{ width: `${(remainingTime / countdownDuration) * 100}%` }"></div>
+      <div class="w-full bg-slate-700 rounded-full h-2.5 mt-4 font-['Bebas_Neue']">
+        <div class="bg-blue-600 h-2.5 rounded-full font-['Bebas_Neue']" :style="{ width: `${(remainingTime / countdownDuration) * 100}%` }"></div>
       </div>
     </div>
   </div>

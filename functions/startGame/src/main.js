@@ -1,197 +1,132 @@
-// functions/startGame.js
-import { Client, Databases, Query } from 'node-appwrite'
+// startGame/src/main.js
+import { Client, Databases, Query } from 'node-appwrite';
 
-// Utility function for encoding game state
-const encodeGameState = (state) => {
-  try {
-    return JSON.stringify(state)
-  } catch (error) {
-    console.error('Failed to encode game state:', error)
-    return ''
+// ── 1) Constants for collections ────────────────────────────────
+const DB = process.env.APPWRITE_DATABASE_ID;
+const LOBBY_COL = process.env.LOBBY_COLLECTION;
+const WHITE_COL = process.env.WHITE_CARDS_COLLECTION;
+const BLACK_COL = process.env.BLACK_CARDS_COLLECTION;
+const PLAYER_COL = process.env.PLAYER_COLLECTION;
+const GAMECARDS_COL = process.env.GAMECARDS_COLLECTION;
+
+// ── 2) Helper: page through all IDs in a collection ───────────────────
+async function fetchAllIds(collectionId, databases, DB) {
+  const BATCH = 100;
+  // get total count
+  const { total } = await databases.listDocuments(DB, collectionId, [
+    Query.limit(1),
+  ]);
+  const ids = [];
+  for (let offset = 0; offset < total; offset += BATCH) {
+    const res = await databases.listDocuments(DB, collectionId, [
+      Query.limit(BATCH),
+      Query.offset(offset),
+    ]);
+    ids.push(...res.documents.map((d) => d.$id));
   }
+  return ids;
 }
 
-export default async function ({ req, res, log, error }) {
-  // 1) Initialize Appwrite SDK
-  const client = new Client()
-      .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
-      .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
-      .setKey(process.env.APPWRITE_FUNCTION_API_KEY);
+// ── 3) Fisher–Yates shuffle ─────────────────────────────────────────────
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
 
-  const databases = new Databases(client)
-  const DB = process.env.APPWRITE_DATABASE_ID
+// ── 4) Function handler ────────────────────────────────────────────────
+export default async function ({ req, res, log, error }) {
+  const client = new Client()
+    .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
+    .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
+    .setKey(req.headers['x-appwrite-key'] ?? '');
+  const databases = new Databases(client);
 
   try {
-    const raw = req.body ?? req.payload ?? ''
-    log('Raw body:', raw)
+    // Parse & validate payload
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const lobbyId = body?.lobbyId;
+    if (!lobbyId) throw new Error('lobbyId missing');
 
-    if (!raw) {
-      throw new Error('Request body is empty')
-    }
+    // 1) Load lobby + players
+    const lobby = await databases.getDocument(DB, LOBBY_COL, lobbyId);
+    const playersRes = await databases.listDocuments(DB, PLAYER_COL, []);
+    const playerIds = playersRes.documents.map((d) => d.userId);
+    const playerCount = playerIds.length;
 
-    // Parse JSON if needed
-    let payload = raw
-    if (typeof payload === 'string') {
-      try {
-        payload = JSON.parse(payload)
-      } catch (e) {
-        throw new Error(`Failed to parse JSON body: ${e.message}`)
-      }
-    }
+    // 2) Build white-card deck once
+    const allWhiteIds = shuffle(await fetchAllIds(WHITE_COL, databases, DB));
+    const CARDS_PER_PLAYER = 7;
+    const EXTRA_WHITES = 20;
+    const totalWhites = playerCount * CARDS_PER_PLAYER + EXTRA_WHITES;
 
-    // Extract lobbyId from the payload
-    const lobbyId = payload.lobbyId
+    // Deal hands
+    const hands = {};
+    playerIds.forEach((pid, idx) => {
+      const start = idx * CARDS_PER_PLAYER;
+      hands[pid] = allWhiteIds.slice(start, start + CARDS_PER_PLAYER);
+    });
 
-    // Check if lobbyId is undefined or null
-    if (!lobbyId) {
-      throw new Error('lobbyId is undefined or null')
-    }
+    // Build draw-pile (the extra whites)
+    const whiteDeck = allWhiteIds.slice(
+      playerCount * CARDS_PER_PLAYER,
+      totalWhites
+    );
 
-    // Log the lobbyId for debugging
-    log('Using lobbyId:', lobbyId)
+    // 3) Build a deck of black cards
+    const allBlackIds = shuffle(await fetchAllIds(BLACK_COL, databases, DB));
+    const INITIAL_BLACK_CARDS = 5; // Number of black cards to start with
 
-    // 2) Fetch lobby document
-    const lobby = await databases.getDocument(DB, process.env.LOBBY_COLLECTION, lobbyId)
+    // Take the first card for the current round
+    const firstBlackId = allBlackIds[0];
+    const firstBlack = await databases.getDocument(DB, BLACK_COL, firstBlackId);
 
-    // 3) Load card decks with randomization
-    // First, get total counts
-    const whitesCountRes = await databases.listDocuments(DB, process.env.WHITE_CARDS_COLLECTION, [
-      Query.limit(1)
-    ])
-    const blacksCountRes = await databases.listDocuments(DB, process.env.BLACK_CARDS_COLLECTION, [
-      Query.limit(1)
-    ])
+    // The rest go into the black deck
+    const blackDeck = allBlackIds.slice(1, INITIAL_BLACK_CARDS);
 
-    const whiteTotal = whitesCountRes.total
-    const blackTotal = blacksCountRes.total
-
-    // Calculate how many white cards we need (7 per player + some extra for the deck)
-    const playersRes = await databases.listDocuments(DB, process.env.PLAYER_COLLECTION, [])
-    const playerCount = playersRes.documents.length
-    const neededWhiteCards = (playerCount * 7) + 20
-
-    // For black cards, we'll still use the offset approach since we need fewer
-    const blackOffset = Math.floor(Math.random() * Math.max(1, blackTotal - 20))
-    log('Using black offset:', blackOffset, 'of', blackTotal, 'total cards')
-
-    // Fetch black cards with random offset
-    const blacks = await databases.listDocuments(DB, process.env.BLACK_CARDS_COLLECTION, [
-      Query.limit(20),
-      Query.offset(blackOffset)
-    ])
-
-    // For white cards, we'll fetch them individually with random offsets
-    // to ensure true randomness
-    log('Fetching white cards randomly one by one')
-
-    // 4) Shuffle black deck (Fisher–Yates)
-    const shuffle = arr => {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[arr[i], arr[j]] = [arr[j], arr[i]]
-      }
-      return arr
-    }
-    const blackDeck = shuffle(blacks.documents.map(d => d.$id))
-
-    // 5) Fetch random white cards and deal initial hands
-    const playerIds = playersRes.documents.map(d => d.userId)
-    const hands = {}
-    const whiteDeck = []
-
-    // Keep track of all cards that have been dealt to prevent duplicates
-    const dealtCards = new Set()
-
-    // Function to fetch a single random white card that hasn't been dealt yet
-    const fetchRandomWhiteCard = async () => {
-      let attempts = 0
-      let cardId
-
-      // Try up to 10 times to get a unique card
-      while (attempts < 10) {
-        const randomOffset = Math.floor(Math.random() * whiteTotal)
-        const card = await databases.listDocuments(DB, process.env.WHITE_CARDS_COLLECTION, [
-          Query.limit(1),
-          Query.offset(randomOffset)
-        ])
-        cardId = card.documents[0].$id
-
-        // If this card hasn't been dealt yet, use it
-        if (!dealtCards.has(cardId)) {
-          dealtCards.add(cardId)
-          return cardId
-        }
-
-        attempts++
-      }
-
-      // If we couldn't find a unique card after 10 attempts, try a different approach
-      // Get a batch of cards and find the first one that hasn't been dealt
-      const batchSize = 50
-      const randomOffset = Math.floor(Math.random() * Math.max(1, whiteTotal - batchSize))
-      const cards = await databases.listDocuments(DB, process.env.WHITE_CARDS_COLLECTION, [
-        Query.limit(batchSize),
-        Query.offset(randomOffset)
-      ])
-
-      for (const card of cards.documents) {
-        if (!dealtCards.has(card.$id)) {
-          dealtCards.add(card.$id)
-          return card.$id
-        }
-      }
-
-      // If we still couldn't find a unique card, log an error and return any card
-      // This should be extremely rare
-      log('Warning: Could not find a unique card after multiple attempts')
-      return cardId
-    }
-
-    // Deal 7 random cards to each player
-    for (const pid of playerIds) {
-      hands[pid] = []
-      for (let i = 0; i < 7; i++) {
-        const cardId = await fetchRandomWhiteCard()
-        hands[pid].push(cardId)
-      }
-    }
-
-    // Add some extra cards to the deck
-    for (let i = 0; i < 20; i++) {
-      const cardId = await fetchRandomWhiteCard()
-      whiteDeck.push(cardId)
-    }
-
-    // 6) Set up game state
-    const judgeId = lobby.hostUserId
-    const firstBlackId = blackDeck.shift()
-    const firstBlack = blacks.documents.find(d => d.$id === firstBlackId)
-
+    // 4) Assemble a lean gameState (without card data)
     const gameState = {
       phase: 'submitting',
-      judgeId,
-      blackCard: { id: firstBlack.$id, text: firstBlack.text, pick: firstBlack.pick },
+      judgeId: lobby.hostUserId,
+      blackCard: {
+        id: firstBlack.$id,
+        text: firstBlack.text,
+        pick: firstBlack.pick,
+      },
       submissions: {},
       playedCards: {},
-      hands,
-      whiteDeck,
-      blackDeck,
-      discardedWhiteCards: [], // Updated field name to match useGameEngine.ts
-      discardBlack: [],
-      submittedCards: {}, // Added field to match useGameEngine.ts
       scores: playerIds.reduce((acc, id) => ({ ...acc, [id]: 0 }), {}),
-      round: 1
-    }
+      round: 1,
+    };
 
-    // 7) Update lobby document
-    await databases.updateDocument(DB, process.env.LOBBY_COLLECTION, lobbyId, {
+    // 5) Create a separate gamecards document
+    // convert the hands object into an array of small objects
+    const handsArray = Object.entries(hands).map(([playerId, cards]) =>
+      JSON.stringify({ playerId, cards })
+    );
+
+    const gameCards = {
+      lobbyId: lobbyId,
+      whiteDeck: whiteDeck,
+      blackDeck: blackDeck,
+      discardWhite: [],
+      discardBlack: [],
+      playerHands: handsArray, // Array<string> ✓
+    };
+
+    // 6) Persist both documents
+    await databases.createDocument(DB, GAMECARDS_COL, 'unique()', gameCards);
+
+    await databases.updateDocument(DB, LOBBY_COL, lobbyId, {
       status: 'playing',
-      gameState: encodeGameState(gameState)
-    })
+      gameState: JSON.stringify(gameState),
+    });
 
-    return res.json({ success: true })
+    return res.json({ success: true });
   } catch (err) {
-    error('startGame error: ' + err.message)
-    return res.json({ success: false, error: err.message })
+    error('startGame error:', err);
+    return res.json({ success: false, error: err.message });
   }
 }

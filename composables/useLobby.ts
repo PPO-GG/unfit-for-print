@@ -14,7 +14,7 @@ import type { GameState } from '~/types/game';
 
 export const useLobby = () => {
     const players = ref<Player[]>([]);
-    const { getUserAvatarUrl } = usePlayers();
+    const { getUserAvatarUrl, getPlayersForLobby } = usePlayers();
     const getConfig = () => {
         // Try to get the safe config from the Appwrite plugin first
         const { safeConfig: pluginSafeConfig } = useAppwrite();
@@ -151,16 +151,20 @@ export const useLobby = () => {
                 gameState: encodeGameState({
                     phase: 'waiting',
                     round: 0,
-                    players: {},
                     scores: {},
                     hands: {},
                     playedCards: {},
+                    submissions: {},
                     whiteDeck: [],
                     blackDeck: [],
+                    discardWhite: [],
+                    discardBlack: [],
                     blackCard: null,
                     judgeId: null,
-                    discardedWhiteCards: [],
-                    submittedCards: {},
+                    roundWinner: null,
+                    roundEndStartTime: null,
+                    returnedToLobby: {},
+                    gameEndTime: null
                 }),
             };
 
@@ -399,6 +403,16 @@ export const useLobby = () => {
                 for (const player of players.value) {
                     await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwritePlayerCollectionId, player.$id);
                 }
+
+                // Delete gamecards document associated with this lobby
+                const gamecards = await databases.listDocuments(config.public.appwriteDatabaseId, config.public.appwriteGamecardsCollectionId, [
+                    Query.equal('lobbyId', lobbyId),
+                ]);
+
+                for (const gamecard of gamecards.documents) {
+                    await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteGamecardsCollectionId, gamecard.$id);
+                }
+
                 await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteLobbyCollectionId, lobbyId);
                 return;
             }
@@ -545,6 +559,30 @@ export const useLobby = () => {
             // Decode the current game state
             const state = decodeGameState(lobby.gameState) as GameState;
 
+            // Fetch the gamecards document
+            const gameCardsQuery = await databases.listDocuments(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteGamecardsCollectionId,
+                [Query.equal('lobbyId', lobbyId)]
+            );
+
+            if (gameCardsQuery.documents.length === 0) {
+                throw new Error(`No gamecards document found for lobby ${lobbyId}`);
+            }
+
+            const gameCards = gameCardsQuery.documents[0];
+
+            // Use card data from gameCards
+            // Convert playerHands array to hands object
+            state.hands = {};
+            if (gameCards.playerHands && Array.isArray(gameCards.playerHands)) {
+                gameCards.playerHands.forEach(handString => {
+                    const hand = JSON.parse(handString);
+                    state.hands[hand.playerId] = hand.cards;
+                });
+            }
+            state.whiteDeck = gameCards.whiteDeck || [];
+
             // Only allow reshuffling if the game is in progress
             if (state.phase !== 'submitting' && state.phase !== 'judging') {
                 throw new Error('Cannot reshuffle cards outside of an active game');
@@ -623,7 +661,80 @@ export const useLobby = () => {
             state.submissions = {};
             state.playedCards = {};
 
+            // Extract updated card data for gameCards document
+            // Convert hands object back to playerHands array
+            const handsArray = Object.entries(state.hands).map(
+                ([playerId, cards]) => JSON.stringify({ playerId, cards })
+            );
+
+            const updatedGameCards = {
+                ...gameCards,
+                playerHands: handsArray,
+                whiteDeck: state.whiteDeck
+            };
+
+            // Remove card data from state before encoding
+            const coreState = { ...state } as Partial<GameState>;
+            delete coreState.hands;
+            delete coreState.whiteDeck;
+            delete coreState.discardWhite;
+            delete coreState.discardBlack;
+
+            // Update both documents
+            await databases.updateDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteGamecardsCollectionId,
+                gameCards.$id,
+                updatedGameCards
+            );
+
             // Update the game state
+            await databases.updateDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteLobbyCollectionId,
+                lobbyId,
+                {
+                    gameState: encodeGameState(coreState)
+                }
+            );
+
+            return true;
+        } catch (error) {
+            console.error('Error reshuffling player cards:', error);
+            throw error;
+        }
+    };
+
+    // Mark a player as returned to the lobby without affecting other players
+    const markPlayerReturnedToLobby = async (lobbyId: string, playerId: string) => {
+        const { databases } = getAppwrite();
+        const config = getConfig();
+
+        try {
+            // Get the current lobby
+            const lobby = await databases.getDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteLobbyCollectionId,
+                lobbyId
+            );
+
+            // Decode the current game state
+            const state = decodeGameState(lobby.gameState);
+
+            // Initialize returnedToLobby if it doesn't exist
+            if (!state.returnedToLobby) {
+                state.returnedToLobby = {};
+            }
+
+            // Mark this player as returned
+            state.returnedToLobby[playerId] = true;
+
+            // Set gameEndTime if it's not already set (for the auto-return timer)
+            if (!state.gameEndTime && state.phase === 'complete') {
+                state.gameEndTime = Date.now();
+            }
+
+            // Update the game state in the database
             await databases.updateDocument(
                 config.public.appwriteDatabaseId,
                 config.public.appwriteLobbyCollectionId,
@@ -635,8 +746,52 @@ export const useLobby = () => {
 
             return true;
         } catch (error) {
-            console.error('Error reshuffling player cards:', error);
+            console.error('Error marking player as returned to lobby:', error);
             throw error;
+        }
+    };
+
+    // Check if all players have returned to the lobby or if the auto-return timer has expired
+    // This function no longer resets the game state for everyone
+    const checkAllPlayersReturned = async (lobbyId: string) => {
+        const { databases } = getAppwrite();
+        const config = getConfig();
+
+        try {
+            // Get the current lobby
+            const lobby = await databases.getDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwriteLobbyCollectionId,
+                lobbyId
+            );
+
+            // Decode the current game state
+            const state = decodeGameState(lobby.gameState);
+
+            // If the game is not complete, do nothing
+            if (state.phase !== 'complete') {
+                return false;
+            }
+
+            // Check if the auto-return timer has expired (60 seconds)
+            const autoReturnTime = 60 * 1000; // 60 seconds in milliseconds
+            const timeElapsed = state.gameEndTime ? Date.now() - state.gameEndTime : 0;
+
+            // Get all players in the lobby
+            const allPlayers = await getPlayersForLobby(lobbyId);
+            const playerIds = allPlayers.map(player => player.userId);
+
+            // Check if all players have returned to the lobby
+            const allReturned = playerIds.every(playerId => 
+                state.returnedToLobby && state.returnedToLobby[playerId]
+            );
+
+            // We no longer reset the game state here, just return whether all players have returned
+            // or the timer has expired. Each player will individually transition to the waiting room.
+            return allReturned || timeElapsed >= autoReturnTime;
+        } catch (error) {
+            console.error('Error checking if all players have returned:', error);
+            return false;
         }
     };
 
@@ -656,5 +811,7 @@ export const useLobby = () => {
         createPlayerIfNeeded,
         resetGameState,
         reshufflePlayerCards,
+        markPlayerReturnedToLobby,
+        checkAllPlayersReturned,
     };
 };

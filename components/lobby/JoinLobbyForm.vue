@@ -26,9 +26,10 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, reactive, ref} from 'vue';
+import {onMounted, reactive, ref, computed} from 'vue';
 import {useUserAccess} from '~/composables/useUserUtils';
 import {useJoinLobby} from '~/composables/useJoinLobby';
+import {useUserStore} from '~/stores/userStore';
 
 // only *one* defineEmits
 const emit = defineEmits<{
@@ -38,10 +39,23 @@ const emit = defineEmits<{
 const props = defineProps<{ initialCode?: string }>();
 const {showIfAnonymous} = useUserAccess();
 const {joinLobbyWithSession, initSessionIfNeeded} = useJoinLobby();
+const userStore = useUserStore();
 
 const formState = reactive({
   username: '',
   code: ''
+});
+
+/**
+ * Get the authenticated user's username if available
+ * This is used to automatically fill the username for authenticated users
+ * instead of requiring them to enter it manually
+ */
+const authenticatedUsername = computed(() => {
+  if (userStore.user && !showIfAnonymous.value) {
+    return userStore.user.prefs?.name || userStore.user.name || '';
+  }
+  return '';
 });
 
 const error = ref('');
@@ -57,8 +71,19 @@ onMounted(() => {
 });
 
 const onSubmit = async () => {
+  // Use authenticated username if available, otherwise use the form input
+  let username = showIfAnonymous.value ? formState.username : authenticatedUsername.value;
+
+  // Ensure username is not empty for authenticated users
+  if (!showIfAnonymous.value && (!username || username.trim() === '')) {
+    username = 'Player_' + Math.floor(Math.random() * 1000);
+    console.warn('Empty username for authenticated user, using fallback:', username);
+  }
+
+  console.log('Using username:', username, 'isAnonymous:', showIfAnonymous.value);
+
   const ok = await joinLobbyWithSession(
-      formState.username,
+      username,
       formState.code,
       (msg) => (error.value = msg),
       (val) => (joining.value = val)
