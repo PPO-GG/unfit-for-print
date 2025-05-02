@@ -192,7 +192,7 @@ const openPolicyModal = () => {
 				class="lg:hidden absolute right-4 p-4"
 		/>
 		<div class="flex-1 flex">
-			<NuxtLink to="/" class="font-['Bebas_Neue']" >Unfit For Print</NuxtLink>
+			<NuxtLink to="/" class="font-['Bebas_Neue'] cursor-pointer" >Unfit For Print</NuxtLink>
 		</div>
 		<nav class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto">
 			<div class="mr-2 m-full flex items-center gap-2">
@@ -296,13 +296,13 @@ const openPolicyModal = () => {
 	</USlideover>
 
 	<!-- Modals (shared between mobile and desktop) -->
-	<UModal v-model:open="showJoin" title="Join a Lobby">
+	<UModal v-model:open="showJoin" :overlay="false" title="Join a Lobby" class="cursor-default">
 		<template #body>
 			<JoinLobbyForm @joined="handleJoined" />
 		</template>
 	</UModal>
 
-	<UModal v-model:open="showCreate" title="Create a Lobby">
+	<UModal v-model:open="showCreate" :overlay="false" title="Create a Lobby">
 		<template #body>
 			<CreateLobbyDialog @created="handleJoined" />
 		</template>
