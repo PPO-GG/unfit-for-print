@@ -2,7 +2,7 @@
   <div class="select-none perspective-distant justify-center flex items-center w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] hover:z-[100]">
     <div
       ref="card"
-      class="card"
+      class="card cursor-pointer"
       @mousemove="handleMouseMove"
       @mouseleave="resetTransform"
       :class="{ 'card--flipped': flipped }"
@@ -247,7 +247,6 @@ onMounted(async () => {
   border-radius: 12px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   transform-style: preserve-3d;
-  cursor: pointer;
   position: relative;
   transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   will-change: transform;

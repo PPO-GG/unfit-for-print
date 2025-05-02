@@ -1,5 +1,5 @@
 <template>
-  <UForm :state="formState" @submit="onSubmit">
+  <UForm :state="formState" @submit="onSubmit" class="">
     <UFormField v-if="showIfAnonymous" label="Username" name="username">
       <UInput
           v-model="formState.username"
@@ -17,7 +17,7 @@
       />
     </UFormField>
 
-    <UButton type="submit" block class="mt-4" :loading="joining">
+    <UButton type="submit" block class="mt-4 cursor-pointer" :loading="joining">
       Join Lobby
     </UButton>
 

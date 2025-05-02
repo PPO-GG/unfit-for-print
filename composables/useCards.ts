@@ -23,7 +23,7 @@ export const useCards = () => {
       // Step 2: Random offset
       const offset = Math.floor(Math.random() * total);
 
-      console.log("Fetching white card at offset:", offset);
+      console.log(`Fetching random white card at offset: `, offset,` (out of `,total,`)`);
 
       // Step 3: Fetch one random card
       const res = await databases.listDocuments(

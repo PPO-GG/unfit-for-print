@@ -1,4 +1,4 @@
-<template class="subpixel-antialiased">
+<template>
 	<ClientOnly>
     <UApp>
       <NuxtLayout>

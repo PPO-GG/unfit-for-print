@@ -1,8 +1,35 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-.bebas-neue-regular {
-  font-family: "Bebas Neue", sans-serif;
-  font-weight: 400;
-  font-style: normal;
+@layer utilities {
+    .cursor-pointer {
+        cursor: url('/img/cursor/pointer.cur'), pointer !important;
+    }
+    .cursor-default {
+        cursor: url('/img/cursor/default.cur'), default !important;
+    }
+}
+@layer base {
+    /* Default everywhere */
+    html, body, * {
+        cursor: url("/img/cursor/default.cur"), default;
+    }
+
+    /* All interactive elements including Nuxt UI */
+    button,
+    a[href],
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    summary,
+    select,
+    label,
+    .nuxt-link,
+    [tabindex]:not([tabindex="-1"]),
+    [class^="U"], /* matches e.g. UButton, UDropdown */
+    [class*="UButton"],
+    .ui, /* if Nuxt UI has a .ui root wrapper (depends on component) */
+    [data-headlessui-state] /* covers Headless UI buttons used internally */ {
+        cursor: url("/img/cursor/pointer.cur"), pointer !important;
+    }
 }
