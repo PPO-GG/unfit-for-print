@@ -15,6 +15,7 @@
               <span
                 class="absolute bottom-0 right-0 m-2 p-1 text-xl bg-slate-900/50 rounded-lg"
                 >
+							  <UButton @click="speak(cardText)" icon="i-solar-user-speak-bold-duotone" variant="ghost"/>
                   <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
 	              {{ computedNumPick }}
               </span
@@ -37,7 +38,7 @@
               <img
                 :src="backLogoUrl"
                 alt="Card Back Logo"
-                class="w-3/4 max-w-[10rem] object-contain opacity-85"
+                class="w-3/4 max-w-[10rem] object-contain invert opacity-75"
                 draggable="false"
               />
             </div>
@@ -53,6 +54,8 @@
 const {playSfx, getRandomInRange} = useSfx();
 const { vibrate, stop, isSupported } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
 import { isMobile } from '@basitcodeenv/vue3-device-detect'
+import { useSpeech } from '~/composables/useSpeech'
+const {speak} = useSpeech('UgBBYS2sOqTuMpoF3BR0')
 function playRandomFlip() {
 	vibrate()
 	playSfx([

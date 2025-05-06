@@ -14,6 +14,16 @@
           placeholder="e.g. ABC123"
           autocomplete="off"
           class="uppercase"
+          @blur="checkLobbyPrivacy"
+      />
+    </UFormField>
+
+    <UFormField v-if="isPrivateLobby" label="Password" name="password">
+      <UInput
+          v-model="formState.password"
+          type="password"
+          placeholder="Enter lobby password"
+          autocomplete="off"
       />
     </UFormField>
 
@@ -30,6 +40,8 @@ import {onMounted, reactive, ref, computed} from 'vue';
 import {useUserAccess} from '~/composables/useUserUtils';
 import {useJoinLobby} from '~/composables/useJoinLobby';
 import {useUserStore} from '~/stores/userStore';
+import {useGameSettings} from '~/composables/useGameSettings';
+import {useLobby} from '~/composables/useLobby';
 
 // only *one* defineEmits
 const emit = defineEmits<{
@@ -43,8 +55,11 @@ const userStore = useUserStore();
 
 const formState = reactive({
   username: '',
-  code: ''
+  code: '',
+  password: ''
 });
+
+const isPrivateLobby = ref(false);
 
 /**
  * Get the authenticated user's username if available
@@ -61,12 +76,43 @@ const authenticatedUsername = computed(() => {
 const error = ref('');
 const joining = ref(false);
 
+const checkLobbyPrivacy = async () => {
+  if (!formState.code || formState.code.trim() === '') {
+    isPrivateLobby.value = false;
+    return;
+  }
+
+  try {
+    const { getLobbyByCode } = useLobby();
+    const { getGameSettings } = useGameSettings();
+
+    // Get the lobby by code
+    const lobby = await getLobbyByCode(formState.code.trim().toUpperCase());
+    if (!lobby) {
+      return;
+    }
+
+    // Get the game settings for the lobby
+    const settings = await getGameSettings(lobby.$id);
+    if (settings && settings.isPrivate) {
+      isPrivateLobby.value = true;
+    } else {
+      isPrivateLobby.value = false;
+    }
+  } catch (err) {
+    console.error('Error checking lobby privacy:', err);
+    isPrivateLobby.value = false;
+  }
+};
+
 onMounted(() => {
   initSessionIfNeeded();
 
   // pre-fill code from URL
   if (props.initialCode) {
     formState.code = props.initialCode.toUpperCase();
+    // Check if the lobby is private when initialCode is provided
+    checkLobbyPrivacy();
   }
 });
 
@@ -78,6 +124,41 @@ const onSubmit = async () => {
   if (!showIfAnonymous.value && (!username || username.trim() === '')) {
     username = 'Player_' + Math.floor(Math.random() * 1000);
     console.warn('Empty username for authenticated user, using fallback:', username);
+  }
+
+  // Check if the lobby is private and validate password
+  if (isPrivateLobby.value) {
+    // If the lobby is private but no password is provided
+    if (!formState.password || formState.password.trim() === '') {
+      error.value = 'This lobby requires a password.';
+      return;
+    }
+
+    try {
+      const { getLobbyByCode } = useLobby();
+      const { getGameSettings } = useGameSettings();
+
+      // Get the lobby by code
+      const lobby = await getLobbyByCode(formState.code.trim().toUpperCase());
+      if (!lobby) {
+        error.value = 'Lobby not found.';
+        return;
+      }
+
+      // Get the game settings for the lobby
+      const settings = await getGameSettings(lobby.$id);
+      if (settings && settings.isPrivate) {
+        // Validate the password
+        if (settings.password !== formState.password) {
+          error.value = 'Incorrect password.';
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Error validating lobby password:', err);
+      error.value = 'Failed to validate lobby password.';
+      return;
+    }
   }
 
   console.log('Using username:', username, 'isAnonymous:', showIfAnonymous.value);

@@ -10,7 +10,7 @@ import {useGameContext} from '~/composables/useGameContext';
 import {isAuthenticatedUser} from '~/composables/useUserUtils';
 import {useGameState} from "~/composables/useGameState";
 import {useGameCards} from "~/composables/useGameCards";
-import RoundEndOverlay from '~/components/game/RoundEndOverlay.vue'; // Import the new component
+import { useSfx } from '~/composables/useSfx';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
 
@@ -19,12 +19,30 @@ definePageMeta({
 })
 const route = useRoute()
 const code = route.params.code as string
-
 const { data: lobby } = await useAsyncData(`lobby-${code}`, () =>
 		$fetch<Lobby>(`/api/lobby/${code}`)
 )
-
 const config = useRuntimeConfig()
+const { playSfx } = useSfx();
+const selfLeaving = ref(false);
+const router = useRouter();
+const userStore = useUserStore();
+const players = ref<Player[]>([]);
+const loading = ref(true);
+const showJoinModal = ref(false);
+const joinedLobby = ref(false);
+const {notify} = useNotifications();
+const { playerHands, subscribeToGameCards } = useGameCards();
+const {
+	getLobbyByCode,
+	leaveLobby,
+	getActiveLobbyForUser,
+	markPlayerReturnedToLobby,
+} = useLobby();
+const {encodeGameState, decodeGameState} = useGameState();
+const {getPlayersForLobby} = usePlayers();
+const {initSessionIfNeeded} = useJoinLobby();
+const {isPlaying, isWaiting, isComplete, isJudging, leaderboard, isRoundEnd, roundWinner, roundEndStartTime, roundEndCountdownDuration, myId, state, myHand, hands} = useGameContext(lobby, computed(() => playerHands.value));
 
 useHead({
 	title: `Unfit for Print | Game ${code}`,
@@ -44,28 +62,8 @@ useHead({
 		{ rel: 'canonical', href: `${config.public.baseUrl}/game/${code}` }
 	]
 })
-const selfLeaving = ref(false);
-const router = useRouter();
-const userStore = useUserStore();
-const players = ref<Player[]>([]);
-const loading = ref(true);
-const showJoinModal = ref(false);
-const joinedLobby = ref(false);
 
-const {notify} = useNotifications();
-const { playerHands, subscribeToGameCards } = useGameCards();
 let gameCardsUnsubscribe: () => void;
-const {
-	getLobbyByCode,
-	leaveLobby,
-	getActiveLobbyForUser,
-	markPlayerReturnedToLobby,
-} = useLobby();
-const {encodeGameState, decodeGameState} = useGameState();
-const {getPlayersForLobby} = usePlayers();
-const {initSessionIfNeeded} = useJoinLobby();
-const {isPlaying, isWaiting, isComplete, isJudging, leaderboard, isRoundEnd, roundWinner, roundEndStartTime, roundEndCountdownDuration, myId, state, myHand, hands} = useGameContext(lobby, computed(() => playerHands.value));
-
 // Check if the current player has returned to the lobby
 const hasReturnedToLobby = computed(() => {
 	if (!state.value || !myId || state.value.phase !== 'complete') return false;
@@ -114,8 +112,35 @@ const setupRealtime = async (lobbyData: Lobby) => {
 	const unsubscribePlayers = client.subscribe(
 			[playersTopic],
 			async ({events, payload}) => {
+				const player = payload as Player;
+				// Check if this is a create event (new player joining)
+				const isCreate = events.some(e => e.endsWith('.create'));
+
+				// If it's a new player joining this lobby (and not the current user)
+				if (isCreate && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
+					// Play a sound effect
+					await playSfx('/sounds/sfx/playerJoin.wav');
+
+					// You could also add a notification
+					notify({
+						title: `${player.name} joined the lobby`,
+						color: 'success',
+						icon: 'i-mdi-account-plus',
+					});
+				}
 				// 1️⃣ If it’s a delete event for *your* player doc, redirect immediately
 				const isDelete = events.some(e => e.endsWith('.delete'));
+				if (isDelete && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
+					// Play a sound effect
+					await playSfx('/sounds/sfx/playerJoin.wav', {pitch: 0.8});
+
+					// You could also add a notification
+					notify({
+						title: `${player.name} joined the lobby`,
+						color: 'success',
+						icon: 'i-mdi-account-plus',
+					});
+				}
 				if (isDelete && (payload as Player).userId === userStore.user!.$id) {
 					if (selfLeaving.value) {
 						// you clicked Leave
@@ -140,7 +165,6 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				}
 
 				// 2️⃣ Otherwise, if it’s for *this* lobby, re‑fetch the list
-				const player = payload as Player;
 				if (player.lobbyId === lobbyId) {
 					console.log('👥 player event:', events, player);
 					players.value = await getPlayersForLobby(lobbyId);
@@ -379,12 +403,12 @@ const handleContinue = async () => {
 		<div v-if="loading">Loading game...</div>
 
 		<!-- Show join modal if user isn't in the game -->
-		<JoinLobbyForm
-				v-if="showJoinModal"
-				:initial-code="code"
-				@joined="handleJoinSuccess"
-		/>
-
+		<div v-if="showJoinModal" class="flex flex-col justify-center items-center min-h-screen">
+			<JoinLobbyForm
+					:initial-code="code"
+					@joined="handleJoinSuccess"
+			/>
+		</div>
 		<!-- Waiting room view -->
 		<WaitingRoom
 				v-else-if="isWaiting && lobby && players"

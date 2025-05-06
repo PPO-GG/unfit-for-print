@@ -10,18 +10,31 @@ const PLAYER_COL = process.env.PLAYER_COLLECTION;
 const GAMECARDS_COL = process.env.GAMECARDS_COLLECTION;
 
 // ── 2) Helper: page through all IDs in a collection ───────────────────
-async function fetchAllIds(collectionId, databases, DB) {
+async function fetchAllIds(collectionId, databases, DB, cardPacks = null) {
   const BATCH = 100;
+  let queries = [Query.limit(1)];
+
+  // Add filter for card packs if specified
+  if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
+    queries.push(Query.equal('pack', cardPacks));
+  }
+
   // get total count
-  const { total } = await databases.listDocuments(DB, collectionId, [
-    Query.limit(1),
-  ]);
+  const { total } = await databases.listDocuments(DB, collectionId, queries);
   const ids = [];
+
   for (let offset = 0; offset < total; offset += BATCH) {
-    const res = await databases.listDocuments(DB, collectionId, [
+    let batchQueries = [
       Query.limit(BATCH),
       Query.offset(offset),
-    ]);
+    ];
+
+    // Add filter for card packs if specified
+    if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
+      batchQueries.push(Query.equal('pack', cardPacks));
+    }
+
+    const res = await databases.listDocuments(DB, collectionId, batchQueries);
     ids.push(...res.documents.map((d) => d.$id));
   }
   return ids;
@@ -48,7 +61,11 @@ export default async function ({ req, res, log, error }) {
     // Parse & validate payload
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const lobbyId = body?.lobbyId;
+    const settings = body?.settings || null;
     if (!lobbyId) throw new Error('lobbyId missing');
+
+    // Log the payload for debugging
+    log('startGame payload:', { lobbyId, settings });
 
     // 1) Load lobby + players
     const lobby = await databases.getDocument(DB, LOBBY_COL, lobbyId);
@@ -57,8 +74,12 @@ export default async function ({ req, res, log, error }) {
     const playerCount = playerIds.length;
 
     // 2) Build white-card deck once
-    const allWhiteIds = shuffle(await fetchAllIds(WHITE_COL, databases, DB));
-    const CARDS_PER_PLAYER = 7;
+    // Pass cardPacks from settings if available
+    log('Using card packs:', settings?.cardPacks || 'default (all)');
+    const allWhiteIds = shuffle(await fetchAllIds(WHITE_COL, databases, DB, settings?.cardPacks));
+    // Use numPlayerCards from settings if available, otherwise default to 7
+    const CARDS_PER_PLAYER = settings?.numPlayerCards || 7;
+    log('Cards per player:', CARDS_PER_PLAYER);
     const EXTRA_WHITES = 20;
     const totalWhites = playerCount * CARDS_PER_PLAYER + EXTRA_WHITES;
 
@@ -76,7 +97,8 @@ export default async function ({ req, res, log, error }) {
     );
 
     // 3) Build a deck of black cards
-    const allBlackIds = shuffle(await fetchAllIds(BLACK_COL, databases, DB));
+    // Pass cardPacks from settings if available
+    const allBlackIds = shuffle(await fetchAllIds(BLACK_COL, databases, DB, settings?.cardPacks));
     const INITIAL_BLACK_CARDS = 5; // Number of black cards to start with
 
     // Take the first card for the current round
@@ -87,6 +109,9 @@ export default async function ({ req, res, log, error }) {
     const blackDeck = allBlackIds.slice(1, INITIAL_BLACK_CARDS);
 
     // 4) Assemble a lean gameState (without card data)
+    const maxPoints = settings?.maxPoints || 10; // Use maxPoints from settings if available, otherwise default to 10
+    log('Max points to win:', maxPoints);
+
     const gameState = {
       phase: 'submitting',
       judgeId: lobby.hostUserId,
@@ -99,6 +124,7 @@ export default async function ({ req, res, log, error }) {
       playedCards: {},
       scores: playerIds.reduce((acc, id) => ({ ...acc, [id]: 0 }), {}),
       round: 1,
+      maxPoints: maxPoints,
     };
 
     // 5) Create a separate gamecards document
@@ -122,6 +148,13 @@ export default async function ({ req, res, log, error }) {
     await databases.updateDocument(DB, LOBBY_COL, lobbyId, {
       status: 'playing',
       gameState: JSON.stringify(gameState),
+    });
+
+    log('Game successfully started with settings:', {
+      cardsPerPlayer: CARDS_PER_PLAYER,
+      maxPoints: maxPoints,
+      cardPacks: settings?.cardPacks || 'default (all)',
+      playerCount: playerCount
     });
 
     return res.json({ success: true });

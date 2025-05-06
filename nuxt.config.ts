@@ -1,16 +1,12 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
 import { readFileSync } from 'fs'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
+
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: false },
-  vite: {
-    server: {
-      hmr: {
-        host: 'ufp.ppo.gg'
-      }
-    }
-  },
   ssr: true,
   plugins: [
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
@@ -39,6 +35,7 @@ export default defineNuxtConfig({
       appwritePlayerCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID}`,
       appwriteGamecardsCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID}`,
       appwriteGamechatCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMECHAT_COLLECTION_ID}`,
+      appwriteGameSettingsCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMESETTINGS_COLLECTION_ID}`,
       baseUrl: process.env.NUXT_PUBLIC_BASE_URL,
       oAuthRedirectUrl: process.env.NUXT_PUBLIC_OAUTH_REDIRECT_URL,
       oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,
@@ -53,6 +50,7 @@ export default defineNuxtConfig({
     "@vueuse/sound/nuxt",
     "@vueuse/nuxt",
     "@nuxt/ui",
+    'pinia-plugin-persistedstate/nuxt',
   ],
   sound: {
     sounds: {
