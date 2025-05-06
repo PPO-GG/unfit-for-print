@@ -8,9 +8,11 @@ import { useGameActions } from '~/composables/useGameActions';
 import { isAnonymousUser } from '~/composables/useUserUtils';
 import { usePlayers } from '~/composables/usePlayers';
 import { getAppwrite } from '~/utils/appwrite';
+import { useGameSettings } from '~/composables/useGameSettings';
 import type { Lobby } from '~/types/lobby';
 import type { Player } from '~/types/player';
 import type { GameState } from '~/types/game';
+import type {GameSettings} from "~/types/gamesettings";
 
 export const useLobby = () => {
     const players = ref<Player[]>([]);
@@ -36,7 +38,9 @@ export const useLobby = () => {
                 ...config.public,
                 appwriteDatabaseId: String(config.public.appwriteDatabaseId),
                 appwriteLobbyCollectionId: String(config.public.appwriteLobbyCollectionId),
-                appwritePlayerCollectionId: String(config.public.appwritePlayerCollectionId)
+                appwritePlayerCollectionId: String(config.public.appwritePlayerCollectionId),
+                appwriteGamechatCollectionId: String(config.public.appwriteGamechatCollectionId),
+                appwriteGamecardsCollectionId: String(config.public.appwriteGamecardsCollectionId)
             }
         };
 
@@ -44,17 +48,27 @@ export const useLobby = () => {
         if (!safeConfig.public.appwriteDatabaseId || 
             !safeConfig.public.appwriteLobbyCollectionId || 
             !safeConfig.public.appwritePlayerCollectionId ||
+            !safeConfig.public.appwriteGamechatCollectionId ||
+            !safeConfig.public.appwriteGamecardsCollectionId ||
             safeConfig.public.appwriteLobbyCollectionId === 'Infinite' ||
             safeConfig.public.appwritePlayerCollectionId === 'Infinite' ||
+            safeConfig.public.appwriteGamechatCollectionId === 'Infinite' ||
+            safeConfig.public.appwriteGamecardsCollectionId === 'Infinite' ||
             safeConfig.public.appwriteLobbyCollectionId === 'undefined' ||
-            safeConfig.public.appwritePlayerCollectionId === 'undefined') {
+            safeConfig.public.appwritePlayerCollectionId === 'undefined' ||
+            safeConfig.public.appwriteGamechatCollectionId === 'undefined' ||
+            safeConfig.public.appwriteGamecardsCollectionId === 'undefined') {
             console.error('Invalid Appwrite configuration:', {
                 databaseId: safeConfig.public.appwriteDatabaseId,
                 lobbyCollectionId: safeConfig.public.appwriteLobbyCollectionId,
                 playerCollectionId: safeConfig.public.appwritePlayerCollectionId,
+                gamechatCollectionId: safeConfig.public.appwriteGamechatCollectionId,
+                gamecardsCollectionId: safeConfig.public.appwriteGamecardsCollectionId,
                 originalDatabaseIdType: typeof config.public.appwriteDatabaseId,
                 originalLobbyCollectionIdType: typeof config.public.appwriteLobbyCollectionId,
-                originalPlayerCollectionIdType: typeof config.public.appwritePlayerCollectionId
+                originalPlayerCollectionIdType: typeof config.public.appwritePlayerCollectionId,
+                originalGamechatCollectionIdType: typeof config.public.appwriteGamechatCollectionId,
+                originalGamecardsCollectionIdType: typeof config.public.appwriteGamecardsCollectionId
             });
             throw new Error('Appwrite configuration is invalid. Check your environment variables.');
         }
@@ -181,6 +195,25 @@ export const useLobby = () => {
                 lobbyData,
                 permissions
             );
+
+            // Create default game settings for the lobby
+            try {
+                const { createDefaultGameSettings } = useGameSettings();
+                await createDefaultGameSettings(
+                    lobby.$id,
+                    `${userStore.user?.name || 'Anonymous'}'s Game`,
+                    hostUserId
+                );
+            } catch (error: unknown) {
+                // Clean up the created lobby if we can't create game settings
+                await databases.deleteDocument(
+                    config.public.appwriteDatabaseId,
+                    config.public.appwriteLobbyCollectionId,
+                    lobby.$id
+                );
+                console.error('Failed to create game settings:', error);
+                throw new Error('Unable to create lobby: Failed to create game settings');
+            }
 
             // Also verify players collection before joining
             try {
@@ -449,7 +482,8 @@ export const useLobby = () => {
         }
     };
 
-    const startGame = async (lobbyId: string) => {
+    // Start Game function with settings
+    const startGame = async (lobbyId: string, gameSettings?: GameSettings) => {
         // Validate we have enough players
         await fetchPlayers(lobbyId);
         const validPlayers = players.value.filter((p) => p.userId);
@@ -457,7 +491,13 @@ export const useLobby = () => {
 
         const { startGame: startGameFunction } = useGameActions();
         try {
-            const result = await startGameFunction(lobbyId);
+            // Include game settings in the function call
+            const payload = {
+                lobbyId,
+                settings: gameSettings || null
+            };
+
+            const result = await startGameFunction(JSON.stringify(payload));
 
             // Early return if no result
             if (!result) {
@@ -470,9 +510,7 @@ export const useLobby = () => {
                 let functionResponse;
                 try {
                     if (result.responseBody) {
-                        functionResponse = typeof result.responseBody === 'string'
-                            ? JSON.parse(result.responseBody)
-                            : result.responseBody;
+                        functionResponse = JSON.parse(result.responseBody);
                     } else {
                         // If no response body, assume success
                         functionResponse = { success: true };

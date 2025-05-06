@@ -224,8 +224,8 @@ import {useLobby} from '~/composables/useLobby'
 import {useNotifications} from '~/composables/useNotifications'
 import {useGameCards} from '~/composables/useGameCards'
 import UserHand from '~/components/game/UserHand.vue'
-import whiteCard from '~/components/whiteCard.vue'
-import PlayerList from '~/components/PlayerList.vue'
+import whiteCard from '~/components/game/whiteCard.vue'
+import PlayerList from '~/components/game/PlayerList.vue'
 import {getAppwrite} from "~/utils/appwrite";
 
 const props = defineProps<{ lobby: Lobby; players: Player[] }>()

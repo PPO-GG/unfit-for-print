@@ -30,7 +30,7 @@
               <img
                 :src="backLogoUrl"
                 alt="Card Back Logo"
-                class="w-3/4 max-w-[10rem] object-contain opacity-85"
+                class="w-3/4 max-w-[10rem] object-contain opacity-75"
                 draggable="false"
               />
             </div>

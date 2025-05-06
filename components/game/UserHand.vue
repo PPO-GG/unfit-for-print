@@ -22,7 +22,7 @@ const centerIndex = computed(() => Math.floor((props.cards.length - 1) / 2))
 const maxRotation = 1
 const maxXOffset = 80
 const maxYOffset = 2
-const shiftAmount = 100
+const shiftAmount = 125
 
 
 function submitCards() {

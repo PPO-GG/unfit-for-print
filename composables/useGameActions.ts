@@ -9,19 +9,19 @@ export function useGameActions() {
         SELECT_WINNER: '680715ac001101e8038f',
         START_NEXT_ROUND: '680e7f88000abf0faa9d',
     }
-    const startGame = async (lobbyId: string) => {
-        console.log('Calling startGame with lobbyId:', lobbyId)
+    const startGame = async (payload: string) => {
+        console.log('Calling startGame with payload:', payload);
 
         try {
-            // Convert payload to a JSON string
-            const result = await functions.createExecution(FUNCTIONS.START_GAME, JSON.stringify({ lobbyId }))
-            console.log('startGame result:', result)
-            return result
+            // Convert payload to a JSON string (it's already a string in this case)
+            const result = await functions.createExecution(FUNCTIONS.START_GAME, payload);
+            console.log('startGame result:', result);
+            return result;
         } catch (error) {
-            console.error('Error in startGame:', error)
-            throw error
+            console.error('Error in startGame:', error);
+            throw error;
         }
-    }
+    };
 
     const playCard = async (lobbyId: string, playerId: string, cardIds: string[]) => {
         console.log('Calling playCard with:', { lobbyId, playerId, cardIds })
