@@ -132,13 +132,13 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				const isDelete = events.some(e => e.endsWith('.delete'));
 				if (isDelete && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
 					// Play a sound effect
-					await playSfx('/sounds/sfx/playerJoin.wav', {pitch: 0.8});
+					await playSfx('/sounds/sfx/playerLeave.wav', {pitch: 0.8});
 
 					// You could also add a notification
 					notify({
-						title: `${player.name} joined the lobby`,
-						color: 'success',
-						icon: 'i-mdi-account-plus',
+						title: `${player.name} left the lobby`,
+						color: 'warning',
+						icon: 'i-mdi-account-remove',
 					});
 				}
 				if (isDelete && (payload as Player).userId === userStore.user!.$id) {
