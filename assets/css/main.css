@@ -10,26 +10,25 @@
     }
 }
 @layer base {
-    /* Default everywhere */
     html, body, * {
         cursor: url("/img/cursor/default.cur"), default;
     }
 
-    /* All interactive elements including Nuxt UI */
-    button,
-    a[href],
-    [role="button"],
-    input[type="button"],
-    input[type="submit"],
-    summary,
-    select,
-    label,
-    .nuxt-link,
-    [tabindex]:not([tabindex="-1"]),
-    [class^="U"], /* matches e.g. UButton, UDropdown */
-    [class*="UButton"],
-    .ui, /* if Nuxt UI has a .ui root wrapper (depends on component) */
-    [data-headlessui-state] /* covers Headless UI buttons used internally */ {
+    /* Apply custom pointer cursor to interactive elements AND all their children */
+    button, button *,
+    a[href], a[href] *,
+    [role="button"], [role="button"] *,
+    input[type="button"], input[type="button"] *,
+    input[type="submit"], input[type="submit"] *,
+    summary, summary *,
+    select, select *,
+    label, label *,
+    .nuxt-link, .nuxt-link *,
+    [tabindex]:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"]) *,
+    [class^="U"], [class^="U"] *,
+    [class*="UButton"], [class*="UButton"] *,
+    .ui, .ui *,
+    [data-headlessui-state], [data-headlessui-state] * {
         cursor: url("/img/cursor/pointer.cur"), pointer !important;
     }
 }
