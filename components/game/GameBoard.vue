@@ -1,27 +1,7 @@
 <template>
-	<div class="flex h-screen bg-gray-900 overflow-hidden">
-		<!-- Sidebar -->
-		<aside class="max-w-3/12 w-auto bg-gray-800 border-r border-gray-700 p-4 flex flex-col shadow-inner">
-			<h2 class="text-xl font-semibold mb-4 text-gray-100">Players</h2>
-			<div class="flex-1 overflow-y-auto space-y-6">
-				<PlayerList
-						:game-phase="state?.phase"
-						:host-user-id="props.lobby.hostUserId"
-						:judge-id="judgeId"
-						:lobby-id="props.lobby.$id"
-						:players="props.players"
-						:scores="state?.scores"
-						:submissions="submissions"
-				/>
-				<ChatBox
-						:lobby-id="props.lobby.$id"
-						:current-user-id="myId"
-				/>
-			</div>
-		</aside>
-
+	<div class="w-full">
 		<!-- Main Content -->
-		<div class="flex-1 flex flex-col w-9/12">
+		<div class="flex-1 flex flex-col w-full">
 			<header class="flex justify-between items-center bg-gray-800/80 backdrop-blur-sm p-4">
 				<div class="flex items-center space-x-3">
 					<div
@@ -30,10 +10,6 @@
 					</div>
 					<h2 class="text-2xl font-bold text-gray-100 tracking-wide">Round {{ state?.round || 1 }}</h2>
 				</div>
-				<UButton class="bg-rose-500 hover:bg-rose-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md"
-				         @click="handleLeave">
-					Leave Game
-				</UButton>
 			</header>
 
 			<main class="flex-1 p-6 overflow-y-auto flex flex-col items-center">
@@ -571,6 +547,10 @@ onUnmounted(() => {
 })
 
 function handleLeave() {
+	// Update Nuxt payload state to indicate the user is leaving
+	const nuxtApp = useNuxtApp();
+	nuxtApp.payload.state.selfLeaving = true;
+
 	// Call the leaveLobby function from useLobby
 	leaveLobby(props.lobby.$id, myId)
 	// Emit the leave event to the parent component

@@ -1,6 +1,7 @@
 <template>
 	<div v-if="lobby" class="flex h-screen bg-gray-900 overflow-hidden">
-		<aside class="max-w-1/4 w-auto h-screen p-4 flex flex-col shadow-inner border-r border-slate-800 space-y-4">
+		<!-- Sidebar - only render if not moved to [code].vue -->
+		<aside v-if="!sidebarMoved" class="max-w-1/4 w-auto h-screen p-4 flex flex-col shadow-inner border-r border-slate-800 space-y-4">
 			<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
 				<!-- Desktop: Lobby Code label + button -->
 				<span class="items-center hidden sm:flex">
@@ -34,7 +35,7 @@
 			/>
 			<ChatBox
 					:current-user-id="myId"
-					:lobby-id="props.lobby.$id"
+					:lobbyId="props.lobby.$id"
 			/>
 			<div v-if="players.length >= 3">
 				<UButton
@@ -63,14 +64,18 @@
 					game!</p>
 			</div>
 		</aside>
-		<GameSettings
-				v-if="gameSettings"
-				:host-user-id="lobby.hostUserId"
-				:is-editable="isHost"
-				:lobby-id="lobby.$id"
-				:settings="gameSettings"
-				@update:settings="handleSettingsUpdate"
-		/>
+
+		<!-- Main content area - full width if sidebar is moved -->
+		<div :class="{'flex-1': !sidebarMoved, 'w-full': sidebarMoved}">
+			<GameSettings
+					v-if="gameSettings && !sidebarMoved"
+					:host-user-id="lobby.hostUserId"
+					:is-editable="isHost"
+					:lobby-id="lobby.$id"
+					:settings="gameSettings"
+					@update:settings="handleSettingsUpdate"
+			/>
+		</div>
 	</div>
 	<div v-else>
 		<p class="text-red-400 text-sm">Lobby data is unavailable.</p>
@@ -89,7 +94,11 @@ import type {GameSettings} from '~/types/gamesettings';
 import {useNotifications} from "~/composables/useNotifications";
 
 const {notify} = useNotifications();
-const props = defineProps<{ lobby: Lobby; players: Player[] }>()
+const props = defineProps<{ 
+	lobby: Lobby; 
+	players: Player[];
+	sidebarMoved?: boolean;
+}>()
 const lobbyRef = ref(props.lobby)
 // Keep lobbyRef in sync with props.lobby
 watch(() => props.lobby, (newLobby) => {

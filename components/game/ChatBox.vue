@@ -1,5 +1,5 @@
 <template>
-	<div class="font-['Bebas_Neue'] bg-slate-600 rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto">
+	<div class="font-['Bebas_Neue'] bg-slate-600 rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto border-2 border-slate-500">
 		<!-- Error message display -->
 		<div v-if="errorMessage" class="bg-red-500 text-white p-2 mb-2 rounded text-sm">
 			{{ errorMessage }}
@@ -12,9 +12,16 @@
 				@scroll="handleScroll" 
 				class="flex-1 overflow-y-auto p-2 space-y-1 max-h-80 border-2 border-b-0 border-slate-500 bg-slate-800 rounded-t-lg"
 			>
-				<div v-for="(msg, index) in messages" :key="msg.$id" class="text-lg break-words whitespace-pre-wrap px-2">
-					<span class="font-light mr-1" :style="{ color: uidToHSLColor(msg.senderId) }">{{ msg.senderName }}:</span>
-					<span class="text-slate-300">{{ safeText(msg.text) }}</span>
+    <div v-for="(msg, index) in messages" :key="msg.$id" class="break-words whitespace-pre-wrap px-2">
+					<!-- System messages -->
+					<template v-if="msg.senderId === 'system'">
+						<span class="text-yellow-300 xl:text-xl md:text-lg">{{ safeText(msg.text) }}</span>
+					</template>
+					<!-- User messages -->
+					<template v-else>
+						<span class="font-light mr-1 xl:text-xl md:text-lg" :style="{ color: uidToHSLColor(msg.senderId) }">{{ msg.senderName }}:</span>
+						<span class="text-slate-300 xl:text-xl md:text-lg">{{ safeText(msg.text) }}</span>
+					</template>
 					<USeparator
 							v-if="index !== messages.length - 1"
 							color="secondary"
@@ -91,7 +98,7 @@ const { speakWithUserId } = await useMeSpeak()
 const prefs = useUserPrefsStore()
 
 import { useSpeech } from '~/composables/useSpeech'
-// const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
+const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
 
 const maxLength = 256
 const {playSfx} = useSfx();
@@ -109,12 +116,15 @@ interface ChatMessage extends Models.Document {
   senderName: string;
   text: string[];
   timestamp: string;
+	type?: 'user' | 'system';
 }
 
 
-const props = defineProps<{
-	lobbyId: string;
-}>();
+const props = withDefaults(defineProps<{
+	lobbyId?: string;
+}>(), {
+	lobbyId: ''
+});
 const { sanitize } = useSanitize()
 const { databases } = useAppwrite();
 const userStore = useUserStore();
@@ -155,6 +165,13 @@ const loadMessages = async () => {
 	try {
 		errorMessage.value = null;
 
+		// Check if lobbyId is defined and not empty
+		if (!props.lobbyId) {
+			console.error('Error: lobbyId is undefined or empty');
+			errorMessage.value = 'Failed to load messages: Invalid lobby ID';
+			return () => {};
+		}
+
 		const res = await databases.listDocuments(dbId, messagesCollectionId, [
 			Query.equal('lobbyId', props.lobbyId),
 			Query.orderAsc('timestamp')
@@ -172,7 +189,8 @@ const loadMessages = async () => {
 		return databases.client.subscribe(`databases.${dbId}.collections.${messagesCollectionId}.documents`, (e) => {
 			if (e.events.includes('databases.*.collections.*.documents.*.create')) {
 				const doc = e.payload as ChatMessage;
-				if (doc.lobbyId === props.lobbyId) {
+				// Check if lobbyId is defined and matches the document's lobbyId
+				if (props.lobbyId && doc.lobbyId === props.lobbyId) {
 					const safeDoc = {
 						...doc,
 						text: doc.text.map((t) => {
@@ -186,8 +204,9 @@ const loadMessages = async () => {
 					}
 
 					if (prefs.ttsEnabled) {
-						if(safeDoc.senderId !== userStore.user?.$id) {
-							speakWithUserId(safeDoc.text.join(' '), safeDoc.senderId);
+						if(safeDoc.senderId !== userStore.user?.$id && safeDoc.text && safeDoc.text.length > 0) {
+							// speakWithUserId(safeDoc.text.join(' '), safeDoc.senderId);
+							speak(safeDoc.text.join(' '))
 						}
 					}
 				}

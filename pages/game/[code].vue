@@ -11,8 +11,12 @@ import {isAuthenticatedUser} from '~/composables/useUserUtils';
 import {useGameState} from "~/composables/useGameState";
 import {useGameCards} from "~/composables/useGameCards";
 import { useSfx } from '~/composables/useSfx';
+import { ID, Permission, Role } from 'appwrite';
+import {useGameSettings} from '~/composables/useGameSettings';
+import type {GameSettings} from '~/types/gamesettings';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
+import {useAppwrite} from "~/composables/useAppwrite";
 
 definePageMeta({
 	layout: 'game'
@@ -31,18 +35,51 @@ const players = ref<Player[]>([]);
 const loading = ref(true);
 const showJoinModal = ref(false);
 const joinedLobby = ref(false);
+const isStarting = ref(false);
+const gameSettings = ref<GameSettings | null>(null);
 const {notify} = useNotifications();
+const {getGameSettings, createDefaultGameSettings} = useGameSettings();
+
+// Make lobby and players available to the layout
+const nuxtApp = useNuxtApp();
+watch(lobby, (newLobby) => {
+  if (newLobby) {
+    nuxtApp.payload.state.lobby = newLobby;
+  }
+}, { immediate: true });
+
+watch(players, (newPlayers) => {
+  if (newPlayers) {
+    nuxtApp.payload.state.players = newPlayers;
+  }
+}, { immediate: true });
+
+// Initialize selfLeaving flag in Nuxt payload state
+nuxtApp.payload.state.selfLeaving = false;
+
+// Watch for changes in the selfLeaving flag
+watch(() => nuxtApp.payload.state.selfLeaving, (newSelfLeaving) => {
+  if (newSelfLeaving !== undefined) {
+    selfLeaving.value = newSelfLeaving;
+  }
+}, { immediate: true });
 const { playerHands, subscribeToGameCards } = useGameCards();
 const {
 	getLobbyByCode,
 	leaveLobby,
 	getActiveLobbyForUser,
 	markPlayerReturnedToLobby,
+	startGame,
 } = useLobby();
 const {encodeGameState, decodeGameState} = useGameState();
 const {getPlayersForLobby} = usePlayers();
 const {initSessionIfNeeded} = useJoinLobby();
 const {isPlaying, isWaiting, isComplete, isJudging, leaderboard, isRoundEnd, roundWinner, roundEndStartTime, roundEndCountdownDuration, myId, state, myHand, hands} = useGameContext(lobby, computed(() => playerHands.value));
+
+// Check if the current user is the host
+const isHost = computed(() => 
+    lobby.value?.hostUserId === userStore.user?.$id
+);
 
 useHead({
 	title: `Unfit for Print | Game ${code}`,
@@ -77,14 +114,88 @@ const autoReturnTimeRemaining = computed(() => {
 	return Math.max(0, 60 - timeElapsed);
 });
 
+// Simple debounce function to prevent duplicate notifications
+const debounce = (func: (...args: any[]) => void, wait: number) => {
+	let timeout: ReturnType<typeof setTimeout>;
+	return (...args: any[]) => {
+		clearTimeout(timeout);
+		timeout = setTimeout(() => func(...args), wait);
+	};
+};
+
+	// Keep track of recently processed player events to avoid duplicates
+const recentPlayerEvents = new Map();
+
+// Longer debounce time for leave notifications to prevent multiple notifications
+const LEAVE_DEBOUNCE_TIME = 5000; // 5 seconds
+
+
+// Set up real-time listener for game settings changes
+const setupGameSettingsRealtime = (lobbyId: string) => {
+	const {client} = getAppwrite();
+	const config = useRuntimeConfig();
+
+	// Subscribe to changes in the game settings collection for this lobby
+	const unsubscribeGameSettings = client.subscribe(
+		[`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`],
+		async ({events, payload}) => {
+			// Check if this is a game settings document for our lobby
+			const settings = payload as GameSettings;
+			if (settings.lobbyId === lobbyId) {
+				console.log('[Realtime] Game settings updated:', settings);
+				gameSettings.value = settings;
+
+				// If you're not the host and settings changed, show a notification
+				if (!isHost.value) {
+					notify({
+						title: 'Game Settings Updated',
+						description: 'The host has updated the game settings.',
+						icon: 'i-heroicons-information-circle',
+						color: 'primary',
+						duration: 3000
+					});
+				}
+			}
+		}
+	);
+
+	// Clean up subscription when component is unmounted
+	onUnmounted(() => {
+		unsubscribeGameSettings?.();
+	});
+};
+
 const setupRealtime = async (lobbyData: Lobby) => {
 	console.log('🔌 Setting up realtime for lobby:', lobbyData.$id);
 	const {client} = getAppwrite();
+	const { databases } = useAppwrite();
 	const config = useRuntimeConfig();
 	const lobbyId = lobbyData.$id;
 	// initial fetch
 	players.value = await getPlayersForLobby(lobbyId);
 	console.log('🔌 Initial players:', players.value);
+
+	// Fetch game settings
+	try {
+		// Try to get existing settings
+		const settings = await getGameSettings(lobbyId);
+
+		// If no settings exist and user is host, create default settings
+		if (!settings && isHost.value) {
+			gameSettings.value = await createDefaultGameSettings(
+				lobbyId,
+				`${userStore.user?.name || 'Anonymous'}'s Game`,
+				userStore.user?.$id // Pass the host user ID
+			);
+		} else {
+			gameSettings.value = settings;
+		}
+
+		// Set up real-time listener for game settings changes
+		setupGameSettingsRealtime(lobbyId);
+	} catch (err) {
+		console.error('Failed to load game settings:', err);
+	}
 
 	// 🧠 Lobby Realtime
 	const unsubscribeLobby = client.subscribe(
@@ -109,37 +220,103 @@ const setupRealtime = async (lobbyData: Lobby) => {
 	// 👥 Player Realtime
 	const playersTopic = `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwritePlayerCollectionId}.documents`;
 
+	// Create debounced versions of notification functions with longer delay (2000ms)
+	const debouncedJoinNotification = debounce(async (player: Player) => {
+		await playSfx('/sounds/sfx/playerJoin.wav');
+		notify({
+			title: `${player.name} joined the lobby`,
+			color: 'success',
+			icon: 'i-mdi-account-plus',
+		});
+		// Only the host should send system messages to avoid duplicates
+		if (isHost.value) {
+			await sendSystemMessage(`${player.name} joined the lobby`);
+		}
+	}, 2000);
+
+	const debouncedLeaveNotification = debounce(async (player: Player) => {
+		await playSfx('/sounds/sfx/playerJoin.wav', { pitch: 0.8 });
+		notify({
+			title: `${player.name} left the lobby`,
+			color: 'warning',
+			icon: 'i-mdi-account-remove',
+		});
+		// Only the host should send system messages to avoid duplicates
+		if (isHost.value) {
+			await sendSystemMessage(`${player.name} left the lobby`);
+		}
+	}, LEAVE_DEBOUNCE_TIME);
+
 	const unsubscribePlayers = client.subscribe(
 			[playersTopic],
 			async ({events, payload}) => {
 				const player = payload as Player;
+
+				// Validate that the player object has all required properties
+				if (!player || !player.userId || !player.lobbyId || !player.name) {
+					console.error('Invalid player object in event:', player);
+					return;
+				}
+
+				// Extract the event type (create, update, delete) from the event string
+				const eventType = events[0].split('.').pop();
+
+				// Generate a unique key for this player event using userId, event type, and lobbyId
+				// This ensures events for different lobbies are treated separately
+				const eventKey = `${player.userId}-${eventType}-${player.lobbyId}`;
+
+				// Check if we've recently processed this event
+				const now = Date.now();
+				const recentEvent = recentPlayerEvents.get(eventKey);
+				if (recentEvent && now - recentEvent < LEAVE_DEBOUNCE_TIME) {
+					// Skip if we've processed this event recently
+					console.log(`Skipping duplicate event for ${player.name} (${eventType})`);
+					return;
+				}
+
+				// Record this event as processed
+				recentPlayerEvents.set(eventKey, now);
+
+				// Clean up old events (older than the debounce time)
+				// This ensures we don't accumulate stale events in memory
+				for (const [key, timestamp] of recentPlayerEvents.entries()) {
+					if (now - timestamp > LEAVE_DEBOUNCE_TIME) {
+						recentPlayerEvents.delete(key);
+					}
+				}
+
+				// Limit the size of the recentPlayerEvents map to prevent memory issues
+				if (recentPlayerEvents.size > 100) {
+					console.warn('Too many recent player events, clearing oldest events');
+					// Convert to array, sort by timestamp, and keep only the 50 most recent
+					const entries = Array.from(recentPlayerEvents.entries());
+					entries.sort((a, b) => b[1] - a[1]); // Sort by timestamp (newest first)
+					recentPlayerEvents.clear();
+					entries.slice(0, 50).forEach(([key, timestamp]) => {
+						recentPlayerEvents.set(key, timestamp);
+					});
+				}
+
 				// Check if this is a create event (new player joining)
 				const isCreate = events.some(e => e.endsWith('.create'));
 
 				// If it's a new player joining this lobby (and not the current user)
 				if (isCreate && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
-					// Play a sound effect
-					await playSfx('/sounds/sfx/playerJoin.wav');
-
-					// You could also add a notification
-					notify({
-						title: `${player.name} joined the lobby`,
-						color: 'success',
-						icon: 'i-mdi-account-plus',
-					});
+					debouncedJoinNotification(player);
 				}
-				// 1️⃣ If it’s a delete event for *your* player doc, redirect immediately
-				const isDelete = events.some(e => e.endsWith('.delete'));
-				if (isDelete && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
-					// Play a sound effect
-					await playSfx('/sounds/sfx/playerLeave.wav', {pitch: 0.8});
 
-					// You could also add a notification
-					notify({
-						title: `${player.name} left the lobby`,
-						color: 'warning',
-						icon: 'i-mdi-account-remove',
-					});
+				// 1️⃣ If it’s a delete event for *your* player doc, redirect immediately
+				// Check if it's a delete event specifically for the player collection
+				const isDelete = events.some(e => e.endsWith('.delete') && e.includes(config.public.appwritePlayerCollectionId));
+				if (isDelete && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
+					// Check if this player is actually in our current list of players
+					// This prevents duplicate notifications for players who have already left
+					const isPlayerInList = players.value.some(p => p.userId === player.userId);
+					if (isPlayerInList) {
+						debouncedLeaveNotification(player);
+					} else {
+						console.log(`Ignoring leave event for player ${player.name} who is not in the current player list`);
+					}
 				}
 				if (isDelete && (payload as Player).userId === userStore.user!.$id) {
 					if (selfLeaving.value) {
@@ -171,6 +348,25 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				}
 			}
 	);
+
+ // Function to send system messages to chat
+	const sendSystemMessage = async (message: string) => {
+		const config = useRuntimeConfig();
+		const dbId = config.public.appwriteDatabaseId;
+		const messagesCollectionId = config.public.appwriteGamechatCollectionId;
+
+		try {
+			await databases.createDocument(dbId, messagesCollectionId, ID.unique(), {
+				lobbyId: lobbyId,
+				senderId: 'system',
+				senderName: 'System',
+				text: [message],
+				timestamp: new Date().toISOString()
+			}, [Permission.read(Role.any())]);
+		} catch (error) {
+			console.error('Error sending system message:', error);
+		}
+	};
 
 	// 🃏 Game Cards Realtime
 	gameCardsUnsubscribe = subscribeToGameCards(lobbyId, (cards) => {
@@ -252,7 +448,7 @@ watch(isComplete, (newIsComplete) => {
 						databases.updateDocument(
 							config.public.appwriteDatabaseId,
 							config.public.appwriteLobbyCollectionId,
-							lobby.value.$id,
+							lobby.value?.$id,
 							{
 								gameState: encodeGameState(gameState)
 							}
@@ -292,6 +488,13 @@ onMounted(async () => {
 		// Only allow authenticated users to use the creator parameter
 		const isCreator = route.query.creator === 'true' && isAuthenticatedUser(user);
 
+		// First check if the lobby with this code exists
+		const fetchedLobby = await getLobbyByCode(code);
+		if (!fetchedLobby) {
+			notify({title: 'Lobby Not Found', color: 'error', icon: 'i-mdi-alert-circle'});
+			return router.replace('/join?error=not_found');
+		}
+
 		// Check if the user is already in an active lobby, regardless of whether they're anonymous or authenticated
 		if (!isCreator) {
 			const activeLobby = await getActiveLobbyForUser(user.$id);
@@ -302,17 +505,24 @@ onMounted(async () => {
 				notify({title: 'Redirecting to your active game', color: 'info', icon: 'i-mdi-controller'});
 				return router.replace(`/game/${activeLobby.code}`);
 			} else {
-				// User is not in any active lobby, show join modal
-				showJoinModal.value = true;
-				return;
+				// If we have a valid lobby code in the URL, skip the join modal
+				// This helps when the page is refreshed and the session is lost
+				const isRefresh = window.performance && 
+					window.performance.navigation && 
+					window.performance.navigation.type === 1;
+
+				if (isRefresh) {
+					// On refresh, we'll skip the join modal and let the user rejoin
+					console.log('Page was refreshed, skipping join modal');
+				} else {
+					// Not a refresh, show the join modal
+					showJoinModal.value = true;
+					return;
+				}
 			}
 		}
 
-		const fetchedLobby = await getLobbyByCode(code);
-		if (!fetchedLobby) {
-			notify({title: 'Lobby Not Found', color: 'error', icon: 'i-mdi-alert-circle'});
-			return router.replace('/join?error=not_found');
-		}
+		// Set the lobby and continue
 		lobby.value = fetchedLobby;
 		joinedLobby.value = true;
 		await setupRealtime(fetchedLobby);
@@ -396,6 +606,52 @@ const handleContinue = async () => {
 		});
 	}
 };
+
+// Function to start the game
+const startGameWrapper = async () => {
+	if (!lobby.value) return;
+	try {
+		isStarting.value = true;
+		// Pass game settings to the startGame function
+		await startGame(lobby.value.$id, gameSettings.value);
+	} catch (err) {
+		console.error('Failed to start game:', err);
+		isStarting.value = false;
+	}
+};
+
+// Handle game settings update
+const handleSettingsUpdate = (newSettings: GameSettings) => {
+	gameSettings.value = newSettings;
+};
+
+const copied = ref(false)
+function copyLobbyLink() {
+	const config = useRuntimeConfig()
+	navigator.clipboard.writeText(config.public.baseUrl + '/game/' + lobby.value?.code)
+		.then(() => {
+			notify({
+				title: 'Lobby Code Copied',
+				description: 'The lobby code has been copied to your clipboard.',
+				color: 'success',
+				icon: 'i-mdi-clipboard-check'
+			})
+		})
+		.catch(err => {
+			console.error('Failed to copy lobby code:', err)
+			notify({
+				title: 'Copy Failed',
+				description: 'Failed to copy the lobby code.',
+				color: 'error',
+				icon: 'i-mdi-alert-circle'
+			})
+		})
+	copied.value = true
+
+	setTimeout(() => {
+		copied.value = false
+	}, 2000)
+}
 </script>
 
 <template>
@@ -409,36 +665,138 @@ const handleContinue = async () => {
 					@joined="handleJoinSuccess"
 			/>
 		</div>
-		<!-- Waiting room view -->
-		<WaitingRoom
-				v-else-if="isWaiting && lobby && players"
-				:lobby="lobby"
-				:players="players"
-				@leave="handleLeave"
-		/>
 
-		<!-- In-game view -->
-		<GameBoard
-				v-else-if="(isPlaying || isJudging || isRoundEnd) && lobby && players"
-				:lobby="lobby"
-				:players="players"
-				:white-card-texts="{}"
-				@leave="handleLeave"
-				@submit-card="handleCardSubmit"
-				@select-winner="handleWinnerSelect"
-				@draw-black-card="handleDrawBlackCard"
-		/>
+		<!-- Game sidebar - visible in all game phases except join modal -->
+		<div v-if="!showJoinModal && lobby && players" class="flex h-screen overflow-hidden">
+			<aside class="max-w-1/4 w-auto h-screen p-4 flex flex-col shadow-inner border-r border-slate-800 space-y-4 overflow-scroll">
+				<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
+					<!-- Desktop: Lobby Code label + button -->
+					<span class="items-center hidden sm:flex">
+						Lobby Code:
+						</span>
+					<UButtonGroup>
+							<UButton
+									class="text-slate-100 text-xl ml-2"
+									:color="copied ? 'success' : 'secondary'"
+									:icon="copied ? 'i-solar-clipboard-check-bold-duotone' : 'i-solar-copy-bold-duotone'"
+									variant="subtle"
+									aria-label="Copy to clipboard"
+									@click="copyLobbyLink">
+								{{ lobby.code }}
+							</UButton>
+
+						<!-- Mobile: Just the icon -->
+						<span class="flex sm:hidden">
+							<UButton aria-label="Copy Lobby Code" color="info" icon="i-solar-copy-bold-duotone" variant="subtle"/>
+						</span>
+
+						<!-- Leave Button (shows on all sizes) -->
+						<UButton
+								class="cursor-pointer text-white"
+								color="error"
+								size="xl"
+								variant="subtle"
+								trailing-icon="i-solar-exit-bold-duotone"
+								@click="handleLeave"
+						>
+							<span class="hidden xl:inline">Leave Game</span>
+						</UButton>
+					</UButtonGroup>
+				</div>
+				<PlayerList
+						:allow-moderation="true"
+						:hostUserId="lobby.hostUserId"
+						:lobbyId="lobby.$id"
+						:players="players"
+				/>
+        <ChatBox
+						v-if="lobby && lobby.$id"
+						:current-user-id="myId"
+						:lobbyId="lobby.$id"
+				/>
+				<div v-if="isWaiting">
+					<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
+						<div v-if="players.length >= 3">
+							<UButton
+									v-if="isHost && !isStarting"
+									icon="i-lucide-play"
+									@click="startGameWrapper"
+									size="lg"
+									color="success"
+									class="w-full text-black font-['Bebas_Neue'] text-xl"
+							>
+								Start Game
+							</UButton>
+							<UButton
+									v-if="isHost && isStarting"
+									:loading="true"
+									disabled
+							>
+								Starting Game...
+							</UButton>
+							<p v-if="!isHost && !isStarting" class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">
+								Waiting for the host to start...
+							</p>
+							<p v-if="!isHost && isStarting" class="text-green-400 text-center font-['Bebas_Neue'] text-2xl">
+								Game is starting...
+							</p>
+						</div>
+						<div v-else>
+							<p class="text-amber-400 text-center font-['Bebas_Neue'] text-xl">We need at least 3 players to start the
+								game!</p>
+						</div>
+					</div>
+					<!-- Game Settings (moved to sidebar bottom) -->
+					<GameSettings
+						v-if="gameSettings"
+						:host-user-id="lobby.hostUserId"
+						:is-editable="isHost"
+						:lobby-id="lobby.$id"
+						:settings="gameSettings"
+						@update:settings="handleSettingsUpdate"
+						class="mt-4"
+					/>
+				</div>
+			</aside>
+
+
+			<!-- Main content area -->
+			<div class="flex-1">
+				<!-- Waiting room view -->
+				<WaitingRoom
+						v-if="isWaiting && lobby && players"
+						:lobby="lobby"
+						:players="players"
+						:sidebar-moved="true"
+						@leave="handleLeave"
+				/>
+
+				<!-- In-game view -->
+				<GameBoard
+						v-else-if="(isPlaying || isJudging || isRoundEnd) && lobby && players"
+						:lobby="lobby"
+						:players="players"
+						:white-card-texts="{}"
+						@leave="handleLeave"
+						@submit-card="handleCardSubmit"
+						@select-winner="handleWinnerSelect"
+						@draw-black-card="handleDrawBlackCard"
+				/>
+			</div>
+		</div>
 
 		<!-- Game complete - Show waiting room if player has returned to lobby -->
-		<WaitingRoom
-				v-if="isComplete && hasReturnedToLobby && lobby && players"
-				:lobby="lobby"
-				:players="players"
-				@leave="handleLeave"
-		/>
+		<div v-if="isComplete && hasReturnedToLobby && lobby && players" class="flex-1">
+			<WaitingRoom
+					:lobby="lobby"
+					:players="players"
+					:sidebar-moved="true"
+					@leave="handleLeave"
+			/>
+		</div>
 
 		<!-- Game complete - Show scoreboard if player hasn't returned to lobby -->
-		<div v-else-if="isComplete && lobby && players" class="max-w-4xl mx-auto py-8 px-4">
+		<div v-else-if="isComplete && lobby && players" class="flex-1 max-w-4xl mx-auto py-8 px-4">
 			<h2 class="text-3xl font-bold text-center mb-6">Game Over</h2>
 
 			<!-- Auto-return timer -->

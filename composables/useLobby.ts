@@ -483,20 +483,33 @@ export const useLobby = () => {
     };
 
     // Start Game function with settings
-    const startGame = async (lobbyId: string, gameSettings?: GameSettings) => {
+    const startGame = async (lobbyId: string, gameSettings?: GameSettings | null) => {
         // Validate we have enough players
         await fetchPlayers(lobbyId);
         const validPlayers = players.value.filter((p) => p.userId);
         if (validPlayers.length < 3) throw new Error('Not enough players to start');
+
+        // Fetch game settings if not provided
+        if (!gameSettings) {
+            const { getGameSettings } = useGameSettings();
+            gameSettings = await getGameSettings(lobbyId);
+        }
+
+        // Make sure we have a valid documentId
+        if (!gameSettings || !gameSettings.$id) {
+            throw new Error('Game settings not found. Please create game settings first.');
+        }
 
         const { startGame: startGameFunction } = useGameActions();
         try {
             // Include game settings in the function call
             const payload = {
                 lobbyId,
-                settings: gameSettings || null
+                documentId: gameSettings.$id, // Always use the game settings document ID
+                settings: gameSettings
             };
 
+            console.log('startGame payload:', payload);
             const result = await startGameFunction(JSON.stringify(payload));
 
             // Early return if no result
