@@ -2,7 +2,7 @@
 	<ClientOnly>
     <UApp>
       <NuxtLayout>
-	      <div v-if="isDev" class="font-['Bebas_Neue'] fixed top-4 left-[-45px] backdrop-blur-2xl text-md font-bold uppercase tracking-wider rotate-[-45deg] w-48 text-center shadow-lg translate-y-4 z-[100]">
+	      <div v-if="isDev" class="opacity-50 hover:opacity-100 font-['Bebas_Neue'] fixed top-4 left-[-45px] backdrop-blur-2xl text-md font-bold uppercase tracking-wider rotate-[-45deg] w-48 text-center shadow-lg translate-y-4 z-[100]">
 		      <UButton to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" icon="i-logos-gitlab" variant="link" color="warning" >Dev Preview</UButton>
 	      </div>
           <NuxtPage />

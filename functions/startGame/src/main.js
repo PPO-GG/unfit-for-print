@@ -61,11 +61,12 @@ export default async function ({ req, res, log, error }) {
     // Parse & validate payload
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const lobbyId = body?.lobbyId;
+    const documentId = body?.documentId || lobbyId; // Use documentId if provided, otherwise use lobbyId
     const settings = body?.settings || null;
     if (!lobbyId) throw new Error('lobbyId missing');
 
-    // Log the payload for debugging
-    log('startGame payload:', { lobbyId, settings });
+    // Log the parsed payload for debugging
+    log('Parsed payload:', { lobbyId, documentId, settings });
 
     // 1) Load lobby + players
     const lobby = await databases.getDocument(DB, LOBBY_COL, lobbyId);
