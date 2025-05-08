@@ -18,6 +18,15 @@ export interface GameState {
     returnedToLobby?: Record<PlayerId, boolean>; // Track which players have returned to the lobby
     gameEndTime?: number; // Timestamp when the game ended (for auto-return timer)
 
+    // Newly added — now part of server-created game state
+    config: {
+        maxPoints: number;
+        cardsPerPlayer: number;
+        cardPacks: string[];
+        isPrivate: boolean;
+        lobbyName: string;
+    };
+
     // Card-related properties that are managed separately in the GameCards collection
     // but temporarily stored in the state during processing
     whiteDeck: CardId[];

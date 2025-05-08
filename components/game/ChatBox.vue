@@ -190,7 +190,12 @@ const loadMessages = async () => {
 			if (e.events.includes('databases.*.collections.*.documents.*.create')) {
 				const doc = e.payload as ChatMessage;
 				// Check if lobbyId is defined and matches the document's lobbyId
-				if (props.lobbyId && doc.lobbyId === props.lobbyId) {
+				// Handle case where doc.lobbyId is a relationship object
+				const docLobbyId = typeof doc.lobbyId === 'object' && doc.lobbyId?.$id 
+					? doc.lobbyId.$id 
+					: doc.lobbyId;
+
+				if (props.lobbyId && docLobbyId === props.lobbyId) {
 					const safeDoc = {
 						...doc,
 						text: doc.text.map((t) => {

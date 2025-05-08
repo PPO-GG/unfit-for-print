@@ -1,5 +1,5 @@
 // plugins/appwrite.client.ts
-import { Client, Databases, Account, Functions } from 'appwrite'
+import { Client, Databases, Account, Functions, Teams } from 'appwrite'
 
 function ensureString(value: unknown, name: string): string {
   if (value === null || value === undefined) {
@@ -67,6 +67,7 @@ export default defineNuxtPlugin(() => {
   const databases = new Databases(client);
   const account = new Account(client);
   const functions = new Functions(client);
+  const teams = new Teams(client);
 
   return {
     provide: {
@@ -75,7 +76,8 @@ export default defineNuxtPlugin(() => {
         databases,
         account,
         functions,
-        safeConfig // Provide the safe config to the rest of the application
+        teams,
+        safeConfig
       }
     }
   };

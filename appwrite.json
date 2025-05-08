@@ -126,6 +126,26 @@
             "entrypoint": "src/main.js",
             "commands": "npm install",
             "path": "functions/cleanStaleLobbies"
+        },
+        {
+            "$id": "681ad1ec0035f6a47189",
+            "name": "clearOldUsers",
+            "runtime": "node-16.0",
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [
+                "users.read",
+                "users.write"
+            ],
+            "schedule": "0 */6 * * *",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
+            "path": "functions/clearOldUsers"
         }
     ],
     "settings": {
