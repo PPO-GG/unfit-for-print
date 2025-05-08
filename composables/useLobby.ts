@@ -455,6 +455,15 @@ export const useLobby = () => {
                     await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteGamechatCollectionId, message.$id);
                 }
 
+                // Delete game settings associated with this lobby
+                const gameSettings = await databases.listDocuments(config.public.appwriteDatabaseId, config.public.appwriteGameSettingsCollectionId, [
+                    Query.equal('lobbyId', lobbyId),
+                ]);
+
+                for (const setting of gameSettings.documents) {
+                    await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteGameSettingsCollectionId, setting.$id);
+                }
+
                 await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteLobbyCollectionId, lobbyId);
                 return;
             }
@@ -502,11 +511,18 @@ export const useLobby = () => {
 
         const { startGame: startGameFunction } = useGameActions();
         try {
+            // Create a clean copy of the game settings to avoid issues with Proxy objects
+            // and ensure lobbyId is a string, not an object
+            const cleanSettings = {
+                ...gameSettings,
+                lobbyId: typeof gameSettings.lobbyId === 'object' ? lobbyId : gameSettings.lobbyId
+            };
+
             // Include game settings in the function call
             const payload = {
                 lobbyId,
                 documentId: gameSettings.$id, // Always use the game settings document ID
-                settings: gameSettings
+                settings: cleanSettings
             };
 
             console.log('startGame payload:', payload);

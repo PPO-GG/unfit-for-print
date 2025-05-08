@@ -141,7 +141,12 @@ const setupGameSettingsRealtime = (lobbyId: string) => {
 		async ({events, payload}) => {
 			// Check if this is a game settings document for our lobby
 			const settings = payload as GameSettings;
-			if (settings.lobbyId === lobbyId) {
+			// Handle case where lobbyId is a relationship object
+			const settingsLobbyId = typeof settings.lobbyId === 'object' && settings.lobbyId?.$id 
+				? settings.lobbyId.$id 
+				: settings.lobbyId;
+
+			if (settingsLobbyId === lobbyId) {
 				console.log('[Realtime] Game settings updated:', settings);
 				gameSettings.value = settings;
 
@@ -150,7 +155,7 @@ const setupGameSettingsRealtime = (lobbyId: string) => {
 					notify({
 						title: 'Game Settings Updated',
 						description: 'The host has updated the game settings.',
-						icon: 'i-heroicons-information-circle',
+						icon: 'i-solar-info-circle-bold-duotone',
 						color: 'primary',
 						duration: 3000
 					});
@@ -300,15 +305,20 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				// Check if this is a create event (new player joining)
 				const isCreate = events.some(e => e.endsWith('.create'));
 
+				// Handle case where player.lobbyId is a relationship object
+				const playerLobbyId = typeof player.lobbyId === 'object' && player.lobbyId?.$id 
+					? player.lobbyId.$id 
+					: player.lobbyId;
+
 				// If it's a new player joining this lobby (and not the current user)
-				if (isCreate && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
+				if (isCreate && playerLobbyId === lobbyId && player.userId !== userStore.user?.$id) {
 					debouncedJoinNotification(player);
 				}
 
 				// 1️⃣ If it’s a delete event for *your* player doc, redirect immediately
 				// Check if it's a delete event specifically for the player collection
 				const isDelete = events.some(e => e.endsWith('.delete') && e.includes(config.public.appwritePlayerCollectionId));
-				if (isDelete && player.lobbyId === lobbyId && player.userId !== userStore.user?.$id) {
+				if (isDelete && playerLobbyId === lobbyId && player.userId !== userStore.user?.$id) {
 					// Check if this player is actually in our current list of players
 					// This prevents duplicate notifications for players who have already left
 					const isPlayerInList = players.value.some(p => p.userId === player.userId);
@@ -342,7 +352,8 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				}
 
 				// 2️⃣ Otherwise, if it’s for *this* lobby, re‑fetch the list
-				if (player.lobbyId === lobbyId) {
+				// Use the playerLobbyId we already extracted above
+				if (playerLobbyId === lobbyId) {
 					console.log('👥 player event:', events, player);
 					players.value = await getPlayersForLobby(lobbyId);
 				}
@@ -448,7 +459,7 @@ watch(isComplete, (newIsComplete) => {
 						databases.updateDocument(
 							config.public.appwriteDatabaseId,
 							config.public.appwriteLobbyCollectionId,
-							lobby.value?.$id,
+							lobby.value!.$id,
 							{
 								gameState: encodeGameState(gameState)
 							}
@@ -607,13 +618,60 @@ const handleContinue = async () => {
 	}
 };
 
+const ensureGameSettings = async () => {
+	if (!gameSettings.value || !gameSettings.value.$id) {
+		try {
+			// Try to get existing settings
+			const settings = await getGameSettings(lobby.value!.$id);
+
+			// If no settings exist and user is host, create default settings
+			if (!settings && isHost.value) {
+				gameSettings.value = await createDefaultGameSettings(
+						lobby.value!.$id,
+						`${userStore.user?.name || 'Anonymous'}'s Game`,
+						userStore.user?.$id
+				);
+			} else if (settings) {
+				gameSettings.value = settings;
+			} else {
+				throw new Error('Could not initialize game settings');
+			}
+		} catch (err) {
+			console.error('Failed to initialize game settings:', err);
+			notify({
+				title: 'Settings Error',
+				description: 'Could not initialize game settings.',
+				color: 'error',
+				icon: 'i-mdi-alert-circle'
+			});
+		}
+	}
+};
+
 // Function to start the game
 const startGameWrapper = async () => {
 	if (!lobby.value) return;
+
+	// Check if game settings exist and have an ID
+	if (!gameSettings.value || !gameSettings.value.$id) {
+		console.error('Game settings not properly initialized');
+		notify({
+			title: 'Cannot Start Game',
+			description: 'Game settings are not properly initialized. Please try refreshing the page.',
+			color: 'error',
+			icon: 'i-mdi-alert-circle'
+		});
+		return;
+	}
+
 	try {
 		isStarting.value = true;
-		// Pass game settings to the startGame function
-		await startGame(lobby.value.$id, gameSettings.value);
+
+		// Ensure game settings are initialized
+		await ensureGameSettings();
+
+		// Now start the game with the initialized settings
+		await startGame(lobby.value.$id, { ...toRaw(gameSettings.value) });
 	} catch (err) {
 		console.error('Failed to start game:', err);
 		isStarting.value = false;

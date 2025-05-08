@@ -14,7 +14,11 @@ export function useGameActions() {
 
         try {
             // Convert payload to a JSON string (it's already a string in this case)
-            const result = await functions.createExecution(FUNCTIONS.START_GAME, payload);
+            const result = await functions.createExecution(
+                FUNCTIONS.START_GAME,
+                payload,
+                false
+            );
             console.log('startGame result:', result);
             return result;
         } catch (error) {

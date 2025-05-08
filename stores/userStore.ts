@@ -23,6 +23,16 @@ export const useUserStore = defineStore("user", {
                 return null;
             }
         },
+        getClient() {
+            if (import.meta.server) return null;
+
+            try {
+                return useAppwrite().client;
+            } catch (err) {
+                console.warn("useAppwrite() failed in getClient()", err);
+                return null;
+            }
+        },
 
         async loginWithProvider(provider: 'google' | 'discord') {
             if (import.meta.server) return;

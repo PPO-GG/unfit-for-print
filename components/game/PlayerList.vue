@@ -134,21 +134,21 @@ const getPlayerAvatarUrl = (player: Player) => {
 
 <template>
   <div class="font-['Bebas_Neue'] rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto border-2 border-slate-500 bg-slate-600">
-    <div class="flex justify-between items-center mb-2">
-      <h2 class="text-3xl font-bold">Players</h2>
-      <UButton
-        v-if="isHost && (gamePhase === 'submitting' || gamePhase === 'judging')"
-        size="sm"
-        color="warning"
-        variant="ghost"
-        icon="i-heroicons-arrow-path"
-        @click="reshuffleCards"
-        class="debug-btn"
-        title="Debug: Reshuffle all player cards"
-      >
-        Reshuffle
-      </UButton>
-    </div>
+<!--    <div class="flex justify-between items-center mb-2">-->
+<!--      <h2 class="text-3xl font-bold">Players</h2>-->
+<!--      <UButton-->
+<!--        v-if="isHost && (gamePhase === 'submitting' || gamePhase === 'judging')"-->
+<!--        size="sm"-->
+<!--        color="warning"-->
+<!--        variant="ghost"-->
+<!--        icon="i-heroicons-arrow-path"-->
+<!--        @click="reshuffleCards"-->
+<!--        class="debug-btn"-->
+<!--        title="Debug: Reshuffle all player cards"-->
+<!--      >-->
+<!--        Reshuffle-->
+<!--      </UButton>-->
+<!--    </div>-->
     <ul class="uppercase text-lg">
       <li
           v-for="player in sortedPlayers"

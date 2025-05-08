@@ -130,7 +130,12 @@ const setupGameSettingsRealtime = () => {
 			async ({events, payload}) => {
 				// Check if this is a game settings document for our lobby
 				const settings = payload as GameSettings;
-				if (settings.lobbyId === props.lobby.$id) {
+				// Handle case where lobbyId is a relationship object
+				const settingsLobbyId = typeof settings.lobbyId === 'object' && settings.lobbyId?.$id 
+					? settings.lobbyId.$id 
+					: settings.lobbyId;
+
+				if (settingsLobbyId === props.lobby.$id) {
 					console.log('[Realtime] Game settings updated:', settings);
 					gameSettings.value = settings;
 
@@ -139,7 +144,7 @@ const setupGameSettingsRealtime = () => {
 						notify({
 							title: 'Game Settings Updated',
 							description: 'The host has updated the game settings.',
-							icon: 'i-heroicons-information-circle',
+							icon: 'i-solar-info-circle-bold-duotone',
 							color: 'primary',
 							duration: 3000
 						});

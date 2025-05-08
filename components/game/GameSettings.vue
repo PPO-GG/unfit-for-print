@@ -42,7 +42,7 @@
 						<UBadge
 								v-for="pack in localSettings.cardPacks"
 								:key="pack"
-								color="gray"
+								color="info"
 								variant="solid"
 						>
 							{{ pack }}
@@ -100,7 +100,7 @@ watch(
 )
 
 const availablePacks = ref([
-	'Base',
+	'CAH Base Set',
 ])
 
 const saveSettings = async () => {
@@ -110,7 +110,7 @@ const saveSettings = async () => {
 		notify({
 			title: 'Settings Updated',
 			description: 'Game settings have been successfully updated.',
-			icon: 'i-heroicons-check-circle',
+			icon: 'i-solar-check-read-line-duotone',
 			color: 'success'
 		})
 	} catch (err) {
@@ -118,7 +118,7 @@ const saveSettings = async () => {
 		notify({
 			title: 'Update Failed',
 			description: 'Could not save game settings.',
-			icon: 'i-heroicons-exclamation-circle',
+			icon: 'i-solar-danger-circle-bold-duotone',
 			color: 'error'
 		})
 	}

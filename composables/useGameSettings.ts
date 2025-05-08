@@ -17,21 +17,56 @@ export function useGameSettings() {
         error.value = null;
 
         try {
+            console.log('Fetching game settings for lobbyId:', lobbyId, 'type:', typeof lobbyId);
+
             // Query for settings with the given lobbyId
             const response = await databases.listDocuments(
                 config.public.appwriteDatabaseId,
                 config.public.appwriteGameSettingsCollectionId,
                 [
-                    // Query for the specific lobbyId using exact match
-                    Query.equal('lobbyId', lobbyId)
+                    // Get all settings (we'll filter manually to handle type mismatches)
+                    Query.limit(1000)
                 ]
             );
 
+            console.log('Found', response.documents.length, 'game settings documents');
+
             if (response.documents.length > 0) {
-                settings.value = response.documents[0] as unknown as GameSettings;
-                return settings.value;
+                // First try direct match
+                let matchingSettings = response.documents.find(
+                    doc => doc.lobbyId === lobbyId
+                );
+
+                console.log('Direct match result:', matchingSettings ? 'Found' : 'Not found');
+
+                // If not found, try string comparison
+                if (!matchingSettings) {
+                    matchingSettings = response.documents.find(
+                        doc => String(doc.lobbyId) === String(lobbyId)
+                    );
+                    console.log('String comparison match result:', matchingSettings ? 'Found' : 'Not found');
+                }
+
+                // If still not found, check if lobbyId is a relationship object
+                if (!matchingSettings) {
+                    matchingSettings = response.documents.find(doc => {
+                        // Check if lobbyId is an object with an $id property
+                        if (doc.lobbyId && typeof doc.lobbyId === 'object' && doc.lobbyId.$id) {
+                            return doc.lobbyId.$id === lobbyId;
+                        }
+                        return false;
+                    });
+                    console.log('Relationship match result:', matchingSettings ? 'Found' : 'Not found');
+                }
+
+                if (matchingSettings) {
+                    console.log('Found matching settings:', matchingSettings);
+                    settings.value = matchingSettings as unknown as GameSettings;
+                    return settings.value;
+                }
             }
 
+            console.log('No matching game settings found for lobbyId:', lobbyId);
             // If no settings found, return null
             settings.value = null;
             return null;
@@ -49,12 +84,27 @@ export function useGameSettings() {
     const createDefaultGameSettings = async (lobbyId: string, lobbyName: string, hostUserId?: string): Promise<GameSettings> => {
         const config = useRuntimeConfig();
 
+        // First, check if settings already exist for this lobby
+        try {
+            const existingSettings = await getGameSettings(lobbyId);
+            if (existingSettings) {
+                console.log('Game settings already exist for lobby, returning existing settings:', lobbyId);
+                return existingSettings;
+            }
+        } catch (err) {
+            console.warn('Error checking for existing game settings:', err);
+            // Continue with creation attempt even if check fails
+        }
+
+        // Check if we need to create a relationship object for lobbyId
+        // In Appwrite, relationships can be created by passing the ID as a string
+        // The server will convert it to a relationship object
         const defaultSettings: Omit<GameSettings, '$id' | '$createdAt' | '$updatedAt'> = {
             maxPoints: 10,
             numPlayerCards: 10,
-            cardPacks: ['base'],
+            cardPacks: ['CAH Base Set'],
             isPrivate: false,
-            lobbyId,
+            lobbyId, // This will be converted to a relationship by Appwrite if the collection is configured for relationships
             lobbyName
         };
 
@@ -75,16 +125,31 @@ export function useGameSettings() {
                 permissions.push(Permission.update(Role.users()));
             }
 
-            const response = await databases.createDocument(
-                config.public.appwriteDatabaseId,
-                config.public.appwriteGameSettingsCollectionId,
-                ID.unique(),
-                defaultSettings,
-                permissions
-            );
+            // Use a deterministic ID based on the lobbyId to prevent duplicates
+            const documentId = `settings-${lobbyId}`;
 
-            settings.value = response as unknown as GameSettings;
-            return settings.value;
+            try {
+                const response = await databases.createDocument(
+                    config.public.appwriteDatabaseId,
+                    config.public.appwriteGameSettingsCollectionId,
+                    documentId,
+                    defaultSettings,
+                    permissions
+                );
+
+                settings.value = response as unknown as GameSettings;
+                return settings.value;
+            } catch (createErr: any) {
+                // If document already exists (409 Conflict), try to get it
+                if (createErr.code === 409) {
+                    console.log('Document already exists, fetching existing settings');
+                    const existingSettings = await getGameSettings(lobbyId);
+                    if (existingSettings) {
+                        return existingSettings;
+                    }
+                }
+                throw createErr;
+            }
         } catch (err) {
             console.error('Error creating game settings:', err);
             error.value = err as Error;
@@ -99,6 +164,8 @@ export function useGameSettings() {
         try {
             // If settings already exist, update them
             if (newSettings.$id) {
+                // Note: We don't update the lobbyId field here because it's a relationship
+                // and we don't want to change the relationship between settings and lobby
                 const response = await databases.updateDocument(
                     config.public.appwriteDatabaseId,
                     config.public.appwriteGameSettingsCollectionId,
