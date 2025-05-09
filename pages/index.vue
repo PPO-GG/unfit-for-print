@@ -26,23 +26,25 @@
 			  A PARTY GAME FOR HIDEOUS PEOPLE
 		  </p>
 		</div>
-    <div class="flex justify-center gap-4">
-      <BlackCard
-          v-if="blackCard"
-          @click="blackCardFlipped = !blackCardFlipped"
-          :card-id="blackCard.$id"
-          :text="blackCard.text"
-          :cardPack=blackCard.pack
-          :flipped="blackCardFlipped"
-          :threeDeffect="threeDeffect"
-          :num-pick="randomCard.pick"
-          :shine="shine"
-          :back-logo-url="'/img/ufp.svg'"
-          :mask-url="'/img/textures/hexa.png'"
-      />
-      <div v-else class="text-white mt-4">Loading card...</div>
+    <div class="flex justify-center gap-6">
+	    <div class="outline-2 outline-dashed outline-gray-300/25 outline-offset-4 rounded-xl">
+	      <BlackCard
+	          v-if="blackCard"
+	          @click="blackCardFlipped = !blackCardFlipped"
+	          :card-id="blackCard.$id"
+	          :text="blackCard.text"
+	          :cardPack=blackCard.pack
+	          :flipped="blackCardFlipped"
+	          :threeDeffect="threeDeffect"
+	          :num-pick="randomCard.pick"
+	          :shine="shine"
+	          :back-logo-url="'/img/ufp.svg'"
+	          :mask-url="'/img/textures/hexa.png'"
+	      />
+		    <div v-else class="text-white mt-4">Loading card...</div>
+		  </div>
 
-      <div>
+      <div class="outline-2 outline-dashed outline-gray-300/25 outline-offset-4 rounded-xl">
         <WhiteCard
             v-if="whiteCard"
             @click="whiteCardFlipped = !whiteCardFlipped"
@@ -59,6 +61,7 @@
       </div>
     </div>
 	  <div class="flex flex-col items-center mt-8">
+		  <UButtonGroup>
 		  <UButton
 				  loading-auto
 				  @click="fetchNewCards"
@@ -66,6 +69,12 @@
 		  >
 			  TRY ME
 		  </UButton>
+		  <UButton
+				  loading-auto
+				  @click="speak(mergeCardText(blackCard.text, whiteCard.text))"
+				  class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']" color="primary" variant="subtle" icon="i-solar-user-speak-bold-duotone"
+		  />
+		  </UButtonGroup>
 	  </div>
   </div>
 </template>
@@ -74,6 +83,12 @@
 import { ref } from 'vue';
 import {useCards} from "~/composables/useCards";
 import { useVibrate } from '@vueuse/core'
+import { useSpeech } from '~/composables/useSpeech'
+import { mergeCardText } from '~/composables/useMergeCards'
+
+const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
+
+
 // import { isMobile, isDesktop, isChromium, isFirefox } from '@basitcodeenv/vue3-device-detect'
 
 const { vibrate, stop, isSupported } = useVibrate({ pattern: [10, 7, 5] })
@@ -83,6 +98,7 @@ useHead({
 
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
+
 const blackCardFlipped = ref(true);
 const whiteCardFlipped = ref(true);
 const threeDeffect = ref(true);
@@ -118,14 +134,7 @@ const fetchNewCards = async () => {
 
 onMounted(() => {
 		if (import.meta.client) {
-			fetchRandomWhiteCard().then((card: any) => {
-				whiteCardFlipped.value = true;
-				whiteCard.value = card;
-			});
-			randomCard.value = fetchRandomBlackCard(1).then((card: any) => {
-				blackCardFlipped.value = true;
-				blackCard.value = card;
-			});
+			fetchNewCards()
 			notify({
 				title: 'Fetched New Cards',
 				icon: "i-mdi-cards",

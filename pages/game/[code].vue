@@ -37,6 +37,7 @@ const showJoinModal = ref(false);
 const joinedLobby = ref(false);
 const isStarting = ref(false);
 const gameSettings = ref<GameSettings | null>(null);
+const isSidebarOpen = ref(false);
 const {notify} = useNotifications();
 const {getGameSettings, createDefaultGameSettings} = useGameSettings();
 
@@ -726,7 +727,19 @@ function copyLobbyLink() {
 
 		<!-- Game sidebar - visible in all game phases except join modal -->
 		<div v-if="!showJoinModal && lobby && players" class="flex h-screen overflow-hidden">
-			<aside class="max-w-1/4 w-auto h-screen p-4 flex flex-col shadow-inner border-r border-slate-800 space-y-4 overflow-scroll">
+			<!-- Mobile menu button -->
+			<UButton
+				icon="i-solar-hamburger-menu-broken"
+				color="neutral"
+				variant="ghost"
+				size="xl"
+				@click="isSidebarOpen = true"
+				class="md:hidden absolute left-4 top-4 z-10"
+				aria-label="Open menu"
+			/>
+
+			<!-- Desktop sidebar - hidden on mobile -->
+			<aside class="max-w-1/4 w-auto h-screen p-4 flex-col shadow-inner border-r border-slate-800 space-y-4 overflow-scroll hidden md:flex">
 				<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
 					<!-- Desktop: Lobby Code label + button -->
 					<span class="items-center hidden sm:flex">
@@ -816,6 +829,109 @@ function copyLobbyLink() {
 					/>
 				</div>
 			</aside>
+
+			<!-- Mobile Slideover -->
+			<USlideover v-model:open="isSidebarOpen" class="md:hidden">
+				<template #content>
+					<div class="p-4 flex flex-col h-full space-y-4 overflow-auto">
+						<div class="flex justify-between items-center">
+							<h2 class="font-['Bebas_Neue'] text-2xl">Game Menu</h2>
+							<UButton
+								icon="i-lucide-x"
+								color="neutral"
+								variant="ghost"
+								size="xl"
+								@click="isSidebarOpen = false"
+								aria-label="Close menu"
+							/>
+						</div>
+
+						<div class="font-['Bebas_Neue'] text-2xl rounded-xl p-4 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
+							<span class="items-center flex">
+								Lobby Code:
+							</span>
+							<UButton
+								class="text-slate-100 text-xl ml-2"
+								:color="copied ? 'success' : 'secondary'"
+								:icon="copied ? 'i-solar-clipboard-check-bold-duotone' : 'i-solar-copy-bold-duotone'"
+								variant="subtle"
+								aria-label="Copy to clipboard"
+								@click="copyLobbyLink">
+								{{ lobby.code }}
+							</UButton>
+						</div>
+
+						<UButton
+							class="cursor-pointer text-white"
+							color="error"
+							size="xl"
+							block
+							variant="soft"
+							trailing-icon="i-solar-exit-bold-duotone"
+							@click="handleLeave"
+						>
+							Leave Game
+						</UButton>
+
+						<PlayerList
+							:allow-moderation="true"
+							:hostUserId="lobby.hostUserId"
+							:lobbyId="lobby.$id"
+							:players="players"
+						/>
+
+						<ChatBox
+							v-if="lobby && lobby.$id"
+							:current-user-id="myId"
+							:lobbyId="lobby.$id"
+						/>
+
+						<div v-if="isWaiting">
+							<div class="font-['Bebas_Neue'] text-2xl rounded-xl p-4 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
+								<div v-if="players.length >= 3" class="w-full">
+									<UButton
+										v-if="isHost && !isStarting"
+										icon="i-lucide-play"
+										@click="startGameWrapper"
+										size="lg"
+										color="success"
+										class="w-full text-black font-['Bebas_Neue'] text-xl"
+									>
+										Start Game
+									</UButton>
+									<UButton
+										v-if="isHost && isStarting"
+										:loading="true"
+										disabled
+									>
+										Starting Game...
+									</UButton>
+									<p v-if="!isHost && !isStarting" class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">
+										Waiting for the host to start...
+									</p>
+									<p v-if="!isHost && isStarting" class="text-green-400 text-center font-['Bebas_Neue'] text-2xl">
+										Game is starting...
+									</p>
+								</div>
+								<div v-else>
+									<p class="text-amber-400 text-center font-['Bebas_Neue'] text-xl">We need at least 3 players to start the
+										game!</p>
+								</div>
+							</div>
+							<!-- Game Settings (moved to sidebar bottom) -->
+							<GameSettings
+								v-if="gameSettings"
+								:host-user-id="lobby.hostUserId"
+								:is-editable="isHost"
+								:lobby-id="lobby.$id"
+								:settings="gameSettings"
+								@update:settings="handleSettingsUpdate"
+								class="mt-4"
+							/>
+						</div>
+					</div>
+				</template>
+			</USlideover>
 
 
 			<!-- Main content area -->

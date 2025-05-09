@@ -47,6 +47,8 @@ import { useAppwrite } from "~/composables/useAppwrite";
 const {playSfx, getRandomInRange} = useSfx();
 const { vibrate, stop, isSupported } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
 import { isMobile } from '@basitcodeenv/vue3-device-detect'
+import { useSpeech } from '~/composables/useSpeech'
+const {speak} = useSpeech('1SM7GgM6IMuvQlz2BwM3')
 function playRandomFlip() {
 	vibrate()
 	playSfx([

@@ -37,20 +37,20 @@ const activeTab = ref('cards')
 		</div>
 
 		<!-- Desktop Layout -->
-		<div class="hidden lg:grid grid-cols-1 xl:grid-cols-2 gap-8">
+		<div class="columns-1 sm:columns-1 md:columns-2 gap-6">
 			<!-- Card Manager -->
-			<UCard class="h-fit">
+			<UCard class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6">
 				<template #header>
 					<div class="flex justify-between items-center">
 						<h2 class="text-2xl font-semibold font-['Bebas_Neue']">Card Manager</h2>
-						<UBadge icon="i-solar-info-square-bold-duotone" size="md" color="info" variant="solid">Manage game cards - search, edit, delete, or toggle active status</UBadge>
+						<UBadge icon="i-solar-info-square-bold-duotone" size="md" color="info" variant="solid">Manage game cards - add, search, edit, delete, or toggle active status</UBadge>
 					</div>
 				</template>
 				<AdminCardManager />
 			</UCard>
 
 			<!-- Lobby Monitor -->
-			<UCard class="h-fit">
+			<UCard class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6">
 				<template #header>
 					<div class="flex justify-between items-center">
 						<h2 class="text-2xl font-semibold font-['Bebas_Neue']">Active Lobbies</h2>
@@ -59,6 +59,28 @@ const activeTab = ref('cards')
 				</template>
 				<AdminLobbyMonitor />
 			</UCard>
+
+			<!-- User Manager -->
+			<UCard class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6">
+				<template #header>
+					<div class="flex justify-between items-center">
+						<h2 class="text-2xl font-semibold font-['Bebas_Neue']">Users Manager</h2>
+						<UBadge icon="i-solar-info-square-bold-duotone" size="md" color="info" variant="solid">Manage Authenticated Users</UBadge>
+					</div>
+				</template>
+				<AdminUserManager />
+			</UCard>
+
+			<!-- Card Creator/Uploader -->
+<!--			<UCard class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6">-->
+<!--				<template #header>-->
+<!--					<div class="flex justify-between items-center">-->
+<!--						<h2 class="text-2xl font-semibold font-['Bebas_Neue']">Card Uploader</h2>-->
+<!--						<UBadge icon="i-solar-info-square-bold-duotone" size="md" color="info" variant="solid">Create a Custom Card or Upload A Json</UBadge>-->
+<!--					</div>-->
+<!--				</template>-->
+<!--				<AdminCardUploader />-->
+<!--			</UCard>-->
 		</div>
 	</div>
 </template>

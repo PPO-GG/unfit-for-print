@@ -1,4 +1,4 @@
-import { Client, Databases, Account, Functions } from 'node-appwrite'
+import {Client, Databases, Account, Functions, Users, Teams} from 'node-appwrite'
 
 export function createAppwriteClient() {
   const config = useRuntimeConfig()
@@ -13,6 +13,8 @@ export function createAppwriteClient() {
     client,
     databases: new Databases(client),
     account: new Account(client),
-    functions: new Functions(client)
+    functions: new Functions(client),
+    users: new Users(client),
+    teams: new Teams(client),
   }
 }

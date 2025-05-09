@@ -60,7 +60,7 @@ const updateTimer = () => {
     }
   }
 };
-
+const remainingTimeProgress = ref(remainingTime.value || 0)
 onMounted(() => {
   hasTriggeredNextRound.value = false; // Reset flag on mount
   updateTimer(); // Initial calculation
@@ -97,7 +97,8 @@ watch(() => props.startTime, () => {
       </p>
       <!-- Optional: Add a visual timer bar -->
       <div class="w-full bg-slate-700 rounded-full h-2.5 mt-4 font-['Bebas_Neue']">
-        <div class="bg-blue-600 h-2.5 rounded-full font-['Bebas_Neue']" :style="{ width: `${(remainingTime / countdownDuration) * 100}%` }"></div>
+	      <UProgress v-model="remainingTimeProgress" />
+<!--        <div class="bg-blue-600 h-2.5 rounded-full font-['Bebas_Neue']" :style="{ width: `${(remainingTime / countdownDuration) * 100}%` }"></div>-->
       </div>
     </div>
   </div>

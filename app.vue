@@ -47,7 +47,8 @@ watchEffect(async () => {
 				{ property: 'og:image:height', content: '630' }
 			],
 			link: [
-				{ rel: 'canonical', href: `${config.public.baseUrl}/game/${code}` }
+				{ rel: 'canonical', href: `${config.public.baseUrl}/game/${code}` },
+				{ rel: 'icon', type: 'image/png', href: `${config.public.baseUrl}/img/favicon.png` }
 			]
 		})
 	} else {
@@ -64,9 +65,19 @@ watchEffect(async () => {
 				{ property: 'og:image', content: `${config.public.baseUrl}/img/og.png` },
 			],
 			link: [
-				{ rel: 'canonical', href: config.public.baseUrl }
+				{ rel: 'canonical', href: config.public.baseUrl },
+				{ rel: 'icon', type: 'image/png', href: `${config.public.baseUrl}/img/favicon.png` }
 			]
 		})
 	}
 })
+
+// defineOgImageComponent('unfit', {
+// 	title: 'Unfit for Print',
+// 	subtitle: 'The Internet’s Most Inappropriate Card Game',
+// 	logo: 'https://ufp.ppo.gg/img/ufp.svg',
+// 	textColor: '#FFFFFF',
+// 	logoPosition: 'top-right',
+// 	bgGradient: 'linear-gradient(135deg, #ff0080, #7928ca)',
+// })
 </script>

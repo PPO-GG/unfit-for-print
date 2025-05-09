@@ -33,7 +33,7 @@ export function useSpeech(defaultVoiceId = 'pzxut4zZz4GImZNlqQ3H') {
             if (!response.ok || !contentType.includes('audio')) {
                 console.error('TTS response error:', await response.text())
                 isSpeaking.value = false
-                playNext()
+                await playNext()
                 return
             }
 
@@ -55,7 +55,7 @@ export function useSpeech(defaultVoiceId = 'pzxut4zZz4GImZNlqQ3H') {
         } catch (err) {
             console.error('Speech error:', err)
             isSpeaking.value = false
-            playNext()
+            await playNext()
         }
     }
 

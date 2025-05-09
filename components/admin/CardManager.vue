@@ -4,6 +4,8 @@ import { Query } from 'appwrite'
 import { useNotifications } from '~/composables/useNotifications'
 import { ref, computed, watch, onMounted } from 'vue'
 import { watchDebounced } from '@vueuse/core'
+import stringSimilarity from 'string-similarity'
+import type { RadioGroupItem, RadioGroupValue } from '@nuxt/ui'
 
 const { databases } = getAppwrite()
 const config = useRuntimeConfig()
@@ -21,6 +23,62 @@ const showEditModal = ref(false)
 const editingCard = ref<any>(null)
 const newCardText = ref('')
 
+// Add single card feature
+const showAddCardModal = ref(false)
+const newSingleCardText = ref('')
+const newSingleCardPack = ref('')
+const newSingleCardType = ref<'white' | 'black'>('white')
+
+// Similar cards feature
+const showSimilarCardsModal = ref(false)
+const selectedCard = ref<any>(null)
+const similarCards = ref<any[]>([])
+const cardToKeep = ref<string>('original') // 'original' or 'similar'
+const similarityThreshold = ref(0.7) // Similarity threshold (0.0 to 1.0)
+
+// All similar cards feature
+const showAllSimilarCardsModal = ref(false)
+const allSimilarPairs = ref<{card1: any, card2: any, similarity: number}[]>([])
+const currentPairIndex = ref(0)
+const processingAllSimilarCards = ref(false)
+
+// Radio group options
+const similarCardOptions = ref<RadioGroupItem[]>([
+  {
+    label: 'Original Card',
+    id: 'original'
+  },
+  {
+    label: 'Similar Card',
+    id: 'similar'
+  }
+])
+
+const allSimilarCardOptions = ref<RadioGroupItem[]>([
+  {
+    label: 'Card 1',
+    id: 'card1'
+  },
+  {
+    label: 'Card 2',
+    id: 'card2'
+  }
+])
+
+// Computed property to determine the active status of the selected pack
+const selectedPackStatus = computed(() => {
+  if (!selectedPack.value) return null
+
+  const packCards = cards.value.filter(card => card.pack === selectedPack.value)
+  if (packCards.length === 0) return null
+
+  const activeCount = packCards.filter(card => card.active).length
+
+  if (activeCount === 0) return 'inactive'
+  if (activeCount === packCards.length) return 'active'
+  return 'partial'
+})
+
 const DB_ID = config.public.appwriteDatabaseId
 const cardType = ref<'white' | 'black'>('black')
 
@@ -33,9 +91,33 @@ const CARD_COLLECTION = computed(() => CARD_COLLECTIONS[cardType.value])
 // Fetch available card packs on mount
 onMounted(async () => {
 	try {
-		const result = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(100)])
-		const packs = new Set(result.documents.map(doc => doc.pack).filter(Boolean))
-		availablePacks.value = Array.from(packs).sort()
+		// First get total count of cards
+		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(1)])
+		const totalCards = countResult.total
+
+		// Fetch all cards to extract packs (using a reasonable chunk size)
+		const chunkSize = 1000
+		const allPacks = new Set<string>()
+
+		// Fetch cards in chunks to get all packs
+		for (let offset = 0; offset < totalCards; offset += chunkSize) {
+			const result = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [
+				Query.limit(chunkSize),
+				Query.offset(offset)
+			])
+
+			// Extract packs from this chunk
+			result.documents.forEach(doc => {
+				if (doc.pack) allPacks.add(doc.pack)
+			})
+
+			// If we got fewer documents than requested, we've reached the end
+			if (result.documents.length < chunkSize) break
+		}
+
+		availablePacks.value = Array.from(allPacks).sort()
+		console.log(`Found ${availablePacks.value.length} card packs`)
+
 		// Initial fetch of cards
 		await fetchCards()
 	} catch (err) {
@@ -46,9 +128,33 @@ onMounted(async () => {
 // Watch for card type changes to reload packs
 watch(cardType, async () => {
 	try {
-		const result = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(100)])
-		const packs = new Set(result.documents.map(doc => doc.pack).filter(Boolean))
-		availablePacks.value = Array.from(packs).sort()
+		// First get total count of cards
+		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(1)])
+		const totalCards = countResult.total
+
+		// Fetch all cards to extract packs (using a reasonable chunk size)
+		const chunkSize = 1000
+		const allPacks = new Set<string>()
+
+		// Fetch cards in chunks to get all packs
+		for (let offset = 0; offset < totalCards; offset += chunkSize) {
+			const result = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [
+				Query.limit(chunkSize),
+				Query.offset(offset)
+			])
+
+			// Extract packs from this chunk
+			result.documents.forEach(doc => {
+				if (doc.pack) allPacks.add(doc.pack)
+			})
+
+			// If we got fewer documents than requested, we've reached the end
+			if (result.documents.length < chunkSize) break
+		}
+
+		availablePacks.value = Array.from(allPacks).sort()
+		console.log(`Found ${availablePacks.value.length} card packs for ${cardType.value} cards`)
+
 		// Reset page and refetch cards
 		currentPage.value = 1
 		await fetchCards()
@@ -61,30 +167,56 @@ watch(cardType, async () => {
 const fetchCards = async () => {
 	loading.value = true
 
-	const queries = []
-
-	// Fetch all cards (with a reasonable limit)
-	queries.push(Query.limit(500))
-
-	// Note: We're still using server-side filtering for initial fetch
-	// but will also filter client-side for pagination
-	if (searchTerm.value) {
-		queries.push(Query.search('text', searchTerm.value))
-	}
-
-	if (selectedPack.value) {
-		queries.push(Query.equal('pack', selectedPack.value))
-	}
-
 	try {
-		const result = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, queries)
-		cards.value = result.documents
-		totalCards.value = result.total
+		// First get total count of cards with filters applied
+		const queries = []
+
+		// Apply filters for search and pack selection
+		if (searchTerm.value) {
+			queries.push(Query.search('text', searchTerm.value))
+		}
+
+		if (selectedPack.value) {
+			queries.push(Query.equal('pack', selectedPack.value))
+		}
+
+		// First get count of matching cards
+		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [...queries, Query.limit(1)])
+		const totalMatchingCards = countResult.total
+		totalCards.value = totalMatchingCards
+
+		// If no cards match the filters, return early
+		if (totalMatchingCards === 0) {
+			cards.value = []
+			currentPage.value = 1
+			loading.value = false
+			return
+		}
+
+		// Fetch all matching cards in chunks
+		const chunkSize = 1000
+		const allCards = []
+
+		// Fetch cards in chunks
+		for (let offset = 0; offset < totalMatchingCards; offset += chunkSize) {
+			const result = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [
+				...queries,
+				Query.limit(chunkSize),
+				Query.offset(offset)
+			])
+
+			allCards.push(...result.documents)
+
+			// If we got fewer documents than requested, we've reached the end
+			if (result.documents.length < chunkSize) break
+		}
+
+		cards.value = allCards
 
 		// Reset to page 1 when fetching new cards
 		currentPage.value = 1
 
-		console.log(`Fetched ${result.documents.length} cards`)
+		console.log(`Fetched ${allCards.length} cards out of ${totalMatchingCards} total matching cards`)
 	} catch (err) {
 		console.error('Failed to fetch cards:', err)
 	} finally {
@@ -92,19 +224,9 @@ const fetchCards = async () => {
 	}
 }
 
-// Filtered cards based on search term and pack
-const filteredCards = computed(() => {
-	if (!searchTerm.value && !selectedPack.value) return cards.value
-
-	return cards.value.filter(card => {
-		const matchesSearch = !searchTerm.value || 
-			card.text.toLowerCase().includes(searchTerm.value.toLowerCase())
-
-		const matchesPack = !selectedPack.value || card.pack === selectedPack.value
-
-		return matchesSearch && matchesPack
-	})
-})
+// Filtered cards - now we're applying filters on the server side
+// so this just returns all cards that were fetched
+const filteredCards = computed(() => cards.value)
 
 // Paginated cards
 const paginatedCards = computed(() => {
@@ -156,6 +278,46 @@ const toggleCardActive = async (card: any) => {
 			description: 'Could not toggle card status.',
 			color: 'error'
 		})
+	}
+}
+
+const togglePackActive = async (pack: string, setActive: boolean) => {
+	if (!pack) return
+
+	try {
+		loading.value = true
+
+		// Get all cards from the selected pack
+		const packCards = cards.value.filter(card => card.pack === pack)
+
+		// Update each card in the pack
+		const updatePromises = packCards.map(card => 
+			databases.updateDocument(DB_ID, CARD_COLLECTION.value, card.$id, {
+				active: setActive
+			})
+		)
+
+		await Promise.all(updatePromises)
+
+		// Update local state
+		packCards.forEach(card => {
+			card.active = setActive
+		})
+
+		notify({
+			title: `Pack ${setActive ? 'Activated' : 'Deactivated'}`,
+			description: `All cards in "${pack}" pack have been ${setActive ? 'activated' : 'deactivated'}.`,
+			color: 'success'
+		})
+	} catch (err) {
+		console.error('Failed to update pack:', err)
+		notify({
+			title: 'Update Failed',
+			description: 'Could not toggle pack status.',
+			color: 'error'
+		})
+	} finally {
+		loading.value = false
 	}
 }
 
@@ -225,14 +387,543 @@ const saveCardEdit = async () => {
 		})
 	}
 }
+
+// Function to add a single card to an existing pack
+const addSingleCard = async () => {
+	if (!newSingleCardText.value.trim() || !newSingleCardPack.value) {
+		return
+	}
+
+	try {
+		loading.value = true
+
+		// Get the collection ID based on the selected card type
+		const collectionId = CARD_COLLECTIONS[newSingleCardType.value]
+
+		// Create the new card document
+		const newCard = await databases.createDocument(DB_ID, collectionId, 'unique()', {
+			text: newSingleCardText.value.trim(),
+			pack: newSingleCardPack.value,
+			active: true // Default to active
+		})
+
+		// Add to local list if the current view includes this pack and type
+		if ((cardType.value === newSingleCardType.value) && 
+		    (!selectedPack.value || selectedPack.value === newSingleCardPack.value)) {
+			cards.value.unshift(newCard)
+			totalCards.value++
+		}
+
+		// Reset form and close modal
+		showAddCardModal.value = false
+		newSingleCardText.value = ''
+		newSingleCardPack.value = ''
+		newSingleCardType.value = 'white' // Reset to default
+
+		notify({
+			title: 'Card Added',
+			description: `New card added to pack "${newCard.pack}"`,
+			color: 'success'
+		})
+	} catch (err) {
+		console.error('Failed to add card:', err)
+		notify({
+			title: 'Add Failed',
+			description: 'Could not add the new card.',
+			color: 'error'
+		})
+	} finally {
+		loading.value = false
+	}
+}
+
+// Find similar cards function
+const findSimilarCards = (card: any) => {
+	loading.value = true
+	selectedCard.value = card
+	similarCards.value = []
+
+	try {
+		// Get all cards of the same type (excluding the selected card)
+		const otherCards = cards.value.filter(c => c.$id !== card.$id)
+
+		// Calculate similarity scores
+		const similarities = otherCards.map(otherCard => {
+			const similarity = stringSimilarity.compareTwoStrings(
+				card.text.toLowerCase(),
+				otherCard.text.toLowerCase()
+			)
+			return { card: otherCard, similarity }
+		})
+
+		// Filter by threshold and sort by similarity (highest first)
+		const filteredSimilarities = similarities
+			.filter(item => item.similarity >= similarityThreshold.value)
+			.sort((a, b) => b.similarity - a.similarity)
+
+		// Extract just the cards
+		similarCards.value = filteredSimilarities.map(item => ({
+			...item.card,
+			similarityScore: Math.round(item.similarity * 100) // Convert to percentage
+		}))
+
+		// Open the modal if similar cards are found
+		if (similarCards.value.length > 0) {
+			showSimilarCardsModal.value = true
+			cardToKeep.value = 'original' // Reset to default
+		} else {
+			notify({
+				title: 'No Similar Cards',
+				description: 'No similar cards were found above the similarity threshold.',
+				color: 'info'
+			})
+		}
+	} catch (err) {
+		console.error('Failed to find similar cards:', err)
+		notify({
+			title: 'Error',
+			description: 'Failed to find similar cards.',
+			color: 'error'
+		})
+	} finally {
+		loading.value = false
+	}
+}
+
+// Find all similar cards across the database
+const findAllSimilarCards = () => {
+	processingAllSimilarCards.value = true
+	allSimilarPairs.value = []
+	currentPairIndex.value = 0
+
+	try {
+		// Get all cards
+		const allCards = cards.value
+		const processedPairs = new Set<string>() // To avoid duplicate pairs
+		const similarPairs = []
+
+		// Compare each card with all other cards
+		for (let i = 0; i < allCards.length; i++) {
+			const card1 = allCards[i]
+
+			// Progress update for large datasets
+			if (i % 100 === 0) {
+				console.log(`Processing card ${i} of ${allCards.length}`)
+			}
+
+			for (let j = i + 1; j < allCards.length; j++) {
+				const card2 = allCards[j]
+
+				// Skip if we've already processed this pair
+				const pairKey = [card1.$id, card2.$id].sort().join('-')
+				if (processedPairs.has(pairKey)) continue
+
+				// Calculate similarity
+				const similarity = stringSimilarity.compareTwoStrings(
+					card1.text.toLowerCase(),
+					card2.text.toLowerCase()
+				)
+
+				// Add to similar pairs if above threshold
+				if (similarity >= similarityThreshold.value) {
+					similarPairs.push({
+						card1,
+						card2,
+						similarity,
+						similarityScore: Math.round(similarity * 100) // Convert to percentage
+					})
+					processedPairs.add(pairKey)
+				}
+			}
+		}
+
+		// Sort by similarity (highest first)
+		allSimilarPairs.value = similarPairs.sort((a, b) => b.similarity - a.similarity)
+
+		// Open the modal if similar pairs are found
+		if (allSimilarPairs.value.length > 0) {
+			showAllSimilarCardsModal.value = true
+			cardToKeep.value = 'card1' // Reset to default
+
+			notify({
+				title: 'Similar Cards Found',
+				description: `Found ${allSimilarPairs.value.length} pairs of similar cards.`,
+				color: 'success'
+			})
+		} else {
+			notify({
+				title: 'No Similar Cards',
+				description: 'No similar cards were found above the similarity threshold.',
+				color: 'info'
+			})
+		}
+	} catch (err) {
+		console.error('Failed to find all similar cards:', err)
+		notify({
+			title: 'Error',
+			description: 'Failed to find all similar cards.',
+			color: 'error'
+		})
+	} finally {
+		processingAllSimilarCards.value = false
+	}
+}
+
+// Handle keeping one card and deleting the other
+const handleSimilarCardAction = async (similarCard: any) => {
+	try {
+		loading.value = true
+
+		// Determine which card to delete based on user selection
+		const cardToDelete = cardToKeep.value === 'original' ? similarCard : selectedCard.value
+
+		// Delete the card
+		await databases.deleteDocument(DB_ID, CARD_COLLECTION.value, cardToDelete.$id)
+
+		// Remove from local list
+		cards.value = cards.value.filter(c => c.$id !== cardToDelete.$id)
+		totalCards.value--
+
+		// Close the modal and reset
+		showSimilarCardsModal.value = false
+		similarCards.value = similarCards.value.filter(c => c.$id !== similarCard.$id)
+
+		// If no more similar cards, close the modal
+		if (similarCards.value.length === 0) {
+			showSimilarCardsModal.value = false
+			selectedCard.value = null
+		}
+
+		notify({
+			title: 'Card Deleted',
+			description: `The ${cardToKeep.value === 'original' ? 'similar' : 'original'} card was deleted.`,
+			color: 'success'
+		})
+	} catch (err) {
+		console.error('Failed to handle similar card action:', err)
+		notify({
+			title: 'Action Failed',
+			description: 'Could not complete the requested action.',
+			color: 'error'
+		})
+	} finally {
+		loading.value = false
+	}
+}
+
+// Handle keeping one card and deleting the other for all similar cards
+const handleAllSimilarCardAction = async () => {
+	try {
+		loading.value = true
+
+		if (allSimilarPairs.value.length === 0 || currentPairIndex.value >= allSimilarPairs.value.length) {
+			return
+		}
+
+		const currentPair = allSimilarPairs.value[currentPairIndex.value]
+
+		// Determine which card to delete based on user selection
+		const cardToDelete = cardToKeep.value === 'card1' ? currentPair.card2 : currentPair.card1
+		const cardToKeepObj = cardToKeep.value === 'card1' ? currentPair.card1 : currentPair.card2
+
+		// Confirm deletion
+		if (!confirm(`Are you sure you want to delete this card?\n\n"${cardToDelete.text}"\n\nAnd keep:\n"${cardToKeepObj.text}"`)) {
+			loading.value = false
+			return
+		}
+
+		// Delete the card
+		await databases.deleteDocument(DB_ID, CARD_COLLECTION.value, cardToDelete.$id)
+
+		// Remove from local list
+		cards.value = cards.value.filter(c => c.$id !== cardToDelete.$id)
+		totalCards.value--
+
+		// Remove the current pair from the list
+		allSimilarPairs.value.splice(currentPairIndex.value, 1)
+
+		// If no more pairs, close the modal
+		if (allSimilarPairs.value.length === 0) {
+			showAllSimilarCardsModal.value = false
+			notify({
+				title: 'All Done',
+				description: 'No more similar cards to process.',
+				color: 'success'
+			})
+		} else {
+			// Adjust current index if needed
+			if (currentPairIndex.value >= allSimilarPairs.value.length) {
+				currentPairIndex.value = allSimilarPairs.value.length - 1
+			}
+
+			notify({
+				title: 'Card Deleted',
+				description: `Card deleted. ${allSimilarPairs.value.length} pairs remaining.`,
+				color: 'success'
+			})
+		}
+	} catch (err) {
+		console.error('Failed to handle similar card action:', err)
+		notify({
+			title: 'Action Failed',
+			description: 'Could not complete the requested action.',
+			color: 'error'
+		})
+	} finally {
+		loading.value = false
+	}
+}
+
+// Navigation functions for all similar cards
+const goToNextPair = () => {
+	if (currentPairIndex.value < allSimilarPairs.value.length - 1) {
+		currentPairIndex.value++
+	}
+}
+
+const goToPreviousPair = () => {
+	if (currentPairIndex.value > 0) {
+		currentPairIndex.value--
+	}
+}
+
+// Form states
+const customPackState = reactive({
+	packName: '',
+	whiteCards: [''],
+	blackCards: [{ text: '', pick: 1 }]
+})
+
+const uploadState = reactive({
+	file: null as File | null,
+	fileContent: null as string | null
+})
+
+// Other reactive variables
+const uploading = ref(false)
+const submitting = ref(false)
+const showPreview = ref(false)
+const previewData = ref<any[]>([])
+const previewStats = ref<{ packs: number, whiteCards: number, blackCards: number }>({
+	packs: 0,
+	whiteCards: 0,
+	blackCards: 0
+})
+const uploadProgress = ref(0)
+const showProgress = ref(false)
+
+// Handle file input change
+const handleFileChange = (e: Event) => {
+	const target = e.target as HTMLInputElement
+	uploadState.file = target.files?.[0] || null
+}
+
+// Parse JSON file and update preview
+const parseJsonFile = async () => {
+	if (!uploadState.file) return
+
+	try {
+		// Read the file content
+		uploadState.fileContent = await uploadState.file.text()
+
+		// Parse the JSON
+		const jsonData = JSON.parse(uploadState.fileContent)
+
+		if (!Array.isArray(jsonData)) {
+			throw new Error('Invalid JSON format: Expected an array of card packs')
+		}
+
+		// Update preview data
+		previewData.value = jsonData
+
+		// Calculate statistics
+		let totalWhiteCards = 0
+		let totalBlackCards = 0
+
+		for (const pack of jsonData) {
+			totalWhiteCards += (pack.white?.length || 0)
+			totalBlackCards += (pack.black?.length || 0)
+		}
+
+		previewStats.value = {
+			packs: jsonData.length,
+			whiteCards: totalWhiteCards,
+			blackCards: totalBlackCards
+		}
+
+		// Show preview
+		showPreview.value = true
+
+	} catch (err) {
+		console.error('Error parsing JSON file:', err)
+		notify({
+			title: 'Invalid JSON',
+			description: 'The selected file contains invalid JSON or has an incorrect format.',
+			color: 'error'
+		})
+
+		// Reset
+		uploadState.fileContent = null
+		showPreview.value = false
+	}
+}
+// Watch for file changes
+watch(() => uploadState.file, (newFile) => {
+	if (newFile) {
+		parseJsonFile()
+	} else {
+		uploadState.fileContent = null
+		showPreview.value = false
+	}
+})
+
+
+const uploadJsonFile = async () => {
+	if (!uploadState.file || !uploadState.fileContent) {
+		notify({
+			title: 'Upload Error',
+			description: 'No file selected or file content could not be read',
+			color: 'error'
+		})
+		return
+	}
+
+	uploading.value = true
+	showProgress.value = true
+	uploadProgress.value = 0
+
+	// Start progress simulation
+	const totalCards = previewStats.value.whiteCards + previewStats.value.blackCards
+	const simulateProgress = () => {
+		// Simulate progress based on the number of cards
+		// This is just an estimation since we can't get real-time progress from the server
+		const interval = setInterval(() => {
+			if (uploadProgress.value < 0.95) {
+				// Gradually increase progress, slowing down as we approach 95%
+				const increment = (1 - uploadProgress.value) * 0.05
+				uploadProgress.value = Math.min(0.95, uploadProgress.value + increment)
+			} else if (!uploading.value) {
+				// If upload is complete, set to 100%
+				uploadProgress.value = 1
+				clearInterval(interval)
+			}
+		}, 200)
+		return interval
+	}
+
+	const progressInterval = simulateProgress()
+
+	try {
+		// Send the file content as JSON
+		const res = await fetch('/api/dev/seed', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ file: uploadState.fileContent })
+		})
+
+		const result = await res.json()
+
+		// Set progress to 100% when complete
+		uploadProgress.value = 1
+
+		// Clear the interval
+		clearInterval(progressInterval)
+
+		// Show notification after a short delay to ensure progress bar is seen at 100%
+		setTimeout(() => {
+			notify({
+				title: 'Upload Complete',
+				description: result.message || 'Seed complete.',
+				color: result.success ? 'success' : 'error'
+			})
+
+			// Reset preview after successful upload
+			if (result.success) {
+				showPreview.value = false
+			}
+
+			// Hide progress bar after a delay
+			setTimeout(() => {
+				showProgress.value = false
+			}, 1000)
+		}, 500)
+	} catch (err) {
+		console.error('Upload error:', err)
+		clearInterval(progressInterval)
+		uploadProgress.value = 0
+		showProgress.value = false
+
+		notify({
+			title: 'Upload Failed',
+			description: 'Could not seed cards',
+			color: 'error'
+		})
+	} finally {
+		uploading.value = false
+	}
+}
 </script>
 
 <template>
 	<div class="space-y-4">
 		<div class="flex gap-4 items-center">
 			<UInput v-model="searchTerm" placeholder="Search card text..." class="flex-1" icon="i-solar-magnifer-broken" />
-			<USelectMenu v-model="selectedPack" :items="availablePacks" placeholder="Filter by pack" clearable />
+			<div class="flex items-center gap-2">
+				<USelectMenu v-model="selectedPack" :items="availablePacks" placeholder="Filter by pack" clearable />
+				<div v-if="selectedPack" class="flex gap-1">
+					<UTooltip text="Activate all cards in this pack">
+						<UButton 
+							color="success" 
+							variant="soft" 
+							icon="i-solar-check-circle-bold-duotone" 
+							size="sm"
+							:disabled="selectedPackStatus === 'active'"
+							@click="togglePackActive(selectedPack, true)"
+						/>
+					</UTooltip>
+					<UTooltip text="Deactivate all cards in this pack">
+						<UButton 
+							color="error"
+							variant="soft" 
+							icon="i-solar-close-circle-bold-duotone" 
+							size="sm"
+							:disabled="selectedPackStatus === 'inactive'"
+							@click="togglePackActive(selectedPack, false)"
+						/>
+					</UTooltip>
+					<div v-if="selectedPackStatus" class="ml-1 flex items-center">
+						<UBadge v-if="selectedPackStatus === 'active'" color="success" variant="subtle" size="sm">All Active</UBadge>
+						<UBadge v-else-if="selectedPackStatus === 'inactive'" color="error" variant="subtle" size="sm">All Inactive</UBadge>
+						<UBadge v-else color="warning" variant="subtle" size="sm">Partially Active</UBadge>
+					</div>
+				</div>
+			</div>
 			<USelectMenu v-model="cardType" :items="['black', 'white']" />
+		</div>
+
+		<div class="flex justify-between items-center">
+			<div class="text-sm text-gray-400">
+				{{ totalCards }} total cards loaded
+			</div>
+			<div class="flex gap-2">
+				<UButton 
+					color="success" 
+					icon="i-solar-add-circle-bold-duotone"
+					@click="showAddCardModal = true"
+				>
+					Add Single Card
+				</UButton>
+				<UButton 
+					color="info" 
+					icon="i-solar-copy-bold-duotone"
+					:loading="processingAllSimilarCards" 
+					@click="findAllSimilarCards"
+				>
+					Find All Similar Cards
+				</UButton>
+			</div>
 		</div>
 
 		<div v-if="loading" class="flex justify-center py-8">
@@ -248,15 +939,26 @@ const saveCardEdit = async () => {
 		</div>
 
 		<ul v-else class="space-y-3">
-			<li v-for="card in paginatedCards" :key="card.$id" class="bg-slate-700 rounded p-4 flex justify-between items-center">
-				<div class="text-sm font-mono text-white max-w-xl">
+			<li v-for="card in paginatedCards" :key="card.$id" class="bg-slate-700 rounded p-4 flex justify-between items-center relative">
+				<div class="text-sm font-mono text-white max-w-xl mb-4">
 					{{ card.text }}
-					<span class="ml-2 text-xs text-gray-400">({{ card.pack }})</span>
-					<span class="ml-2 text-xs text-gray-400">({{ card.$id }})</span>
+				</div>
+				<div class="flex gap-2 absolute left-0 bottom-0 m-2">
+					<span class="ml-2 text-xs text-slate-400 flex items-center">
+						<UIcon name="i-solar-inbox-line-bold-duotone" class="mr-1 text-info-300" />
+						({{ card.pack }})
+					</span>
+					<span class="ml-2 text-xs text-slate-400 flex items-center">
+						<UIcon name="i-solar-info-square-bold-duotone" class="mr-1 text-info-300" />
+						({{ card.$id }})
+					</span>
 				</div>
 				<div class="flex items-center gap-1">
 					<USwitch v-model="card.active" @click.stop="toggleCardActive(card)" />
 					<UButton color="neutral" variant="ghost" icon="i-solar-pen-new-square-line-duotone" size="md" @click="openEditModal(card)"/>
+					<UTooltip text="Find similar cards">
+						<UButton color="info" variant="ghost" icon="i-solar-copy-bold-duotone" size="md" @click="findSimilarCards(card)" />
+					</UTooltip>
 					<UButton color="error" variant="ghost" icon="i-solar-trash-bin-trash-bold-duotone" size="md" @click="deleteCard(card)" />
 				</div>
 			</li>
@@ -275,6 +977,69 @@ const saveCardEdit = async () => {
 				class="flex items-center gap-1"
 			/>
 		</div>
+
+		<UCard>
+			<template #header>
+				<h3 class="text-2xl font-bold font-['Bebas_Neue']">Upload Pack JSON</h3>
+			</template>
+
+			<UForm :state="uploadState">
+				<div class="border border-gray-300 rounded p-2 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+					<input
+							type="file"
+							accept=".json"
+							@change="handleFileChange"
+							class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-gray-700 dark:file:text-gray-200"
+					/>
+				</div>
+				<p class="text-xs text-gray-500 mt-1">Upload a JSON file with card packs</p>
+
+				<!-- JSON Preview Section -->
+				<div v-if="showPreview" class="mt-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+					<h4 class="font-semibold mb-2">Preview</h4>
+
+					<!-- Summary Stats -->
+					<div class="flex gap-4 mb-4">
+						<div class="bg-primary-50 dark:bg-primary-900 p-2 rounded flex-1 text-center">
+							<div class="text-lg font-bold">{{ previewStats.packs }}</div>
+							<div class="text-xs text-gray-500">Packs</div>
+						</div>
+						<div class="bg-primary-50 dark:bg-primary-900 p-2 rounded flex-1 text-center">
+							<div class="text-lg font-bold">{{ previewStats.whiteCards }}</div>
+							<div class="text-xs text-gray-500">White Cards</div>
+						</div>
+						<div class="bg-primary-50 dark:bg-primary-900 p-2 rounded flex-1 text-center">
+							<div class="text-lg font-bold">{{ previewStats.blackCards }}</div>
+							<div class="text-xs text-gray-500">Black Cards</div>
+						</div>
+					</div>
+
+					<!-- Pack List -->
+					<div class="max-h-60 overflow-y-auto">
+						<div v-for="(pack, i) in previewData" :key="i" class="mb-2 p-2 border-b">
+							<div class="font-medium">{{ pack.name || `Pack ${pack.pack || i+1}` }}</div>
+							<div class="text-xs text-gray-500">
+								{{ pack.white?.length || 0 }} white cards,
+								{{ pack.black?.length || 0 }} black cards
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Progress Bar -->
+				<div v-if="showProgress" class="mt-4">
+					<div class="flex justify-between text-xs text-gray-500 mb-1">
+						<span>Seeding cards...</span>
+						<span>{{ Math.round(uploadProgress * 100) }}%</span>
+					</div>
+					<UProgress :value="uploadProgress" color="primary" />
+				</div>
+
+				<UButton :loading="uploading" :disabled="!uploadState.file || !uploadState.fileContent" @click="uploadJsonFile" color="primary" class="mt-4">
+					Upload & Seed
+				</UButton>
+			</UForm>
+		</UCard>
 
 		<!-- Edit Modal -->
 		<UModal v-model:open="showEditModal">
@@ -302,6 +1067,253 @@ const saveCardEdit = async () => {
 						</UButton>
 					</div>
 				</template>
+		</UModal>
+
+		<!-- Similar Cards Modal -->
+		<UModal v-model:open="showSimilarCardsModal" size="xl">
+			<template #header>
+				<h3 class="text-lg font-medium">Similar Cards</h3>
+			</template>
+			<template #body>
+				<div v-if="loading" class="flex justify-center py-8">
+					<UIcon name="i-solar-restart-circle-line-duotone" class="animate-spin h-8 w-8 text-gray-400" />
+				</div>
+				<div v-else-if="selectedCard && similarCards.length > 0" class="space-y-6">
+					<div class="text-sm text-gray-400 mb-4">
+						Select which card to keep and which to delete. Cards with higher similarity scores are more likely to be duplicates.
+					</div>
+
+					<div v-for="similarCard in similarCards" :key="similarCard.$id" class="border border-gray-700 rounded-lg p-4">
+						<div class="flex justify-between items-start mb-4">
+							<div class="text-sm text-gray-400">
+								Similarity: <span class="font-bold text-info-400">{{ similarCard.similarityScore }}%</span>
+							</div>
+							<UBadge color="info" variant="subtle">{{ similarCard.pack }}</UBadge>
+						</div>
+
+						<div class="grid grid-cols-2 gap-6">
+							<!-- Original Card -->
+							<div class="space-y-2">
+								<h4 class="font-medium">Original Card</h4>
+								<div 
+									class="bg-slate-800 rounded p-3 text-sm font-mono text-white cursor-pointer border-2"
+									:class="cardToKeep === 'original' ? 'border-green-500' : 'border-red-500'"
+									@click="cardToKeep = 'original'"
+								>
+									{{ selectedCard.text }}
+								</div>
+								<div class="text-xs text-gray-400">
+									Pack: {{ selectedCard.pack }} | ID: {{ selectedCard.$id }}
+								</div>
+							</div>
+
+							<!-- Similar Card -->
+							<div class="space-y-2">
+								<h4 class="font-medium">Similar Card</h4>
+								<div 
+									class="bg-slate-800 rounded p-3 text-sm font-mono text-white cursor-pointer border-2"
+									:class="cardToKeep === 'similar' ? 'border-green-500' : 'border-red-500'"
+									@click="cardToKeep = 'similar'"
+								>
+									{{ similarCard.text }}
+								</div>
+								<div class="text-xs text-gray-400">
+									Pack: {{ similarCard.pack }} | ID: {{ similarCard.$id }}
+								</div>
+							</div>
+						</div>
+
+						<div class="flex justify-center mt-6 w-full">
+							<UButton 
+								color="error" 
+								@click="handleSimilarCardAction(similarCard)"
+								:loading="loading"
+								class="w-full"
+								:disabled="!cardToKeep"
+							>
+								Delete {{ cardToKeep === 'original' ? 'Similar' : 'Original' }} Card
+							</UButton>
+						</div>
+					</div>
+				</div>
+				<div v-else class="text-center py-8 text-gray-400">
+					No similar cards found.
+				</div>
+			</template>
+			<template #footer>
+				<div class="flex justify-between items-center">
+					<div class="text-sm text-gray-400">
+						Showing {{ similarCards.length }} similar cards
+					</div>
+					<UButton color="neutral" variant="soft" @click="showSimilarCardsModal = false">
+						Close
+					</UButton>
+				</div>
+			</template>
+		</UModal>
+
+		<!-- All Similar Cards Modal -->
+		<UModal v-model:open="showAllSimilarCardsModal" size="xl">
+			<template #header>
+				<h3 class="text-lg font-medium">All Similar Cards</h3>
+			</template>
+			<template #body>
+				<div v-if="processingAllSimilarCards" class="flex justify-center py-8">
+					<UIcon name="i-solar-restart-circle-line-duotone" class="animate-spin h-8 w-8 text-gray-400" />
+					<span class="ml-2 text-gray-400">Processing cards... This may take a moment.</span>
+				</div>
+				<div v-else-if="allSimilarPairs.length > 0" class="space-y-6">
+					<div class="text-sm text-gray-400 mb-4">
+						Select which card to keep and which to delete. Navigate through all similar pairs using the buttons below.
+					</div>
+
+					<div v-if="allSimilarPairs[currentPairIndex]" class="border border-gray-700 rounded-lg p-4">
+						<div class="flex justify-between items-start mb-4">
+							<div class="text-sm text-gray-400">
+								Similarity: <span class="font-bold text-info-400">{{ allSimilarPairs[currentPairIndex].similarityScore }}%</span>
+							</div>
+							<div class="flex gap-2">
+								<UBadge color="info" variant="subtle">Pair {{ currentPairIndex + 1 }} of {{ allSimilarPairs.length }}</UBadge>
+							</div>
+						</div>
+
+						<div class="grid grid-cols-2 gap-6">
+							<!-- Card 1 -->
+							<div class="space-y-2">
+								<h4 class="font-medium">Card 1</h4>
+								<div 
+									class="bg-slate-800 rounded p-3 text-sm font-mono text-white cursor-pointer border-2"
+									:class="cardToKeep === 'card1' ? 'border-green-500' : 'border-red-500'"
+									@click="cardToKeep = 'card1'"
+								>
+									{{ allSimilarPairs[currentPairIndex].card1.text }}
+								</div>
+								<div class="text-xs text-gray-400">
+									Pack: {{ allSimilarPairs[currentPairIndex].card1.pack }} | ID: {{ allSimilarPairs[currentPairIndex].card1.$id }}
+								</div>
+							</div>
+
+							<!-- Card 2 -->
+							<div class="space-y-2">
+								<h4 class="font-medium">Card 2</h4>
+								<div 
+									class="bg-slate-800 rounded p-3 text-sm font-mono text-white cursor-pointer border-2"
+									:class="cardToKeep === 'card2' ? 'border-green-500' : 'border-red-500'"
+									@click="cardToKeep = 'card2'"
+								>
+									{{ allSimilarPairs[currentPairIndex].card2.text }}
+								</div>
+								<div class="text-xs text-gray-400">
+									Pack: {{ allSimilarPairs[currentPairIndex].card2.pack }} | ID: {{ allSimilarPairs[currentPairIndex].card2.$id }}
+								</div>
+							</div>
+						</div>
+
+						<div class="flex justify-center mt-6 w-full">
+							<UButton 
+								color="error" 
+								@click="handleAllSimilarCardAction"
+								:loading="loading"
+								class="w-full"
+								:disabled="!cardToKeep"
+							>
+								Delete {{ cardToKeep === 'card1' ? 'Card 2' : 'Card 1' }}
+							</UButton>
+						</div>
+					</div>
+				</div>
+				<div v-else class="text-center py-8 text-gray-400">
+					No similar cards found.
+				</div>
+			</template>
+			<template #footer>
+				<div class="flex justify-between items-center">
+					<div class="text-sm text-gray-400">
+						{{ allSimilarPairs.length }} similar pairs found
+					</div>
+					<div class="flex gap-2">
+						<UButton 
+							color="neutral" 
+							variant="soft" 
+							icon="i-solar-arrow-left-line-duotone" 
+							:disabled="currentPairIndex === 0 || allSimilarPairs.length === 0" 
+							@click="goToPreviousPair"
+						>
+							Previous
+						</UButton>
+						<UButton 
+							color="neutral" 
+							variant="soft" 
+							icon-right="i-solar-arrow-right-line-duotone" 
+							:disabled="currentPairIndex >= allSimilarPairs.length - 1 || allSimilarPairs.length === 0" 
+							@click="goToNextPair"
+						>
+							Next
+						</UButton>
+						<UButton color="neutral" variant="soft" @click="showAllSimilarCardsModal = false">
+							Close
+						</UButton>
+					</div>
+				</div>
+			</template>
+		</UModal>
+
+		<!-- Add Single Card Modal -->
+		<UModal v-model:open="showAddCardModal">
+			<template #header>
+				<h3 class="text-lg font-medium">Add Single Card</h3>
+			</template>
+			<template #body>
+				<div class="space-y-4">
+					<UTextarea
+						v-model="newSingleCardText"
+						placeholder="Enter card text..."
+						class="w-full"
+						:rows="5"
+						autofocus
+					/>
+					<div>
+						<label class="block text-sm font-medium mb-1">Select Pack</label>
+						<div class="flex gap-2">
+							<USelectMenu 
+								v-model="newSingleCardPack" 
+								:items="availablePacks" 
+								placeholder="Select existing pack" 
+								class="flex-1"
+							/>
+							<UInput 
+								v-if="!availablePacks.includes(newSingleCardPack)"
+								v-model="newSingleCardPack" 
+								placeholder="Or enter new pack name" 
+								class="flex-1"
+							/>
+						</div>
+					</div>
+					<div>
+						<label class="block text-sm font-medium mb-1">Card Type</label>
+						<USelectMenu 
+							v-model="newSingleCardType" 
+							:items="['black', 'white']" 
+							placeholder="Select card type" 
+							class="w-full"
+						/>
+					</div>
+				</div>
+			</template>
+			<template #footer>
+				<div class="flex justify-end gap-2">
+					<UButton color="neutral" variant="soft" @click="showAddCardModal = false">
+						Cancel
+					</UButton>
+					<UButton 
+						color="success" 
+						@click="addSingleCard" 
+						:disabled="!newSingleCardText.trim() || !newSingleCardPack"
+					>
+						Add Card
+					</UButton>
+				</div>
+			</template>
 		</UModal>
 	</div>
 </template>
