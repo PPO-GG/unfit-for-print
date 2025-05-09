@@ -6,7 +6,7 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
-  devtools: { enabled: false },
+  devtools: { enabled: true },
   ssr: true,
   plugins: [
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
@@ -52,6 +52,7 @@ export default defineNuxtConfig({
     "@vueuse/nuxt",
     "@nuxt/ui",
     'pinia-plugin-persistedstate/nuxt',
+    "nuxt-og-image",
   ],
   sound: {
     sounds: {
