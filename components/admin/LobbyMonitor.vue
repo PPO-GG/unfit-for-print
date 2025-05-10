@@ -277,8 +277,28 @@ watch([searchTerm, statusFilter], () => {
 		</div>
 
 		<!-- Loading State -->
-		<div v-if="loading" class="flex justify-center py-8">
-			<UIcon name="i-heroicons-arrow-path" class="animate-spin h-8 w-8 text-gray-400" />
+		<div v-if="loading" class="space-y-3">
+			<!-- Skeleton cards -->
+			<div v-for="i in 5" :key="i" class="bg-slate-700 rounded p-4 flex justify-between items-center relative">
+				<div class="max-w-xl mb-4 w-full">
+					<USkeleton class="h-5 w-full" />
+					<USkeleton class="h-5 w-3/4 mt-2" />
+				</div>
+				<div class="flex gap-2 absolute left-0 bottom-0 m-2">
+					<span class="ml-2 flex items-center">
+						<USkeleton class="h-4 w-20" />
+					</span>
+					<span class="ml-2 flex items-center">
+						<USkeleton class="h-4 w-20" />
+					</span>
+				</div>
+				<div class="flex items-center gap-1">
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+				</div>
+			</div>
 		</div>
 
 		<!-- Empty State -->
