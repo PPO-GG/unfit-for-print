@@ -77,7 +77,29 @@ onMounted(async () => {
 
 <template>
 	<div>
-		<p v-if="loading">Loading users...</p>
+		<div v-if="loading" class="space-y-3">
+			<!-- Skeleton cards -->
+			<div v-for="i in 5" :key="i" class="bg-slate-700 rounded p-4 flex justify-between items-center relative">
+				<div class="max-w-xl mb-4 w-full">
+					<USkeleton class="h-5 w-full" />
+					<USkeleton class="h-5 w-3/4 mt-2" />
+				</div>
+				<div class="flex gap-2 absolute left-0 bottom-0 m-2">
+					<span class="ml-2 flex items-center">
+						<USkeleton class="h-4 w-20" />
+					</span>
+					<span class="ml-2 flex items-center">
+						<USkeleton class="h-4 w-20" />
+					</span>
+				</div>
+				<div class="flex items-center gap-1">
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+				</div>
+			</div>
+		</div>
 		<ul v-else class="space-y-4">
 			<li v-for="user in users" :key="user.$id" class="bg-slate-700 p-4 rounded text-white space-y-2">
 				<div class="flex justify-between items-center">

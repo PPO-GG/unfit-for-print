@@ -170,7 +170,7 @@ const handleJoined = (code: string, isCreator = false) => {
 		icon: 'i-mdi-loading i-spin',
 		duration: 3000,
 	});
-	router.push(`/game/${code}${isCreator ? '?creator=true' : ''}`);
+	router.push(`/game/${code}`);
 };
 
 const openPolicyModal = () => {
@@ -312,7 +312,7 @@ const isAdmin = useIsAdmin()
 	</USlideover>
 
 	<!-- Modals (shared between mobile and desktop) -->
-	<UModal v-model:open="showJoin" :overlay="false" title="Join a Lobby" class="cursor-default">
+	<UModal v-model:open="showJoin" :overlay="false" title="Join a Lobby" class="">
 		<template #body>
 			<JoinLobbyForm @joined="handleJoined" />
 		</template>

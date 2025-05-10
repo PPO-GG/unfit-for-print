@@ -926,8 +926,28 @@ const uploadJsonFile = async () => {
 			</div>
 		</div>
 
-		<div v-if="loading" class="flex justify-center py-8">
-			<UIcon name="i-solar-restart-circle-line-duotone" class="animate-spin h-8 w-8 text-gray-400" />
+		<div v-if="loading" class="space-y-3">
+			<!-- Skeleton cards -->
+			<div v-for="i in 5" :key="i" class="bg-slate-700 rounded p-4 flex justify-between items-center relative">
+				<div class="max-w-xl mb-4 w-full">
+					<USkeleton class="h-5 w-full" />
+					<USkeleton class="h-5 w-3/4 mt-2" />
+				</div>
+				<div class="flex gap-2 absolute left-0 bottom-0 m-2">
+					<span class="ml-2 flex items-center">
+						<USkeleton class="h-4 w-20" />
+					</span>
+					<span class="ml-2 flex items-center">
+						<USkeleton class="h-4 w-20" />
+					</span>
+				</div>
+				<div class="flex items-center gap-1">
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+					<USkeleton class="h-8 w-8 rounded" />
+				</div>
+			</div>
 		</div>
 
 		<div v-else-if="!cards.length && (searchTerm || selectedPack)">
@@ -989,10 +1009,10 @@ const uploadJsonFile = async () => {
 							type="file"
 							accept=".json"
 							@change="handleFileChange"
-							class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-gray-700 dark:file:text-gray-200"
+							class=" font-['Bebas_Neue'] block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-slate-500 dark:file:bg-slate-700 dark:file:text-slate-200"
 					/>
 				</div>
-				<p class="text-xs text-gray-500 mt-1">Upload a JSON file with card packs</p>
+				<p class="text-lg text-slate-500 mt-1 font-['Bebas_Neue']">Upload a JSON file with card packs</p>
 
 				<!-- JSON Preview Section -->
 				<div v-if="showPreview" class="mt-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
@@ -1035,7 +1055,7 @@ const uploadJsonFile = async () => {
 					<UProgress :value="uploadProgress" color="primary" />
 				</div>
 
-				<UButton :loading="uploading" :disabled="!uploadState.file || !uploadState.fileContent" @click="uploadJsonFile" color="primary" class="mt-4">
+				<UButton :loading="uploading" :disabled="!uploadState.file || !uploadState.fileContent" @click="uploadJsonFile" color="primary" class="mt-4 font-['Bebas_Neue']" variant="subtle">
 					Upload & Seed
 				</UButton>
 			</UForm>
@@ -1075,8 +1095,51 @@ const uploadJsonFile = async () => {
 				<h3 class="text-lg font-medium">Similar Cards</h3>
 			</template>
 			<template #body>
-				<div v-if="loading" class="flex justify-center py-8">
-					<UIcon name="i-solar-restart-circle-line-duotone" class="animate-spin h-8 w-8 text-gray-400" />
+				<div v-if="loading" class="space-y-6">
+					<div class="text-sm text-gray-400 mb-4">
+						<USkeleton class="h-4 w-full" />
+						<USkeleton class="h-4 w-3/4 mt-2" />
+					</div>
+
+					<!-- Skeleton for similar cards -->
+					<div v-for="i in 2" :key="i" class="border border-gray-700 rounded-lg p-4">
+						<div class="flex justify-between items-start mb-4">
+							<div class="text-sm text-gray-400">
+								<USkeleton class="h-4 w-32" />
+							</div>
+							<USkeleton class="h-6 w-20 rounded-full" />
+						</div>
+
+						<div class="grid grid-cols-2 gap-6">
+							<!-- Original Card Skeleton -->
+							<div class="space-y-2">
+								<h4 class="font-medium">Original Card</h4>
+								<div class="bg-slate-800 rounded p-3 border-2 border-gray-600">
+									<USkeleton class="h-5 w-full" />
+									<USkeleton class="h-5 w-3/4 mt-2" />
+								</div>
+								<div class="text-xs text-gray-400">
+									<USkeleton class="h-3 w-48" />
+								</div>
+							</div>
+
+							<!-- Similar Card Skeleton -->
+							<div class="space-y-2">
+								<h4 class="font-medium">Similar Card</h4>
+								<div class="bg-slate-800 rounded p-3 border-2 border-gray-600">
+									<USkeleton class="h-5 w-full" />
+									<USkeleton class="h-5 w-3/4 mt-2" />
+								</div>
+								<div class="text-xs text-gray-400">
+									<USkeleton class="h-3 w-48" />
+								</div>
+							</div>
+						</div>
+
+						<div class="flex justify-center mt-6 w-full">
+							<USkeleton class="h-10 w-full rounded" />
+						</div>
+					</div>
 				</div>
 				<div v-else-if="selectedCard && similarCards.length > 0" class="space-y-6">
 					<div class="text-sm text-gray-400 mb-4">

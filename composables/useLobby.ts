@@ -124,7 +124,7 @@ export const useLobby = () => {
         }
     };
 
-    const createLobby = async (hostUserId: string) => {
+    const createLobby = async (hostUserId: string, lobbyName?: string) => {
         const { databases } = getAppwrite();
         const config = getConfig();
         const lobbyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -201,7 +201,7 @@ export const useLobby = () => {
                 const { createDefaultGameSettings } = useGameSettings();
                 await createDefaultGameSettings(
                     lobby.$id,
-                    `${userStore.user?.name || 'Anonymous'}'s Game`,
+                    lobbyName || `${userStore.user?.name || 'Anonymous'}'s Game`,
                     hostUserId
                 );
             } catch (error: unknown) {
