@@ -1,0 +1,7 @@
+generate_changelog:
+  stage: release
+  script:
+    - npm install
+    - npm run release
+  only:
+    - main
