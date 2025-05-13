@@ -101,6 +101,7 @@ watch(
 
 const availablePacks = ref([
 	'CAH Base Set',
+	'CAH Blue Box Expansion'
 ])
 
 const saveSettings = async () => {

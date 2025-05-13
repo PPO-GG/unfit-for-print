@@ -734,12 +734,12 @@ function copyLobbyLink() {
 				variant="ghost"
 				size="xl"
 				@click="isSidebarOpen = true"
-				class="md:hidden absolute left-4 top-4 z-10"
+				class="xl:hidden absolute left-6 translate-y-[50%] z-10"
 				aria-label="Open menu"
 			/>
 
-			<!-- Desktop sidebar - hidden on mobile -->
-			<aside class="max-w-1/4 w-auto h-screen p-4 flex-col shadow-inner border-r border-slate-800 space-y-4 overflow-scroll hidden md:flex">
+			<!-- Desktop sidebar - hidden on mobile and medium screens -->
+			<aside class="max-w-1/4 w-auto h-screen p-4 flex-col shadow-inner border-r border-slate-800 bg-slate-900 space-y-4 overflow-scroll hidden xl:flex z-10">
 				<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
 					<!-- Desktop: Lobby Code label + button -->
 					<span class="items-center hidden sm:flex">
@@ -831,7 +831,7 @@ function copyLobbyLink() {
 			</aside>
 
 			<!-- Mobile Slideover -->
-			<USlideover v-model:open="isSidebarOpen" class="md:hidden">
+			<USlideover v-model:open="isSidebarOpen" class="xl:hidden" side="left">
 				<template #content>
 					<div class="p-4 flex flex-col h-full space-y-4 overflow-auto">
 						<div class="flex justify-between items-center">

@@ -1,4 +1,5 @@
 // types/gamesettings.d.ts
+import type { Models } from 'appwrite'
 export interface GameSettings {
     $id?: string;
     $createdAt?: string;
@@ -11,7 +12,7 @@ export interface GameSettings {
     isPrivate: boolean;       // Whether the lobby is private
 
     // Lobby information
-    lobbyId: string;          // Reference to the lobby
+    lobbyId: string | Models.Document;          // Reference to the lobby
     password?: string;        // Optional password for private lobbies
     lobbyName: string;        // Name of the lobby
 }
