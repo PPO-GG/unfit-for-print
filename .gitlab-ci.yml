@@ -11,7 +11,7 @@ stages:
 generate_changelog:
   stage: changelog
   script:
-    - npm ci
+    - npm install
     - git config --global user.email "$CI_GIT_USER_EMAIL"
     - git config --global user.name "$CI_GIT_USER_NAME"
     - npm run release
