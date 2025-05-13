@@ -1,7 +1,11 @@
 // server/api/admin/teams/memberships.ts
 import { createAppwriteClient } from '~/server/utils/appwrite'
+import { assertAdmin } from '~/server/utils/adminOnly'
 
 export default defineEventHandler(async (event) => {
+    // Check if the user is an admin before proceeding
+    await assertAdmin(event)
+
     const { userId } = await readBody(event)
     const { teams } = createAppwriteClient()
 

@@ -283,10 +283,10 @@ onMounted(async () => {
   border-radius: 12px;
 }
 .card__front {
-  background-color: rgb(231, 225, 222);
+  background-color: #e7e1de;
 }
 .card__back {
-  background-color: rgba(231, 225, 222);
+  background-color: #e7e1de;
   transform: rotateY(180deg);
 }
 
@@ -342,7 +342,7 @@ onMounted(async () => {
 @keyframes winner-pulse {
   0% {
     box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-    outline: 0px solid rgba(34, 197, 94, 0);
+    outline: 0 solid rgba(34, 197, 94, 0);
   }
   50% {
     box-shadow: 0 0 20px 10px rgba(34, 197, 94, 0.8);

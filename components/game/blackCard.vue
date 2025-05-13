@@ -314,11 +314,11 @@ onMounted(async () => {
   border-radius: 12px;
 }
 .card__front {
-  background-color: rgba(28, 35, 66);
+  background-color: #1c2342;
 }
 
 .card__back {
-  background-color: rgba(28, 35, 66);
+  background-color: #1c2342;
   transform: rotateY(180deg);
 }
 

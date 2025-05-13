@@ -77,18 +77,41 @@ export const useUserStore = defineStore("user", {
         },
 
         async fetchUserSession() {
-            if (import.meta.server) return;
+            if (import.meta.server) {
+                console.log('[userStore] fetchUserSession called during SSR, skipping');
+                return;
+            }
 
+            console.log('[userStore] fetchUserSession called');
             const account = this.getAccount();
-            if (!account) return;
+            if (!account) {
+                console.error('[userStore] No account instance available');
+                return;
+            }
 
             try {
+                console.log('[userStore] Fetching current session from Appwrite');
                 const session = await account.getSession("current");
+                console.log('[userStore] Session fetched successfully:', {
+                    id: session.$id,
+                    provider: session.provider,
+                    userId: session.userId,
+                    expires: session.expire
+                });
+
                 this.session = JSON.parse(JSON.stringify(session));
                 this.accessToken = session.providerAccessToken ?? null;
                 this.isLoggedIn = isAuthenticatedSession(session);
+                console.log('[userStore] Session stored in store, isLoggedIn:', this.isLoggedIn);
 
+                console.log('[userStore] Fetching user data from Appwrite');
                 const rawUser = await account.get();
+                console.log('[userStore] User data fetched successfully:', {
+                    id: rawUser.$id,
+                    name: rawUser.name,
+                    email: rawUser.email
+                });
+
                 this.user = {
                     ...JSON.parse(JSON.stringify(rawUser)),
                     provider: session.provider,
@@ -96,11 +119,14 @@ export const useUserStore = defineStore("user", {
 
                 // 🧠 Fetch external profile data
                 if (this.accessToken) {
+                    console.log('[userStore] Access token available, fetching external profile data');
                     if (session.provider === 'discord') {
+                        console.log('[userStore] Fetching Discord user data');
                         const discord = await this.fetchDiscordUserData(this.accessToken);
                         this.user!.prefs.avatar = discord.avatar;
                         this.user!.prefs.discordUserId = discord.id;
                     } else if (session.provider === 'google') {
+                        console.log('[userStore] Fetching Google user data');
                         const google = await this.fetchGoogleUserData(this.accessToken);
                         this.user!.prefs.avatar = google.picture;
                         this.user!.prefs.name = google.name;
@@ -109,9 +135,10 @@ export const useUserStore = defineStore("user", {
                 }
 
             } catch (error) {
-                console.error("Error fetching session:", error);
+                console.error("[userStore] Error fetching session:", error);
                 this.isLoggedIn = false;
                 this.user = null;
+                this.session = null;
             }
         },
 
@@ -150,6 +177,8 @@ export const useUserStore = defineStore("user", {
                 this.session = null;
                 this.accessToken = "";
                 this.isLoggedIn = false;
+                const router = useRouter();
+                await router.push("/");
             } catch (error) {
                 console.error("Error logging out:", error);
             }

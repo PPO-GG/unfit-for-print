@@ -17,6 +17,10 @@ const props = defineProps<{
   avatarUrl?: string
 }>()
 
+const emit = defineEmits<{
+  (e: 'convert-spectator', playerId: string): void
+}>()
+
 // Create a ref for the lobby and initialize it with basic data
 function createLobby(partial: Partial<Lobby>): Lobby {
   return {
@@ -57,13 +61,20 @@ const kick = async (player: Player) => {
   }
 }
 
-const sortedPlayers = computed(() =>
-    props.players.slice().sort((a, b) => {
+const sortedPlayers = computed(() => {
+    // Log player data for debugging
+    console.log('PlayerList - players:', props.players.map(p => ({
+      userId: p.userId,
+      name: p.name,
+      playerType: p.playerType
+    })));
+
+    return props.players.slice().sort((a, b) => {
       if (a.userId === props.hostUserId) return -1
       if (b.userId === props.hostUserId) return 1
       return 0
-    })
-)
+    });
+})
 
 const promote = async (player: Player) => {
   try {
@@ -181,8 +192,15 @@ const getPlayerAvatarUrl = (player: Player) => {
 	      <span v-if="player.userId === currentUserId" class="text-xs text-gray-400">(YOU)</span>
         <!-- Player Status Indicators -->
         <div class="flex items-center ml-auto mr-2 gap-2">
+          <!-- Spectator Indicator (highest priority) -->
+          <span 
+            v-if="player.playerType === 'spectator'" 
+            class="status-badge bg-purple-500/20 text-purple-300"
+          >
+            <Icon name="mdi:eye" class="mr-1" />Spectator
+          </span>
           <!-- Card Czar Indicator -->
-          <span v-if="player.userId === judgeId" class="status-badge bg-yellow-500/20 text-yellow-300">
+          <span v-else-if="player.userId === judgeId" class="status-badge bg-yellow-500/20 text-yellow-300">
             <Icon name="mdi:gavel" class="mr-1" />Judge
           </span>
 
@@ -210,6 +228,15 @@ const getPlayerAvatarUrl = (player: Player) => {
 
         <!-- Admin Actions -->
         <div class="flex gap-1">
+          <!-- Deal in spectator button -->
+          <button
+              v-if="isHost && player.userId !== currentUserId && player.playerType === 'spectator'"
+              @click="emit('convert-spectator', player.userId)"
+              class="admin-btn text-green-400 hover:text-green-300 hover:bg-green-900/30"
+              title="Deal in this spectator"
+          >
+            <Icon name="mdi:account-plus" />
+          </button>
           <button
               v-if="isHost && player.userId !== currentUserId && player.provider !== 'anonymous'"
               @click="promote(player)"
@@ -253,12 +280,5 @@ const getPlayerAvatarUrl = (player: Player) => {
 
 .admin-btn:hover {
   transform: translateY(-2px);
-}
-
-.debug-btn {
-  border: 1px dashed rgba(255, 215, 0, 0.5);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 </style>

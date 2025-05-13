@@ -7,7 +7,6 @@ import { useUserStore } from '~/stores/userStore';
 
 export const usePlayers = () => {
   const getConfig = () => useRuntimeConfig();
-  const userStore = useUserStore()
   const getPlayersForLobby = async (lobbyId: string): Promise<Player[]> => {
     try {
       const { databases } = getAppwrite();
@@ -27,6 +26,7 @@ export const usePlayers = () => {
         isHost: doc.isHost,
         joinedAt: doc.joinedAt,
         provider: doc.provider,
+        playerType: doc.playerType || 'participant', // Include playerType with fallback to 'participant'
       })) satisfies Player[];
     } catch (err) {
       console.error('Failed to fetch players for lobby:', err);

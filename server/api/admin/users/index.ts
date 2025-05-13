@@ -1,7 +1,12 @@
 // server/api/admin/users/index.ts
-import {createAppwriteClient} from '~/server/utils/appwrite'
+import { createAppwriteClient } from '~/server/utils/appwrite'
+import { assertAdmin } from '~/server/utils/adminOnly'
 
 export default defineEventHandler(async (event) => {
+    await assertAdmin(event)
+
     const { users } = createAppwriteClient()
-    return await users.list()
+    const result = await users.list()
+
+    return { users: result.users }
 })
