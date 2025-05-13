@@ -219,7 +219,7 @@ const isAdmin = useIsAdmin()
 <!--				</span>-->
 <!--				<span v-else class="text-xl text-slate-300">Hello There, Random User!</span>-->
 <!--			</div>-->
-			<UButton size="xl" class="text-xl py-2 px-4 cursor-pointer" color="info" variant="ghost" icon="i-solar-home-smile-bold-duotone">Home</UButton>
+			<UButton to="/" size="xl" class="text-xl py-2 px-4 cursor-pointer" color="info" variant="ghost" icon="i-solar-home-smile-bold-duotone">Home</UButton>
 			<UButtonGroup>
 				<UButton @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer" color="success" variant="ghost" icon="i-solar-hand-shake-line-duotone">Join Game</UButton>
 				<UButton @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-right-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">{{ isAuthenticatedUser(userStore.user) ? 'Create Game' : 'Log In To Create Game'}}</UButton>
