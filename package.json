@@ -1,6 +1,6 @@
 {
   "name": "nuxt-app",
-  "version": "2025.05.12-2231",
+  "version": "0.9.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "start": "node .output/server/index.mjs",
-    "version:bump": "node ./scripts/bump-version.js"
+    "version:bump": "node ./scripts/bump-version.js",
+    "release": "commit-and-tag-version",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s"
   },
   "dependencies": {
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
@@ -56,9 +58,12 @@
     "@types/lodash-es": "^4.17.12",
     "@types/string-similarity": "^4.0.2",
     "@vitest/ui": "^3.1.2",
+    "commit-and-tag-version": "^12.5.1",
+    "conventional-changelog": "^6.0.0",
     "conventional-changelog-conventionalcommits": "^8.0.0",
     "jsdom": "^26.1.0",
     "prompts": "^2.4.2",
+    "standard-version": "^9.5.0",
     "vitest": "^3.1.2"
   }
 }
