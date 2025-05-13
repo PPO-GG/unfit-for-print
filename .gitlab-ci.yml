@@ -1,0 +1,20 @@
+image: node:18
+
+cache:
+  paths:
+    - node_modules/
+
+stages:
+  - changelog
+  - deploy
+
+generate_changelog:
+  stage: changelog
+  script:
+    - npm ci
+    - npm run release
+  only:
+    - master
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: always
