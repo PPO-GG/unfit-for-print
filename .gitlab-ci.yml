@@ -12,9 +12,10 @@ generate_changelog:
   stage: changelog
   script:
     - npm ci
+    - git config --global user.email "$CI_GIT_USER_EMAIL"
+    - git config --global user.name "$CI_GIT_USER_NAME"
     - npm run release
-  only:
-    - master
+    - git push https://oauth2:$CI_PUSH_TOKEN@git.ppo.gg/MYND/unfit-for-print.git HEAD:master --follow-tags
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
       when: always
