@@ -1,5 +1,4 @@
 // types/player.d.ts
-
 export interface Player {
     $id: string;
     userId: string;
@@ -9,4 +8,5 @@ export interface Player {
     isHost: boolean;
     joinedAt: string;
     provider: string;
+    playerType: 'participant' | 'spectator';
 }

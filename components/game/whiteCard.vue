@@ -5,7 +5,7 @@
       class="card cursor-pointer"
       @mousemove="handleMouseMove"
       @mouseleave="resetTransform"
-      :class="{ 'card--flipped': flipped }"
+      :class="{ 'card--flipped': flipped, 'card--winner': isWinner }"
     >
       <div class="card__inner">
         <!-- Front Side -->
@@ -66,11 +66,12 @@ const props = defineProps<{
   threeDeffect?: boolean
   shine?: boolean
   maskUrl?: string
+  isWinner?: boolean
 }>();
 
 const fallbackText = ref('');
 const cardText = computed(() => props.text || fallbackText.value);
-const cardPack = ref(props.cardPack || '');
+const cardPack = ref(props.cardPack || null);
 
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
@@ -188,7 +189,7 @@ onMounted(async () => {
     const config = useRuntimeConfig();
     const doc = await databases.getDocument(config.public.appwriteDatabaseId, config.public.appwriteWhiteCardCollectionId, props.cardId);
     fallbackText.value = doc.text;
-    cardPack.value = doc.pack || 'core';
+    cardPack.value = doc.pack || null;
   }
   resetTransform();
   animateShine();
@@ -330,5 +331,26 @@ onMounted(async () => {
   z-index: 1;
   color: black;
   border-radius: 12px;
+}
+
+/* Winner animation styles */
+.card--winner {
+  animation: winner-pulse 2s ease-in-out;
+  box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.6);
+}
+
+@keyframes winner-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    outline: 0px solid rgba(34, 197, 94, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(34, 197, 94, 0.8);
+    outline: 4px solid rgba(34, 197, 94, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.6);
+    outline: 2px solid rgba(34, 197, 94, 0.6);
+  }
 }
 </style>

@@ -1,5 +1,7 @@
 // types/lobby.ts
-export interface Lobby {
+import type { Models } from 'appwrite'
+
+export interface Lobby extends Models.Document {
     $id: string
     $createdAt: string
     $updatedAt: string

@@ -96,6 +96,7 @@ export const useLobby = () => {
             isHost: doc.isHost,
             joinedAt: doc.joinedAt,
             provider: doc.provider,
+            playerType: doc.playerType,
         }));
     };
 
@@ -345,11 +346,9 @@ export const useLobby = () => {
     ) => {
         const { databases } = getAppwrite();
         const config = getConfig();
-        const avatarUrl = getUserAvatarUrl(user, session.provider); // Fetch avatar URL
+        const avatarUrl = getUserAvatarUrl(user, session.provider);
 
-        // Log the fetched avatar URL
-        console.log('Fetched Avatar URL:', avatarUrl);
-
+        // Check if player already exists
         const existing = await databases.listDocuments(config.public.appwriteDatabaseId, config.public.appwritePlayerCollectionId, [
             Query.equal('userId', user.$id),
             Query.equal('lobbyId', lobbyId),
@@ -359,9 +358,7 @@ export const useLobby = () => {
         // If player exists, update their avatar if needed
         if (existing.total > 0) {
             const existingPlayer = existing.documents[0];
-            // Only update if we have an avatar URL and it's different from the existing one
             if (avatarUrl && existingPlayer.avatar !== avatarUrl) {
-                console.log('Updating player avatar:', existingPlayer.$id, avatarUrl);
                 await databases.updateDocument(
                     config.public.appwriteDatabaseId,
                     config.public.appwritePlayerCollectionId,
@@ -374,20 +371,23 @@ export const useLobby = () => {
             return;
         }
 
+        // Check game state to determine if player should be a spectator
+        const lobby = await databases.getDocument(
+            config.public.appwriteDatabaseId,
+            config.public.appwriteLobbyCollectionId,
+            lobbyId
+        );
+
+        // Determine player type based on game state
+        let playerType = 'participant';
+        if (lobby.status === 'playing') {
+            // If game is in progress, new players join as spectators
+            playerType = 'spectator';
+        }
+
         const permissions = isAnonymousUser(user)
             ? ['read("any")', 'update("any")', 'delete("any")']
             : [`read("any")`, `update("user:${user.$id}")`, `delete("user:${user.$id}")`];
-
-        // Log the data being sent to create a new player
-        console.log('Creating new player with data:', {
-            userId: user.$id,
-            lobbyId,
-            name: username,
-            avatar: avatarUrl || user.prefs?.avatar || '',
-            isHost,
-            joinedAt: new Date().toISOString(),
-            provider: session.provider,
-        });
 
         const newPlayer = await databases.createDocument(
             config.public.appwriteDatabaseId,
@@ -401,12 +401,10 @@ export const useLobby = () => {
                 isHost,
                 joinedAt: new Date().toISOString(),
                 provider: session.provider,
+                playerType, // Set the player type
             },
             permissions
         );
-
-        // Log the response from the database
-        console.log('New player created:', newPlayer);
     };
 
     const leaveLobby = async (lobbyId: string, userId: string) => {

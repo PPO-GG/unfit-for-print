@@ -12,18 +12,15 @@
         <div class="card__face card__front">
           <slot name="front">
             <div class="card-content p-4 max-xl:text-xl min-md:text-4xl leading-none">
-              <span
-                class="absolute bottom-0 right-0 m-2 p-1 text-xl bg-slate-900/50 rounded-lg"
-                >
-                  <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
+              <span class="absolute bottom-0 right-0 m-2 p-1 text-xl bg-slate-900/50 rounded-lg text-slate-400 font-[Bebas_Neue]" >
+                <Icon name="mdi:cards"  class="align-middle"/>
 	              {{ computedNumPick }}
-              </span
-              >
+              </span>
               <span class="">{{ cardText }}</span>
               <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
                 <UTooltip :text="`Card ID ` + cardId">
                   <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
-                  <span class="text-sm align-middle ml-1 text-slate-100">{{ cardPack }}</span>
+                  <span class="text-sm align-middle ml-1 text-slate-500">{{ cardPack }}</span>
                 </UTooltip>
               </div>
             </div>
@@ -94,7 +91,7 @@ const computedNumPick = computed(() => {
 
 const fallbackText = ref('');
 const cardText = computed(() => props.text || fallbackText.value);
-const packName = ref(props.cardPack || 'core');
+const cardPack = ref(props.cardPack || null);
 
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
@@ -227,7 +224,7 @@ onMounted(async () => {
 			if (props.numPick === undefined) {
 				fallbackNumPick.value = doc.pick; // Store the fetched pick value
 			}
-			packName.value = doc.pack || 'core'; // Always update packName if fetching
+			cardPack.value = doc.pack || null;
 		} catch (error) {
 			console.error(`Failed to fetch card data for ID ${props.cardId}:`, error);
 			// Set sensible defaults on error if needed

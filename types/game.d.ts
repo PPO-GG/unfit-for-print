@@ -1,13 +1,11 @@
 export type PlayerId = string;   // Appwrite user ID
 export type CardId = string;   // Appwrite card document ID
 
-// Import GameCards interface from gamecards.d.ts to avoid duplication
-import type { GameCards } from './gamecards';
-
 // Core game state stored in the lobby document
 export interface GameState {
     phase: 'waiting' | 'submitting' | 'judging' | 'roundEnd' | 'complete';
     judgeId: PlayerId | null;
+    players?: Record<string, string>;
     blackCard: { id: CardId; text: string; pick: number } | null;
     playedCards: Record<string, string>;
     submissions: Record<PlayerId, CardId[]>;
