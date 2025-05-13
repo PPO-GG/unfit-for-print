@@ -1,6 +1,12 @@
 {
-  "name": "nuxt-app",
+  "name": "unfit-for-print",
   "version": "0.9.2",
+  "description": "A Card Game",
+  "author": "Dylan Roberson <mynd@ppo.gg>",
+  "homepage": "https://unfit.cards",
+  "bugs": {
+    "url": "https://git.ppo.gg/MYND/unfit-for-print/issues"
+  },
   "private": true,
   "type": "module",
   "scripts": {
