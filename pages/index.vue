@@ -41,7 +41,12 @@
 	          :back-logo-url="'/img/ufp.svg'"
 	          :mask-url="'/img/textures/hexa.png'"
 	      />
-		    <div v-else class="text-white mt-4">Loading card...</div>
+		    <div v-else class="flex items-center p-2 text-white mt-4 w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] bg-[#1c2342] rounded-xl border-6 border-slate-800">
+			    <div class="grid gap-2">
+				    <USkeleton class="h-4 w-[250px] bg-slate-600/50" />
+				    <USkeleton class="h-4 w-[200px] bg-slate-600/50" />
+			    </div>
+		    </div>
 		  </div>
 
       <div class="outline-2 outline-dashed outline-gray-300/25 outline-offset-4 rounded-xl">
@@ -57,7 +62,12 @@
             :back-logo-url="'/img/ufp.svg'"
             :mask-url="'/img/textures/hexa2.png'"
         />
-        <div v-else class="text-white mt-4">Loading card...</div>
+	      <div v-else class="flex items-center p-2 text-white mt-4 w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] bg-[#e7e1de] rounded-xl border-6 border-stone-400/50">
+		      <div class="grid gap-2">
+			      <USkeleton class="h-4 w-[250px] bg-stone-400/50" />
+			      <USkeleton class="h-4 w-[200px] bg-stone-400/50" />
+		      </div>
+	      </div>
       </div>
     </div>
 	  <div class="flex flex-col items-center mt-8">
@@ -104,7 +114,7 @@ const whiteCardFlipped = ref(true);
 const threeDeffect = ref(true);
 const shine = ref(true);
 const {fetchRandomWhiteCard, fetchRandomBlackCard} = useCards();
-const randomCard = ref<any>(null); // Use a proper type/interface if available
+const randomCard = ref<any>({ pick: 1 }); // Initialize with default pick value
 const {playSfx} = useSfx();
 const { notify } = useNotifications()
 
@@ -115,12 +125,15 @@ const fetchNewCards = async () => {
   return new Promise<void>(res => setTimeout(res, 1000)
   ).then(() => {
 	  vibrate()
-    fetchRandomWhiteCard().then((card: any) => {
+    // Use default card pack for random cards
+    const defaultCardPacks = ['CAH Base Set', 'CAH: Blue Box Expansion'];
+    fetchRandomWhiteCard(defaultCardPacks).then((card: any) => {
       whiteCard.value = card;
 	    whiteCardFlipped.value = false;
     });
-	  randomCard.value = fetchRandomBlackCard(1).then((card: any) => {
+   fetchRandomBlackCard(1, defaultCardPacks).then((card: any) => {
       blackCard.value = card;
+      randomCard.value = card; // Store the card in randomCard.value as well
 	    blackCardFlipped.value = false;
     });
     notify({

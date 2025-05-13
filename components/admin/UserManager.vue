@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import {onMounted, ref} from 'vue'
+import {useUserStore} from '~/stores/userStore'
 
 const users = ref<any[]>([])
 const loading = ref(true)
@@ -8,16 +9,22 @@ const userTeams = ref<Record<string, { teamId: string; membershipId: string }[]>
 const selectedTeam = ref('')
 
 const fetchTeams = async () => {
-	const res = await $fetch('/api/admin/teams')
+	const userStore = useUserStore()
+	const res = await $fetch('/api/admin/teams',{
+		headers: { Authorization: `Bearer ${userStore.session?.$id}` },
+		navigate: false,
+	})
 	teams.value = res.teams
 }
 
 const fetchUserTeams = async (userId: string) => {
-	const res = await $fetch('/api/admin/teams/memberships', {
+	const userStore = useUserStore()
+	userTeams.value[userId] = await $fetch('/api/admin/teams/memberships', {
+		headers: {Authorization: `Bearer ${userStore.session?.$id}`},
+		navigate: false,
 		method: 'POST',
-		body: { userId }
+		body: {userId}
 	})
-	userTeams.value[userId] = res
 }
 
 const getTeamName = (teamId: string) => {
@@ -25,7 +32,10 @@ const getTeamName = (teamId: string) => {
 }
 
 const addUserToTeam = async (userId: string, teamId: string) => {
+	const userStore = useUserStore()
 	await $fetch('/api/admin/teams/update', {
+		headers: { Authorization: `Bearer ${userStore.session?.$id}` },
+		navigate: false,
 		method: 'POST',
 		body: { action: 'add', teamId, userId }
 	})
@@ -33,7 +43,10 @@ const addUserToTeam = async (userId: string, teamId: string) => {
 }
 
 const removeUserFromTeam = async (userId: string, teamId: string, membershipId: string) => {
+	const userStore = useUserStore()
 	await $fetch('/api/admin/teams/update', {
+		headers: { Authorization: `Bearer ${userStore.session?.$id}` },
+		navigate: false,
 		method: 'POST',
 		body: { action: 'remove', teamId, membershipId }
 	})
@@ -45,7 +58,10 @@ const deleteUser = async (userId: string) => {
 	if (!confirmed) return
 
 	try {
+		const userStore = useUserStore()
 		const res = await $fetch('/api/admin/users/delete', {
+			headers: { Authorization: `Bearer ${userStore.session?.$id}` },
+			navigate: false,
 			method: 'POST',
 			body: { userId }
 		})
@@ -61,14 +77,52 @@ const deleteUser = async (userId: string) => {
 
 onMounted(async () => {
 	try {
-		const res = await $fetch('/api/admin/users')
-		users.value = res.users
-		await fetchTeams()
-		for (const user of users.value) {
-			await fetchUserTeams(user.$id)
+		// Ensure user session is initialized before making admin API requests
+		const userStore = useUserStore()
+		console.log('UserManager: Initial session state:', userStore.session ? 'Session exists' : 'No session')
+
+		if (!userStore.session) {
+			console.log('UserManager: Initializing user session before admin API requests')
+			await userStore.fetchUserSession()
+		}
+
+		if (!userStore.session) {
+			console.error('UserManager: No session available after initialization')
+			loading.value = false
+			return
+		}
+
+		console.log('UserManager: Making admin API requests with session:', userStore.session.$id)
+		console.log('UserManager: Session details:', {
+			id: userStore.session.$id,
+			provider: userStore.session.provider,
+			userId: userStore.session.userId,
+			expires: userStore.session.expire
+		})
+
+		try {
+			console.log('UserManager: Fetching users...')
+			const res = await $fetch('/api/admin/users', {
+				headers: {
+					Authorization: `Bearer ${userStore.session?.$id}`
+				},
+				navigate: false
+			})
+			console.log('UserManager: Users response:', res)
+			users.value = res.users
+
+			console.log('UserManager: Fetching teams...')
+			await fetchTeams()
+
+			console.log('UserManager: Fetching user teams...')
+			for (const user of users.value) {
+				await fetchUserTeams(user.$id)
+			}
+		} catch (apiErr) {
+			console.error('UserManager: API request failed:', apiErr)
 		}
 	} catch (err) {
-		console.error('Failed to fetch users or teams:', err)
+		console.error('UserManager: Failed to fetch users or teams:', err)
 	} finally {
 		loading.value = false
 	}

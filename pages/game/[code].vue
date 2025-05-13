@@ -11,7 +11,7 @@ import {isAuthenticatedUser} from '~/composables/useUserUtils';
 import {useGameState} from "~/composables/useGameState";
 import {useGameCards} from "~/composables/useGameCards";
 import { useSfx } from '~/composables/useSfx';
-import { ID, Permission, Role } from 'appwrite';
+import { ID, Permission, Role, Query } from 'appwrite';
 import {useGameSettings} from '~/composables/useGameSettings';
 import type {GameSettings} from '~/types/gamesettings';
 import type {Lobby} from '~/types/lobby';
@@ -139,7 +139,7 @@ const setupGameSettingsRealtime = (lobbyId: string) => {
 	// Subscribe to changes in the game settings collection for this lobby
 	const unsubscribeGameSettings = client.subscribe(
 		[`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`],
-		async ({events, payload}) => {
+		async ({payload}) => {
 			// Check if this is a game settings document for our lobby
 			const settings = payload as GameSettings;
 			// Handle case where lobbyId is a relationship object
@@ -684,6 +684,90 @@ const handleSettingsUpdate = (newSettings: GameSettings) => {
 	gameSettings.value = newSettings;
 };
 
+// Function to convert a spectator to a participant
+const convertToParticipant = async (playerId: string) => {
+  if (!isHost.value) return;
+
+  try {
+    // 1. Update player type in database
+    const playerDoc = players.value.find(p => p.userId === playerId);
+    if (!playerDoc) return;
+
+    const { databases } = getAppwrite();
+    const config = useRuntimeConfig();
+
+    await databases.updateDocument(
+      config.public.appwriteDatabaseId,
+      config.public.appwritePlayerCollectionId,
+      playerDoc.$id,
+      {
+        playerType: 'participant'
+      }
+    );
+
+    // 2. Deal cards to the player
+    // Get a fresh hand from the white deck
+
+    // Get the game cards document
+    const gameCardsRes = await databases.listDocuments(
+      config.public.appwriteDatabaseId,
+      config.public.appwriteGamecardsCollectionId,
+      [Query.equal('lobbyId', lobby.value?.$id)]
+    );
+
+    if (gameCardsRes.total === 0) return;
+
+    const gameCards = gameCardsRes.documents[0];
+    const whiteDeck = gameCards.whiteDeck || [];
+
+    // Get the number of cards per player from game state
+    const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 7;
+
+    // Take cards from the deck
+    const newHand = whiteDeck.slice(0, cardsPerPlayer);
+    const remainingDeck = whiteDeck.slice(cardsPerPlayer);
+
+    // Update player hands in the game cards document
+    const playerHands = gameCards.playerHands || [];
+    const parsedHands = playerHands.map(hand => JSON.parse(hand));
+
+    // Add or update the player's hand
+    const existingHandIndex = parsedHands.findIndex(h => h.playerId === playerId);
+    if (existingHandIndex >= 0) {
+      parsedHands[existingHandIndex].cards = newHand;
+    } else {
+      parsedHands.push({ playerId, cards: newHand });
+    }
+
+    // Update the game cards document
+    await databases.updateDocument(
+      config.public.appwriteDatabaseId,
+      config.public.appwriteGamecardsCollectionId,
+      gameCards.$id,
+      {
+        whiteDeck: remainingDeck,
+        playerHands: parsedHands.map(hand => JSON.stringify(hand))
+      }
+    );
+
+    notify({
+      title: 'Player Dealt In',
+      description: `${getPlayerName(playerId)} is now participating in the game.`,
+      color: 'success',
+      icon: 'i-mdi-account-plus'
+    });
+
+  } catch (err) {
+    console.error('Failed to convert player to participant:', err);
+    notify({
+      title: 'Error',
+      description: 'Failed to deal in player.',
+      color: 'error',
+      icon: 'i-mdi-alert'
+    });
+  }
+};
+
 const copied = ref(false)
 function copyLobbyLink() {
 	const config = useRuntimeConfig()
@@ -779,6 +863,11 @@ function copyLobbyLink() {
 						:hostUserId="lobby.hostUserId"
 						:lobbyId="lobby.$id"
 						:players="players"
+						:judgeId="state?.judgeId"
+						:submissions="state?.submissions"
+						:gamePhase="state?.phase"
+						:scores="state?.scores"
+						@convert-spectator="convertToParticipant"
 				/>
         <ChatBox
 						v-if="lobby && lobby.$id"
@@ -878,6 +967,11 @@ function copyLobbyLink() {
 							:hostUserId="lobby.hostUserId"
 							:lobbyId="lobby.$id"
 							:players="players"
+							:judgeId="state?.judgeId"
+							:submissions="state?.submissions"
+							:gamePhase="state?.phase"
+							:scores="state?.scores"
+							@convert-spectator="convertToParticipant"
 						/>
 
 						<ChatBox

@@ -1,17 +1,17 @@
-import { ref } from 'vue';
-import { ID, Permission, Query, Role, type Models } from 'appwrite';
-import { useAppwrite } from '~/composables/useAppwrite';
-import { useUserStore } from '~/stores/userStore';
-import { useGameState } from '~/composables/useGameState';
-import { useGameEngine } from '~/composables/useGameEngine';
-import { useGameActions } from '~/composables/useGameActions';
-import { isAnonymousUser } from '~/composables/useUserUtils';
-import { usePlayers } from '~/composables/usePlayers';
-import { getAppwrite } from '~/utils/appwrite';
-import { useGameSettings } from '~/composables/useGameSettings';
-import type { Lobby } from '~/types/lobby';
-import type { Player } from '~/types/player';
-import type { GameState } from '~/types/game';
+import {ref} from 'vue';
+import {ID, type Models, Permission, Query, Role} from 'appwrite';
+import {useAppwrite} from '~/composables/useAppwrite';
+import {useUserStore} from '~/stores/userStore';
+import {useGameState} from '~/composables/useGameState';
+import {useGameEngine} from '~/composables/useGameEngine';
+import {useGameActions} from '~/composables/useGameActions';
+import {isAnonymousUser} from '~/composables/useUserUtils';
+import {usePlayers} from '~/composables/usePlayers';
+import {getAppwrite} from '~/utils/appwrite';
+import {useGameSettings} from '~/composables/useGameSettings';
+import type {Lobby} from '~/types/lobby';
+import type {Player} from '~/types/player';
+import type {GameState} from '~/types/game';
 import type {GameSettings} from "~/types/gamesettings";
 
 export const useLobby = () => {
@@ -77,7 +77,6 @@ export const useLobby = () => {
     };
     const userStore = useUserStore();
     const { encodeGameState, decodeGameState } = useGameState();
-    const { generateGameState } = useGameEngine();
 
     const toPlainLobby = (doc: any): Lobby => ({ ...doc } as Lobby);
 
@@ -496,6 +495,21 @@ export const useLobby = () => {
         const validPlayers = players.value.filter((p) => p.userId);
         if (validPlayers.length < 3) throw new Error('Not enough players to start');
 
+        // Update all players to be participants
+        const { databases } = getAppwrite();
+        const config = getConfig();
+
+        for (const player of players.value) {
+            await databases.updateDocument(
+                config.public.appwriteDatabaseId,
+                config.public.appwritePlayerCollectionId,
+                player.$id,
+                {
+                    playerType: 'participant'
+                }
+            );
+        }
+
         // Fetch game settings if not provided
         if (!gameSettings) {
             const { getGameSettings } = useGameSettings();
@@ -716,10 +730,8 @@ export const useLobby = () => {
                 });
 
                 // Filter the deck to remove any duplicates of cards already in hands
-                const filteredDeck = state.whiteDeck.filter(cardId => !dealtCards.has(cardId));
-
                 // Update the deck with the filtered version
-                state.whiteDeck = filteredDeck;
+                state.whiteDeck = state.whiteDeck.filter(cardId => !dealtCards.has(cardId));
 
                 // Now distribute cards from the filtered deck
                 playerIds.forEach(playerId => {

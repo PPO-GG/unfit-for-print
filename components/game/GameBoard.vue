@@ -10,6 +10,7 @@ import {useGameCards} from '~/composables/useGameCards'
 import UserHand from '~/components/game/UserHand.vue'
 import whiteCard from '~/components/game/whiteCard.vue'
 import {getAppwrite} from "~/utils/appwrite";
+import { Query } from "appwrite";
 
 const props = defineProps<{ lobby: Lobby; players: Player[] }>()
 const emit = defineEmits<{
@@ -75,6 +76,34 @@ const {leaveLobby} = useLobby()
 const userStore = useUserStore()
 const myId = userStore.user?.$id ?? ''
 const {notify} = useNotifications()
+
+// Add computed properties to check player type
+const currentPlayer = computed(() => {
+  const player = props.players.find(p => p.userId === myId);
+  console.log('GameBoard - currentPlayer:', {
+    userId: player?.userId,
+    name: player?.name,
+    playerType: player?.playerType
+  });
+  return player;
+});
+
+const isParticipant = computed(() => {
+  const result = currentPlayer.value?.playerType === 'participant' || !currentPlayer.value?.playerType;
+  console.log('GameBoard - isParticipant:', result);
+  return result;
+});
+
+const isSpectator = computed(() => {
+  const result = currentPlayer.value?.playerType === 'spectator';
+  console.log('GameBoard - isSpectator:', result);
+  return result;
+});
+
+// Check if the current user is the host
+const isHost = computed(() => {
+  return props.lobby?.hostUserId === myId;
+});
 
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string): string => {
@@ -301,6 +330,10 @@ const countdownInterval = ref<NodeJS.Timeout | null>(null)
 
 // Watch for changes to roundWinner to start countdown for all players
 watch(() => state.value?.roundWinner, (newWinner) => {
+	// Reset local round winner when state is updated from the server
+	if (newWinner) {
+		localRoundWinner.value = null
+	}
 	if (newWinner) {
 		winnerSelected.value = true
 
@@ -333,12 +366,17 @@ watch(() => state.value?.roundWinner, (newWinner) => {
 	}
 })
 
+// Create a local reactive variable to track the round winner
+const localRoundWinner = ref<string | null>(null)
+
+// Computed property that combines both state.roundWinner and localRoundWinner
+const effectiveRoundWinner = computed(() => {
+  return localRoundWinner.value || state.value?.roundWinner || null
+})
+
 function handleSelectWinner(playerId: string) {
 	// First mark the winner locally to show the animation
-	state.value = {
-		...state.value,
-		roundWinner: playerId
-	}
+	localRoundWinner.value = playerId
 
 	// Play sound effect
 	playSfx('/sounds/sfx/selectWinner.wav', {pitch: [0.95, 1.05], volume: 0.75}).then(() => {
@@ -362,6 +400,90 @@ onUnmounted(() => {
 		gameCardsUnsubscribe()
 	}
 })
+
+// Add function to convert spectator to participant
+async function convertToParticipant(playerId: string) {
+  if (!isHost.value) return;
+
+  try {
+    // 1. Update player type in database
+    const playerDoc = props.players.find(p => p.userId === playerId);
+    if (!playerDoc) return;
+
+    const { databases } = getAppwrite();
+    const config = useRuntimeConfig();
+
+    await databases.updateDocument(
+      config.public.appwriteDatabaseId,
+      config.public.appwritePlayerCollectionId,
+      playerDoc.$id,
+      {
+        playerType: 'participant'
+      }
+    );
+
+    // 2. Deal cards to the player
+    // Get a fresh hand from the white deck
+
+    // Get the game cards document
+    const gameCardsRes = await databases.listDocuments(
+      config.public.appwriteDatabaseId,
+      config.public.appwriteGamecardsCollectionId,
+      [Query.equal('lobbyId', props.lobby.$id)]
+    );
+
+    if (gameCardsRes.total === 0) return;
+
+    const gameCards = gameCardsRes.documents[0];
+    const whiteDeck = gameCards.whiteDeck || [];
+
+    // Get the number of cards per player from game state
+    const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 7;
+
+    // Take cards from the deck
+    const newHand = whiteDeck.slice(0, cardsPerPlayer);
+    const remainingDeck = whiteDeck.slice(cardsPerPlayer);
+
+    // Update player hands in the game cards document
+    const playerHands = gameCards.playerHands || [];
+    const parsedHands = playerHands.map(hand => JSON.parse(hand));
+
+    // Add or update the player's hand
+    const existingHandIndex = parsedHands.findIndex(h => h.playerId === playerId);
+    if (existingHandIndex >= 0) {
+      parsedHands[existingHandIndex].cards = newHand;
+    } else {
+      parsedHands.push({ playerId, cards: newHand });
+    }
+
+    // Update the game cards document
+    await databases.updateDocument(
+      config.public.appwriteDatabaseId,
+      config.public.appwriteGamecardsCollectionId,
+      gameCards.$id,
+      {
+        whiteDeck: remainingDeck,
+        playerHands: parsedHands.map(hand => JSON.stringify(hand))
+      }
+    );
+
+    notify({
+      title: 'Player Dealt In',
+      description: `${getPlayerName(playerId)} is now participating in the game.`,
+      color: 'success',
+      icon: 'i-mdi-account-plus'
+    });
+
+  } catch (err) {
+    console.error('Failed to convert player to participant:', err);
+    notify({
+      title: 'Error',
+      description: 'Failed to deal in player.',
+      color: 'error',
+      icon: 'i-mdi-alert'
+    });
+  }
+}
 
 function handleLeave() {
 	// Update Nuxt payload state to indicate the user is leaving
@@ -475,16 +597,35 @@ function handleLeave() {
 							</div>
 							<p class="mt-4 italic text-gray-500">Waiting for others...</p>
 						</div>
-						<div v-if="blackCard" class="w-full flex justify-center items-end bottom-0 fixed translate-x-[-50%] z-50">
-							<UserHand
-									v-if="!submissions[myId]"
-									:cards="myHand"
-									:cards-to-select="blackCard.pick"
-									:disabled="!!submissions[myId]"
-									@select-cards="handleCardSubmit"
+						<!-- Participant view with UserHand -->
+						<div v-if="blackCard && isParticipant && !submissions[myId]" class="w-full flex justify-center items-end bottom-0 fixed translate-x-[-50%] z-50">
+							<UserHand 
+								:cards="myHand" 
+								:disabled="isJudge || !isSubmitting" 
+								:cardsToSelect="blackCard?.pick || 1"
+								@select-cards="handleCardSubmit"
 							/>
 						</div>
+
+						<!-- Spectator view with message -->
+						<div v-if="blackCard && isSpectator" class="w-full flex justify-center mt-8">
+							<div class="spectator-message bg-slate-800 p-6 rounded-xl text-center max-w-md">
+								<p class="text-xl mb-4">You are currently spectating this game.</p>
+								<!-- Only show this button to the host -->
+								<UButton 
+									v-if="isHost" 
+									@click="convertToParticipant(myId)"
+									color="primary"
+									icon="i-mdi-account-plus"
+								>
+									Deal In This Player
+								</UButton>
+							</div>
+						</div>
 					</div>
+
+
+
 				</div>
 
 				<!-- Judging Phase -->
@@ -505,7 +646,7 @@ function handleLeave() {
 									<div
 											v-for="sub in otherSubmissions"
 											:key="sub.playerId"
-											:class="{'border-2 border-green-500': state?.roundWinner === sub.playerId}"
+											:class="{'border-2 border-green-500': effectiveRoundWinner.value === sub.playerId}"
 											class="inset-shadow-sm inset-shadow-slate-900 flex flex-col items-center outline-2 outline-slate-400/15 rounded-3xl bg-slate-700/50 p-6"
 									>
 										<div class="inline-flex items-center justify-center gap-2 mb-4">
@@ -513,7 +654,7 @@ function handleLeave() {
 													v-for="cardId in sub.cards"
 													:key="cardId"
 													:cardId="cardId"
-													:is-winner="state?.roundWinner === sub.playerId"
+													:is-winner="effectiveRoundWinner.value === sub.playerId"
 													:flipped="false"
 											/>
 										</div>
@@ -528,7 +669,7 @@ function handleLeave() {
 											<span
 													class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">Select Winner</span>
 										</UButton>
-										<p v-else-if="state?.roundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
+										<p v-else-if="effectiveRoundWinner.value === sub.playerId" class="text-green-400 font-bold mt-2">
 											🏆 WINNER! 🏆
 										</p>
 									</div>
@@ -542,7 +683,7 @@ function handleLeave() {
 										<div 
 											v-for="sub in otherSubmissions" 
 											:key="sub.playerId"
-											:class="{'border-2 border-green-500': state?.roundWinner === sub.playerId}"
+											:class="{'border-2 border-green-500': effectiveRoundWinner.value === sub.playerId}"
 											class="inset-shadow-sm inset-shadow-slate-900 flex flex-col items-center outline-2 outline-slate-400/15 rounded-3xl bg-slate-700/50 p-6"
 										>
 											<div class="inline-flex items-center justify-center gap-2 mb-4">
@@ -550,7 +691,7 @@ function handleLeave() {
 													v-for="cardId in sub.cards"
 													:key="cardId"
 													:cardId="cardId"
-													:is-winner="state?.roundWinner === sub.playerId"
+													:is-winner="effectiveRoundWinner.value === sub.playerId"
 													:flipped="false"
 												/>
 											</div>
@@ -568,7 +709,7 @@ function handleLeave() {
 												</span>
 											</UButton>
 
-											<p v-else-if="state?.roundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
+											<p v-else-if="effectiveRoundWinner.value === sub.playerId" class="text-green-400 font-bold mt-2">
 												🏆 WINNER! 🏆
 											</p>
 										</div>
@@ -591,11 +732,11 @@ function handleLeave() {
 											v-for="cardId in submissions[myId]"
 											:key="cardId"
 											:cardId="cardId"
-											:is-winner="state?.roundWinner === myId"
+											:is-winner="effectiveRoundWinner.value === myId"
 											:flipped="false"
 									/>
 								</div>
-								<p v-if="state?.roundWinner === myId" class="text-green-400 font-bold mt-2">
+								<p v-if="effectiveRoundWinner.value === myId" class="text-green-400 font-bold mt-2">
 									🏆 YOU WON! 🏆
 								</p>
 							</div>
@@ -607,7 +748,7 @@ function handleLeave() {
 									v-for="(sub) in shuffledSubmissions"
 									v-show="sub.playerId !== myId"
 									:key="sub.playerId"
-									:class="{'border-2 border-green-500': state?.roundWinner === sub.playerId}"
+									:class="{'border-2 border-green-500': effectiveRoundWinner.value === sub.playerId}"
 									class=" outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-6"
 							>
 								<p v-if="winnerSelected" class="font-medium text-amber-300 mb-2 font-['Bebas_Neue'] text-2xl">
@@ -617,15 +758,15 @@ function handleLeave() {
 									<span class="text-amber-400 font-['Bebas_Neue'] text-2xl">Player Submission</span>
 								</p>
 								<div class="inline-flex justify-center gap-2 mb-2">
-									<whiteCard
-											v-for="cardId in sub.cards"
-											:key="cardId"
-											:cardId="cardId"
-											:is-winner="state?.roundWinner === sub.playerId"
-											:flipped="false"
-									/>
+										<whiteCard
+												v-for="cardId in sub.cards"
+												:key="cardId"
+												:cardId="cardId"
+												:is-winner="effectiveRoundWinner.value === sub.playerId"
+												:flipped="false"
+										/>
 								</div>
-								<p v-if="state?.roundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
+								<p v-if="effectiveRoundWinner.value === sub.playerId" class="text-green-400 font-bold mt-2">
 									🏆 WINNER! 🏆
 								</p>
 							</div>
