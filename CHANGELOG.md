@@ -1,3 +1,10 @@
+## [1.0.1](https://git.ppo.gg/MYND/unfit-for-print/compare/v1.0.0...v1.0.1) (2025-05-14)
+
+
+### Bug Fixes
+
+* force version bump ([de79229](https://git.ppo.gg/MYND/unfit-for-print/commit/de792295b39f33b6c3d7431d7c6ccc9b106b0423))
+
 # 1.0.0 (2025-05-14)
 
 
