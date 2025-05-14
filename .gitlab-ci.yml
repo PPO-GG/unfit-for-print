@@ -1,0 +1,16 @@
+image: node:18
+
+stages:
+  - release
+
+release:
+  stage: release
+  script:
+    - pnpm install
+    - git config --global user.email "$CI_GIT_USER_EMAIL"
+    - git config --global user.name "$CI_GIT_USER_NAME"
+    - git fetch --unshallow --tags
+    - npx semantic-release
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: always
