@@ -8,6 +8,7 @@ import {useRouter} from "#vue-router";
 import {useLobby} from "~/composables/useLobby";
 import { useUiStore } from '~/stores/uiStore';
 import { useShrinkOnScroll } from '~/composables/useShrinkOnScroll'
+import { version } from '~/utils/version'
 
 const { isShrunk } = useShrinkOnScroll(50) // shrink after scrolling 50px
 const { getActiveLobbyForUser } = useLobby();
@@ -205,20 +206,6 @@ const isAdmin = useIsAdmin()
 			</NuxtLink>
 		</div>
 		<nav class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto align-middle">
-<!--			<div class="mr-2 m-full flex items-center gap-2">-->
-<!--				<UAvatar-->
-<!--						v-if="avatarUrl"-->
-<!--						:src="avatarUrl"-->
-<!--						alt="avatar"-->
-<!--						class="w-8 h-8 rounded-full"-->
-<!--						:class="isAdmin ? 'border-2 border-amber-300' : ''"-->
-<!--				/>-->
-<!--				<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl text-slate-300">-->
-<!--					Welcome, {{userStore.user.name.toUpperCase()}}!-->
-<!--					<UIcon v-if="isAdmin" name="i-solar-shield-star-bold-duotone" class="text-amber-300"/>-->
-<!--				</span>-->
-<!--				<span v-else class="text-xl text-slate-300">Hello There, Random User!</span>-->
-<!--			</div>-->
 			<UButton to="/" size="xl" class="text-xl py-2 px-4 cursor-pointer" color="info" variant="ghost" icon="i-solar-home-smile-bold-duotone">Home</UButton>
 			<UButtonGroup>
 				<UButton @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer" color="success" variant="ghost" icon="i-solar-hand-shake-line-duotone">Join Game</UButton>
@@ -299,7 +286,7 @@ const isAdmin = useIsAdmin()
 						</UButton>
 						<p class="text-sm">© 2025 Unfit for Print. All rights reserved.</p>
 						<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
-						<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">V-{{ $config.public.appVersion }}</NuxtLink>
+						<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">{{ version }}</NuxtLink>
 					</div>
 				</template>
 
