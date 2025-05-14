@@ -1,1 +1,2 @@
-export const version = JSON.stringify(require('../package.json').version)
+// utils/version.ts
+export const version = __VERSION__
