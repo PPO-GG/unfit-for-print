@@ -12,10 +12,25 @@ generate_changelog:
   stage: changelog
   script:
     - npm install
+
+    # Setup Git identity
     - git config --global user.email "$CI_GIT_USER_EMAIL"
     - git config --global user.name "$CI_GIT_USER_NAME"
+
+    # Check if the tag already exists
+    - |
+      TAG="v$(node -p "require('./package.json').version")"
+      if git rev-parse "$TAG" >/dev/null 2>&1; then
+        echo "⚠️ Tag $TAG already exists. Skipping release."
+        exit 0
+      fi
+
+    # Generate changelog, commit, tag
     - npm run release
+
+    # Push commit and tag
     - git push https://oauth2:$CI_PUSH_TOKEN@git.ppo.gg/MYND/unfit-for-print.git HEAD:master --follow-tags
+
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
       when: always
