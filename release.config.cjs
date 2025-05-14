@@ -4,12 +4,8 @@ module.exports = {
         '@semantic-release/commit-analyzer',
         '@semantic-release/release-notes-generator',
         '@semantic-release/changelog',
+        '@semantic-release/npm',
+        '@semantic-release/gitlab',
         '@semantic-release/git',
-        [
-            '@semantic-release/exec',
-            {
-                publishCmd: 'echo "You could run a deployment script here if needed"',
-            },
-        ],
     ],
 };

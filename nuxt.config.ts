@@ -18,7 +18,7 @@ export default defineNuxtConfig({
   ssr: true,
   vite: {
     define: {
-      __VERSION__: JSON.stringify(gitTag),
+      __VERSION__: JSON.stringify(require('./package.json').version),
     },
   },
   plugins: [
