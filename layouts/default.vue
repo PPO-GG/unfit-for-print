@@ -1,5 +1,5 @@
 <template>
-	<div class="relative min-h-screen">
+	<div class="relative min-h-screen subpixel-antialiased cursor-default">
 		<!-- Background behind everything -->
 		<ScrollingBackground
 				:gap="12"

@@ -1,10 +1,28 @@
 <template>
-  <UForm :state="formState" @submit="onSubmit">
-    <UFormField label="Lobby Name (optional)" name="name">
-      <UInput v-model="formState.name" placeholder="Optional display name" />
-    </UFormField>
-    <UButton type="submit" block class="mt-4" :loading="creating">Create Lobby</UButton>
-  </UForm>
+  <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg shadow-md">
+    <h2 class="text-xl font-bold mb-4 text-center text-primary-600 dark:text-primary-400">Create New Lobby</h2>
+    <UForm :state="formState" @submit="onSubmit" class="space-y-4">
+      <UFormField label="Lobby Name (optional)" name="name">
+        <UInput 
+          v-model="formState.name" 
+          placeholder="Optional Lobby Name" 
+          icon="i-heroicons-user-group"
+          class="focus:ring-primary-500"
+        />
+      </UFormField>
+      <UButton 
+        type="submit" 
+        block 
+        class="mt-6 bg-primary-500 hover:bg-primary-600 transition-colors" 
+        :loading="creating"
+      >
+        <span class="flex items-center gap-2">
+          <i class="i-heroicons-play-circle"></i>
+          Create Lobby
+        </span>
+      </UButton>
+    </UForm>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -40,11 +58,20 @@ const onSubmit = async () => {
       playerCollectionId: config.public.appwritePlayerCollectionId
     });
 
-    const lobby = await createLobby(userStore.user.$id);
+    // Pass the lobby name if it's not empty
+    const lobbyName = formState.name.trim() || undefined;
+    const lobby = await createLobby(userStore.user.$id, lobbyName);
 
     if (!lobby?.code) {
       throw new Error('Invalid lobby response');
     }
+
+    // Show success notification
+    notify({
+      title: 'Lobby Created',
+      description: `Your lobby has been created successfully${lobbyName ? ` with name: ${lobbyName}` : ''}`,
+      color: "success"
+    });
 
     emit('created', lobby.code);
   } catch (error: unknown) {
