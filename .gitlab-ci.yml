@@ -1,39 +1,16 @@
 image: node:18
 
-cache:
-  paths:
-    - node_modules/
-
 stages:
-  - changelog
-  - deploy
+  - release
 
-generate_changelog:
-  stage: changelog
+release:
+  stage: release
   script:
-    - npm install
-
-    # Setup Git identity
+    - pnpm install
     - git config --global user.email "$CI_GIT_USER_EMAIL"
     - git config --global user.name "$CI_GIT_USER_NAME"
-
-    # Ensure we have the latest tags from remote
-    - git fetch --tags
-
-    # Check if the tag already exists remotely
-    - |
-      TAG="v$(node -p "require('./package.json').version")"
-      if git tag --list | grep -q "^$TAG$"; then
-        echo "⚠️ Tag $TAG already exists. Skipping release."
-        exit 0
-      fi
-
-    # Run release
-    - npm run release
-
-    # Push commit and tags
-    - git push https://oauth2:$CI_PUSH_TOKEN@git.ppo.gg/MYND/unfit-for-print.git HEAD:master --follow-tags
-
+    - git fetch --unshallow --tags
+    - npx semantic-release
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
       when: always
