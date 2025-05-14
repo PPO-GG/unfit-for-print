@@ -15,10 +15,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "start": "node .output/server/index.mjs",
-    "version:bump": "node ./scripts/bump-version.js",
-    "release": "commit-and-tag-version",
-    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s"
+    "start": "node .output/server/index.mjs"
   },
   "dependencies": {
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
