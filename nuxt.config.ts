@@ -1,13 +1,26 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
 import { readFileSync } from 'fs'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+import { execSync } from 'node:child_process'
+
+const gitTag = (() => {
+  try {
+    return execSync('git describe --tags --abbrev=0').toString().trim()
+  } catch {
+    return 'v0.0.0-dev'
+  }
+})()
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
   ssr: true,
+  vite: {
+    define: {
+      __VERSION__: JSON.stringify(gitTag),
+    },
+  },
   plugins: [
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
     { src: "~/plugins/init-session.client.ts", mode: "client" },
