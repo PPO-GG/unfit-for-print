@@ -1,16 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
-import { readFileSync } from 'fs'
-import { execSync } from 'node:child_process'
-
-const gitTag = (() => {
-  try {
-    return execSync('git describe --tags --abbrev=0').toString().trim()
-  } catch {
-    return 'v0.0.0-dev'
-  }
-})()
-const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'))
 
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
@@ -18,7 +10,7 @@ export default defineNuxtConfig({
   ssr: true,
   vite: {
     define: {
-      __VERSION__: JSON.stringify(require('./package.json').version),
+      __VERSION__: JSON.stringify(pkg.version),
     },
   },
   plugins: [
