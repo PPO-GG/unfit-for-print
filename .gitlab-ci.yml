@@ -6,6 +6,8 @@ stages:
 release:
   stage: release
   script:
+    - corepack enable               # enables pnpm (built into Node >=16.10)
+    - corepack prepare pnpm@latest --activate
     - pnpm install
     - git config --global user.email "$CI_GIT_USER_EMAIL"
     - git config --global user.name "$CI_GIT_USER_NAME"
