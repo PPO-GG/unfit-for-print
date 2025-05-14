@@ -22,7 +22,7 @@ const centerIndex = computed(() => Math.floor((props.cards.length - 1) / 2))
 const maxRotation = 1
 const maxXOffset = 80
 const maxYOffset = 2
-const shiftAmount = 100
+const shiftAmount = 125
 
 
 function submitCards() {
@@ -54,13 +54,14 @@ function handleTouchEnd() {
 	// Snap back to center when releasing
 	dragX.value = 0
 }
+
 function playHoverSfx() {
 	playSfx([
 		'/sounds/sfx/hover1.wav',
 		'/sounds/sfx/hover2.wav',
 		'/sounds/sfx/hover3.wav',
 		'/sounds/sfx/hover4.wav'
-	], { volume: 0.75, pitch: [0.95, 1.05] })
+	], {volume: 0.75, pitch: [0.95, 1.05]})
 }
 
 function playSelectSfx() {
@@ -68,7 +69,7 @@ function playSelectSfx() {
 		'/sounds/sfx/cardSelect1.wav',
 		'/sounds/sfx/cardSelect2.wav',
 		'/sounds/sfx/cardSelect3.wav',
-	], { volume: 0.75, pitch: [0.95, 1.05] })
+	], {volume: 0.75, pitch: [0.95, 1.05]})
 }
 
 function handleHover(index: number) {
@@ -77,6 +78,7 @@ function handleHover(index: number) {
 		playHoverSfx();
 	}
 }
+
 function handleSubmitCards() {
 	submitCards()
 	playSfx('/sounds/sfx/submit.wav')
@@ -97,7 +99,7 @@ function handleCardClick(cardId: string) {
 </script>
 
 <template>
-	<div class="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-1/2 md:h-80 group">
+	<div class="relative w-full md:h-80 group">
 		<div
 				class="absolute bottom-0 w-full md:h-64 md:translate-y-[65%] group-hover:translate-y-0 transition-transform duration-150 linear">
 

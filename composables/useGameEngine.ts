@@ -1,20 +1,7 @@
 import { getAppwrite } from '~/utils/appwrite';
 import { Query } from 'appwrite';
 import type { Player } from '~/types/player';
-
-interface GameState {
-    phase: 'submitting' | 'judging' | 'reviewing';
-    round: number;
-    judgeId: string;
-    blackCard: { id: string; text: string } | null;
-    playedCards: Record<string, string>;
-    hands: Record<string, string[]>;
-    scores: Record<string, number>;
-    whiteDeck: string[];
-    blackDeck: string[];
-    discardedWhiteCards: string[];
-    submittedCards: Record<string, string[]>;
-}
+import type { GameState } from '~/types/game';
 
 export const useGameEngine = () => {
     const { databases } = getAppwrite();
@@ -56,7 +43,7 @@ export const useGameEngine = () => {
 
         // Shuffle black cards
         const blackDeck = shuffle(
-            blackCards.documents.map((c) => ({ id: c.$id, text: c.text }))
+            blackCards.documents.map((c) => ({ id: c.$id, text: c.text, pick: c.pick }))
         );
 
         // Keep track of all cards that have been dealt to prevent duplicates
@@ -138,8 +125,12 @@ export const useGameEngine = () => {
             scores: Object.fromEntries(players.map((p) => [p.userId, 0])),
             whiteDeck,
             blackDeck: blackDeck.map((c) => c.id),
-            discardedWhiteCards: [],
-            submittedCards: {},
+            discardWhite: [],
+            discardBlack: [],
+            submissions: {},
+            roundEndStartTime: null,
+            returnedToLobby: {},
+            gameEndTime: undefined,
         };
     };
 
@@ -151,11 +142,11 @@ export const useGameEngine = () => {
         }
 
         // First, try to reuse discarded cards if available
-        if (state.discardedWhiteCards.length > 0) {
+        if (state.discardWhite.length > 0) {
             // Shuffle discarded cards and add them back to the deck
-            const shuffledDiscards = shuffle([...state.discardedWhiteCards]);
+            const shuffledDiscards = shuffle([...state.discardWhite]);
             state.whiteDeck = [...state.whiteDeck, ...shuffledDiscards];
-            state.discardedWhiteCards = [];
+            state.discardWhite = [];
             return state;
         }
 
@@ -206,6 +197,15 @@ export const useGameEngine = () => {
             return state;
         }
 
+        // First, try to reuse discarded cards if available
+        if (state.discardBlack.length > 0) {
+            // Shuffle discarded cards and add them back to the deck
+            const shuffledDiscards = shuffle([...state.discardBlack]);
+            state.blackDeck = [...state.blackDeck, ...shuffledDiscards];
+            state.discardBlack = [];
+            return state;
+        }
+
         try {
             // Get total count of black cards
             const totalRes = await databases.listDocuments(
@@ -229,7 +229,7 @@ export const useGameEngine = () => {
             );
 
             // Add new cards to the deck and shuffle
-            const newCards = blackCards.documents.map((c) => ({ id: c.$id, text: c.text }));
+            const newCards = blackCards.documents.map((c) => ({ id: c.$id, text: c.text, pick: c.pick }));
             const newCardIds = newCards.map(c => c.id);
             state.blackDeck = shuffle([...state.blackDeck, ...newCardIds]);
             return state;
@@ -243,15 +243,15 @@ export const useGameEngine = () => {
     const discardSubmittedCards = (state: GameState): GameState => {
         // Get all submitted card IDs
         const allSubmittedCards: string[] = [];
-        Object.values(state.submittedCards).forEach(cards => {
+        Object.values(state.submissions).forEach(cards => {
             allSubmittedCards.push(...cards);
         });
 
         // Add submitted cards to discard pile
-        state.discardedWhiteCards = [...state.discardedWhiteCards, ...allSubmittedCards];
+        state.discardWhite = [...state.discardWhite, ...allSubmittedCards];
 
         // Clear submitted cards
-        state.submittedCards = {};
+        state.submissions = {};
 
         return state;
     };

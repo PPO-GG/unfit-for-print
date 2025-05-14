@@ -1,5 +1,5 @@
-// functions/selectWinner.js
-import { Client, Databases } from 'node-appwrite';
+// selectWinner/src/main.js
+import { Client, Databases, Query } from 'node-appwrite';
 
 // Utility functions for encoding/decoding game state
 const encodeGameState = (state) => {
@@ -28,6 +28,8 @@ export default async function ({ req, res, log, error }) {
 
   const databases = new Databases(client);
   const DB = process.env.APPWRITE_DATABASE_ID;
+  const LOBBY_COLLECTION = process.env.LOBBY_COLLECTION;
+  const GAMECARDS_COLLECTION = process.env.GAMECARDS_COLLECTION;
 
   try {
     const raw = req.body ?? req.payload ?? '';
@@ -56,21 +58,42 @@ export default async function ({ req, res, log, error }) {
 
     const lobby = await databases.getDocument(
       DB,
-      process.env.LOBBY_COLLECTION,
+      LOBBY_COLLECTION,
       lobbyId
     );
     const state = decodeGameState(lobby.gameState);
+
+    // Fetch the gamecards document
+    const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS_COLLECTION, [
+      Query.equal('lobbyId', lobbyId)
+    ]);
+
+    if (gameCardsQuery.documents.length === 0) {
+      throw new Error(`No gamecards document found for lobby ${lobbyId}`);
+    }
+
+    const gameCards = gameCardsQuery.documents[0];
+
+    // Use card data from gameCards
+    state.discardWhite = gameCards.discardWhite || [];
+    state.discardBlack = gameCards.discardBlack || [];
 
     if (state.phase !== 'judging') throw new Error('Not in judging phase');
 
     // Award point
     state.scores[winnerId] = (state.scores[winnerId] || 0) + 1;
 
-    // Discard played cards (ensure discardWhite exists)
+    // Discard played white cards (ensure discardWhite exists)
     state.discardWhite = state.discardWhite || [];
     Object.values(state.submissions)
       .flat()
       .forEach((id) => state.discardWhite.push(id));
+
+    // Discard the black card (ensure discardBlack exists)
+    state.discardBlack = state.discardBlack || [];
+    if (state.blackCard?.id) {
+      state.discardBlack.push(state.blackCard.id);
+    }
 
     // Clear submissions for the round
     state.submissions = {};
@@ -78,7 +101,8 @@ export default async function ({ req, res, log, error }) {
 
     // Check win condition
     const maxScore = Math.max(...Object.values(state.scores));
-    if (maxScore >= (lobby.winScore || 10)) { // Use configurable win score or default to 10
+    if (maxScore >= (lobby.winScore || 10)) {
+      // Use configurable win score or default to 10
       state.phase = 'complete';
       state.roundWinner = winnerId; // Store final winner
       state.roundEndStartTime = null; // No countdown needed for game end
@@ -88,13 +112,44 @@ export default async function ({ req, res, log, error }) {
       state.phase = 'roundEnd';
       state.roundWinner = winnerId; // Store round winner
       state.roundEndStartTime = Date.now(); // Record start time for countdown
-      log(`Round ${state.round} ended. Winner: ${winnerId}. Starting countdown.`);
+      log(
+        `Round ${state.round} ended. Winner: ${winnerId}. Starting countdown.`
+      );
       // NOTE: Next round setup (judge rotation, card dealing) is moved to startNextRound function
     }
 
-    await databases.updateDocument(DB, process.env.LOBBY_COLLECTION, lobbyId, {
+    // Extract updated discard piles for gameCards document
+    // Only include the fields we need, excluding metadata fields like $databaseId
+    const updatedGameCards = {
+      lobbyId: gameCards.lobbyId,
+      whiteDeck: gameCards.whiteDeck,
+      blackDeck: gameCards.blackDeck,
+      discardWhite: state.discardWhite,
+      discardBlack: state.discardBlack,
+      playerHands: gameCards.playerHands
+    };
+
+    // Create a clean state object without card data
+    const coreState = {
+        phase: state.phase,
+        judgeId: state.judgeId,
+        blackCard: state.blackCard,
+        submissions: state.submissions || {},
+        playedCards: state.playedCards || {},
+        scores: state.scores || {},
+        round: state.round,
+        roundWinner: state.roundWinner,
+        roundEndStartTime: state.roundEndStartTime,
+        returnedToLobby: state.returnedToLobby,
+        gameEndTime: state.gameEndTime
+    };
+
+    // Update both documents
+    await databases.updateDocument(DB, GAMECARDS_COLLECTION, gameCards.$id, updatedGameCards);
+
+    await databases.updateDocument(DB, LOBBY_COLLECTION, lobbyId, {
       status: state.phase === 'complete' ? 'complete' : 'playing', // Keep 'playing' during 'roundEnd'
-      gameState: encodeGameState(state),
+      gameState: encodeGameState(coreState),
     });
 
     return res.json({ success: true, phase: state.phase });

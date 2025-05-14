@@ -1,8 +1,34 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-.bebas-neue-regular {
-  font-family: "Bebas Neue", sans-serif;
-  font-weight: 400;
-  font-style: normal;
+@layer utilities {
+    .cursor-pointer {
+        cursor: url('/img/cursor/pointer.cur'), pointer !important;
+    }
+    .cursor-default {
+        cursor: url('/img/cursor/default.cur'), default !important;
+    }
+}
+@layer base {
+    html, body, * {
+        cursor: url("/img/cursor/default.cur"), default;
+    }
+
+    /* Apply custom pointer cursor to interactive elements AND all their children */
+    button, button *,
+    a[href], a[href] *,
+    [role="button"], [role="button"] *,
+    input[type="button"], input[type="button"] *,
+    input[type="submit"], input[type="submit"] *,
+    summary, summary *,
+    select, select *,
+    label, label *,
+    .nuxt-link, .nuxt-link *,
+    [tabindex]:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"]) *,
+    [class^="U"], [class^="U"] *,
+    [class*="UButton"], [class*="UButton"] *,
+    .ui, .ui *,
+    [data-headlessui-state], [data-headlessui-state] * {
+        cursor: url("/img/cursor/pointer.cur"), pointer !important;
+    }
 }

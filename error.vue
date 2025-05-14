@@ -1,11 +1,29 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
+import { watch } from 'vue';
 
 const props = defineProps({
 	error: Object as () => NuxtError
-})
+});
 
-const handleError = () => clearError({ redirect: '/' })
+const title = ref(`WHOA ERROR`);
+
+watch(() => props.error?.statusCode, (newStatusCode) => {
+	if (newStatusCode) {
+		title.value = `WHOA ERROR ${newStatusCode}`;
+	} else {
+		title.value = `WHOA ERROR`;
+	}
+}, { immediate: true });
+
+useHead(() => ({
+	title: title.value,
+	meta: [
+		{ property: 'og:title', content: title.value },
+	],
+}));
+
+const handleError = () => clearError({ redirect: '/' });
 </script>
 
 <template class="subpixel-antialiased">

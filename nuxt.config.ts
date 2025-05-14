@@ -1,16 +1,12 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-// noinspection JSUnusedGlobalSymbols
+
+import { readFileSync } from 'fs'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
-  devtools: { enabled: false },
-  vite: {
-    server: {
-      hmr: {
-        host: 'ufp.ppo.gg'
-      }
-    }
-  },
+  devtools: { enabled: true },
   ssr: true,
   plugins: [
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
@@ -22,7 +18,13 @@ export default defineNuxtConfig({
     { path: '~/components/', prefix: '' },
   ],
   runtimeConfig: {
+    appwriteEndpoint: process.env.APPWRITE_ENDPOINT,
+    appwriteProjectId: process.env.APPWRITE_PROJECT_ID,
     appwriteApiKey: process.env.APPWRITE_API_KEY,
+    appwriteDbId: process.env.APPWRITE_DB_ID,
+    appwriteLobbyCollectionId: process.env.APPWRITE_LOBBY_COLLECTION_ID,
+    appwriteGamecardsCollectionId: process.env.APPWRITE_GAMECARDS_COLLECTION_ID,
+
     public: {
       appwriteUrl: process.env.NUXT_PUBLIC_APPWRITE_URL,
       appwriteProjectId: process.env.NUXT_PUBLIC_APPWRITE_PROJECT_ID,
@@ -31,9 +33,14 @@ export default defineNuxtConfig({
       appwriteBlackCardCollectionId: process.env.NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID,
       appwriteLobbyCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_LOBBY_COLLECTION_ID}`,
       appwritePlayerCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID}`,
+      appwriteGamecardsCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID}`,
+      appwriteGamechatCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMECHAT_COLLECTION_ID}`,
+      appwriteGameSettingsCollectionId: `${process.env.NUXT_PUBLIC_APPWRITE_GAMESETTINGS_COLLECTION_ID}`,
+      appwriteAdminTeamId: `${process.env.NUXT_PUBLIC_APPWRITE_ADMIN_TEAM_ID}`,
       baseUrl: process.env.NUXT_PUBLIC_BASE_URL,
       oAuthRedirectUrl: process.env.NUXT_PUBLIC_OAUTH_REDIRECT_URL,
       oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,
+      appVersion: pkg.version,
     },
   },
   css: ["~/assets/css/main.css"],
@@ -44,6 +51,8 @@ export default defineNuxtConfig({
     "@vueuse/sound/nuxt",
     "@vueuse/nuxt",
     "@nuxt/ui",
+    'pinia-plugin-persistedstate/nuxt',
+    "nuxt-og-image",
   ],
   sound: {
     sounds: {

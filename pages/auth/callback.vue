@@ -19,12 +19,12 @@ onMounted(async () => {
     } else {
       console.warn('Session fetch completed but user not logged in')
       notify({ title: "Login failed", color: "error" })
-      await router.push('/login?error=not_authenticated')
+      await router.push('/?error=not_authenticated')
     }
   } catch (error) {
     console.error('Auth callback error:', error)
     notify({ title: "Login failed", color: "error" })
-    await router.push('/login?error=auth_failed')
+    await router.push('/?error=auth_failed')
   }
 })
 </script>

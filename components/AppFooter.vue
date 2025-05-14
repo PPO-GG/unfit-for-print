@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useUiStore } from '~/stores/uiStore';
 const uiStore = useUiStore();
+const config = useRuntimeConfig();
 </script>
 
 <template>
@@ -12,11 +13,12 @@ const uiStore = useUiStore();
 			</div>
 
 			<div class="flex-1 flex justify-center">
-				<p class="text-sm">Made with ❤️ by MYND @ <NuxtLink to="https://ppo.gg" target="_blank">PPO.GG</NuxtLink></p>
+				<p class="text-sm">Made with ❤️ by MYND @ <NuxtLink to="https://ppo.gg" target="_blank" class="cursor-pointer">PPO.GG</NuxtLink></p>
+				<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="text-sm text-gray-400 ml-4 cursor-pointer">V-{{ $config.public.appVersion }}</NuxtLink>
 			</div>
 
 			<div class="flex-1 flex justify-end">
-				<UTooltip arrow text="Privacy Policy">
+				<UTooltip arrow text="Privacy Policy" class=" cursor-pointer">
 					<!-- Call the store action on click -->
 					<UButton @click="uiStore.togglePolicyModal(true)" icon="i-solar-shield-check-line-duotone" color="neutral" variant="ghost" size="xl" class="rounded-full"/>
 				</UTooltip>
