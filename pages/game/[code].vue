@@ -1125,6 +1125,7 @@ function copyLobbyLink() {
 				:lobby-id="lobby.$id"
 				:start-time="roundEndStartTime"
 				:winner-name="getPlayerName(roundWinner)"
+				:document-id="gameSettings?.$id || `settings-${lobby.$id}`"
 		/>
 
 		<!-- Catch-all fallback -->

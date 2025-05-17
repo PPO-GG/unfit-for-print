@@ -9,6 +9,7 @@ const props = defineProps<{
 	countdownDuration: number;
 	startTime: number | null;
 	isHost: boolean;
+	documentId?: string;
 }>();
 
 const { startNextRound } = useGameActions();
@@ -47,7 +48,7 @@ const updateTimer = () => {
 		hasTriggeredNextRound.value = true;
 
 		setTimeout(() => {
-			startNextRound(props.lobbyId).catch((err: unknown) => {
+			startNextRound(props.lobbyId, props.documentId).catch((err: unknown) => {
 				console.error("Failed to trigger next round:", err);
 			});
 		}, 500);

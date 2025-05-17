@@ -15,7 +15,10 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "start": "node .output/server/index.mjs"
+    "start": "node .output/server/index.mjs",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
@@ -55,12 +58,13 @@
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },
-  "packageManager": "pnpm@10.10.0",
+  "packageManager": "pnpm@10.11.0",
   "devDependencies": {
     "@iconify-json/solar": "^1.2.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.2",
     "@semantic-release/gitlab": "^13.2.5",
     "@semantic-release/npm": "^12.0.1",
     "@types/lodash-es": "^4.17.12",

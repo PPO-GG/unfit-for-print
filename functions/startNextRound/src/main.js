@@ -31,18 +31,46 @@ const shuffle = (array) => {
 };
 
 // Helper to fetch all IDs from a collection
-async function fetchAllIds(collectionId, databases, DB) {
+async function fetchAllIds(collectionId, databases, DB, cardPacks = null) {
   const BATCH = 100;
+  let queries = [Query.limit(1)];
+
+  // Add filter for card packs if specified
+  if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
+    // Create an array of pack conditions
+    const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
+
+    // If we have multiple packs, use Query.or to combine them
+    if (packConditions.length > 1) {
+      queries.push(Query.or(packConditions));
+    } else if (packConditions.length === 1) {
+      // If we only have one pack, just add it directly
+      queries.push(packConditions[0]);
+    }
+  }
+
   // get total count
-  const { total } = await databases.listDocuments(DB, collectionId, [
-    Query.limit(1),
-  ]);
+  const { total } = await databases.listDocuments(DB, collectionId, queries);
   const ids = [];
+
   for (let offset = 0; offset < total; offset += BATCH) {
-    const res = await databases.listDocuments(DB, collectionId, [
-      Query.limit(BATCH),
-      Query.offset(offset),
-    ]);
+    let batchQueries = [Query.limit(BATCH), Query.offset(offset)];
+
+    // Add filter for card packs if specified
+    if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
+      // Create an array of pack conditions
+      const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
+
+      // If we have multiple packs, use Query.or to combine them
+      if (packConditions.length > 1) {
+        batchQueries.push(Query.or(packConditions));
+      } else if (packConditions.length === 1) {
+        // If we only have one pack, just add it directly
+        batchQueries.push(packConditions[0]);
+      }
+    }
+
+    const res = await databases.listDocuments(DB, collectionId, batchQueries);
     ids.push(...res.documents.map((d) => d.$id));
   }
   return ids;
@@ -59,6 +87,7 @@ export default async function ({ req, res, log, error }) {
   const WHITE_CARDS_COLLECTION = process.env.WHITE_CARDS_COLLECTION;
   const BLACK_CARDS_COLLECTION = process.env.BLACK_CARDS_COLLECTION;
   const GAMECARDS_COLLECTION = process.env.GAMECARDS_COLLECTION;
+  const GAMESETTINGS_COL = process.env.GAMESETTINGS_COLLECTION;
 
   try {
     const raw = req.body ?? req.payload ?? '';
@@ -77,8 +106,28 @@ export default async function ({ req, res, log, error }) {
       }
     }
 
-    const { lobbyId } = payload;
+    const { lobbyId, documentId } = payload;
     if (!lobbyId) throw new Error('lobbyId is required');
+
+    // --- Fetch Game Settings if documentId is provided ---
+    let settings = null;
+    if (documentId) {
+      if (!GAMESETTINGS_COL) {
+        throw new Error('Missing environment variable: GAMESETTINGS_COLLECTION');
+      }
+
+      log('Fetching settings from documentId:', documentId);
+      try {
+        settings = await databases.getDocument(
+          DB,
+          GAMESETTINGS_COL,
+          documentId
+        );
+      } catch (err) {
+        error('Failed to fetch settings by documentId:', err);
+        throw new Error('Could not load game settings from documentId');
+      }
+    }
 
     // --- Fetch Lobby and Decode State ---
     const lobby = await databases.getDocument(DB, LOBBY_COLLECTION, lobbyId);
@@ -163,8 +212,9 @@ export default async function ({ req, res, log, error }) {
 
         // Fetch all black card IDs from the database
         try {
-            // Get all black card IDs
-            const allBlackIds = await fetchAllIds(BLACK_CARDS_COLLECTION, databases, DB);
+            // Get all black card IDs, using card packs from config if available
+            log('Using card packs for black cards:', state.config?.cardPacks || 'default (all)');
+            const allBlackIds = await fetchAllIds(BLACK_CARDS_COLLECTION, databases, DB, state.config?.cardPacks);
 
             // Filter out cards that are in the discard pile or currently in the deck
             state.discardBlack = state.discardBlack || [];
@@ -234,14 +284,18 @@ export default async function ({ req, res, log, error }) {
 
 
     // Check and refill white deck if needed
-    const requiredWhiteCards = playerIds.length * 7; // Estimate needed for full hands
+    // Use numPlayerCards from settings if available, otherwise fall back to state.config or default to 7
+    const CARDS_PER_PLAYER = settings?.numPlayerCards || state.config?.cardsPerPlayer || 7;
+    log('Cards per player:', CARDS_PER_PLAYER);
+    const requiredWhiteCards = playerIds.length * CARDS_PER_PLAYER; // Estimate needed for full hands
     if (!state.whiteDeck || state.whiteDeck.length < requiredWhiteCards) {
         log(`White deck low (${state.whiteDeck?.length || 0} cards), fetching new cards from database.`);
 
         // Fetch all white card IDs from the database
         try {
-            // Get all white card IDs
-            const allWhiteIds = await fetchAllIds(WHITE_CARDS_COLLECTION, databases, DB);
+            // Get all white card IDs, using card packs from config if available
+            log('Using card packs for white cards:', state.config?.cardPacks || 'default (all)');
+            const allWhiteIds = await fetchAllIds(WHITE_CARDS_COLLECTION, databases, DB, state.config?.cardPacks);
 
             // Filter out cards that are in the discard pile or already in players' hands
             state.discardWhite = state.discardWhite || [];
@@ -290,11 +344,12 @@ export default async function ({ req, res, log, error }) {
     state.hands = state.hands || {};
     playerIds.forEach((pid) => {
         state.hands[pid] = state.hands[pid] || []; // Ensure hand array exists
-        const cardsNeeded = 7 - state.hands[pid].length;
+        // Use CARDS_PER_PLAYER from game settings to determine how many cards each player should have
+        const cardsNeeded = CARDS_PER_PLAYER - state.hands[pid].length;
         if (cardsNeeded > 0 && state.whiteDeck && state.whiteDeck.length > 0) {
             const cardsToDeal = state.whiteDeck.splice(0, Math.min(cardsNeeded, state.whiteDeck.length));
             state.hands[pid].push(...cardsToDeal);
-            // log(`Dealt ${cardsToDeal.length} cards to player ${pid}. Hand size: ${state.hands[pid].length}`);
+            log(`Dealt ${cardsToDeal.length} cards to player ${pid}. Hand size: ${state.hands[pid].length}/${CARDS_PER_PLAYER}`);
         } else if (cardsNeeded > 0) {
             log(`Could not deal ${cardsNeeded} cards to player ${pid}, deck empty.`);
         }
@@ -335,7 +390,15 @@ export default async function ({ req, res, log, error }) {
         roundWinner: state.roundWinner,
         roundEndStartTime: state.roundEndStartTime,
         returnedToLobby: state.returnedToLobby,
-        gameEndTime: state.gameEndTime
+        gameEndTime: state.gameEndTime,
+        // Preserve the config object to ensure game settings are maintained across rounds
+        config: state.config || {
+            maxPoints: 10,
+            cardsPerPlayer: CARDS_PER_PLAYER, // Use the CARDS_PER_PLAYER value
+            cardPacks: [],
+            isPrivate: false,
+            lobbyName: 'Unnamed Game'
+        }
     };
 
     // --- Update both documents ---
