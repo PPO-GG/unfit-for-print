@@ -3,9 +3,12 @@
   <source media="(prefers-color-scheme: light)" srcset="https://unfit.cards/img/unfit_logo_dark.png">
   <img alt="UNFIT FOR PRINT Logo" src="https://unfit.cards/img/unfit_logo.png">
 </picture>
-[![Pipeline Status](https://git.ppo.gg/unfit-for-print/cards-against-dev/badges/main/pipeline.svg)](https://git.ppo.gg/unfit-for-print/cards-against-dev/pipelines)
-[![Coverage](https://git.ppo.gg/unfit-for-print/cards-against-dev/badges/main/coverage.svg)](https://git.ppo.gg/unfit-for-print/cards-against-dev/pipelines)
-[![License: CC BY-NC-SA 2.0](https://img.shields.io/badge/License-CC--BY--NC--SA%202.0-lightgrey.svg)](./LICENSE)
+
+![Appwrite](https://img.shields.io/badge/Appwrite-%23FD366E.svg?style=flat&logo=appwrite&logoColor=white)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/MyndPhreak/unfit-for-print/release.yml)
+![GitHub License](https://img.shields.io/github/license/MyndPhreak/unfit-for-print)
+![GitHub package.json version (branch)](https://img.shields.io/github/package-json/v/MyndPhreak/unfit-for-print/main)
+
 # UNFIT FOR PRINT
 
 ## About the Game
