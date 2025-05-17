@@ -1,4 +1,5 @@
 name: Release
+
 on:
   push:
     branches:
@@ -6,12 +7,15 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -22,7 +26,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Release
+      - name: Set GitHub remote to use GH_TOKEN
+        run: git remote set-url origin https://${GH_TOKEN}@github.com/MyndPhreak/unfit-for-print.git
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Run semantic-release
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: npx semantic-release
