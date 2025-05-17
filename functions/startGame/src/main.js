@@ -17,7 +17,16 @@ async function fetchAllIds(collectionId, databases, DB, cardPacks = null) {
 
   // Add filter for card packs if specified
   if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
-    queries.push(Query.any('pack', cardPacks));
+    // Create an array of pack conditions
+    const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
+
+    // If we have multiple packs, use Query.or to combine them
+    if (packConditions.length > 1) {
+      queries.push(Query.or(packConditions));
+    } else if (packConditions.length === 1) {
+      // If we only have one pack, just add it directly
+      queries.push(packConditions[0]);
+    }
   }
 
   // get total count
@@ -29,7 +38,16 @@ async function fetchAllIds(collectionId, databases, DB, cardPacks = null) {
 
     // Add filter for card packs if specified
     if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
-      batchQueries.push(Query.any('pack', cardPacks));
+      // Create an array of pack conditions
+      const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
+
+      // If we have multiple packs, use Query.or to combine them
+      if (packConditions.length > 1) {
+        batchQueries.push(Query.or(packConditions));
+      } else if (packConditions.length === 1) {
+        // If we only have one pack, just add it directly
+        batchQueries.push(packConditions[0]);
+      }
     }
 
     const res = await databases.listDocuments(DB, collectionId, batchQueries);

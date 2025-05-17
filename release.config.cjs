@@ -11,6 +11,6 @@ module.exports = {
             }
         ],
         '@semantic-release/git',
-        '@semantic-release/gitlab'
+        '@semantic-release/github'
     ]
 }

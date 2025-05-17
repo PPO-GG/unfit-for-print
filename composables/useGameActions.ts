@@ -55,12 +55,12 @@ export function useGameActions() {
         }
     }
 
-    const startNextRound = async (lobbyId: string) => {
-        console.log('Calling startNextRound with lobbyId:', lobbyId)
+    const startNextRound = async (lobbyId: string, documentId?: string) => {
+        console.log('Calling startNextRound with lobbyId:', lobbyId, 'documentId:', documentId)
 
         try {
             // Convert payload to a JSON string
-            const result = await functions.createExecution(FUNCTIONS.START_NEXT_ROUND, JSON.stringify({ lobbyId }))
+            const result = await functions.createExecution(FUNCTIONS.START_NEXT_ROUND, JSON.stringify({ lobbyId, documentId }))
             console.log('startNextRound result:', result)
             return result
         } catch (error) {

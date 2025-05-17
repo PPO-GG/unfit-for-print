@@ -1,4 +1,5 @@
 // utils/appwrite.ts
+import { useAppwrite } from '~/composables/useAppwrite'
 export const getAppwrite = () => {
     if (import.meta.server) throw new Error("getAppwrite() cannot be used during SSR");
 

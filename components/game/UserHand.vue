@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import { ref, computed } from 'vue'
+import { useSfx } from '@/composables/useSfx'
+
 const props = defineProps<{
 	cards: string[]
 	disabled?: boolean

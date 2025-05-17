@@ -335,34 +335,41 @@ watch(() => state.value?.roundWinner, (newWinner) => {
 		localRoundWinner.value = null
 	}
 	if (newWinner) {
-		winnerSelected.value = true
+		// First show the winning card and submitter name to all players
+		// Play sound effect for all players
+		playSfx('/sounds/sfx/selectWinner.wav', {pitch: [0.95, 1.05], volume: 0.75})
 
-		// Show notification to the winner
-		if (newWinner === myId) {
-			notify({
-				title: '🏆 You Won This Round!',
-				description: 'You get a point!',
-				color: 'success',
-				icon: 'i-mdi-trophy',
-				duration: 5000
-			})
-		}
+		// After a short delay, show the winner screen
+		setTimeout(() => {
+			winnerSelected.value = true
 
-		// Start countdown to next round for all players
-		if (countdownInterval.value) {
-			clearInterval(countdownInterval.value)
-		}
-
-		countdownTimer.value = 10
-		countdownInterval.value = setInterval(() => {
-			countdownTimer.value--
-			if (countdownTimer.value <= 0) {
-				clearInterval(countdownInterval.value as NodeJS.Timeout)
-				// Reset for next round
-				winnerSelected.value = false
-				countdownTimer.value = 10
+			// Show notification to the winner
+			if (newWinner === myId) {
+				notify({
+					title: '🏆 You Won This Round!',
+					description: 'You get a point!',
+					color: 'success',
+					icon: 'i-mdi-trophy',
+					duration: 5000
+				})
 			}
-		}, 1000)
+
+			// Start countdown to next round for all players
+			if (countdownInterval.value) {
+				clearInterval(countdownInterval.value)
+			}
+
+			countdownTimer.value = 10
+			countdownInterval.value = setInterval(() => {
+				countdownTimer.value--
+				if (countdownTimer.value <= 0) {
+					clearInterval(countdownInterval.value as NodeJS.Timeout)
+					// Reset for next round
+					winnerSelected.value = false
+					countdownTimer.value = 10
+				}
+			}, 1000)
+		}, 3000) // 3 second delay to show the winning card animation
 	}
 })
 
@@ -378,15 +385,14 @@ function handleSelectWinner(playerId: string) {
 	// First mark the winner locally to show the animation
 	localRoundWinner.value = playerId
 
-	// Play sound effect
-	playSfx('/sounds/sfx/selectWinner.wav', {pitch: [0.95, 1.05], volume: 0.75}).then(() => {
-		// Wait 3 seconds to allow the green outline animation to play
-		setTimeout(() => {
-			// Then update the database and show the winner screen
-			selectWinner(props.lobby.$id, playerId)
-			winnerSelected.value = true
-		}, 3000)
-	})
+	// Update the database immediately so all players see the winning card
+	// This will trigger the watch function for state.value?.roundWinner for all players
+	selectWinner(props.lobby.$id, playerId)
+
+	// Play sound effect for the judge only (other players will hear it from the watch function)
+	playSfx('/sounds/sfx/selectWinner.wav', {pitch: [0.95, 1.05], volume: 0.75})
+
+	// The watch function will handle showing the winner screen after a delay
 }
 
 // Clean up interval and subscriptions when component is unmounted
@@ -646,7 +652,8 @@ function handleLeave() {
 									<div
 											v-for="sub in otherSubmissions"
 											:key="sub.playerId"
-											:class="{'border-2 border-green-500': effectiveRoundWinner.value === sub.playerId}"
+											v-show="!effectiveRoundWinner || effectiveRoundWinner === sub.playerId"
+											:class="{'border-2 border-green-500': effectiveRoundWinner === sub.playerId}"
 											class="inset-shadow-sm inset-shadow-slate-900 flex flex-col items-center outline-2 outline-slate-400/15 rounded-3xl bg-slate-700/50 p-6"
 									>
 										<div class="inline-flex items-center justify-center gap-2 mb-4">
@@ -654,7 +661,7 @@ function handleLeave() {
 													v-for="cardId in sub.cards"
 													:key="cardId"
 													:cardId="cardId"
-													:is-winner="effectiveRoundWinner.value === sub.playerId"
+													:is-winner="effectiveRoundWinner === sub.playerId"
 													:flipped="false"
 											/>
 										</div>
@@ -669,7 +676,7 @@ function handleLeave() {
 											<span
 													class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">Select Winner</span>
 										</UButton>
-										<p v-else-if="effectiveRoundWinner.value === sub.playerId" class="text-green-400 font-bold mt-2">
+										<p v-else-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
 											🏆 WINNER! 🏆
 										</p>
 									</div>
@@ -683,7 +690,8 @@ function handleLeave() {
 										<div 
 											v-for="sub in otherSubmissions" 
 											:key="sub.playerId"
-											:class="{'border-2 border-green-500': effectiveRoundWinner.value === sub.playerId}"
+											v-show="!effectiveRoundWinner || effectiveRoundWinner === sub.playerId"
+											:class="{'border-2 border-green-500': effectiveRoundWinner === sub.playerId}"
 											class="inset-shadow-sm inset-shadow-slate-900 flex flex-col items-center outline-2 outline-slate-400/15 rounded-3xl bg-slate-700/50 p-6"
 										>
 											<div class="inline-flex items-center justify-center gap-2 mb-4">
@@ -691,7 +699,7 @@ function handleLeave() {
 													v-for="cardId in sub.cards"
 													:key="cardId"
 													:cardId="cardId"
-													:is-winner="effectiveRoundWinner.value === sub.playerId"
+													:is-winner="effectiveRoundWinner === sub.playerId"
 													:flipped="false"
 												/>
 											</div>
@@ -709,7 +717,7 @@ function handleLeave() {
 												</span>
 											</UButton>
 
-											<p v-else-if="effectiveRoundWinner.value === sub.playerId" class="text-green-400 font-bold mt-2">
+											<p v-else-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
 												🏆 WINNER! 🏆
 											</p>
 										</div>
@@ -721,8 +729,8 @@ function handleLeave() {
 
 					<!-- Other players view -->
 					<div v-else class="flex justify-center space-x-8">
-						<!-- Current player's submission (always visible) -->
-						<div v-if="submissions[myId]" class="">
+						<!-- Current player's submission (visible unless another player won) -->
+						<div v-if="submissions[myId] && (!effectiveRoundWinner || effectiveRoundWinner === myId)" class="">
 							<div class=" outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-6">
 								<p class="font-medium text-white mb-2 text-lg">
 									<span class="text-success-400 font-['Bebas_Neue'] text-2xl">Your Submission</span>
@@ -732,11 +740,11 @@ function handleLeave() {
 											v-for="cardId in submissions[myId]"
 											:key="cardId"
 											:cardId="cardId"
-											:is-winner="effectiveRoundWinner.value === myId"
+											:is-winner="effectiveRoundWinner === myId"
 											:flipped="false"
 									/>
 								</div>
-								<p v-if="effectiveRoundWinner.value === myId" class="text-green-400 font-bold mt-2">
+								<p v-if="effectiveRoundWinner === myId" class="text-green-400 font-bold mt-2">
 									🏆 YOU WON! 🏆
 								</p>
 							</div>
@@ -746,12 +754,12 @@ function handleLeave() {
 						<div v-if="shuffledSubmissions.length > 0" class="flex flex-wrap justify-center gap-8">
 							<div
 									v-for="(sub) in shuffledSubmissions"
-									v-show="sub.playerId !== myId"
+									v-show="sub.playerId !== myId && (!effectiveRoundWinner || effectiveRoundWinner === sub.playerId)"
 									:key="sub.playerId"
-									:class="{'border-2 border-green-500': effectiveRoundWinner.value === sub.playerId}"
+									:class="{'border-2 border-green-500': effectiveRoundWinner === sub.playerId}"
 									class=" outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-6"
 							>
-								<p v-if="winnerSelected" class="font-medium text-amber-300 mb-2 font-['Bebas_Neue'] text-2xl">
+								<p v-if="effectiveRoundWinner === sub.playerId" class="font-medium text-amber-300 mb-2 font-['Bebas_Neue'] text-2xl">
 									<span class="text-amber-400 ">Submitted by </span>{{ getPlayerName(sub.playerId) }}
 								</p>
 								<p v-else class="font-medium text-white mb-2 text-lg">
@@ -762,11 +770,11 @@ function handleLeave() {
 												v-for="cardId in sub.cards"
 												:key="cardId"
 												:cardId="cardId"
-												:is-winner="effectiveRoundWinner.value === sub.playerId"
+												:is-winner="effectiveRoundWinner === sub.playerId"
 												:flipped="false"
 										/>
 								</div>
-								<p v-if="effectiveRoundWinner.value === sub.playerId" class="text-green-400 font-bold mt-2">
+								<p v-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
 									🏆 WINNER! 🏆
 								</p>
 							</div>
