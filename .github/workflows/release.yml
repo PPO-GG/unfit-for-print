@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [ppogg, self-hosted, linux, x64]
 
     steps:
       - name: Checkout code
@@ -27,7 +27,7 @@ jobs:
         run: pnpm install
 
       - name: Set GitHub remote to use GH_TOKEN
-        run: git remote set-url origin https://${GH_TOKEN}@github.com/MyndPhreak/unfit-for-print.git
+        run: git remote set-url origin https://${GH_TOKEN}@github.com/PPO-GG/unfit-for-print.git
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 

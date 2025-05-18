@@ -5,7 +5,7 @@
   "author": "Dylan Roberson <mynd@ppo.gg>",
   "homepage": "https://unfit.cards",
   "bugs": {
-    "url": "https://git.ppo.gg/MYND/unfit-for-print/issues"
+    "url": "https://github.com/PPO-GG/unfit-for-print/issues"
   },
   "private": true,
   "type": "module",
