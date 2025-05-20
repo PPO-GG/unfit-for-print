@@ -461,6 +461,24 @@ export const useLobby = () => {
                     await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteGameSettingsCollectionId, setting.$id);
                 }
 
+                // Delete the RocketChat room associated with this lobby
+                try {
+                    const roomName = `lobby-${lobbyId}`;
+                    console.log('Deleting RocketChat room:', roomName);
+
+                    await $fetch('/api/chat/delete-room', {
+                        method: 'POST',
+                        body: {
+                            roomName: roomName,
+                        },
+                    });
+
+                    console.log('RocketChat room deleted successfully');
+                } catch (error) {
+                    console.error('Error deleting RocketChat room:', error);
+                    // Continue with lobby deletion even if room deletion fails
+                }
+
                 await databases.deleteDocument(config.public.appwriteDatabaseId, config.public.appwriteLobbyCollectionId, lobbyId);
                 return;
             }

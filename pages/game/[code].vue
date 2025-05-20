@@ -363,20 +363,62 @@ const setupRealtime = async (lobbyData: Lobby) => {
 
  // Function to send system messages to chat
 	const sendSystemMessage = async (message: string) => {
-		const config = useRuntimeConfig();
-		const dbId = config.public.appwriteDatabaseId;
-		const messagesCollectionId = config.public.appwriteGamechatCollectionId;
-
 		try {
-			await databases.createDocument(dbId, messagesCollectionId, ID.unique(), {
-				lobbyId: lobbyId,
-				senderId: 'system',
-				senderName: 'System',
-				text: [message],
-				timestamp: new Date().toISOString()
-			}, [Permission.read(Role.any())]);
+			// Get the room name for this lobby
+			const roomName = `lobby-${lobbyId}`;
+			console.log('Sending system message to room:', roomName);
+
+			// First, get the room ID
+			let roomId;
+			try {
+				const roomData = await $fetch(`/api/chat/room-info`, {
+					params: {
+						roomName,
+					},
+				});
+
+				roomId = roomData?.group?._id;
+				console.log('Room info retrieved:', roomData);
+			} catch (roomInfoError) {
+				console.error('Error getting room info:', roomInfoError);
+				// Continue to room creation
+			}
+
+			// If room doesn't exist or we couldn't get info, create it
+			if (!roomId) {
+				console.log('Room not found, creating it');
+				try {
+					const createData = await $fetch(`/api/chat/create-room`, {
+						method: 'POST',
+						body: {
+							name: roomName,
+						},
+					});
+
+					roomId = createData?.group?._id;
+					console.log('Room created successfully:', createData);
+				} catch (createError) {
+					console.error('Error creating room:', createError);
+					return; // Exit if we can't create the room
+				}
+			}
+
+			// Send the system message
+			if (roomId) {
+				console.log('Sending system message to room ID:', roomId);
+				await $fetch(`/api/chat/post-message`, {
+					method: 'POST',
+					body: {
+						roomId: roomId,
+						text: `[System]: ${message}`,
+					},
+				});
+				console.log('System message sent successfully');
+			} else {
+				console.error('Failed to get or create room, cannot send system message');
+			}
 		} catch (error) {
-			console.error('Error sending system message:', error);
+			console.error('Error in sendSystemMessage:', error);
 		}
 	};
 
@@ -869,7 +911,7 @@ function copyLobbyLink() {
 						:scores="state?.scores"
 						@convert-spectator="convertToParticipant"
 				/>
-        <ChatBox
+        <RocketChat
 						v-if="lobby && lobby.$id"
 						:current-user-id="myId"
 						:lobbyId="lobby.$id"
@@ -974,7 +1016,7 @@ function copyLobbyLink() {
 							@convert-spectator="convertToParticipant"
 						/>
 
-						<ChatBox
+						<RocketChat
 							v-if="lobby && lobby.$id"
 							:current-user-id="myId"
 							:lobbyId="lobby.$id"

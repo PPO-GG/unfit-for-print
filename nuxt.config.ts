@@ -29,6 +29,8 @@ export default defineNuxtConfig({
     appwriteDbId: process.env.APPWRITE_DB_ID,
     appwriteLobbyCollectionId: process.env.APPWRITE_LOBBY_COLLECTION_ID,
     appwriteGamecardsCollectionId: process.env.APPWRITE_GAMECARDS_COLLECTION_ID,
+    rocketchatBotToken: process.env.ROCKETCHAT_BOT_TOKEN,
+    rocketchatBotUserId: process.env.ROCKETCHAT_BOT_USER_ID,
 
     public: {
       appwriteUrl: process.env.NUXT_PUBLIC_APPWRITE_URL,

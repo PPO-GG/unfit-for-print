@@ -33,7 +33,7 @@
 					:lobbyId="lobby.$id"
 					:players="players"
 			/>
-			<ChatBox
+			<RocketChat
 					:current-user-id="myId"
 					:lobbyId="props.lobby.$id"
 			/>
