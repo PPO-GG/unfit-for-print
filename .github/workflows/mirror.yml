@@ -19,5 +19,5 @@ jobs:
         run: |
           git config --global user.email "myndphreak1@gmail.com"
           git config --global user.name "Dylan Roberson"
-          git remote add personal https://${GH_PAT}@github.com/MyndPhreak/unfit-for-print.git
+          git remote add personal https://x-access-token:${GH_PAT}@github.com/MyndPhreak/unfit-for-print.git
           git push personal main --force
