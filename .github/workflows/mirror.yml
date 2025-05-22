@@ -1,4 +1,3 @@
-# .github/workflows/mirror.yml
 name: Mirror to Personal GitHub
 
 on:
@@ -9,15 +8,16 @@ on:
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    env:
-      GH_PAT: ${{ secrets.GH_PAT }}
+
     steps:
-      - name: Clone source repo
+      - name: Checkout source repo
         uses: actions/checkout@v3
 
       - name: Push to personal GitHub
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           git config --global user.email "myndphreak1@gmail.com"
           git config --global user.name "Dylan Roberson"
-          git remote add personal https://x-access-token:${GH_PAT}@github.com/MyndPhreak/unfit-for-print.git
+          git remote add personal https://x-access-token:$GH_PAT@github.com/MyndPhreak/unfit-for-print.git
           git push personal main --force
