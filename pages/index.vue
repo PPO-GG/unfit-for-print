@@ -127,11 +127,11 @@ const fetchNewCards = async () => {
 	  vibrate()
     // Use default card pack for random cards
     const defaultCardPacks = ['CAH Base Set', 'CAH: Blue Box Expansion'];
-    fetchRandomWhiteCard(defaultCardPacks).then((card: any) => {
+    fetchRandomWhiteCard().then((card: any) => {
       whiteCard.value = card;
 	    whiteCardFlipped.value = false;
     });
-   fetchRandomBlackCard(1, defaultCardPacks).then((card: any) => {
+   fetchRandomBlackCard(1).then((card: any) => {
       blackCard.value = card;
       randomCard.value = card; // Store the card in randomCard.value as well
 	    blackCardFlipped.value = false;
