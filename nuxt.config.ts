@@ -1,5 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-
+import { visualizer } from 'rollup-plugin-visualizer'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'))
@@ -9,6 +9,23 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: true,
   vite: {
+    build: {
+      sourcemap: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('mespeak')) return 'vendor-mespeak'
+              if (id.includes('appwrite')) return 'vendor-appwrite'
+              return 'vendor'
+            }
+          }
+        },
+        plugins: [
+          visualizer({ open: true, filename: 'dist/stats.html' })
+        ]
+      }
+    },
     define: {
       __VERSION__: JSON.stringify(pkg.version),
     },

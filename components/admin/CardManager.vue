@@ -22,12 +22,14 @@ const pageSize = ref(10)
 const showEditModal = ref(false)
 const editingCard = ref<any>(null)
 const newCardText = ref('')
+const editingCardPicks = ref(1)
 
 // Add single card feature
 const showAddCardModal = ref(false)
 const newSingleCardText = ref('')
 const newSingleCardPack = ref('')
 const newSingleCardType = ref<'white' | 'black'>('white')
+const newSingleCardPicks = ref(1)
 
 // Similar cards feature
 const showSimilarCardsModal = ref(false)
@@ -350,6 +352,12 @@ const deleteCard = async (card: any) => {
 const openEditModal = (card: any) => {
 	editingCard.value = card
 	newCardText.value = card.text
+	// Set picks value if it's a black card
+	if (cardType.value === 'black' && card.pick) {
+		editingCardPicks.value = card.pick
+	} else {
+		editingCardPicks.value = 1 // Default value
+	}
 	showEditModal.value = true
 }
 
@@ -359,19 +367,33 @@ const saveCardEdit = async () => {
 	}
 
 	try {
-		const updated = await databases.updateDocument(DB_ID, CARD_COLLECTION.value, editingCard.value.$id, {
+		// Create update data object
+		const updateData = {
 			text: newCardText.value.trim()
-		})
+		}
+
+		// Add pick property for black cards
+		if (cardType.value === 'black') {
+			// @ts-ignore - Adding pick property dynamically
+			updateData.pick = parseInt(editingCardPicks.value.toString()) || 1
+		}
+
+		const updated = await databases.updateDocument(DB_ID, CARD_COLLECTION.value, editingCard.value.$id, updateData)
 
 		// Update in local list
 		const index = cards.value.findIndex(c => c.$id === updated.$id)
 		if (index !== -1) {
 			cards.value[index].text = updated.text
+			// Update pick value for black cards
+			if (cardType.value === 'black' && updated.pick) {
+				cards.value[index].pick = updated.pick
+			}
 		}
 
 		showEditModal.value = false
 		editingCard.value = null
 		newCardText.value = ''
+		editingCardPicks.value = 1 // Reset to default
 
 		notify({
 			title: 'Card Updated',
@@ -400,12 +422,21 @@ const addSingleCard = async () => {
 		// Get the collection ID based on the selected card type
 		const collectionId = CARD_COLLECTIONS[newSingleCardType.value]
 
-		// Create the new card document
-		const newCard = await databases.createDocument(DB_ID, collectionId, 'unique()', {
+		// Create card data object
+		const cardData = {
 			text: newSingleCardText.value.trim(),
 			pack: newSingleCardPack.value,
 			active: true // Default to active
-		})
+		}
+
+		// Add pick property for black cards
+		if (newSingleCardType.value === 'black') {
+			// @ts-ignore - Adding pick property dynamically
+			cardData.pick = parseInt(newSingleCardPicks.value.toString()) || 1
+		}
+
+		// Create the new card document
+		const newCard = await databases.createDocument(DB_ID, collectionId, 'unique()', cardData)
 
 		// Add to local list if the current view includes this pack and type
 		if ((cardType.value === newSingleCardType.value) && 
@@ -419,6 +450,7 @@ const addSingleCard = async () => {
 		newSingleCardText.value = ''
 		newSingleCardPack.value = ''
 		newSingleCardType.value = 'white' // Reset to default
+		newSingleCardPicks.value = 1 // Reset to default
 
 		notify({
 			title: 'Card Added',
@@ -778,7 +810,28 @@ watch(() => uploadState.file, (newFile) => {
 })
 
 
-const uploadJsonFile = async () => {
+// Additional reactive state for detailed progress
+const seedingStats = ref({
+	totalCards: 0,
+	totalPacks: 0,
+	whiteCardCount: 0,
+	blackCardCount: 0,
+	insertedCards: 0,
+	skippedDuplicates: 0,
+	skippedSimilar: 0,
+	failedCards: 0,
+	currentPack: '',
+	currentCardType: '',
+	position: null,
+	warnings: [] as string[],
+	errors: [] as string[]
+})
+
+// For resuming from failures
+const resumePosition = ref(null)
+const showResumePrompt = ref(false)
+
+const uploadJsonFile = async (resumeFromPosition = null) => {
 	if (!uploadState.file || !uploadState.fileContent) {
 		notify({
 			title: 'Upload Error',
@@ -792,76 +845,177 @@ const uploadJsonFile = async () => {
 	showProgress.value = true
 	uploadProgress.value = 0
 
-	// Start progress simulation
-	const totalCards = previewStats.value.whiteCards + previewStats.value.blackCards
-	const simulateProgress = () => {
-		// Simulate progress based on the number of cards
-		// This is just an estimation since we can't get real-time progress from the server
-		const interval = setInterval(() => {
-			if (uploadProgress.value < 0.95) {
-				// Gradually increase progress, slowing down as we approach 95%
-				const increment = (1 - uploadProgress.value) * 0.05
-				uploadProgress.value = Math.min(0.95, uploadProgress.value + increment)
-			} else if (!uploading.value) {
-				// If upload is complete, set to 100%
-				uploadProgress.value = 1
-				clearInterval(interval)
-			}
-		}, 200)
-		return interval
+	// Reset stats
+	seedingStats.value = {
+		totalCards: 0,
+		totalPacks: 0,
+		whiteCardCount: 0,
+		blackCardCount: 0,
+		insertedCards: 0,
+		skippedDuplicates: 0,
+		skippedSimilar: 0,
+		skippedLongText: 0, // Add counter for cards skipped due to text > 255 chars
+		failedCards: 0,
+		currentPack: '',
+		currentCardType: '',
+		position: null,
+		warnings: [],
+		errors: []
 	}
 
-	const progressInterval = simulateProgress()
-
+	// First send the data via POST request
 	try {
-		// Send the file content as JSON
-		const res = await fetch('/api/dev/seed', {
+		const payload = { 
+			file: uploadState.fileContent,
+			sessionId: Date.now().toString() // Generate a session ID
+		}
+
+		// Add resume position if provided
+		if (resumeFromPosition) {
+			payload.resumeFrom = resumeFromPosition
+		}
+
+		// Send the initial POST request to submit the data
+		const response = await fetch('/api/dev/seed', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ file: uploadState.fileContent })
+			body: JSON.stringify(payload)
 		})
 
-		const result = await res.json()
+		// Check if the POST request was successful
+		if (!response.ok) {
+			const errorData = await response.json()
+			throw new Error(errorData.message || 'Failed to submit data')
+		}
 
-		// Set progress to 100% when complete
-		uploadProgress.value = 1
+		// Parse the response to get the session ID
+		const responseData = await response.json()
+		const sessionId = responseData.sessionId
 
-		// Clear the interval
-		clearInterval(progressInterval)
+		if (!sessionId) {
+			throw new Error('No session ID returned from server')
+		}
 
-		// Show notification after a short delay to ensure progress bar is seen at 100%
-		setTimeout(() => {
+		console.log(`Card seeding started with session ID: ${sessionId}`)
+
+		// Now create the EventSource to listen for progress updates
+		const eventSource = new EventSource(`/api/dev/seed/progress?sessionId=${sessionId}`)
+
+		// Set up event listeners
+		eventSource.addEventListener('start', (event) => {
+			const data = JSON.parse(event.data)
+			console.log('Seeding started:', data.message)
+		})
+
+		eventSource.addEventListener('progress', (event) => {
+			const data = JSON.parse(event.data)
+			uploadProgress.value = data.progress
+
+			// Update detailed stats
+			if (data.totalCards) seedingStats.value.totalCards = data.totalCards
+			if (data.totalPacks) seedingStats.value.totalPacks = data.totalPacks
+			if (data.whiteCardCount) seedingStats.value.whiteCardCount = data.whiteCardCount
+			if (data.blackCardCount) seedingStats.value.blackCardCount = data.blackCardCount
+			if (data.insertedCards) seedingStats.value.insertedCards = data.insertedCards
+			if (data.skippedDuplicates) seedingStats.value.skippedDuplicates = data.skippedDuplicates
+			if (data.skippedSimilar) seedingStats.value.skippedSimilar = data.skippedSimilar
+			if (data.skippedLongText) seedingStats.value.skippedLongText = data.skippedLongText // Update skippedLongText counter
+			if (data.failedCards) seedingStats.value.failedCards = data.failedCards
+			if (data.currentPack) seedingStats.value.currentPack = data.currentPack
+			if (data.currentCardType) seedingStats.value.currentCardType = data.currentCardType
+			if (data.position) seedingStats.value.position = data.position
+			if (data.warnings) seedingStats.value.warnings = data.warnings
+			if (data.errors) seedingStats.value.errors = data.errors
+		})
+
+		eventSource.addEventListener('complete', (event) => {
+			const data = JSON.parse(event.data)
+			uploadProgress.value = 1
+
+			// Close the event source
+			eventSource.close()
+
+			// Show completion notification
 			notify({
 				title: 'Upload Complete',
-				description: result.message || 'Seed complete.',
-				color: result.success ? 'success' : 'error'
+				description: data.message || 'Seed complete.',
+				color: 'success'
 			})
 
-			// Reset preview after successful upload
-			if (result.success) {
-				showPreview.value = false
+			// If there are warnings, show them
+			if (data.warnings && data.warnings.length > 0) {
+				console.log(`Seeding completed with ${data.warnings.length} warnings:`, data.warnings)
 			}
+
+			// Reset preview after successful upload
+			showPreview.value = false
 
 			// Hide progress bar after a delay
 			setTimeout(() => {
 				showProgress.value = false
 			}, 1000)
-		}, 500)
+
+			uploading.value = false
+		})
+
+		eventSource.addEventListener('error', (event) => {
+			const data = event.data ? JSON.parse(event.data) : { message: 'Unknown error occurred' }
+			console.error('Seeding error:', data)
+
+			// Close the event source
+			eventSource.close()
+
+			// If we have a resume position, store it
+			if (data.resumePosition) {
+				resumePosition.value = data.resumePosition
+				showResumePrompt.value = true
+			}
+
+			// Show error notification
+			notify({
+				title: 'Upload Failed',
+				description: data.message || 'Failed to seed cards',
+				color: 'error'
+			})
+
+			uploading.value = false
+		})
+
+		// Handle general errors
+		eventSource.onerror = (err) => {
+			console.error('EventSource error:', err)
+			eventSource.close()
+
+			notify({
+				title: 'Connection Error',
+				description: 'Lost connection to the server',
+				color: 'error'
+			})
+
+			uploading.value = false
+			showProgress.value = false
+		}
 	} catch (err) {
-		console.error('Upload error:', err)
-		clearInterval(progressInterval)
-		uploadProgress.value = 0
-		showProgress.value = false
+		console.error('Failed to initiate seeding:', err)
 
 		notify({
 			title: 'Upload Failed',
-			description: 'Could not seed cards',
+			description: err.message || 'Could not start the seeding process',
 			color: 'error'
 		})
-	} finally {
+
 		uploading.value = false
+		showProgress.value = false
+	}
+}
+
+// Function to resume from a failure
+const resumeUpload = () => {
+	if (resumePosition.value) {
+		uploadJsonFile(resumePosition.value)
+		showResumePrompt.value = false
 	}
 }
 </script>
@@ -1047,15 +1201,88 @@ const uploadJsonFile = async () => {
 				</div>
 
 				<!-- Progress Bar -->
-				<div v-if="showProgress" class="mt-4">
+				<div v-if="showProgress" class="mt-4 space-y-3">
 					<div class="flex justify-between text-xs text-gray-500 mb-1">
-						<span>Seeding cards...</span>
+						<span>
+							{{ seedingStats.currentPack ? `Processing pack: ${seedingStats.currentPack}` : 'Seeding cards...' }}
+							<span v-if="seedingStats.currentCardType" class="ml-1">({{ seedingStats.currentCardType }} cards)</span>
+						</span>
 						<span>{{ Math.round(uploadProgress * 100) }}%</span>
 					</div>
 					<UProgress :value="uploadProgress" color="primary" />
+
+					<!-- Detailed Stats -->
+					<div v-if="seedingStats.totalCards > 0" class="text-xs text-gray-400 grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
+						<div>Total Cards: {{ seedingStats.totalCards }}</div>
+						<div>Packs: {{ seedingStats.totalPacks }}</div>
+						<div>White Cards: {{ seedingStats.whiteCardCount }}</div>
+						<div>Black Cards: {{ seedingStats.blackCardCount }}</div>
+						<div>Inserted: {{ seedingStats.insertedCards }}</div>
+						<div>Skipped Duplicates: {{ seedingStats.skippedDuplicates }}</div>
+						<div>Skipped Similar: {{ seedingStats.skippedSimilar }}</div>
+						<div>Skipped Long Text: {{ seedingStats.skippedLongText }}</div>
+						<div>Failed: {{ seedingStats.failedCards }}</div>
+					</div>
+
+					<!-- Warnings -->
+					<div v-if="seedingStats.warnings && seedingStats.warnings.length > 0" class="mt-2">
+						<UAccordion :items="[{
+							label: `Warnings (${seedingStats.warnings.length})`,
+							slot: 'warnings',
+							defaultOpen: false
+						}]">
+							<template #warnings>
+								<div class="text-xs text-amber-500 max-h-32 overflow-y-auto">
+									<div v-for="(warning, i) in seedingStats.warnings.slice(0, 10)" :key="i" class="py-1">
+										{{ warning }}
+									</div>
+									<div v-if="seedingStats.warnings.length > 10" class="py-1 italic">
+										...and {{ seedingStats.warnings.length - 10 }} more warnings
+									</div>
+								</div>
+							</template>
+						</UAccordion>
+					</div>
+
+					<!-- Errors -->
+					<div v-if="seedingStats.errors && seedingStats.errors.length > 0" class="mt-2">
+						<UAccordion :items="[{
+							label: `Errors (${seedingStats.errors.length})`,
+							slot: 'errors',
+							defaultOpen: false
+						}]">
+							<template #errors>
+								<div class="text-xs text-red-500 max-h-32 overflow-y-auto">
+									<div v-for="(error, i) in seedingStats.errors.slice(0, 10)" :key="i" class="py-1">
+										{{ error }}
+									</div>
+									<div v-if="seedingStats.errors.length > 10" class="py-1 italic">
+										...and {{ seedingStats.errors.length - 10 }} more errors
+									</div>
+								</div>
+							</template>
+						</UAccordion>
+					</div>
 				</div>
 
-				<UButton :loading="uploading" :disabled="!uploadState.file || !uploadState.fileContent" @click="uploadJsonFile" color="primary" class="mt-4 font-['Bebas_Neue']" variant="subtle">
+				<!-- Resume Prompt -->
+				<div v-if="showResumePrompt" class="mt-4 p-3 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-lg">
+					<div class="font-medium mb-2">Upload failed</div>
+					<p class="text-sm mb-3">The upload process was interrupted. Would you like to resume from where it left off?</p>
+					<div class="flex gap-2">
+						<UButton size="sm" color="amber" @click="resumeUpload">Resume Upload</UButton>
+						<UButton size="sm" variant="ghost" @click="showResumePrompt = false">Cancel</UButton>
+					</div>
+				</div>
+
+				<UButton 
+					:loading="uploading" 
+					:disabled="!uploadState.file || !uploadState.fileContent" 
+					@click="uploadJsonFile" 
+					color="primary" 
+					class="mt-4 font-['Bebas_Neue']" 
+					variant="subtle"
+				>
 					Upload & Seed
 				</UButton>
 			</UForm>
@@ -1075,6 +1302,17 @@ const uploadJsonFile = async () => {
 						:rows="5"
 						autofocus
 					/>
+					<div v-if="cardType === 'black'">
+						<label class="block text-sm font-medium mb-1">Number of Picks</label>
+						<UInput 
+							v-model="editingCardPicks" 
+							type="number" 
+							min="1" 
+							max="3" 
+							placeholder="Number of cards to pick" 
+							class="w-full"
+						/>
+					</div>
 				</div>
 			</template>
 				<template #footer>
@@ -1321,7 +1559,7 @@ const uploadJsonFile = async () => {
 			</template>
 		</UModal>
 
-		<!-- Add Single Card Modal -->
+  <!-- Add Single Card Modal -->
 		<UModal v-model:open="showAddCardModal">
 			<template #header>
 				<h3 class="text-lg font-medium">Add Single Card</h3>
@@ -1358,6 +1596,17 @@ const uploadJsonFile = async () => {
 							v-model="newSingleCardType" 
 							:items="['black', 'white']" 
 							placeholder="Select card type" 
+							class="w-full"
+						/>
+					</div>
+					<div v-if="newSingleCardType === 'black'">
+						<label class="block text-sm font-medium mb-1">Number of Picks</label>
+						<UInput 
+							v-model="newSingleCardPicks" 
+							type="number" 
+							min="1" 
+							max="3" 
+							placeholder="Number of cards to pick" 
 							class="w-full"
 						/>
 					</div>

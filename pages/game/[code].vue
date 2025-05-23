@@ -318,7 +318,7 @@ const setupRealtime = async (lobbyData: Lobby) => {
 
 				// 1️⃣ If it’s a delete event for *your* player doc, redirect immediately
 				// Check if it's a delete event specifically for the player collection
-				const isDelete = events.some(e => e.endsWith('.delete') && e.includes(config.public.appwritePlayerCollectionId));
+				const isDelete = events.some(e => e.endsWith('.delete') && e.includes(config.public.appwritePlayerCollectionId as string));
 				if (isDelete && playerLobbyId === lobbyId && player.userId !== userStore.user?.$id) {
 					// Check if this player is actually in our current list of players
 					// This prevents duplicate notifications for players who have already left
@@ -364,8 +364,8 @@ const setupRealtime = async (lobbyData: Lobby) => {
  // Function to send system messages to chat
 	const sendSystemMessage = async (message: string) => {
 		const config = useRuntimeConfig();
-		const dbId = config.public.appwriteDatabaseId;
-		const messagesCollectionId = config.public.appwriteGamechatCollectionId;
+		const dbId = config.public.appwriteDatabaseId as string;
+		const messagesCollectionId = config.public.appwriteGamechatCollectionId as string;
 
 		try {
 			await databases.createDocument(dbId, messagesCollectionId, ID.unique(), {
@@ -445,8 +445,8 @@ watch(isComplete, (newIsComplete) => {
 			try {
 				// Get the current lobby
 				databases.getDocument(
-					config.public.appwriteDatabaseId,
-					config.public.appwriteLobbyCollectionId,
+					config.public.appwriteDatabaseId as string,
+					config.public.appwriteLobbyCollectionId as string,
 					lobby.value.$id
 				).then(lobbyDoc => {
 					// Decode the current game state
@@ -458,8 +458,8 @@ watch(isComplete, (newIsComplete) => {
 
 						// Update the game state in the database
 						databases.updateDocument(
-							config.public.appwriteDatabaseId,
-							config.public.appwriteLobbyCollectionId,
+							config.public.appwriteDatabaseId as string,
+							config.public.appwriteLobbyCollectionId as string,
 							lobby.value!.$id,
 							{
 								gameState: encodeGameState(gameState)
@@ -697,8 +697,8 @@ const convertToParticipant = async (playerId: string) => {
     const config = useRuntimeConfig();
 
     await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
+      config.public.appwriteDatabaseId as string,
+      config.public.appwritePlayerCollectionId as string,
       playerDoc.$id,
       {
         playerType: 'participant'
@@ -710,7 +710,7 @@ const convertToParticipant = async (playerId: string) => {
 
     // Get the game cards document
     const gameCardsRes = await databases.listDocuments(
-      config.public.appwriteDatabaseId,
+      config.public.appwriteDatabaseId as string,
       config.public.appwriteGamecardsCollectionId,
       [Query.equal('lobbyId', lobby.value?.$id)]
     );
@@ -741,8 +741,8 @@ const convertToParticipant = async (playerId: string) => {
 
     // Update the game cards document
     await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteGamecardsCollectionId,
+      config.public.appwriteDatabaseId as string,
+      config.public.appwriteGamecardsCollectionId as string,
       gameCards.$id,
       {
         whiteDeck: remainingDeck,
@@ -869,7 +869,7 @@ function copyLobbyLink() {
 						:scores="state?.scores"
 						@convert-spectator="convertToParticipant"
 				/>
-        <ChatBox
+        <LazyChatBox
 						v-if="lobby && lobby.$id"
 						:current-user-id="myId"
 						:lobbyId="lobby.$id"

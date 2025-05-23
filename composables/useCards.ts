@@ -29,8 +29,8 @@ export const useCards = () => {
 
       // Step 1: Get total number of white cards (filtered by card packs if specified)
       const totalRes = await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteWhiteCardCollectionId,
+          config.public.appwriteDatabaseId as string,
+          config.public.appwriteWhiteCardCollectionId as string,
           queries
       );
 
@@ -60,8 +60,8 @@ export const useCards = () => {
       }
 
       const res = await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteWhiteCardCollectionId,
+          config.public.appwriteDatabaseId as string,
+          config.public.appwriteWhiteCardCollectionId as string,
           queries
       );
 
@@ -103,8 +103,8 @@ export const useCards = () => {
 
       // Step 1: Get total number of black cards *matching the pick value and card packs if specified*
       const totalRes = await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteBlackCardCollectionId,
+          config.public.appwriteDatabaseId as string,
+          config.public.appwriteBlackCardCollectionId as string,
           queries
       );
 
@@ -141,8 +141,8 @@ export const useCards = () => {
       }
 
       const res = await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteBlackCardCollectionId,
+          config.public.appwriteDatabaseId as string,
+          config.public.appwriteBlackCardCollectionId as string,
           queries
       );
 

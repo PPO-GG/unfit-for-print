@@ -73,6 +73,11 @@ const fallbackText = ref('');
 const cardText = computed(() => props.text || fallbackText.value);
 const cardPack = ref(props.cardPack || null);
 
+// Watch for changes to the cardPack prop and update the ref
+watch(() => props.cardPack, (newCardPack) => {
+  cardPack.value = newCardPack || null;
+});
+
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
 const shineOffset = ref({ x: 0, y: 0 });

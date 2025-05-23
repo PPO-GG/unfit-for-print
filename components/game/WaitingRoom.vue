@@ -33,7 +33,7 @@
 					:lobbyId="lobby.$id"
 					:players="players"
 			/>
-			<ChatBox
+			<LazyChatBox
 					:current-user-id="myId"
 					:lobbyId="props.lobby.$id"
 			/>
