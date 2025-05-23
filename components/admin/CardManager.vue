@@ -854,6 +854,7 @@ const uploadJsonFile = async (resumeFromPosition = null) => {
 		insertedCards: 0,
 		skippedDuplicates: 0,
 		skippedSimilar: 0,
+		skippedLongText: 0, // Add counter for cards skipped due to text > 255 chars
 		failedCards: 0,
 		currentPack: '',
 		currentCardType: '',
@@ -862,126 +863,146 @@ const uploadJsonFile = async (resumeFromPosition = null) => {
 		errors: []
 	}
 
-	// Create EventSource for SSE
-	const eventSource = new EventSource(`/api/dev/seed?_=${Date.now()}`)
-
-	// Set up event listeners
-	eventSource.addEventListener('start', (event) => {
-		const data = JSON.parse(event.data)
-		console.log('Seeding started:', data.message)
-	})
-
-	eventSource.addEventListener('progress', (event) => {
-		const data = JSON.parse(event.data)
-		uploadProgress.value = data.progress
-
-		// Update detailed stats
-		if (data.totalCards) seedingStats.value.totalCards = data.totalCards
-		if (data.totalPacks) seedingStats.value.totalPacks = data.totalPacks
-		if (data.whiteCardCount) seedingStats.value.whiteCardCount = data.whiteCardCount
-		if (data.blackCardCount) seedingStats.value.blackCardCount = data.blackCardCount
-		if (data.insertedCards) seedingStats.value.insertedCards = data.insertedCards
-		if (data.skippedDuplicates) seedingStats.value.skippedDuplicates = data.skippedDuplicates
-		if (data.skippedSimilar) seedingStats.value.skippedSimilar = data.skippedSimilar
-		if (data.failedCards) seedingStats.value.failedCards = data.failedCards
-		if (data.currentPack) seedingStats.value.currentPack = data.currentPack
-		if (data.currentCardType) seedingStats.value.currentCardType = data.currentCardType
-		if (data.position) seedingStats.value.position = data.position
-		if (data.warnings) seedingStats.value.warnings = data.warnings
-		if (data.errors) seedingStats.value.errors = data.errors
-	})
-
-	eventSource.addEventListener('complete', (event) => {
-		const data = JSON.parse(event.data)
-		uploadProgress.value = 1
-
-		// Close the event source
-		eventSource.close()
-
-		// Show completion notification
-		notify({
-			title: 'Upload Complete',
-			description: data.message || 'Seed complete.',
-			color: 'success'
-		})
-
-		// If there are warnings, show them
-		if (data.warnings && data.warnings.length > 0) {
-			console.log(`Seeding completed with ${data.warnings.length} warnings:`, data.warnings)
-		}
-
-		// Reset preview after successful upload
-		showPreview.value = false
-
-		// Hide progress bar after a delay
-		setTimeout(() => {
-			showProgress.value = false
-		}, 1000)
-
-		uploading.value = false
-	})
-
-	eventSource.addEventListener('error', (event) => {
-		const data = event.data ? JSON.parse(event.data) : { message: 'Unknown error occurred' }
-		console.error('Seeding error:', data)
-
-		// Close the event source
-		eventSource.close()
-
-		// If we have a resume position, store it
-		if (data.resumePosition) {
-			resumePosition.value = data.resumePosition
-			showResumePrompt.value = true
-		}
-
-		// Show error notification
-		notify({
-			title: 'Upload Failed',
-			description: data.message || 'Failed to seed cards',
-			color: 'error'
-		})
-
-		uploading.value = false
-	})
-
-	// Handle general errors
-	eventSource.onerror = (err) => {
-		console.error('EventSource error:', err)
-		eventSource.close()
-
-		notify({
-			title: 'Connection Error',
-			description: 'Lost connection to the server',
-			color: 'error'
-		})
-
-		uploading.value = false
-		showProgress.value = false
-	}
-
-	// Send the initial request to start the seeding process
+	// First send the data via POST request
 	try {
-		const payload = { file: uploadState.fileContent }
+		const payload = { 
+			file: uploadState.fileContent,
+			sessionId: Date.now().toString() // Generate a session ID
+		}
 
 		// Add resume position if provided
 		if (resumeFromPosition) {
 			payload.resumeFrom = resumeFromPosition
 		}
 
-		await fetch('/api/dev/seed', {
+		// Send the initial POST request to submit the data
+		const response = await fetch('/api/dev/seed', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify(payload)
 		})
+
+		// Check if the POST request was successful
+		if (!response.ok) {
+			const errorData = await response.json()
+			throw new Error(errorData.message || 'Failed to submit data')
+		}
+
+		// Parse the response to get the session ID
+		const responseData = await response.json()
+		const sessionId = responseData.sessionId
+
+		if (!sessionId) {
+			throw new Error('No session ID returned from server')
+		}
+
+		console.log(`Card seeding started with session ID: ${sessionId}`)
+
+		// Now create the EventSource to listen for progress updates
+		const eventSource = new EventSource(`/api/dev/seed/progress?sessionId=${sessionId}`)
+
+		// Set up event listeners
+		eventSource.addEventListener('start', (event) => {
+			const data = JSON.parse(event.data)
+			console.log('Seeding started:', data.message)
+		})
+
+		eventSource.addEventListener('progress', (event) => {
+			const data = JSON.parse(event.data)
+			uploadProgress.value = data.progress
+
+			// Update detailed stats
+			if (data.totalCards) seedingStats.value.totalCards = data.totalCards
+			if (data.totalPacks) seedingStats.value.totalPacks = data.totalPacks
+			if (data.whiteCardCount) seedingStats.value.whiteCardCount = data.whiteCardCount
+			if (data.blackCardCount) seedingStats.value.blackCardCount = data.blackCardCount
+			if (data.insertedCards) seedingStats.value.insertedCards = data.insertedCards
+			if (data.skippedDuplicates) seedingStats.value.skippedDuplicates = data.skippedDuplicates
+			if (data.skippedSimilar) seedingStats.value.skippedSimilar = data.skippedSimilar
+			if (data.skippedLongText) seedingStats.value.skippedLongText = data.skippedLongText // Update skippedLongText counter
+			if (data.failedCards) seedingStats.value.failedCards = data.failedCards
+			if (data.currentPack) seedingStats.value.currentPack = data.currentPack
+			if (data.currentCardType) seedingStats.value.currentCardType = data.currentCardType
+			if (data.position) seedingStats.value.position = data.position
+			if (data.warnings) seedingStats.value.warnings = data.warnings
+			if (data.errors) seedingStats.value.errors = data.errors
+		})
+
+		eventSource.addEventListener('complete', (event) => {
+			const data = JSON.parse(event.data)
+			uploadProgress.value = 1
+
+			// Close the event source
+			eventSource.close()
+
+			// Show completion notification
+			notify({
+				title: 'Upload Complete',
+				description: data.message || 'Seed complete.',
+				color: 'success'
+			})
+
+			// If there are warnings, show them
+			if (data.warnings && data.warnings.length > 0) {
+				console.log(`Seeding completed with ${data.warnings.length} warnings:`, data.warnings)
+			}
+
+			// Reset preview after successful upload
+			showPreview.value = false
+
+			// Hide progress bar after a delay
+			setTimeout(() => {
+				showProgress.value = false
+			}, 1000)
+
+			uploading.value = false
+		})
+
+		eventSource.addEventListener('error', (event) => {
+			const data = event.data ? JSON.parse(event.data) : { message: 'Unknown error occurred' }
+			console.error('Seeding error:', data)
+
+			// Close the event source
+			eventSource.close()
+
+			// If we have a resume position, store it
+			if (data.resumePosition) {
+				resumePosition.value = data.resumePosition
+				showResumePrompt.value = true
+			}
+
+			// Show error notification
+			notify({
+				title: 'Upload Failed',
+				description: data.message || 'Failed to seed cards',
+				color: 'error'
+			})
+
+			uploading.value = false
+		})
+
+		// Handle general errors
+		eventSource.onerror = (err) => {
+			console.error('EventSource error:', err)
+			eventSource.close()
+
+			notify({
+				title: 'Connection Error',
+				description: 'Lost connection to the server',
+				color: 'error'
+			})
+
+			uploading.value = false
+			showProgress.value = false
+		}
 	} catch (err) {
 		console.error('Failed to initiate seeding:', err)
-		eventSource.close()
 
 		notify({
 			title: 'Upload Failed',
-			description: 'Could not start the seeding process',
+			description: err.message || 'Could not start the seeding process',
 			color: 'error'
 		})
 
@@ -1199,6 +1220,7 @@ const resumeUpload = () => {
 						<div>Inserted: {{ seedingStats.insertedCards }}</div>
 						<div>Skipped Duplicates: {{ seedingStats.skippedDuplicates }}</div>
 						<div>Skipped Similar: {{ seedingStats.skippedSimilar }}</div>
+						<div>Skipped Long Text: {{ seedingStats.skippedLongText }}</div>
 						<div>Failed: {{ seedingStats.failedCards }}</div>
 					</div>
 

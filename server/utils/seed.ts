@@ -80,6 +80,7 @@ export const seedCardsFromJson = async ({
   let insertedCards = 0;
   let skippedDuplicates = 0;
   let skippedSimilar = 0;
+  let skippedLongText = 0; // Counter for cards skipped due to text > 255 chars
   let failedCards = 0;
 
   // Create stats object for progress reporting
@@ -91,6 +92,7 @@ export const seedCardsFromJson = async ({
     insertedCards: 0,
     skippedDuplicates,
     skippedSimilar,
+    skippedLongText, // Add counter for cards skipped due to text > 255 chars
     failedCards,
     currentPack: '',
     currentCardType: '',
@@ -151,6 +153,21 @@ export const seedCardsFromJson = async ({
           if (!card.text) {
             warnings.push(`Skipped white card with no text in pack "${packName}"`);
             insertedCards++;
+            continue;
+          }
+
+          // Skip cards with text longer than 255 characters
+          if (card.text.length > 255) {
+            skippedLongText++;
+            stats.skippedLongText = skippedLongText;
+            const warningMsg = `Skipped white card with text > 255 characters in pack "${packName}": "${card.text.substring(0, 50)}..."`;
+            console.log(warningMsg);
+            warnings.push(warningMsg);
+            insertedCards++;
+            renderProgressBar(insertedCards, totalCards);
+            if (onProgress) {
+              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+            }
             continue;
           }
 
@@ -253,6 +270,21 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
+          // Skip cards with text longer than 255 characters
+          if (card.text.length > 255) {
+            skippedLongText++;
+            stats.skippedLongText = skippedLongText;
+            const warningMsg = `Skipped black card with text > 255 characters in pack "${packName}": "${card.text.substring(0, 50)}..."`;
+            console.log(warningMsg);
+            warnings.push(warningMsg);
+            insertedCards++;
+            renderProgressBar(insertedCards, totalCards);
+            if (onProgress) {
+              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+            }
+            continue;
+          }
+
           // Save current position for potential resume
           const currentPosition = { packIndex, cardIndex, cardType: 'black' as const };
 
@@ -347,12 +379,13 @@ export const seedCardsFromJson = async ({
   }
 
   // Update final stats
-  stats.insertedCards = insertedCards - skippedDuplicates - skippedSimilar;
+  stats.insertedCards = insertedCards - skippedDuplicates - skippedSimilar - skippedLongText;
   stats.skippedDuplicates = skippedDuplicates;
   stats.skippedSimilar = skippedSimilar;
+  stats.skippedLongText = skippedLongText;
   stats.failedCards = failedCards;
 
-  const message = `Seeding complete. Added ${stats.insertedCards} cards. Skipped ${skippedDuplicates} exact duplicates and ${skippedSimilar} similar cards.`;
+  const message = `Seeding complete. Added ${stats.insertedCards} cards. Skipped ${skippedDuplicates} exact duplicates, ${skippedSimilar} similar cards, and ${skippedLongText} cards with text > 255 characters.`;
   console.log(message);
 
   if (warnings.length > 0) {

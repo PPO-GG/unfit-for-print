@@ -125,8 +125,6 @@ const fetchNewCards = async () => {
   return new Promise<void>(res => setTimeout(res, 1000)
   ).then(() => {
 	  vibrate()
-    // Use default card pack for random cards
-    const defaultCardPacks = ['CAH Base Set', 'CAH: Blue Box Expansion'];
     fetchRandomWhiteCard().then((card: any) => {
       whiteCard.value = card;
 	    whiteCardFlipped.value = false;

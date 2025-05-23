@@ -4,6 +4,7 @@ import { seedCardsFromJson } from '~/server/utils/seed'
 import { createAppwriteClient } from '~/server/utils/appwrite'
 import { readBody, createError } from 'h3'
 import Ajv from 'ajv'
+import { emitProgress } from '~/server/utils/progressEmitter'
 
 // JSON schema for validation
 const cardPackSchema = {
@@ -42,39 +43,50 @@ const cardPackSchema = {
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const { databases } = createAppwriteClient()
+  const method = event.node.req.method || 'GET'
 
-  // Set up SSE headers
-  setResponseHeaders(event, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive'
-  })
-
-  // Function to send SSE events
-  const sendEvent = (eventName: string, data: any) => {
-    const response = event.node.res
-    response.write(`event: ${eventName}\n`)
-    response.write(`data: ${JSON.stringify(data)}\n\n`)
-    // Flush the response to ensure the client receives it immediately
-    response.flush?.()
+  // Only allow POST requests for data submission
+  if (method !== 'POST') {
+    throw createError({
+      statusCode: 405,
+      statusMessage: 'Method Not Allowed',
+      message: 'Only POST requests are allowed for data submission'
+    })
   }
+
+  // Set regular JSON response headers
+  setResponseHeaders(event, {
+    'Content-Type': 'application/json'
+  })
 
   try {
     // Handle file upload from form
     const formData = await readBody(event)
     let jsonContent = null
+    let sessionId = null
 
-    if (formData && formData.file) {
+    if (formData) {
       // Get the file content from the form data
-      const fileContent = formData.file
-      if (typeof fileContent === 'string') {
-        jsonContent = fileContent
+      if (formData.file && typeof formData.file === 'string') {
+        jsonContent = formData.file
+      }
+
+      // Get the session ID if provided
+      if (formData.sessionId && typeof formData.sessionId === 'string') {
+        sessionId = formData.sessionId
       }
     }
 
+    // Generate a session ID if not provided
+    if (!sessionId) {
+      sessionId = Date.now().toString()
+    }
+
     if (!jsonContent) {
-      sendEvent('error', { message: 'No JSON content provided' })
-      return
+      return { 
+        message: 'No JSON content provided',
+        status: 'error'
+      }
     }
 
     // Validate JSON structure
@@ -88,33 +100,63 @@ export default defineEventHandler(async (event) => {
 
       if (!valid) {
         const errors = validate.errors?.map(err => `${err.instancePath} ${err.message}`).join(', ')
-        sendEvent('error', { message: `Invalid JSON structure: ${errors}` })
-        return
+        return {
+          message: `Invalid JSON structure: ${errors}`,
+          status: 'error'
+        }
       }
 
-      // Send initial event
-      sendEvent('start', { message: 'Starting card seeding process' })
+      // Emit initial progress event
+      emitProgress(sessionId, 'start', { message: 'Starting card seeding process' })
 
       // Process the cards with progress reporting
-      const result = await seedCardsFromJson({
+      // This will be handled asynchronously, and progress will be reported via the progress endpoint
+      // Start the processing in a separate "thread" so we can return a response immediately
+      const processingPromise = seedCardsFromJson({
         databases,
         databaseId: config.public.appwriteDatabaseId,
         whiteCollection: config.public.appwriteWhiteCardCollectionId,
         blackCollection: config.public.appwriteBlackCardCollectionId,
         jsonContent,
         onProgress: (progress, stats) => {
-          sendEvent('progress', { progress, ...stats })
+          // Emit progress event with session ID
+          emitProgress(sessionId, 'progress', { progress, ...stats })
+          console.log(`Processing progress: ${Math.round(progress * 100)}%`)
         }
       })
 
-      // Send completion event
-      sendEvent('complete', result)
+      // Don't await the promise, let it run in the background
+      processingPromise.then(result => {
+        // Emit completion event
+        emitProgress(sessionId, 'complete', result)
+        console.log('Card seeding completed successfully')
+      }).catch(err => {
+        // Emit error event
+        emitProgress(sessionId, 'error', { 
+          message: err.message || 'Error during card seeding',
+          resumePosition: err.resumePosition
+        })
+        console.error('Error during card seeding:', err)
+      })
+
+      // Return a success response immediately
+      return { 
+        message: 'Card seeding started successfully',
+        status: 'processing',
+        sessionId // Include the session ID in the response
+      }
     } catch (err: any) {
       console.error('JSON parsing error:', err)
-      sendEvent('error', { message: `Invalid JSON: ${err.message}` })
+      return {
+        message: `Invalid JSON: ${err.message}`,
+        status: 'error'
+      }
     }
   } catch (err: any) {
     console.error('Server error:', err)
-    sendEvent('error', { message: `Server error: ${err.message}` })
+    return {
+      message: `Server error: ${err.message}`,
+      status: 'error'
+    }
   }
 })
