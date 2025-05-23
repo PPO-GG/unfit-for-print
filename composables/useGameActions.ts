@@ -3,12 +3,13 @@ import { useAppwrite } from '~/composables/useAppwrite'
 
 export function useGameActions() {
     const { functions } = useAppwrite()
-    const FUNCTIONS = {
-        START_GAME: '6807159b0034f2852a27',
-        PLAY_CARD: '6807155e000e80388d6a',
-        SELECT_WINNER: '680715ac001101e8038f',
-        START_NEXT_ROUND: '680e7f88000abf0faa9d',
-    }
+    const config = useRuntimeConfig()
+    const FUNCTIONS: Record<'START_GAME' | 'PLAY_CARD' | 'SELECT_WINNER' | 'START_NEXT_ROUND', string> = {
+        START_GAME: config.public.appwriteFunctionsStartGame as string,
+        PLAY_CARD: config.public.appwriteFunctionsPlayCard as string,
+        SELECT_WINNER: config.public.appwriteFunctionsSelectWinner as string,
+        START_NEXT_ROUND: config.public.appwriteFunctionsStartNextRound as string,
+    };
     const startGame = async (payload: string) => {
         console.log('Calling startGame with payload:', payload);
 
