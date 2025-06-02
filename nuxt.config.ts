@@ -8,6 +8,19 @@ export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
   ssr: true,
+  umami: {
+    id: '57b71d8c-e18d-4d81-b3b3-318ba64c0431',
+    host: 'https://analytics.ppo.gg',
+    autoTrack: true,
+    // proxy: 'cloak',
+    // useDirective: true,
+    // ignoreLocalhost: true,
+    // excludeQueryParams: false,
+    // domains: ['cool-site.app', 'my-space.site'],
+    // customEndpoint: '/my-custom-endpoint',
+    // enabled: false,
+    // logErrors: true,
+  },
   vite: {
     build: {
       sourcemap: true,
@@ -39,6 +52,23 @@ export default defineNuxtConfig({
     { path: '~/components/lobby', prefix: '' },
     { path: '~/components/', prefix: '' },
   ],
+  css: ["~/assets/css/main.css"],
+  modules: [
+    "@nuxt/fonts",
+    "@nuxt/icon",
+    "@pinia/nuxt",
+    "@vueuse/sound/nuxt",
+    "@vueuse/nuxt",
+    "@nuxt/ui",
+    'pinia-plugin-persistedstate/nuxt',
+    "nuxt-og-image",
+    'nuxt-umami',
+  ],
+  sound: {
+    sounds: {
+      scan: true,
+    },
+  },
   runtimeConfig: {
     appwriteApiKey: process.env.APPWRITE_API_KEY,
     appwriteEndpoint: process.env.APPWRITE_ENDPOINT,
@@ -69,21 +99,5 @@ export default defineNuxtConfig({
       oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,
       appVersion: pkg.version,
     }
-  },
-  css: ["~/assets/css/main.css"],
-  modules: [
-    "@nuxt/fonts",
-    "@nuxt/icon",
-    "@pinia/nuxt",
-    "@vueuse/sound/nuxt",
-    "@vueuse/nuxt",
-    "@nuxt/ui",
-    'pinia-plugin-persistedstate/nuxt',
-    "nuxt-og-image",
-  ],
-  sound: {
-    sounds: {
-      scan: true,
-    },
   },
 })
