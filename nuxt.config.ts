@@ -21,6 +21,19 @@ export default defineNuxtConfig({
     // enabled: false,
     // logErrors: true,
   },
+  umami: {
+    id: '57b71d8c-e18d-4d81-b3b3-318ba64c0431',
+    host: 'https://analytics.ppo.gg',
+    autoTrack: true,
+    // proxy: 'cloak',
+    // useDirective: true,
+    // ignoreLocalhost: true,
+    // excludeQueryParams: false,
+    // domains: ['cool-site.app', 'my-space.site'],
+    // customEndpoint: '/my-custom-endpoint',
+    // enabled: false,
+    // logErrors: true,
+  },
   vite: {
     build: {
       sourcemap: true,
@@ -90,6 +103,23 @@ export default defineNuxtConfig({
       optimizeTranslationDirective: false,
     },
     skipSettingLocaleOnNavigate: false,
+  },
+  css: ["~/assets/css/main.css"],
+  modules: [
+    "@nuxt/fonts",
+    "@nuxt/icon",
+    "@pinia/nuxt",
+    "@vueuse/sound/nuxt",
+    "@vueuse/nuxt",
+    "@nuxt/ui",
+    'pinia-plugin-persistedstate/nuxt',
+    "nuxt-og-image",
+    'nuxt-umami',
+  ],
+  sound: {
+    sounds: {
+      scan: true,
+    },
   },
   runtimeConfig: {
     appwriteApiKey: process.env.APPWRITE_API_KEY,
