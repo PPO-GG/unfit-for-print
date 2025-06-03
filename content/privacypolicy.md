@@ -1,8 +1,3 @@
----
-title: Privacy Policy
-description: How Unfit for Print handles your data.
----
-
 # Privacy Policy
 
 > This policy explains how we, **PPO.GG**, the developer of *Unfit for Print*, collect and use information when you use the game. By playing, you agree to the terms outlined below.
