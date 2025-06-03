@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.1.0...v1.2.0) (2025-06-03)
+
+
+### Bug Fixes
+
+* force version bump ([bf23d50](https://github.com/PPO-GG/unfit-for-print/commit/bf23d50e7017a6985006b045c0a459546f756ed3))
+
+
+### Features
+
+* add localization, dynamic card packs, and UI updates ([ecd6826](https://github.com/PPO-GG/unfit-for-print/commit/ecd68263e3fdc7574b11b130d580ee215bce6405))
+* add localization, dynamic card packs, and UI updates ([ba7aa4b](https://github.com/PPO-GG/unfit-for-print/commit/ba7aa4b11c2424e30d48cc2e18f42a2a4b55e899))
+
 # [1.1.0](https://github.com/MyndPhreak/unfit-for-print/compare/v1.0.1...v1.1.0) (2025-05-17)
 
 
