@@ -2,13 +2,17 @@
 import { useUiStore } from '~/stores/uiStore';
 import { version } from '~/utils/version';
 import { useI18n } from 'vue-i18n'
-const uiStore = useUiStore();
-const config = useRuntimeConfig();
-const { t } = useI18n()
+import markdownit from 'markdown-it'
+import privacypolicy from '~/content/privacypolicy.md?raw'
+const md = new markdownit({
+	html: true,
+	linkify: true,
+	typographer: true
+})
 
-const { data: policy } = await useAsyncData('policy', async () => {
-	return queryCollection('content').path('/privacypolicy').first();
-});
+const policy = md.render(privacypolicy)
+const uiStore = useUiStore();
+const { t } = useI18n()
 </script>
 
 <template>
@@ -37,12 +41,7 @@ const { data: policy } = await useAsyncData('policy', async () => {
 	<!-- Bind v-model:open to the store state -->
 	<UModal v-model:open="uiStore.showPolicy" :title="t('modal.privacy_policy')" fullscreen class="m-4 rounded-lg backdrop-blur-2xl bg-slate-900/50">
 		<template #body>
-			<div class="prose prose-invert max-w-none">
-				<ContentRenderer
-						v-if="policy"
-						:value="policy"
-				/>
-			</div>
+			<div class="prose prose-invert max-w-none" v-html="policy" />
 		</template>
 		<template #footer>
 			<span class="text-sm">June 1, 2025 · © Unfit for Print</span>

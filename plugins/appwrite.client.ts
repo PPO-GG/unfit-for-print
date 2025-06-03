@@ -28,16 +28,6 @@ export default defineNuxtPlugin(() => {
     }
   };
 
-  // Log the configuration for debugging
-  console.log('Configuration types:', {
-    databaseIdType: typeof config.public.appwriteDatabaseId,
-    lobbyCollectionIdType: typeof config.public.appwriteLobbyCollectionId,
-    playerCollectionIdType: typeof config.public.appwritePlayerCollectionId,
-    playerCollectionIdValue: config.public.appwritePlayerCollectionId,
-    gamechatCollectionIdType: typeof config.public.appwriteGamechatCollectionId,
-    gamechatCollectionIdValue: config.public.appwriteGamechatCollectionId
-  });
-
   // Validate configuration
   if (!safeConfig.public.appwriteUrl || !safeConfig.public.appwriteProjectId) {
     console.error('Missing Appwrite configuration:', {
