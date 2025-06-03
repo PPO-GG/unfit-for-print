@@ -15,7 +15,6 @@ import { ref, watchEffect } from 'vue'
 import { useRoute } from '#vue-router'
 import { useHead, useAsyncData, useRuntimeConfig } from '#imports'
 import type { Lobby } from '~/types/lobby'
-
 const isDev = import.meta.env.DEV
 const lobby = ref<Lobby | null>(null)
 const route = useRoute()

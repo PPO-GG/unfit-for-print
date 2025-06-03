@@ -5,7 +5,7 @@
 			<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
 				<!-- Desktop: Lobby Code label + button -->
 				<span class="items-center hidden sm:flex">
-					Lobby Code:
+					{{ t('lobby.lobby_code') }}:
 					<UButton class="text-slate-100 text-2xl ml-2" color="info" icon="i-solar-copy-bold-duotone" variant="subtle">
             {{ lobby.code }}
           </UButton>
@@ -13,7 +13,7 @@
 
 				<!-- Mobile: Just the icon -->
 				<span class="flex sm:hidden">
-					<UButton aria-label="Copy Lobby Code" color="info" icon="i-solar-copy-bold-duotone" variant="subtle"/>
+					<UButton aria-label="{{ t('lobby.copy_lobby_code') }}" color="info" icon="i-solar-copy-bold-duotone" variant="subtle"/>
         </span>
 
 				<!-- Leave Button (shows on all sizes) -->
@@ -24,7 +24,7 @@
 						trailing-icon="i-solar-exit-bold-duotone"
 						@click="handleLeave"
 				>
-					<span class="hidden xl:inline">Leave Game</span>
+					<span class="hidden xl:inline">{{ t('game.leave_game') }}</span>
 				</UButton>
 			</div>
 			<PlayerList
@@ -43,25 +43,24 @@
 						icon="i-lucide-play"
 						@click="startGameWrapper"
 				>
-					Start Game
+					{{ t('lobby.start_game') }}
 				</UButton>
 				<UButton
 						v-if="isHost && isStarting"
 						:loading="true"
 						disabled
 				>
-					Starting Game...
+					{{ t('lobby.starting_game') }}
 				</UButton>
 				<p v-if="!isHost && !isStarting" class="text-gray-400 text-center font-['Bebas_Neue'] text-4xl">
-					Waiting for the host to start...
+					{{ t('lobby.waiting_for_host_start_game') }}
 				</p>
 				<p v-if="!isHost && isStarting" class="text-green-400 text-center font-['Bebas_Neue'] text-4xl">
-					Game is starting...
+					{{ t('lobby.starting_game') }}
 				</p>
 			</div>
 			<div v-else>
-				<p class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">We need at least 3 players to start the
-					game!</p>
+				<p class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">{{ t('lobby.players_needed') }}</p>
 			</div>
 		</aside>
 
@@ -78,7 +77,7 @@
 		</div>
 	</div>
 	<div v-else>
-		<p class="text-red-400 text-sm">Lobby data is unavailable.</p>
+		<p class="text-red-400 text-sm">{{ t('lobby.error_loading_gamestate') }}</p>
 	</div>
 </template>
 
@@ -93,6 +92,7 @@ import type {Player} from '~/types/player';
 import type {GameSettings} from '~/types/gamesettings';
 import {useNotifications} from "~/composables/useNotifications";
 
+const { t } = useI18n();
 const {notify} = useNotifications();
 const props = defineProps<{ 
 	lobby: Lobby; 
@@ -127,7 +127,7 @@ const setupGameSettingsRealtime = () => {
 	// Subscribe to changes in the game settings collection for this lobby
 	const unsubscribeGameSettings = client.subscribe(
 			[`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`],
-			async ({events, payload}) => {
+			async ({payload}) => {
 				// Check if this is a game settings document for our lobby
 				const settings = payload as GameSettings;
 				// Handle case where lobbyId is a relationship object
@@ -136,14 +136,13 @@ const setupGameSettingsRealtime = () => {
 					: settings.lobbyId;
 
 				if (settingsLobbyId === props.lobby.$id) {
-					console.log('[Realtime] Game settings updated:', settings);
+					// console.log('[Realtime] Game settings updated:', settings);
 					gameSettings.value = settings;
 
 					// If you're not the host and settings changed, show a notification
 					if (!isHost.value) {
 						notify({
-							title: 'Game Settings Updated',
-							description: 'The host has updated the game settings.',
+							title: t('game.settings.updated'),
 							icon: 'i-solar-info-circle-bold-duotone',
 							color: 'primary',
 							duration: 3000
@@ -180,7 +179,7 @@ onMounted(async () => {
 			// Set up real-time listener for game settings changes
 			setupGameSettingsRealtime();
 		} catch (err) {
-			console.error('Failed to load game settings:', err);
+			// console.error('Failed to load game settings:', err);
 		}
 	}
 });
@@ -195,7 +194,7 @@ const startGameWrapper = async () => {
 		// Pass game settings to the startGame function
 		await startGame(props.lobby.$id, gameSettings.value);
 	} catch (err) {
-		console.error('Failed to start game:', err);
+		// console.error('Failed to start game:', err);
 		isStarting.value = false;
 	}
 };
@@ -206,7 +205,7 @@ const handleLeave = async () => {
 		await leaveLobby(props.lobby.$id, userStore.user.$id);
 		await router.push('/');
 	} catch (err) {
-		console.error('Failed to leave lobby:', err);
+		// console.error('Failed to leave lobby:', err);
 	}
 };
 </script>

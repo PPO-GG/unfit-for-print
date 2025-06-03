@@ -131,6 +131,13 @@ export const useGameEngine = () => {
             roundEndStartTime: null,
             returnedToLobby: {},
             gameEndTime: undefined,
+            config: {
+                maxPoints: 10,
+                cardsPerPlayer: 10,
+                cardPacks: [],
+                isPrivate: false,
+                lobbyName: 'New Game',
+            },
         };
     };
 

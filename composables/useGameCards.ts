@@ -1,5 +1,4 @@
 import {computed, ref} from 'vue';
-import {Query} from 'appwrite';
 import {getAppwrite} from '~/utils/appwrite';
 import type {GameCards, PlayerHand} from '~/types/gamecards';
 import type {CardId, PlayerId} from '~/types/game';
@@ -16,7 +15,6 @@ export const useGameCards = () => {
   // Computed properties
   const playerHands = computed(() => {
     if (!gameCards.value) {
-      console.log('🃏 [useGameCards] No game cards data available');
       return {};
     }
 
@@ -24,36 +22,31 @@ export const useGameCards = () => {
     const handsMap: Record<PlayerId, CardId[]> = {};
 
     if (!gameCards.value.playerHands || !Array.isArray(gameCards.value.playerHands)) {
-      console.error('🃏 [useGameCards] playerHands is not an array:', gameCards.value.playerHands);
+      console.error('playerHands is not an array:', gameCards.value.playerHands);
       return {};
     }
 
-    console.log('🃏 [useGameCards] Processing playerHands array:', gameCards.value.playerHands);
-
     gameCards.value.playerHands.forEach((handString, index) => {
       try {
-        console.log(`🃏 [useGameCards] Parsing player hand ${index}:`, handString);
         const hand = JSON.parse(handString) as PlayerHand;
 
         if (!hand.playerId) {
-          console.error(`🃏 [useGameCards] Missing playerId in hand ${index}:`, hand);
+          console.error(`Missing playerId in hand ${index}:`, hand);
           return;
         }
 
         if (!Array.isArray(hand.cards)) {
-          console.error(`🃏 [useGameCards] Cards is not an array for player ${hand.playerId}:`, hand.cards);
+          console.error(`Cards is not an array for player ${hand.playerId}:`, hand.cards);
           handsMap[hand.playerId] = [];
           return;
         }
 
         handsMap[hand.playerId] = hand.cards;
-        console.log(`🃏 [useGameCards] Added cards for player ${hand.playerId}:`, hand.cards);
       } catch (err) {
-        console.error(`🃏 [useGameCards] Failed to parse player hand ${index}:`, handString, err);
+        console.error(`Failed to parse player hand ${index}:`, handString, err);
       }
     });
 
-    console.log('🃏 [useGameCards] Final playerHands map:', handsMap);
     return handsMap;
   });
 

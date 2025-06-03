@@ -2,6 +2,8 @@
 <script setup lang="ts">
 import { useUserStore } from '~/stores/userStore'
 import { useNotifications } from '~/composables/useNotifications'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -14,16 +16,16 @@ onMounted(async () => {
 
     if (userStore.isLoggedIn && userStore.user) {
       console.log('Auth successful - user:', userStore.user.provider)
-      notify({ title: "Successfully logged in!", color: "success" })
+      notify({ title: t('auth.login_successful'), color: "success" })
       await router.push('/')
     } else {
       console.warn('Session fetch completed but user not logged in')
-      notify({ title: "Login failed", color: "error" })
+      notify({ title: t('auth.login_fail'), color: "error" })
       await router.push('/?error=not_authenticated')
     }
   } catch (error) {
     console.error('Auth callback error:', error)
-    notify({ title: "Login failed", color: "error" })
+    notify({ title: t('auth.login_fail'), color: "error" })
     await router.push('/?error=auth_failed')
   }
 })
@@ -33,9 +35,9 @@ onMounted(async () => {
   <div class="flex items-center justify-center min-h-screen">
     <UCard>
       <template #header>
-        <h3 class="text-lg font-semibold">Processing Login</h3>
+        <h3 class="text-lg font-semibold">{{ t('auth.processing_login') }}</h3>
       </template>
-      <p>Please wait while we complete your login...</p>
+      <p>{{ t('auth.loading') }}</p>
     </UCard>
   </div>
 </template>

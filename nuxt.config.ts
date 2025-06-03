@@ -8,6 +8,19 @@ export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: { enabled: true },
   ssr: true,
+  umami: {
+    id: '57b71d8c-e18d-4d81-b3b3-318ba64c0431',
+    host: 'https://analytics.ppo.gg',
+    autoTrack: true,
+    // proxy: 'cloak',
+    useDirective: true,
+    // ignoreLocalhost: true,
+    // excludeQueryParams: false,
+    // domains: ['cool-site.app', 'my-space.site'],
+    // customEndpoint: '/my-custom-endpoint',
+    // enabled: false,
+    // logErrors: true,
+  },
   vite: {
     build: {
       sourcemap: true,
@@ -33,12 +46,57 @@ export default defineNuxtConfig({
   plugins: [
     { src: "~/plugins/appwrite.client.ts", mode: "client" },
     { src: "~/plugins/init-session.client.ts", mode: "client" },
+    { src: "~/plugins/i18n.client.ts", mode: "client" },
   ],
   components: [
     { path: '~/components/game', prefix: '' },
     { path: '~/components/lobby', prefix: '' },
     { path: '~/components/', prefix: '' },
   ],
+  content: {
+    renderer: {
+      anchorLinks: { h1: false, h2: false, h3: false, h4: false }
+    }
+  },
+  css: ["~/assets/css/main.css"],
+  modules: [
+    "@nuxt/fonts",
+    "@nuxt/icon",
+    "@pinia/nuxt",
+    "@vueuse/sound/nuxt",
+    "@vueuse/nuxt",
+    "@nuxt/ui",
+    'pinia-plugin-persistedstate/nuxt',
+    "nuxt-og-image",
+    'nuxt-umami',
+    '@nuxtjs/i18n',
+    '@nuxt/content',
+  ],
+  sound: {
+    sounds: {
+      scan: true,
+    },
+  },
+  i18n: {
+    defaultLocale: 'en',
+    locales: [
+      { code: 'en', name: 'EN', file: 'en.json' },
+      { code: 'es', name: 'ES', file: 'es.json' },
+      { code: 'fr', name: 'FR', file: 'fr.json' },
+      { code: 'ru', name: 'RU', file: 'ru.json' },
+    ],
+    lazy: true,
+    strategy: 'no_prefix',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_redirected',
+      redirectOn: 'root',
+    },
+    bundle: {
+      optimizeTranslationDirective: false,
+    },
+    skipSettingLocaleOnNavigate: false,
+  },
   runtimeConfig: {
     appwriteApiKey: process.env.APPWRITE_API_KEY,
     appwriteEndpoint: process.env.APPWRITE_ENDPOINT,
@@ -47,6 +105,7 @@ export default defineNuxtConfig({
     appwriteLobbyCollectionId: process.env.APPWRITE_LOBBY_COLLECTION_ID,
     appwriteGamecardsCollectionId: process.env.APPWRITE_GAMECARDS_COLLECTION_ID,
     appwriteAdminTeamId: process.env.APPWRITE_ADMIN_TEAM_ID,
+    elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
 
     public: {
       appwriteUrl: process.env.NUXT_PUBLIC_APPWRITE_URL,
@@ -69,21 +128,5 @@ export default defineNuxtConfig({
       oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,
       appVersion: pkg.version,
     }
-  },
-  css: ["~/assets/css/main.css"],
-  modules: [
-    "@nuxt/fonts",
-    "@nuxt/icon",
-    "@pinia/nuxt",
-    "@vueuse/sound/nuxt",
-    "@vueuse/nuxt",
-    "@nuxt/ui",
-    'pinia-plugin-persistedstate/nuxt',
-    "nuxt-og-image",
-  ],
-  sound: {
-    sounds: {
-      scan: true,
-    },
   },
 })

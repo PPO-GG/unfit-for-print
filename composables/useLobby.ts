@@ -378,7 +378,7 @@ export const useLobby = () => {
         );
 
         // Determine player type based on game state
-        let playerType = 'participant';
+        let playerType = 'player';
         if (lobby.status === 'playing') {
             // If game is in progress, new players join as spectators
             playerType = 'spectator';
@@ -505,7 +505,7 @@ export const useLobby = () => {
                 config.public.appwritePlayerCollectionId,
                 player.$id,
                 {
-                    playerType: 'participant'
+                    playerType: 'player'
                 }
             );
         }

@@ -11,12 +11,11 @@ export interface GameState {
     submissions: Record<PlayerId, CardId[]>;
     scores: Record<PlayerId, number>;
     round: number;
-    roundWinner?: PlayerId; // ID of the winner of the last round
-    roundEndStartTime: number | null; // Server timestamp when roundEnd phase started
-    returnedToLobby?: Record<PlayerId, boolean>; // Track which players have returned to the lobby
-    gameEndTime?: number; // Timestamp when the game ended (for auto-return timer)
+    roundWinner?: PlayerId;
+    roundEndStartTime: number | null;
+    returnedToLobby?: Record<PlayerId, boolean>;
+    gameEndTime?: number;
 
-    // Newly added — now part of server-created game state
     config: {
         maxPoints: number;
         cardsPerPlayer: number;
@@ -25,9 +24,8 @@ export interface GameState {
         lobbyName: string;
     };
 
-    // Card-related properties that are managed separately in the GameCards collection
-    // but temporarily stored in the state during processing
     whiteDeck: CardId[];
+    blackDeck: CardId[];
     hands: Record<PlayerId, CardId[]>;
     discardWhite: CardId[];
     discardBlack: CardId[];

@@ -1,34 +1,34 @@
 <template>
   <UForm :state="formState" @submit="onSubmit" class="">
-    <UFormField v-if="showIfAnonymous" label="Username" name="username">
+    <UFormField v-if="showIfAnonymous" :label="t('modal.join_username')" name="username">
       <UInput
           v-model="formState.username"
-          placeholder="e.g. RizzMaster69"
+          placeholder="RizzMaster69"
           autocomplete="off"
       />
     </UFormField>
 
-    <UFormField label="Lobby Code" name="code">
+    <UFormField :label="t('lobby.lobby_code')" name="code">
       <UInput
           v-model="formState.code"
-          placeholder="e.g. ABC123"
+          placeholder="ABC123"
           autocomplete="off"
           class="uppercase"
           @blur="checkLobbyPrivacy"
       />
     </UFormField>
 
-    <UFormField v-if="isPrivateLobby" label="Password" name="password">
+    <UFormField v-if="isPrivateLobby" :label="t('modal.join_password')" name="password">
       <UInput
           v-model="formState.password"
           type="password"
-          placeholder="Enter lobby password"
+          placeholder="*********"
           autocomplete="off"
       />
     </UFormField>
 
     <UButton type="submit" block class="mt-4 cursor-pointer" :loading="joining">
-      Join Lobby
+	    {{ t('game.joingame') }}
     </UButton>
 
     <p v-if="error" class="text-sm text-red-500 mt-2">{{ error }}</p>
@@ -43,6 +43,7 @@ import {useUserStore} from '~/stores/userStore';
 import {useGameSettings} from '~/composables/useGameSettings';
 import {useLobby} from '~/composables/useLobby';
 
+const { t } = useI18n();
 // only *one* defineEmits
 const emit = defineEmits<{
   (e: 'joined', code: string): void;
@@ -94,13 +95,9 @@ const checkLobbyPrivacy = async () => {
 
     // Get the game settings for the lobby
     const settings = await getGameSettings(lobby.$id);
-    if (settings && settings.isPrivate) {
-      isPrivateLobby.value = true;
-    } else {
-      isPrivateLobby.value = false;
-    }
+    isPrivateLobby.value = !!(settings && settings.isPrivate);
   } catch (err) {
-    console.error('Error checking lobby privacy:', err);
+    // console.error('Error checking lobby privacy:', err);
     isPrivateLobby.value = false;
   }
 };
@@ -123,14 +120,14 @@ const onSubmit = async () => {
   // Ensure username is not empty for authenticated users
   if (!showIfAnonymous.value && (!username || username.trim() === '')) {
     username = 'Player_' + Math.floor(Math.random() * 1000);
-    console.warn('Empty username for authenticated user, using fallback:', username);
+    // console.warn('Empty username for authenticated user, using fallback:', username);
   }
 
   // Check if the lobby is private and validate password
   if (isPrivateLobby.value) {
     // If the lobby is private but no password is provided
     if (!formState.password || formState.password.trim() === '') {
-      error.value = 'This lobby requires a password.';
+      error.value = t('modal.error_lobby_needs_password');
       return;
     }
 
@@ -141,7 +138,7 @@ const onSubmit = async () => {
       // Get the lobby by code
       const lobby = await getLobbyByCode(formState.code.trim().toUpperCase());
       if (!lobby) {
-        error.value = 'Lobby not found.';
+        error.value = t('lobby.not_found');
         return;
       }
 
@@ -150,18 +147,18 @@ const onSubmit = async () => {
       if (settings && settings.isPrivate) {
         // Validate the password
         if (settings.password !== formState.password) {
-          error.value = 'Incorrect password.';
+          error.value = t('modal.error_join_wrong_password');
           return;
         }
       }
     } catch (err) {
-      console.error('Error validating lobby password:', err);
+      // console.error('Error validating lobby password:', err);
       error.value = 'Failed to validate lobby password.';
       return;
     }
   }
 
-  console.log('Using username:', username, 'isAnonymous:', showIfAnonymous.value);
+  // console.log('Using username:', username, 'isAnonymous:', showIfAnonymous.value);
 
   const ok = await joinLobbyWithSession(
       username,
@@ -170,7 +167,7 @@ const onSubmit = async () => {
       (val) => (joining.value = val)
   );
 
-  console.log('🟢 join result:', ok, formState.code);
+  // console.log('🟢 join result:', ok, formState.code);
 
   if (ok) {
     emit('joined', formState.code);

@@ -1,11 +1,11 @@
 <template>
   <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg shadow-md">
-    <h2 class="text-xl font-bold mb-4 text-center text-primary-600 dark:text-primary-400">Create New Lobby</h2>
+    <h2 class="text-xl font-bold mb-4 text-center text-primary-600 dark:text-primary-400">{{ t('modal.create_lobby') }}</h2>
     <UForm :state="formState" @submit="onSubmit" class="space-y-4">
-      <UFormField label="Lobby Name (optional)" name="name">
+      <UFormField :label="t('modal.lobby_name')" name="name">
         <UInput 
           v-model="formState.name" 
-          placeholder="Optional Lobby Name" 
+          :placeholder="t('modal.lobby_name')"
           icon="i-heroicons-user-group"
           class="focus:ring-primary-500"
         />
@@ -18,7 +18,7 @@
       >
         <span class="flex items-center gap-2">
           <i class="i-heroicons-play-circle"></i>
-          Create Lobby
+          {{ t('modal.create_lobby') }}
         </span>
       </UButton>
     </UForm>
@@ -30,6 +30,7 @@ import { ref } from 'vue';
 import { useLobby } from '~/composables/useLobby';
 import { useUserStore } from '~/stores/userStore';
 import { useNotifications } from '~/composables/useNotifications';
+const { t } = useI18n()
 
 const emit = defineEmits<{
   (e: 'created', code: string): void;
@@ -50,14 +51,6 @@ const onSubmit = async () => {
       throw new Error('User not authenticated');
     }
 
-    // Log runtime configuration for debugging
-    const config = useRuntimeConfig();
-    console.log('Runtime configuration in CreateLobbyDialog:', {
-      databaseId: config.public.appwriteDatabaseId,
-      lobbyCollectionId: config.public.appwriteLobbyCollectionId,
-      playerCollectionId: config.public.appwritePlayerCollectionId
-    });
-
     // Pass the lobby name if it's not empty
     const lobbyName = formState.name.trim() || undefined;
     const lobby = await createLobby(userStore.user.$id, lobbyName);
@@ -67,18 +60,19 @@ const onSubmit = async () => {
     }
 
     // Show success notification
-    notify({
-      title: 'Lobby Created',
-      description: `Your lobby has been created successfully${lobbyName ? ` with name: ${lobbyName}` : ''}`,
-      color: "success"
-    });
+	  notify({
+		  title: lobbyName
+				  ? `${t('modal.lobby_created')} ${t('modal.lobby_created_with_name', { name: lobbyName })}`
+				  : t('modal.lobby_created'),
+		  color: "success"
+	  })
 
     emit('created', lobby.code);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
     notify({
-      title: 'Failed to create lobby',
+      title: t('modal.error_create_lobby'),
       description: errorMessage,
       color: "error"
     });

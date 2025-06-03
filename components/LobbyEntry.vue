@@ -5,7 +5,7 @@
 
     <!-- Only shown for logged-in users -->
     <UButton v-if="showIfAuthenticated" @click="showCreate = true">
-      Create Lobby
+      {{ t('modal.create_lobby') }}
     </UButton>
 
     <!-- Create lobby dialog -->
@@ -17,6 +17,8 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserAccess } from '~/composables/useUserUtils';
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const { showIfAuthenticated } = useUserAccess();
 const showCreate = ref(false);

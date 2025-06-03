@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
 
     const client = new Client()
         .setEndpoint('https://console.ppo.gg/v1') // No NUXT_PUBLIC_ here
-        .setProject('680734f2001f527a785f'!)
+        .setProject('682eb1b9000cb3845772'!)
         .setKey(process.env.APPWRITE_API_KEY!) // NEVER expose this to client!
 
     const databases = new Databases(client)

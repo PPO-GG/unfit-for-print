@@ -2,7 +2,6 @@
 definePageMeta({
 	middleware: 'admin'
 })
-const userStore = useUserStore()
 
 // For tab navigation
 const activeTab = ref('cards')

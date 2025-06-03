@@ -22,6 +22,8 @@ const showCreate = ref(false);
 const isJoining = ref(false);
 const isCreating = ref(false);
 const config = useRuntimeConfig();
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const handleLoginWithDiscord = async (): Promise<void> => {
   try {
@@ -30,11 +32,11 @@ const handleLoginWithDiscord = async (): Promise<void> => {
     // Fetch full session + user info after login
     await userStore.fetchUserSession();
 
-    notify({ title: "Logged in with Discord", color: "success" });
+    notify({ title: t('notification.logged_in'), color: "success" });
   } catch (err: any) {
     console.error("Login error:", err);
 
-    let message = "Login failed";
+    let message = t('notification.login_failed');
 
     if (err?.message?.includes("already exists")) {
       message = "This Discord account is already tied to another user.";
@@ -44,33 +46,12 @@ const handleLoginWithDiscord = async (): Promise<void> => {
   }
 };
 
-const handleLoginWithGoogle = async (): Promise<void> => {
-  try {
-    await userStore.loginWithProvider('google');
-
-    // Fetch full session + user info after login
-    await userStore.fetchUserSession();
-
-    notify({ title: "Logged in with Google", color: "success" });
-  } catch (err: any) {
-    console.error("Login error:", err);
-
-    let message = "Login failed";
-
-    if (err?.message?.includes("already exists")) {
-      message = "This Google account is already tied to another user.";
-    }
-
-    notify({ title: message, color: "error" });
-  }
-};
-
 const handleLogout = async () => {
   try {
     await userStore.logout()
-    notify({title: "Logged out", color: "success"})
+    notify({title: t('notification.logged_out'), color: "success"})
   } catch (err) {
-    notify({title: "Logout failed", color: "error"})
+    notify({title: t('notification.logout_failed'), color: "error"})
     console.error("Logout error:", err)
   }
 }
@@ -98,7 +79,7 @@ const checkForActiveLobbyAndJoin = async () => {
 			const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
 			if (activeLobby) {
 				notify({
-					title: 'Redirecting to your active game',
+					title: t('notification.redirecting'),
 					color: 'info',
 					icon: 'i-mdi-controller',
 					duration: 2000,
@@ -137,7 +118,7 @@ const checkForActiveLobbyAndCreate = async () => {
 		const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
 		if (activeLobby) {
 			notify({
-				title: 'Redirecting to your active game',
+				title: t('notification.redirecting'),
 				color: 'info',
 				icon: 'i-mdi-controller',
 				duration: 2000,
@@ -166,7 +147,7 @@ const checkForActiveLobbyAndCreate = async () => {
 
 const handleJoined = (code: string) => {
 	notify({
-		title: 'Loading game lobby...',
+		title: t('notification.loading_game'),
 		color: 'info',
 		icon: 'i-mdi-loading i-spin',
 		duration: 3000,
@@ -206,20 +187,20 @@ const isAdmin = useIsAdmin()
 			</NuxtLink>
 		</div>
 		<nav class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto align-middle">
-			<UButton to="/" size="xl" class="text-xl py-2 px-4 cursor-pointer" color="info" variant="ghost" icon="i-solar-home-smile-bold-duotone">Home</UButton>
+			<UButton to="/" size="xl" class="text-xl py-2 px-4 cursor-pointer" color="info" variant="ghost" icon="i-solar-home-smile-bold-duotone">{{ t('nav.home') }}</UButton>
 			<UButtonGroup>
-				<UButton @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer" color="success" variant="ghost" icon="i-solar-hand-shake-line-duotone">Join Game</UButton>
-				<UButton @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-right-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">{{ isAuthenticatedUser(userStore.user) ? 'Create Game' : 'Log In To Create Game'}}</UButton>
+				<UButton @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer" color="success" variant="ghost" icon="i-solar-hand-shake-line-duotone">{{ t('nav.joingame') }}</UButton>
+				<UButton @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-right-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">{{ isAuthenticatedUser(userStore.user) ? t('nav.creategame') : t('nav.login_to_create') }}</UButton>
 			</UButtonGroup>
-			<UButton to="/game" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" icon="i-solar-gamepad-bold-duotone">Games</UButton>
+			<UButton to="/game" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" icon="i-solar-gamepad-bold-duotone">{{ t('nav.games') }}</UButton>
 			<div v-if="isAuthenticatedUser(userStore.user)">
-				<UButton v-if="isAdmin" to="/admin" class="text-xl py-2 px-4 cursor-pointer text-info-200" variant="ghost" color="info" icon="i-solar-shield-star-bold-duotone">Admin</UButton>
-				<UButton to="/profile" class="text-xl py-2 px-4 cursor-pointer" color="secondary" variant="ghost" icon="i-solar-user-id-bold-duotone">Profile</UButton>
-				<UButton @click="handleLogout" class="text-xl py-2 px-4 cursor-pointer" color="error" variant="ghost" icon="i-solar-logout-3-bold-duotone">Logout</UButton>
+				<UButton v-if="isAdmin" to="/admin" class="text-xl py-2 px-4 cursor-pointer text-info-200" variant="ghost" color="info" icon="i-solar-shield-star-bold-duotone">{{ t('nav.admin') }}</UButton>
+				<UButton to="/profile" class="text-xl py-2 px-4 cursor-pointer" color="secondary" variant="ghost" icon="i-solar-user-id-bold-duotone">{{ t('nav.profile') }}</UButton>
+				<UButton @click="handleLogout" class="text-xl py-2 px-4 cursor-pointer" color="error" variant="ghost" icon="i-solar-logout-3-bold-duotone">{{ t('nav.logout') }}</UButton>
 			</div>
 
 			<template v-else>
-				<UButton @click="handleLoginWithDiscord" color="secondary" variant="ghost" icon="i-logos-discord-icon" class="text-xl py-2 px-4 cursor-pointer">Login With Discord</UButton>
+				<UButton @click="handleLoginWithDiscord" color="secondary" variant="ghost" icon="i-logos-discord-icon" class="text-xl py-2 px-4 cursor-pointer">{{ t('nav.login_discord') }}</UButton>
 			</template>
 		</nav>
 	</header>
@@ -236,8 +217,8 @@ const isAdmin = useIsAdmin()
 							alt="avatar"
 							class="w-10 h-10 rounded-full"
 					/>
-					<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl">Welcome, {{userStore.user.name.toUpperCase()}}!</span>
-					<span v-else class="text-xl">Hello There, Random User!</span>
+					<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl">{{ t('nav.welcome_user', { name: userStore.user.name.toUpperCase() }) }}</span>
+					<span v-else class="text-xl">{{ t('nav.welcome_guest') }}</span>
 				</div>
 				<div class="flex justify-between items-center">
 					<UButton
@@ -251,41 +232,41 @@ const isAdmin = useIsAdmin()
 				</div>
 
 				<UButton block size="xl" class="mb-2 text-xl py-3 cursor-pointer" color="info" variant="soft" icon="i-solar-home-smile-bold-duotone">
-					Home
+					{{ t('nav.home') }}
 				</UButton>
 				<UButton block size="xl" @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="mb-2 text-xl py-3 cursor-pointer" color="success" variant="soft" icon="i-solar-hand-shake-line-duotone">
-					Join Game
+					{{ t('nav.joingame') }}
 				</UButton>
 
 				<UButton block size="xl" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="mb-2 text-xl py-3 cursor-pointer" color="warning" variant="soft" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-down-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">
-					{{ isAuthenticatedUser(userStore.user) ? 'Create Game' : 'Log In To Create Game'}}
+					{{ isAuthenticatedUser(userStore.user) ? t('nav.creategame') : t('nav.login_to_create') }}
 				</UButton>
 
 				<template v-if="isAuthenticatedUser(userStore.user)">
-					<UButton block v-if="isAdmin" to="/admin" class="mb-2 text-xl py-3 bg-slate-800 text-slate-400" variant="soft" color="info" icon="i-solar-shield-star-bold-duotone">Admin</UButton>
+					<UButton block v-if="isAdmin" to="/admin" class="mb-2 text-xl py-3 bg-slate-800 text-slate-400" variant="soft" color="info" icon="i-solar-shield-star-bold-duotone">{{ t('nav.admin') }}</UButton>
 					<UButton block to="/profile" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-solar-user-id-bold-duotone">
-						Profile
+						{{ t('nav.profile') }}
 					</UButton>
 					<UButton block to="/game" class="mb-2 text-xl py-3" color="warning" variant="soft" icon="i-solar-gamepad-bold-duotone">
-						Games
+						{{ t('nav.games') }}
 					</UButton>
 					<UButton block @click="handleLogout" class="mb-2 text-xl py-3" color="error" variant="soft" icon="i-solar-logout-3-bold-duotone">
-						Logout
+						{{ t('nav.logout') }}
 					</UButton>
 				</template>
 
 				<template v-else>
 					<USeparator class="my-2" />
 					<UButton block @click="handleLoginWithDiscord" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-logos-discord-icon">
-						Login With Discord
+						{{ t('nav.login_discord') }}
 					</UButton>
 					<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
 						<USeparator class="my-2" />
 						<UButton block @click="openPolicyModal" class="mb-2 text-xl py-3" color="neutral" variant="soft" icon="i-solar-shield-check-line-duotone">
-							Privacy Policy
+							{{ t('nav.privacy_policy') }}
 						</UButton>
-						<p class="text-sm">© 2025 Unfit for Print. All rights reserved.</p>
-						<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
+						<p class="text-sm">{{ t('footer.copyright') }}</p>
+						<p class="text-sm">{{ t('footer.made_by') }}</p>
 						<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">{{ version }}</NuxtLink>
 					</div>
 				</template>
@@ -293,10 +274,10 @@ const isAdmin = useIsAdmin()
 				<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
 					<USeparator class="my-2" />
 					<UButton block @click="openPolicyModal" class="mb-2 text-xl py-3" color="neutral" variant="soft" icon="i-solar-shield-check-line-duotone">
-						Privacy Policy
+						{{ t('nav.privacy_policy') }}
 					</UButton>
-					<p class="text-sm">© 2025 Unfit for Print. All rights reserved.</p>
-					<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
+					<p class="text-sm">{{ t('footer.copyright') }}</p>
+					<p class="text-sm">{{ t('footer.made_by') }}</p>
 					<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">V-{{ $config.public.appVersion }}</NuxtLink>
 				</div>
 			</div>
@@ -305,13 +286,13 @@ const isAdmin = useIsAdmin()
 	</USlideover>
 
 	<!-- Modals (shared between mobile and desktop) -->
-	<UModal v-model:open="showJoin" :overlay="false" title="Join a Lobby" class="">
+	<UModal v-model:open="showJoin" :overlay="false" :title="t('modal.join_lobby')" class="">
 		<template #body>
 			<JoinLobbyForm @joined="handleJoined" />
 		</template>
 	</UModal>
 
-	<UModal v-model:open="showCreate" :overlay="false" title="Create a Lobby">
+	<UModal v-model:open="showCreate" :overlay="false" :title="t('modal.create_lobby')">
 		<template #body>
 			<CreateLobbyDialog @created="handleJoined" />
 		</template>
