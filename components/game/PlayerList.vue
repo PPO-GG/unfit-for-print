@@ -6,6 +6,7 @@ import type { Player } from '~/types/player'
 import { useGameContext } from '~/composables/useGameContext'
 import type { Lobby } from '~/types/lobby'
 
+const { t } = useI18n()
 const props = defineProps<{
   players: Player[]
   hostUserId: string
@@ -57,18 +58,15 @@ const kick = async (player: Player) => {
   try {
     await kickPlayer(player.$id)
   } catch (err) {
-    console.error("Failed to kick player:", err)
+    // console.error("Failed to kick player:", err)
+	  notify({
+			title: t('lobby.error_failed_to_kick', { name: player.name || 'Unknown Player' }),
+			color: 'error'
+		})
   }
 }
 
 const sortedPlayers = computed(() => {
-    // Log player data for debugging
-    console.log('PlayerList - players:', props.players.map(p => ({
-      userId: p.userId,
-      name: p.name,
-      playerType: p.playerType
-    })));
-
     return props.players.slice().sort((a, b) => {
       if (a.userId === props.hostUserId) return -1
       if (b.userId === props.hostUserId) return 1
@@ -80,7 +78,11 @@ const promote = async (player: Player) => {
   try {
     await promoteToHost(props.lobbyId, player)
   } catch (err) {
-    console.error("Failed to promote host:", err)
+    // console.error("Failed to promote host:", err)
+	  notify({
+			title: t('lobby.error_failed_to_promote', { name: player.name || 'Unknown Player' }),
+			color: 'error'
+		})
   }
 }
 
@@ -145,21 +147,6 @@ const getPlayerAvatarUrl = (player: Player) => {
 
 <template>
   <div class="font-['Bebas_Neue'] rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto border-2 border-slate-500 bg-slate-600">
-<!--    <div class="flex justify-between items-center mb-2">-->
-<!--      <h2 class="text-3xl font-bold">Players</h2>-->
-<!--      <UButton-->
-<!--        v-if="isHost && (gamePhase === 'submitting' || gamePhase === 'judging')"-->
-<!--        size="sm"-->
-<!--        color="warning"-->
-<!--        variant="ghost"-->
-<!--        icon="i-heroicons-arrow-path"-->
-<!--        @click="reshuffleCards"-->
-<!--        class="debug-btn"-->
-<!--        title="Debug: Reshuffle all player cards"-->
-<!--      >-->
-<!--        Reshuffle-->
-<!--      </UButton>-->
-<!--    </div>-->
     <ul class="uppercase text-lg">
       <li
           v-for="player in sortedPlayers"
@@ -192,16 +179,15 @@ const getPlayerAvatarUrl = (player: Player) => {
 	      <span v-if="player.userId === currentUserId" class="text-xs text-gray-400">(YOU)</span>
         <!-- Player Status Indicators -->
         <div class="flex items-center ml-auto mr-2 gap-2">
-          <!-- Spectator Indicator (highest priority) -->
           <span 
             v-if="player.playerType === 'spectator'" 
             class="status-badge bg-purple-500/20 text-purple-300"
           >
-            <Icon name="mdi:eye" class="mr-1" />Spectator
+            <Icon name="mdi:eye" class="mr-1" />{{ t('game.spectator') }}
           </span>
-          <!-- Card Czar Indicator -->
+          <!-- Card Judge Indicator -->
           <span v-else-if="player.userId === judgeId" class="status-badge bg-yellow-500/20 text-yellow-300">
-            <Icon name="mdi:gavel" class="mr-1" />Judge
+            <Icon name="mdi:gavel" class="mr-1" />{{ t('game.judge') }}
           </span>
 
           <!-- Submitted Indicator -->
@@ -209,7 +195,7 @@ const getPlayerAvatarUrl = (player: Player) => {
             v-else-if="submissions && submissions[player.userId]" 
             class="status-badge bg-green-500/20 text-green-300"
           >
-            <Icon name="mdi:check-circle" class="mr-1" />Submitted
+            <Icon name="mdi:check-circle" class="mr-1" />{{ t('game.player_submitted') }}
           </span>
 
           <!-- Waiting Indicator -->
@@ -217,7 +203,7 @@ const getPlayerAvatarUrl = (player: Player) => {
             v-else-if="gamePhase === 'submitting'" 
             class="status-badge bg-blue-500/20 text-blue-300"
           >
-            <Icon name="mdi:timer-sand" class="mr-1" />Choosing
+            <Icon name="mdi:timer-sand" class="mr-1" />{{ t('game.player_choosing') }}
           </span>
         </div>
 
@@ -233,7 +219,7 @@ const getPlayerAvatarUrl = (player: Player) => {
               v-if="isHost && player.userId !== currentUserId && player.playerType === 'spectator'"
               @click="emit('convert-spectator', player.userId)"
               class="admin-btn text-green-400 hover:text-green-300 hover:bg-green-900/30"
-              title="Deal in this spectator"
+              title="{{ t('game.convert_to_participant') }}"
           >
             <Icon name="mdi:account-plus" />
           </button>

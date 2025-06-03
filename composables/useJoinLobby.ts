@@ -8,6 +8,7 @@ import { ID, Query } from 'appwrite';
 
 export const useJoinLobby = () => {
     const router = useRouter();
+    const { t } = useI18n();
     const {
         getLobbyByCode,
         isInLobby,
@@ -26,8 +27,8 @@ export const useJoinLobby = () => {
     };
 
     const validateUsername = (username: string): string | null => {
-        if (!username.trim()) return 'Please enter a username.';
-        if (isBadUsername(username)) return "That name isn't allowed.";
+        if (!username.trim()) return t('lobby.missing_username');
+        if (isBadUsername(username)) return t('lobby.name_not_allowed');
         return null;
     };
 

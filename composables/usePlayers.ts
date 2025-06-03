@@ -26,7 +26,7 @@ export const usePlayers = () => {
         isHost: doc.isHost,
         joinedAt: doc.joinedAt,
         provider: doc.provider,
-        playerType: doc.playerType || 'participant', // Include playerType with fallback to 'participant'
+        playerType: doc.playerType || 'player',
       })) satisfies Player[];
     } catch (err) {
       console.error('Failed to fetch players for lobby:', err);

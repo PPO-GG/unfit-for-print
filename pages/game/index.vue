@@ -1,42 +1,36 @@
 <template>
-	<div class="p-6 space-y-6 text-white flex justify-center items-center flex-col align-middle h-screen">
-		<div class="p-6 max-w-5xl mx-auto space-y-6">
-			<h1 class="text-4xl font-bold font-['Bebas_Neue']">Available Games</h1>
+	<div class="p-6 space-y-6 text-white flex justify-center items-center text-center flex-col align-middle">
+		<div class="backdrop-blur-2xl bg-slate-800/25 p-16 rounded-xl shadow-xl flex flex-col items-center space-y-4">
+			<h1 class="text-4xl font-bold font-['Bebas_Neue']">{{ t('game.available') }}</h1>
 
 			<ul v-if="lobbies.length" class="space-y-4">
 				<li v-for="lobby in lobbies" :key="lobby.$id" class="bg-slate-800 p-4 rounded shadow">
 					<div class="flex justify-between items-center">
 						<div>
-							<h2 class="text-xl font-semibold uppercase">{{ lobby.lobbyName || 'Unnamed Lobby' }}</h2>
-							<p class="text-gray-400 text-sm">Lobby Code: {{ lobby.code }}</p>
-							<p class="text-gray-400 text-sm">Status: {{ lobby.status }}</p>
-							<p class="text-gray-400 text-sm">Host: {{ getHostName(lobby) }}</p>
+							<h2 class="text-xl font-semibold uppercase">{{ lobby.lobbyName || t('Unnamed Lobby') }}</h2>
+							<p class="text-gray-400 text-sm">{{ t('lobby.lobby_code') }}: {{ lobby.code }}</p>
+							<p class="text-gray-400 text-sm">{{ t('game.status') }}: {{ lobby.status }}</p>
+							<p class="text-gray-400 text-sm">{{ t('game.host') }}: {{ getHostName(lobby) }}</p>
 						</div>
-						<UButton color="primary" @click="handleJoined(lobby.code)">Join Game</UButton>
+						<UButton color="primary" @click="handleJoined(lobby.code)">{{ t('game.joingame') }}</UButton>
 					</div>
 				</li>
 			</ul>
 
-			<p v-else class="text-gray-400 text-center">No public games available right now.</p>
-		</div>
-		<div class="backdrop-blur-2xl bg-slate-800/25 p-32 rounded-xl shadow-xl flex flex-col items-center space-y-4">
-			<h1 class="text-3xl font-bold">Game Portal</h1>
-			<p class="text-sm text-gray-400">Join <span v-if="showIfAuthenticated">or create</span> a game lobby to get
-				started.</p>
-
-			<div class="space-x-4">
-				<UButton size="lg" @click="showJoin = true">Join Game</UButton>
-				<UButton v-if="showIfAuthenticated" size="lg" @click="showCreate = true">Create Game</UButton>
+			<p v-else class="text-gray-400 text-center">{{ t('game.nogamesavailable') }}</p>
+			<div class="space-x-4 uppercase font-['Bebas_Neue']">
+				<UButton size="xl" @click="showJoin = true" class="text-white text-2xl" variant="subtle" color="success">{{ t('modal.join_lobby') }}</UButton>
+				<UButton v-if="showIfAuthenticated" size="xl" @click="showCreate = true" class="text-white text-2xl" variant="subtle" color="warning">{{ t('modal.create_lobby') }}</UButton>
 			</div>
 
 			<!-- Modals -->
-			<UModal v-model:open="showJoin" title="Join a Lobby">
+			<UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
 				<template #body>
 					<JoinLobbyForm @joined="handleJoined"/>
 				</template>
 			</UModal>
 
-			<UModal v-model:open="showCreate" title="Create a Lobby">
+			<UModal v-model:open="showCreate" :title="t('modal.create_lobby')">
 				<template #body>
 					<CreateLobbyDialog @created="handleJoined"/>
 				</template>
@@ -54,9 +48,10 @@ import {useUserAccess} from '~/composables/useUserUtils'
 import { getAppwrite } from '~/utils/appwrite'
 import { Query } from 'appwrite'
 import { useGetPlayerName } from '~/composables/useGetPlayerName'
-
 import type { GameSettings } from '~/types/gamesettings'
 import type { Lobby } from '~/types/lobby'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const { databases } = getAppwrite()
 const config = useRuntimeConfig()
@@ -138,9 +133,9 @@ onMounted(async () => {
 	const userId = userStore.user?.$id
 	if (userId) {
 		const activeLobby = await getActiveLobbyForUser(userId)
-		// if (activeLobby?.code) {
-		// 	return router.replace(`/game/${activeLobby.code}`)
-		// }
+		if (activeLobby?.code) {
+			return router.replace(`/game/${activeLobby.code}`)
+		}
 	}
 })
 

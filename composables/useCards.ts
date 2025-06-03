@@ -40,7 +40,7 @@ export const useCards = () => {
       // Step 2: Random offset
       const offset = Math.floor(Math.random() * total);
 
-      console.log(`Fetching random white card at offset: `, offset,` (out of `,total,`)`, cardPacks ? ` from packs: ${cardPacks.join(', ')}` : '');
+      // console.log(`Fetching random white card at offset: `, offset,` (out of `,total,`)`, cardPacks ? ` from packs: ${cardPacks.join(', ')}` : '');
 
       // Step 3: Fetch one random card (filtered by card packs if specified)
       queries = [Query.offset(offset), Query.limit(1)];
@@ -110,14 +110,14 @@ export const useCards = () => {
 
       const total = totalRes.total;
       if (total === 0) {
-        console.warn(`No black cards found with pick=${pick}${cardPacks ? ` and specified card packs` : ''}`);
+        // console.warn(`No black cards found with pick=${pick}${cardPacks ? ` and specified card packs` : ''}`);
         return null; // No cards found with this pick value and card packs
       }
 
       // Step 2: Random offset *within the filtered results*
       const offset = Math.floor(Math.random() * total);
 
-      console.log(`Fetching random black card with pick=${pick} at offset: ${offset} (out of ${total})${cardPacks ? ` from packs: ${cardPacks.join(', ')}` : ''}`);
+      // console.log(`Fetching random black card with pick=${pick} at offset: ${offset} (out of ${total})${cardPacks ? ` from packs: ${cardPacks.join(', ')}` : ''}`);
 
       // Step 3: Fetch one random card *matching the pick value and card packs if specified*
       queries = [
@@ -151,7 +151,7 @@ export const useCards = () => {
       // Check if the error is due to an invalid attribute or query
       if (err.message && err.message.includes('Attribute not found')) {
         const config = useRuntimeConfig();
-        console.error(`Failed to fetch black card: Make sure the 'pick' attribute exists and is indexed in your Appwrite collection '${config.public.appwriteBlackCardCollectionId}'. Error: ${err}`);
+        console.error(`Failed to fetch black card: Make sure the 'pick' attribute exists'. Error: ${err}`);
       } else {
         console.error("Failed to fetch black card:", err);
       }

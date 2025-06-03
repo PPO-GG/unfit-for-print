@@ -30,7 +30,7 @@
 					/>
 				</div>
 				<div v-if="messages.length === 0" class="text-gray-400 text-center italic">
-					No messages yet
+					{{ t('chat.no_messages') }}
 				</div>
 			</div>
 
@@ -53,7 +53,7 @@
 					ref="chatInput"
 					v-model="newMessage"
 					@keydown.enter.exact.prevent="!isMessageEmpty && sendMessage()"
-					placeholder="Type a message..."
+					:placeholder="t('chat.placeholder')"
 					rows="1"
 					class="flex-1 resize-none bg-transparent outline-none text-white placeholder-gray-400 overflow-hidden px-2"
 					@input="autoResize"
@@ -68,12 +68,12 @@
 				class="disabled:bg-gray-500 disabled:cursor-not-allowed disabled:text-gray-400 p-2"
 				icon="i-solar-plain-bold-duotone"
 			>
-				Send
+				{{ t('chat.send') }}
 			</UButton>
 		</div>
 		<div class="bottom-0 relative bg-slate-900 border-2 border-t-0 border-slate-500 w-full rounded-b-lg p-4">
-			<USwitch label="TTS" description="This toggles text-to-speech" size="xs" v-model="prefs.ttsEnabled" />
-			<USwitch label="Profanity" description="This toggles profanity filtering" size="xs" v-model="prefs.chatProfanityFilter" />
+			<USwitch label="TTS" :description="t('chat.tts_description')" size="xs" v-model="prefs.ttsEnabled" />
+			<USwitch label="Profanity" :description="t('chat.profanity_description')" size="xs" v-model="prefs.chatProfanityFilter" />
 
 			<div
 					id="character-count"
@@ -96,11 +96,11 @@ import {ID, type Models, Query, Permission, Role} from 'appwrite';
 import { useMeSpeak } from '~/composables/useMeSpeak'
 const { speakWithUserId } = await useMeSpeak()
 const prefs = useUserPrefsStore()
-
+const { t } = useI18n()
 import { useSpeech } from '~/composables/useSpeech'
 const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
 
-const maxLength = 256
+const maxLength = 255
 const {playSfx} = useSfx();
 const autoResize = (e: Event) => {
 	const target = e.target as HTMLTextAreaElement
@@ -114,8 +114,8 @@ interface ChatMessage extends Models.Document {
   lobbyId: string;
   senderId: string;
   senderName: string;
-  text: string[];
-  timestamp: string;
+  text: string;
+  timeStamp: string;
 	type?: 'user' | 'system';
 }
 
@@ -134,7 +134,7 @@ const messagesCollectionId = config.public.appwriteGamechatCollectionId;
 
 const messages = ref<ChatMessage[]>([]);
 const newMessage = ref('');
-const safeText = (text: string[]) => text.map(t => sanitize(t)).join(' ')
+const safeText = (text: string) => sanitize(text)
 const chatContainer = ref<HTMLDivElement | null>(null);
 const isAtBottom = ref(true);
 const errorMessage = ref<string | null>(null);
@@ -167,23 +167,25 @@ const loadMessages = async () => {
 
 		// Check if lobbyId is defined and not empty
 		if (!props.lobbyId) {
-			console.error('Error: lobbyId is undefined or empty');
-			errorMessage.value = 'Failed to load messages: Invalid lobby ID';
+			// console.error('Error: lobbyId is undefined or empty');
+			errorMessage.value = t('chat.error_loading_messages');
 			return () => {};
 		}
 
 		const res = await databases.listDocuments(dbId, messagesCollectionId, [
 			Query.equal('lobbyId', props.lobbyId),
-			Query.orderAsc('timestamp')
+			Query.orderAsc('timeStamp')
 		]);
 
-		messages.value = res.documents.map((doc) => ({
-			...doc,
-			text: doc.text.map((t) => {
-				const safe = sanitize(t);
-				return prefs.chatProfanityFilter ? safe : filter.clean(safe);
-			}),
-		})) as ChatMessage[];
+		messages.value = res.documents.map((doc) => {
+			// Handle case where doc.text might still be an array from previous data
+			const text = Array.isArray(doc.text) ? doc.text.join(' ') : doc.text;
+			const safe = sanitize(text);
+			return {
+				...doc,
+				text: prefs.chatProfanityFilter ? safe : filter.clean(safe)
+			};
+		}) as ChatMessage[];
 
 		// Subscribe to new messages
 		return databases.client.subscribe(`databases.${dbId}.collections.${messagesCollectionId}.documents`, (e) => {
@@ -196,12 +198,12 @@ const loadMessages = async () => {
 					: doc.lobbyId;
 
 				if (props.lobbyId && docLobbyId === props.lobbyId) {
+					// Handle case where doc.text might still be an array from previous data
+					const text = Array.isArray(doc.text) ? doc.text.join(' ') : doc.text;
+					const safe = sanitize(text);
 					const safeDoc = {
 						...doc,
-						text: doc.text.map((t) => {
-							const safe = sanitize(t);
-							return prefs.chatProfanityFilter ? safe : filter.clean(safe);
-						}),
+						text: prefs.chatProfanityFilter ? safe : filter.clean(safe)
 					};
 					messages.value.push(safeDoc);
 					if(safeDoc.senderId !== userStore.user?.$id) {
@@ -209,17 +211,21 @@ const loadMessages = async () => {
 					}
 
 					if (prefs.ttsEnabled) {
-						if(safeDoc.senderId !== userStore.user?.$id && safeDoc.text && safeDoc.text.length > 0) {
-							// speakWithUserId(safeDoc.text.join(' '), safeDoc.senderId);
-							speak(safeDoc.text.join(' '))
+						// if(safeDoc.senderId !== userStore.user?.$id && safeDoc.text && safeDoc.text.length > 0) {
+						// 	// speakWithUserId(safeDoc.text, safeDoc.senderId);
+						// 	speak(safeDoc.text)
+						// }
+						if(safeDoc.text && safeDoc.text.length > 0) {
+							// speakWithUserId(safeDoc.text, safeDoc.senderId);
+							speak(safeDoc.text)
 						}
 					}
 				}
 			}
 		});
 	} catch (error) {
-		console.error('Error loading or subscribing to messages:', error);
-		errorMessage.value = 'Failed to load messages. Please try refreshing the page.';
+		// console.error('Error loading or subscribing to messages:', error);
+		errorMessage.value = t('chat.error_loading_messages');
 		return () => {};
 	}
 };
@@ -283,8 +289,8 @@ const sendMessage = async () => {
 			lobbyId: props.lobbyId,
 			senderId: userId,
 			senderName: userStore.user?.name || userStore.user?.prefs?.name || 'Anonymous',
-			text: [safeMessage],
-			timestamp: new Date().toISOString(),
+			text: safeMessage,
+			timeStamp: new Date().toISOString(),
 		}, permissions)
 
 		newMessage.value = ''
@@ -293,13 +299,14 @@ const sendMessage = async () => {
 			scrollToBottom()
 			playSfx('/sounds/sfx/chatSend.wav')
 		})
-	} catch (error) {
+	} catch (error: any) {
 		console.error('Error sending message:', error)
-		errorMessage.value = 'Failed to send message. Please try again.'
-	}
-	if (!safeMessage) {
-		errorMessage.value = 'Your message contained unsupported or unsafe content.'
-		return
+		// Provide more specific error information
+		if (error?.message) {
+			errorMessage.value = `${t('chat.error_sending')}: ${error.message}`
+		} else {
+			errorMessage.value = t('chat.error_sending')
+		}
 	}
 }
 

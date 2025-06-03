@@ -17,6 +17,8 @@ import type {GameSettings} from '~/types/gamesettings';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
 import {useAppwrite} from "~/composables/useAppwrite";
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 definePageMeta({
 	layout: 'game'
@@ -148,14 +150,12 @@ const setupGameSettingsRealtime = (lobbyId: string) => {
 				: settings.lobbyId;
 
 			if (settingsLobbyId === lobbyId) {
-				console.log('[Realtime] Game settings updated:', settings);
 				gameSettings.value = settings;
 
 				// If you're not the host and settings changed, show a notification
 				if (!isHost.value) {
 					notify({
-						title: 'Game Settings Updated',
-						description: 'The host has updated the game settings.',
+						title: t('game.settings.updated'),
 						icon: 'i-solar-info-circle-bold-duotone',
 						color: 'primary',
 						duration: 3000
@@ -172,14 +172,12 @@ const setupGameSettingsRealtime = (lobbyId: string) => {
 };
 
 const setupRealtime = async (lobbyData: Lobby) => {
-	console.log('🔌 Setting up realtime for lobby:', lobbyData.$id);
 	const {client} = getAppwrite();
 	const { databases } = useAppwrite();
 	const config = useRuntimeConfig();
 	const lobbyId = lobbyData.$id;
 	// initial fetch
 	players.value = await getPlayersForLobby(lobbyId);
-	console.log('🔌 Initial players:', players.value);
 
 	// Fetch game settings
 	try {
@@ -207,10 +205,9 @@ const setupRealtime = async (lobbyData: Lobby) => {
 	const unsubscribeLobby = client.subscribe(
 			[`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteLobbyCollectionId}.documents.${lobbyData.$id}`],
 			async ({events, payload}) => {
-				console.log('📡 [Lobby Event]', events, payload);
 
 				if (events.some(e => e.endsWith('.delete'))) {
-					notify({title: 'Lobby Deleted', color: 'error', icon: 'i-mdi-alert-circle'});
+					notify({title: t('lobby.lobbydeleted'), color: 'error', icon: 'i-mdi-alert-circle'});
 					await router.replace('/');
 				}
 
@@ -218,7 +215,6 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				if (events.some(e => e.endsWith('.update'))) {
 					// Create a new lobby object to trigger reactivity
 					lobby.value = {...payload as Lobby};
-					console.log('📡 [Lobby Updated]', lobby.value);
 				}
 			}
 	);
@@ -230,26 +226,26 @@ const setupRealtime = async (lobbyData: Lobby) => {
 	const debouncedJoinNotification = debounce(async (player: Player) => {
 		await playSfx('/sounds/sfx/playerJoin.wav');
 		notify({
-			title: `${player.name} joined the lobby`,
+			title: t('lobby.player_joined', { name: player.name }),
 			color: 'success',
 			icon: 'i-mdi-account-plus',
 		});
 		// Only the host should send system messages to avoid duplicates
 		if (isHost.value) {
-			await sendSystemMessage(`${player.name} joined the lobby`);
+			await sendSystemMessage(t('lobby.player_joined', { name: player.name }));
 		}
 	}, 2000);
 
 	const debouncedLeaveNotification = debounce(async (player: Player) => {
 		await playSfx('/sounds/sfx/playerJoin.wav', { pitch: 0.8 });
 		notify({
-			title: `${player.name} left the lobby`,
+			title: t('lobby.player_left', { name: player.name }),
 			color: 'warning',
 			icon: 'i-mdi-account-remove',
 		});
 		// Only the host should send system messages to avoid duplicates
 		if (isHost.value) {
-			await sendSystemMessage(`${player.name} left the lobby`);
+			await sendSystemMessage(t('lobby.player_left', { name: player.name }));
 		}
 	}, LEAVE_DEBOUNCE_TIME);
 
@@ -275,8 +271,6 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				const now = Date.now();
 				const recentEvent = recentPlayerEvents.get(eventKey);
 				if (recentEvent && now - recentEvent < LEAVE_DEBOUNCE_TIME) {
-					// Skip if we've processed this event recently
-					console.log(`Skipping duplicate event for ${player.name} (${eventType})`);
 					return;
 				}
 
@@ -316,12 +310,8 @@ const setupRealtime = async (lobbyData: Lobby) => {
 					debouncedJoinNotification(player);
 				}
 
-				// 1️⃣ If it’s a delete event for *your* player doc, redirect immediately
-				// Check if it's a delete event specifically for the player collection
 				const isDelete = events.some(e => e.endsWith('.delete') && e.includes(config.public.appwritePlayerCollectionId as string));
 				if (isDelete && playerLobbyId === lobbyId && player.userId !== userStore.user?.$id) {
-					// Check if this player is actually in our current list of players
-					// This prevents duplicate notifications for players who have already left
 					const isPlayerInList = players.value.some(p => p.userId === player.userId);
 					if (isPlayerInList) {
 						debouncedLeaveNotification(player);
@@ -333,14 +323,14 @@ const setupRealtime = async (lobbyData: Lobby) => {
 					if (selfLeaving.value) {
 						// you clicked Leave
 						notify({
-							title: 'You left the lobby',
+							title: t('lobby.you_left'),
 							color: 'info',
 							icon: 'i-mdi-exit-run',
 						});
 					} else {
 						// someone else kicked you
 						notify({
-							title: 'You were kicked from the lobby',
+							title: t('lobby.you_were_kicked'),
 							color: 'error',
 							icon: 'i-mdi-account-remove',
 						});
@@ -352,10 +342,7 @@ const setupRealtime = async (lobbyData: Lobby) => {
 					return router.replace('/');
 				}
 
-				// 2️⃣ Otherwise, if it’s for *this* lobby, re‑fetch the list
-				// Use the playerLobbyId we already extracted above
 				if (playerLobbyId === lobbyId) {
-					console.log('👥 player event:', events, player);
 					players.value = await getPlayersForLobby(lobbyId);
 				}
 			}
@@ -381,8 +368,8 @@ const setupRealtime = async (lobbyData: Lobby) => {
 	};
 
 	// 🃏 Game Cards Realtime
-	gameCardsUnsubscribe = subscribeToGameCards(lobbyId, (cards) => {
-		console.log('📡 [GameCards Updated]', cards);
+	gameCardsUnsubscribe = subscribeToGameCards(lobbyId, () => {
+		return
 	});
 
 	// Clean up all subscriptions
@@ -413,8 +400,8 @@ const startAutoReturnCheck = () => {
 				await markPlayerReturnedToLobby(lobby.value.$id, myId.value);
 
 				notify({
-					title: 'Auto-returned to lobby',
-					description: 'The timer expired and you were automatically returned to the lobby',
+					title: t('lobby.return_to_lobby'),
+					description: t('lobby.timer_expired_return_description'),
 					color: 'info',
 					icon: 'i-mdi-clock-check'
 				});
@@ -503,7 +490,7 @@ onMounted(async () => {
 		// First check if the lobby with this code exists
 		const fetchedLobby = await getLobbyByCode(code);
 		if (!fetchedLobby) {
-			notify({title: 'Lobby Not Found', color: 'error', icon: 'i-mdi-alert-circle'});
+			notify({title: t('lobby.not_found'), color: 'error', icon: 'i-mdi-alert-circle'});
 			return router.replace('/join?error=not_found');
 		}
 
@@ -514,13 +501,13 @@ onMounted(async () => {
 				// User is already in this lobby, proceed without showing join modal
 			} else if (activeLobby) {
 				// User is in a different active lobby, redirect them there
-				notify({title: 'Redirecting to your active game', color: 'info', icon: 'i-mdi-controller'});
+				notify({title: t('lobby.return_active_game'), color: 'info', icon: 'i-mdi-controller'});
 				return router.replace(`/game/${activeLobby.code}`);
 			} else {
 				// If we have a valid lobby code in the URL, skip the join modal
 				// This helps when the page is refreshed and the session is lost
 				const isRefresh = window.performance && 
-					window.performance.navigation && 
+					window.performance.navigation &&
 					window.performance.navigation.type === 1;
 
 				if (isRefresh) {
@@ -540,8 +527,8 @@ onMounted(async () => {
 		await setupRealtime(fetchedLobby);
 
 	} catch (err) {
-		console.error('❌ onMounted error:', err);
-		notify({title: 'Failed to load game page', color: 'error', icon: 'i-mdi-alert-circle'});
+		console.error(err);
+		notify({title: t('lobby.failed_loading_game'), color: 'error', icon: 'i-mdi-alert-circle'});
 		await router.replace('/');
 	} finally {
 		loading.value = false;
@@ -552,7 +539,7 @@ const handleJoinSuccess = async (joinedCode: string) => {
 
 	const fetchedLobby = await getLobbyByCode(joinedCode);
 	if (!fetchedLobby) {
-		notify({title: 'Lobby Not Found', color: 'error', icon: 'i-mdi-alert-circle'});
+		notify({title: t('lobby.not_found'), color: 'error', icon: 'i-mdi-alert-circle'});
 		return;
 	}
 	lobby.value = fetchedLobby;
@@ -561,12 +548,12 @@ const handleJoinSuccess = async (joinedCode: string) => {
 	joinedLobby.value = true;
 };
 
-const handleCardSubmit = (cardId: string) => {
-	console.log('🃏 submitCard:', cardId);
+const handleCardSubmit = () => {
+	return
 };
 
-const handleWinnerSelect = (cardId: string) => {
-	console.log('🏆 selectWinner:', cardId);
+const handleWinnerSelect = () => {
+	return
 };
 
 const handleLeave = async () => {
@@ -584,13 +571,13 @@ const handleLeave = async () => {
 };
 
 const handleDrawBlackCard = () => {
-	console.log('🖤 drawBlackCard');
+	return
 };
 
 const getPlayerName = (playerId: string | null): string | null => { // Allow null playerId
 	if (!playerId) return null;
 	const player = players.value.find(p => p.userId === playerId);
-	return player?.name || 'Unknown Player'; // Keep fallback for safety
+	return player?.name || t('lobby.unknown_player'); // Keep fallback for safety
 };
 
 const handleContinue = async () => {
@@ -604,15 +591,15 @@ const handleContinue = async () => {
 		// Each player will individually transition to the waiting room
 
 		notify({
-			title: 'You returned to the lobby',
-			description: 'Other players can still view the scoreboard',
+			title: t('lobby.returned_to_lobby'),
+			description: t('lobby.scoreboard_return_description'),
 			color: 'success',
 			icon: 'i-mdi-check-circle'
 		});
 	} catch (err) {
 		console.error('Failed to return to lobby:', err);
 		notify({
-			title: 'Failed to return to lobby',
+			title: t('lobby.failed_return_to_lobby'),
 			color: 'error',
 			icon: 'i-mdi-alert-circle'
 		});
@@ -640,8 +627,8 @@ const ensureGameSettings = async () => {
 		} catch (err) {
 			console.error('Failed to initialize game settings:', err);
 			notify({
-				title: 'Settings Error',
-				description: 'Could not initialize game settings.',
+				title: t('lobby.settings_error'),
+				description: t('lobby.settings_init_error'),
 				color: 'error',
 				icon: 'i-mdi-alert-circle'
 			});
@@ -657,8 +644,8 @@ const startGameWrapper = async () => {
 	if (!gameSettings.value || !gameSettings.value.$id) {
 		console.error('Game settings not properly initialized');
 		notify({
-			title: 'Cannot Start Game',
-			description: 'Game settings are not properly initialized. Please try refreshing the page.',
+			title: t('lobby.cant_start_game'),
+			description: t('lobby.settings_init_error'),
 			color: 'error',
 			icon: 'i-mdi-alert-circle'
 		});
@@ -684,8 +671,8 @@ const handleSettingsUpdate = (newSettings: GameSettings) => {
 	gameSettings.value = newSettings;
 };
 
-// Function to convert a spectator to a participant
-const convertToParticipant = async (playerId: string) => {
+// Function to convert a spectator to a player
+const convertToPlayer = async (playerId: string) => {
   if (!isHost.value) return;
 
   try {
@@ -701,7 +688,7 @@ const convertToParticipant = async (playerId: string) => {
       config.public.appwritePlayerCollectionId as string,
       playerDoc.$id,
       {
-        playerType: 'participant'
+        playerType: 'player'
       }
     );
 
@@ -751,8 +738,8 @@ const convertToParticipant = async (playerId: string) => {
     );
 
     notify({
-      title: 'Player Dealt In',
-      description: `${getPlayerName(playerId)} is now participating in the game.`,
+      title: t('game.player_dealt_in'),
+      description: t('game.player_dealt_in_description', { name: getPlayerName(playerId) }),
       color: 'success',
       icon: 'i-mdi-account-plus'
     });
@@ -760,8 +747,7 @@ const convertToParticipant = async (playerId: string) => {
   } catch (err) {
     console.error('Failed to convert player to participant:', err);
     notify({
-      title: 'Error',
-      description: 'Failed to deal in player.',
+      title: t('game.error_player_dealt_in'),
       color: 'error',
       icon: 'i-mdi-alert'
     });
@@ -774,8 +760,7 @@ function copyLobbyLink() {
 	navigator.clipboard.writeText(config.public.baseUrl + '/game/' + lobby.value?.code)
 		.then(() => {
 			notify({
-				title: 'Lobby Code Copied',
-				description: 'The lobby code has been copied to your clipboard.',
+				title: t('lobby.code_copied'),
 				color: 'success',
 				icon: 'i-mdi-clipboard-check'
 			})
@@ -783,8 +768,7 @@ function copyLobbyLink() {
 		.catch(err => {
 			console.error('Failed to copy lobby code:', err)
 			notify({
-				title: 'Copy Failed',
-				description: 'Failed to copy the lobby code.',
+				title: t('lobby.error_code_copied'),
 				color: 'error',
 				icon: 'i-mdi-alert-circle'
 			})
@@ -799,7 +783,7 @@ function copyLobbyLink() {
 
 <template>
 	<div class="bg-slate-900 text-white">
-		<div v-if="loading">Loading game...</div>
+		<div v-if="loading">{{ t('game.loading_game') }}</div>
 
 		<!-- Show join modal if user isn't in the game -->
 		<div v-if="showJoinModal" class="flex flex-col justify-center items-center min-h-screen">
@@ -827,7 +811,7 @@ function copyLobbyLink() {
 				<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
 					<!-- Desktop: Lobby Code label + button -->
 					<span class="items-center hidden sm:flex">
-						Lobby Code:
+						{{  t('lobby.lobby_code') }}:
 						</span>
 					<UButtonGroup>
 							<UButton
@@ -835,7 +819,7 @@ function copyLobbyLink() {
 									:color="copied ? 'success' : 'secondary'"
 									:icon="copied ? 'i-solar-clipboard-check-bold-duotone' : 'i-solar-copy-bold-duotone'"
 									variant="subtle"
-									aria-label="Copy to clipboard"
+									aria-label="{{ t('lobby.copy_to_clipboard') }}"
 									@click="copyLobbyLink">
 								{{ lobby.code }}
 							</UButton>
@@ -854,7 +838,7 @@ function copyLobbyLink() {
 								trailing-icon="i-solar-exit-bold-duotone"
 								@click="handleLeave"
 						>
-							<span class="hidden xl:inline">Leave Game</span>
+							<span class="hidden xl:inline">{{ t('game.leave_game') }}</span>
 						</UButton>
 					</UButtonGroup>
 				</div>
@@ -867,7 +851,7 @@ function copyLobbyLink() {
 						:submissions="state?.submissions"
 						:gamePhase="state?.phase"
 						:scores="state?.scores"
-						@convert-spectator="convertToParticipant"
+						@convert-spectator="convertToPlayer"
 				/>
         <LazyChatBox
 						v-if="lobby && lobby.$id"
@@ -885,28 +869,26 @@ function copyLobbyLink() {
 									color="success"
 									class="w-full text-black font-['Bebas_Neue'] text-xl"
 							>
-								Start Game
+								{{ t('lobby.start_game') }}
 							</UButton>
 							<UButton
 									v-if="isHost && isStarting"
 									:loading="true"
 									disabled
 							>
-								Starting Game...
+								{{ t('lobby.starting_game') }}
 							</UButton>
 							<p v-if="!isHost && !isStarting" class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">
-								Waiting for the host to start...
+								{{ t('lobby.waiting_for_host_start_game') }}
 							</p>
 							<p v-if="!isHost && isStarting" class="text-green-400 text-center font-['Bebas_Neue'] text-2xl">
-								Game is starting...
+								{{ t('lobby.starting_game') }}
 							</p>
 						</div>
 						<div v-else>
-							<p class="text-amber-400 text-center font-['Bebas_Neue'] text-xl">We need at least 3 players to start the
-								game!</p>
+							<p class="text-amber-400 text-center font-['Bebas_Neue'] text-xl">{{ t('lobby.players_needed') }}</p>
 						</div>
 					</div>
-					<!-- Game Settings (moved to sidebar bottom) -->
 					<GameSettings
 						v-if="gameSettings"
 						:host-user-id="lobby.hostUserId"
@@ -916,6 +898,7 @@ function copyLobbyLink() {
 						@update:settings="handleSettingsUpdate"
 						class="mt-4"
 					/>
+					<LanguageSwitcher class="absolute bottom-0 left-0 py-2 m-4"/>
 				</div>
 			</aside>
 
@@ -924,27 +907,27 @@ function copyLobbyLink() {
 				<template #content>
 					<div class="p-4 flex flex-col h-full space-y-4 overflow-auto">
 						<div class="flex justify-between items-center">
-							<h2 class="font-['Bebas_Neue'] text-2xl">Game Menu</h2>
+							<h2 class="font-['Bebas_Neue'] text-2xl">{{ t('game.game_menu') }}</h2>
 							<UButton
 								icon="i-lucide-x"
 								color="neutral"
 								variant="ghost"
 								size="xl"
 								@click="isSidebarOpen = false"
-								aria-label="Close menu"
+								aria-label="{{ t('game.close_menu') }}"
 							/>
 						</div>
 
 						<div class="font-['Bebas_Neue'] text-2xl rounded-xl p-4 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
 							<span class="items-center flex">
-								Lobby Code:
+								{{ t('lobby.lobby_code') }}:
 							</span>
 							<UButton
 								class="text-slate-100 text-xl ml-2"
 								:color="copied ? 'success' : 'secondary'"
 								:icon="copied ? 'i-solar-clipboard-check-bold-duotone' : 'i-solar-copy-bold-duotone'"
 								variant="subtle"
-								aria-label="Copy to clipboard"
+								aria-label="{{ t('lobby.copy_to_clipboard') }}"
 								@click="copyLobbyLink">
 								{{ lobby.code }}
 							</UButton>
@@ -957,9 +940,9 @@ function copyLobbyLink() {
 							block
 							variant="soft"
 							trailing-icon="i-solar-exit-bold-duotone"
-							@click="handleLeave"
+							:click="handleLeave"
 						>
-							Leave Game
+							{{ t('game.leave_game') }}
 						</UButton>
 
 						<PlayerList
@@ -970,8 +953,8 @@ function copyLobbyLink() {
 							:judgeId="state?.judgeId"
 							:submissions="state?.submissions"
 							:gamePhase="state?.phase"
-							:scores="state?.scores"
-							@convert-spectator="convertToParticipant"
+  					:scores="state?.scores"
+  					@convert-spectator="convertToPlayer"
 						/>
 
 						<ChatBox
@@ -991,28 +974,26 @@ function copyLobbyLink() {
 										color="success"
 										class="w-full text-black font-['Bebas_Neue'] text-xl"
 									>
-										Start Game
+										{{ t('lobby.start_game') }}
 									</UButton>
 									<UButton
 										v-if="isHost && isStarting"
 										:loading="true"
 										disabled
 									>
-										Starting Game...
+										{{ t('lobby.starting_game') }}
 									</UButton>
 									<p v-if="!isHost && !isStarting" class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">
-										Waiting for the host to start...
+										{{ t('lobby.waiting_for_host_start_game') }}
 									</p>
 									<p v-if="!isHost && isStarting" class="text-green-400 text-center font-['Bebas_Neue'] text-2xl">
-										Game is starting...
+										{{ t('lobby.starting_game') }}
 									</p>
 								</div>
 								<div v-else>
-									<p class="text-amber-400 text-center font-['Bebas_Neue'] text-xl">We need at least 3 players to start the
-										game!</p>
+									<p class="text-amber-400 text-center font-['Bebas_Neue'] text-xl">{{ t('lobby.players_needed') }}</p>
 								</div>
 							</div>
-							<!-- Game Settings (moved to sidebar bottom) -->
 							<GameSettings
 								v-if="gameSettings"
 								:host-user-id="lobby.hostUserId"
@@ -1023,6 +1004,7 @@ function copyLobbyLink() {
 								class="mt-4"
 							/>
 						</div>
+						<LanguageSwitcher class="absolute bottom-0 left-0 py-2 m-4"/>
 					</div>
 				</template>
 			</USlideover>
@@ -1065,12 +1047,11 @@ function copyLobbyLink() {
 
 		<!-- Game complete - Show scoreboard if player hasn't returned to lobby -->
 		<div v-else-if="isComplete && lobby && players" class="flex-1 max-w-4xl mx-auto py-8 px-4">
-			<h2 class="text-3xl font-bold text-center mb-6">Game Over</h2>
+			<h2 class="text-3xl font-bold text-center mb-6">{{ t('game.game_over') }}</h2>
 
 			<!-- Auto-return timer -->
 			<div class="bg-slate-700 rounded-lg p-4 mb-6 text-center">
-				<p class="text-lg text-gray-300">Returning to lobby in</p>
-				<p class="text-4xl font-bold text-white">{{ autoReturnTimeRemaining }} seconds</p>
+				<p class="text-4xl font-bold text-white">{{ t('lobby.returning_in', { seconds: autoReturnTimeRemaining }) }}</p>
 			</div>
 
 			<!-- Winner display -->
@@ -1082,14 +1063,14 @@ function copyLobbyLink() {
 						{{ getPlayerName(leaderboard[0].playerId) }}
 					</div>
 					<div class="text-xl mt-2">
-						{{ leaderboard[0].points }} points
+						{{ leaderboard[0].points }} {{ t('game.points') }}
 					</div>
 				</div>
 			</div>
 
 			<!-- Leaderboard -->
 			<div class="bg-slate-800 rounded-lg p-6 mb-8">
-				<h3 class="text-xl font-bold mb-4 text-center">Final Scores</h3>
+				<h3 class="text-xl font-bold mb-4 text-center">{{ t('game.final_scores') }}</h3>
 				<div class="space-y-2">
 					<div v-for="(entry, index) in leaderboard" :key="entry.playerId"
 					     :class="index === 0 ? 'bg-yellow-900/30' : 'bg-slate-700/50'"
@@ -1111,7 +1092,7 @@ function copyLobbyLink() {
 						size="lg"
 						@click="handleContinue"
 				>
-					Continue to Lobby
+					{{ t('lobby.continue_to_lobby') }}
 				</UButton>
 			</div>
 		</div>
@@ -1130,7 +1111,7 @@ function copyLobbyLink() {
 
 		<!-- Catch-all fallback -->
 		<div v-else-if="!lobby"> <!-- Only show fallback if lobby truly failed to load -->
-			<p>Could not load the game state.</p>
+			<p>{{ t('lobby.error_loading_gamestate') }}</p>
 		</div>
 	</div>
 </template>

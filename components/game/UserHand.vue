@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useSfx } from '@/composables/useSfx'
 
+const { t } = useI18n()
 const props = defineProps<{
 	cards: string[]
 	disabled?: boolean
@@ -103,11 +104,8 @@ function handleCardClick(cardId: string) {
 
 <template>
 	<div class="relative w-full md:h-80 group">
-		<div
-				class="absolute bottom-0 w-full md:h-64 md:translate-y-[65%] group-hover:translate-y-0 transition-transform duration-150 linear">
-
+		<div class="absolute bottom-0 w-full md:h-64 md:translate-y-[65%] group-hover:translate-y-0 transition-transform duration-150 linear">
 			<div class="fixed bottom-0 w-full h-46 flex flex-col items-center overflow-visible">
-				<!-- 🎯 Submit Button Under Hand -->
 				<div class="absolute bottom-78 flex justify-center w-auto px-4">
 					<UButton
 							:disabled="selectedCards.length !== cardsToSelect || props.disabled"
@@ -122,13 +120,16 @@ function handleCardClick(cardId: string) {
 						<p class="text-lg font-['Bebas_Neue']">
 							{{
 								selectedCards.length < cardsToSelect
-										? `Selected ${selectedCards.length} of ${cardsToSelect} cards`
-										: 'Submit Cards'
+										? t('game.selected_cards', {
+											count: selectedCards.length,
+											total: cardsToSelect
+										})
+										: t('game.submit_cards')
 							}}
 						</p>
 					</UButton>
 				</div>
-				<!-- 🃏 Card Hand -->
+				<!-- Card Hand -->
 				<div
 						class="absolute bottom-0 h-full w-3/12 flex justify-center"
 						@touchend="handleTouchEnd"

@@ -17,7 +17,7 @@ export function useGameSettings() {
         error.value = null;
 
         try {
-            console.log('Fetching game settings for lobbyId:', lobbyId, 'type:', typeof lobbyId);
+            // console.log('Fetching game settings for lobbyId:', lobbyId, 'type:', typeof lobbyId);
 
             // Query for settings with the given lobbyId
             const response = await databases.listDocuments(
@@ -29,7 +29,7 @@ export function useGameSettings() {
                 ]
             );
 
-            console.log('Found', response.documents.length, 'game settings documents');
+            // console.log('Found', response.documents.length, 'game settings documents');
 
             if (response.documents.length > 0) {
                 // First try direct match
@@ -37,14 +37,14 @@ export function useGameSettings() {
                     doc => doc.lobbyId === lobbyId
                 );
 
-                console.log('Direct match result:', matchingSettings ? 'Found' : 'Not found');
+                // console.log('Direct match result:', matchingSettings ? 'Found' : 'Not found');
 
                 // If not found, try string comparison
                 if (!matchingSettings) {
                     matchingSettings = response.documents.find(
                         doc => String(doc.lobbyId) === String(lobbyId)
                     );
-                    console.log('String comparison match result:', matchingSettings ? 'Found' : 'Not found');
+                    // console.log('String comparison match result:', matchingSettings ? 'Found' : 'Not found');
                 }
 
                 // If still not found, check if lobbyId is a relationship object
@@ -56,11 +56,11 @@ export function useGameSettings() {
                         }
                         return false;
                     });
-                    console.log('Relationship match result:', matchingSettings ? 'Found' : 'Not found');
+                    // console.log('Relationship match result:', matchingSettings ? 'Found' : 'Not found');
                 }
 
                 if (matchingSettings) {
-                    console.log('Found matching settings:', matchingSettings);
+                    // console.log('Found matching settings:', matchingSettings);
                     settings.value = matchingSettings as unknown as GameSettings;
                     return settings.value;
                 }
@@ -88,7 +88,7 @@ export function useGameSettings() {
         try {
             const existingSettings = await getGameSettings(lobbyId);
             if (existingSettings) {
-                console.log('Game settings already exist for lobby, returning existing settings:', lobbyId);
+                // console.log('Game settings already exist for lobby, returning existing settings:', lobbyId);
                 return existingSettings;
             }
         } catch (err) {
@@ -142,7 +142,7 @@ export function useGameSettings() {
             } catch (createErr: any) {
                 // If document already exists (409 Conflict), try to get it
                 if (createErr.code === 409) {
-                    console.log('Document already exists, fetching existing settings');
+                    // console.log('Document already exists, fetching existing settings');
                     const existingSettings = await getGameSettings(lobbyId);
                     if (existingSettings) {
                         return existingSettings;

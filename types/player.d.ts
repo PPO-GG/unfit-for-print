@@ -8,5 +8,5 @@ export interface Player {
     isHost: boolean;
     joinedAt: string;
     provider: string;
-    playerType: 'participant' | 'spectator';
+    playerType: 'player' | 'spectator';
 }

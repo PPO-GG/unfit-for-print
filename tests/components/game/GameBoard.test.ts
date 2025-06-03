@@ -82,8 +82,8 @@ describe('GameBoard.vue', () => {
                     ...props.lobby
                 },
                 players: [
-                    { $id: 'player1', userId: 'user1', name: 'Test User', playerType: 'participant' },
-                    { $id: 'player2', userId: 'judge1', name: 'Judge User', playerType: 'participant' }
+                    { $id: 'player1', userId: 'user1', name: 'Test User', playerType: 'player' },
+                    { $id: 'player2', userId: 'judge1', name: 'Judge User', playerType: 'player' }
                 ],
                 ...props
             },

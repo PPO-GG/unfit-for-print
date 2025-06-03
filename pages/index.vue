@@ -23,7 +23,7 @@
 				<path fill="currentColor" d="M860.02,517.16c14.38,0,28.98-.43,43.2-.39,19.45.06,17.02,8.09,16.46,22.63-.3,7.61,1.17,31.06-1.21,36.21-3.62,7.83-19.95,5.08-27.59,4.87-7.49-.21-27.22-2.22-31.5,3.62-3.56,4.86-1.75,24.64-1.75,31.62.03,39.89-.58,80.39.06,120.2.11,7.01,2.79,25.47-4.14,29.47-8.14,3.55-30.98,1.92-41.5,2.15-30.47.69-28.23-5.58-27.35-30.11,1-27.63.33-56.79.42-84.6.06-19.38.14-38.75.21-58.13.05-14.38-2.75-14.91-19.04-14.46-7.28.2-36.23,2.16-40.84-1.67-4.09-3.39-2.23-23.03-2.3-28.76-.08-6.95-2.89-27.68,4.05-31.27,5.29-2.73,28.89-1.4,36.39-1.4,32.14,0,64.27,0,96.41,0Z"/>
 			</svg>
 		  <p class="font-['Bebas_Neue'] text-white text-xl md:text-2xl select-none max-w-xs sm:max-w-md">
-			  A PARTY GAME FOR HIDEOUS PEOPLE
+			  {{ t('tagline') }}
 		  </p>
 		</div>
     <div class="flex justify-center gap-6">
@@ -74,10 +74,10 @@
 		  <UButtonGroup>
 		  <UButton
 				  loading-auto
-				  @click="fetchNewCards"
+				  @click="fetchNewCards(); umTrackEvent('fetch-new-cards-index');"
 				  class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']" color="secondary" variant="subtle" icon="i-solar-layers-minimalistic-bold-duotone"
 		  >
-			  TRY ME
+			  {{ t('try_me') }}
 		  </UButton>
 		  <UButton
 				  loading-auto
@@ -95,6 +95,8 @@ import {useCards} from "~/composables/useCards";
 import { useVibrate } from '@vueuse/core'
 import { useSpeech } from '~/composables/useSpeech'
 import { mergeCardText } from '~/composables/useMergeCards'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
 
@@ -135,7 +137,7 @@ const fetchNewCards = async () => {
 	    blackCardFlipped.value = false;
     });
     notify({
-      title: 'Fetched New Cards',
+      title: t('notification.fetched_cards'),
       icon: "i-mdi-cards",
       color: 'info',
       duration: 1000,
@@ -146,12 +148,6 @@ const fetchNewCards = async () => {
 onMounted(() => {
 		if (import.meta.client) {
 			fetchNewCards()
-			notify({
-				title: 'Fetched New Cards',
-				icon: "i-mdi-cards",
-				color: 'info',
-				duration: 1000,
-			})
 		}
 });
 </script>

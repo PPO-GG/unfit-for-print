@@ -1,11 +1,4 @@
 import { ref } from 'vue'
-import { ElevenLabsClient } from 'elevenlabs'
-
-const ELEVENLABS_API_KEY = 'sk_6ae0a08c2031c216ad07de6f421bfa79a160ef7d2473779a' // Only needed for local dev or model lookup if needed client-side
-const client = new ElevenLabsClient({ apiKey: ELEVENLABS_API_KEY })
-
-const voiceModelCache = new Map<string, string>()
-
 export function useSpeech(defaultVoiceId = 'pzxut4zZz4GImZNlqQ3H') {
     const isSpeaking = ref(false)
     const queue = ref<string[]>([])

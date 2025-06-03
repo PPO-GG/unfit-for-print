@@ -10,8 +10,9 @@ import {useGameCards} from '~/composables/useGameCards'
 import UserHand from '~/components/game/UserHand.vue'
 import whiteCard from '~/components/game/whiteCard.vue'
 import {getAppwrite} from "~/utils/appwrite";
-import { Query } from "appwrite";
+import {Query} from "appwrite";
 
+const { t } = useI18n()
 const props = defineProps<{ lobby: Lobby; players: Player[] }>()
 const emit = defineEmits<{
 	(e: 'leave'): void
@@ -35,7 +36,7 @@ let gameCardsUnsubscribe: (() => void) | null = null;
 onMounted(() => {
 	if (props.lobby?.$id) {
 		gameCardsUnsubscribe = subscribeToGameCards(props.lobby.$id, (cards) => {
-			console.log('🃏 [GameBoard] Game cards updated:', cards);
+			return
 		})
 	}
 })
@@ -51,7 +52,7 @@ watch(() => props.lobby?.$id, (newLobbyId, oldLobbyId) => {
 
 		// Create new subscription
 		gameCardsUnsubscribe = subscribeToGameCards(newLobbyId, (cards) => {
-			console.log('🃏 [GameBoard] Game cards updated:', cards);
+			return
 		})
 	}
 })
@@ -79,25 +80,15 @@ const {notify} = useNotifications()
 
 // Add computed properties to check player type
 const currentPlayer = computed(() => {
-  const player = props.players.find(p => p.userId === myId);
-  console.log('GameBoard - currentPlayer:', {
-    userId: player?.userId,
-    name: player?.name,
-    playerType: player?.playerType
-  });
-  return player;
+	return props.players.find(p => p.userId === myId);
 });
 
 const isParticipant = computed(() => {
-  const result = currentPlayer.value?.playerType === 'participant' || !currentPlayer.value?.playerType;
-  console.log('GameBoard - isParticipant:', result);
-  return result;
+	return currentPlayer.value?.playerType === 'player' || !currentPlayer.value?.playerType;
 });
 
 const isSpectator = computed(() => {
-  const result = currentPlayer.value?.playerType === 'spectator';
-  console.log('GameBoard - isSpectator:', result);
-  return result;
+	return currentPlayer.value?.playerType === 'spectator';
 });
 
 // Check if the current user is the host
@@ -139,13 +130,7 @@ const getPlayerName = (playerId: string): string => {
 		}
 	}
 
-	// If still not found, log the issue for debugging
-	console.warn(`Player not found for ID: ${playerId}. Available players:`,
-			props.players.map(p => ({id: p.userId, name: p.name, docId: p.$id})),
-			'State players:', state.value?.players,
-			'Submissions:', submissions.value)
-
-	return "Unknown Player"
+	return t('lobby.unknown_player')
 }
 
 // Track which cards have been revealed (playerId -> boolean)
@@ -186,13 +171,13 @@ const allCardsRevealed = computed(() => {
 
 // Reveal only the clicked submission
 async function revealCard(playerId: string) {
-	console.log('🎮 revealCard called with playerId:', playerId);
-	console.log('🎮 Current revealedCards:', JSON.stringify(revealedCards.value));
-	console.log('🎮 Current props.lobby.revealedSubmissions:', props.lobby.revealedSubmissions);
+	// console.log('🎮 revealCard called with playerId:', playerId);
+	// console.log('🎮 Current revealedCards:', JSON.stringify(revealedCards.value));
+	// console.log('🎮 Current props.lobby.revealedSubmissions:', props.lobby.revealedSubmissions);
 
 	// Don't do anything if this card is already revealed
 	if (revealedCards.value[playerId]) {
-		console.log('🎮 Card already revealed, skipping');
+		// console.log('🎮 Card already revealed, skipping');
 		return;
 	}
 
@@ -209,7 +194,7 @@ async function revealCard(playerId: string) {
 						? JSON.parse(props.lobby.revealedSubmissions)
 						: props.lobby.revealedSubmissions;
 
-				console.log('🎮 Parsed current revealedSubmissions:', parsedSubmissions);
+				// console.log('🎮 Parsed current revealedSubmissions:', parsedSubmissions);
 
 				// Filter out numeric indexes and only keep string player IDs
 				// This ensures we don't mix numeric indexes with player IDs
@@ -220,9 +205,9 @@ async function revealCard(playerId: string) {
 							return acc;
 						}, {} as Record<string, boolean>);
 
-				console.log('🎮 Filtered current revealedSubmissions:', currentRevealedSubmissions);
+				// console.log('🎮 Filtered current revealedSubmissions:', currentRevealedSubmissions);
 			} catch (parseErr) {
-				console.error('Failed to parse current revealed submissions:', parseErr);
+				// console.error('Failed to parse current revealed submissions:', parseErr);
 			}
 		}
 
@@ -232,12 +217,12 @@ async function revealCard(playerId: string) {
 			[playerId]: true
 		};
 
-		console.log('🎮 Updating revealedSubmissions in database:', updatedRevealedSubmissions);
+		// console.log('🎮 Updating revealedSubmissions in database:', updatedRevealedSubmissions);
 
 		// Update locally immediately for better UX
 		// This provides instant feedback to the judge
 		revealedCards.value = {...updatedRevealedSubmissions};
-		console.log('🎮 Updated revealedCards locally before database update:', revealedCards.value);
+		// console.log('🎮 Updated revealedCards locally before database update:', revealedCards.value);
 
 		// Then update the database
 		await databases.updateDocument(
@@ -249,14 +234,14 @@ async function revealCard(playerId: string) {
 				}
 		);
 
-		console.log('🎮 Database update successful');
+		// console.log('🎮 Database update successful');
 
 		// Ensure the local state is in sync with what we sent to the database
 		// This is redundant but ensures consistency
 		revealedCards.value = {...updatedRevealedSubmissions};
-		console.log('🎮 Confirmed revealedCards after database update:', revealedCards.value);
+		// console.log('🎮 Confirmed revealedCards after database update:', revealedCards.value);
 	} catch (err) {
-		console.error('Failed to update revealed submissions:', err);
+		// console.error('Failed to update revealed submissions:', err);
 		// Revert the local update if the database update failed
 		if (props.lobby.revealedSubmissions) {
 			try {
@@ -265,7 +250,7 @@ async function revealCard(playerId: string) {
 						: props.lobby.revealedSubmissions as Record<string, boolean>;
 				revealedCards.value = {...parsedReveals};
 			} catch (parseErr) {
-				console.error('Failed to revert local update:', parseErr);
+				// console.error('Failed to revert local update:', parseErr);
 			}
 		}
 	}
@@ -273,12 +258,12 @@ async function revealCard(playerId: string) {
 
 
 watch(() => props.lobby?.revealedSubmissions, (newReveals) => {
-	console.log('🔄 Watch triggered for revealedSubmissions:', newReveals);
+	// console.log('🔄 Watch triggered for revealedSubmissions:', newReveals);
 	if (newReveals) {
 		try {
 			// Parse the JSON string if it's a string, otherwise use as is
 			const parsedReveals = typeof newReveals === 'string' ? JSON.parse(newReveals) : newReveals
-			console.log('🔄 Parsed revealedSubmissions:', parsedReveals);
+			// console.log('🔄 Parsed revealedSubmissions:', parsedReveals);
 
 			// Filter out numeric indexes and only keep string player IDs
 			// This ensures we don't mix numeric indexes with player IDs
@@ -289,13 +274,13 @@ watch(() => props.lobby?.revealedSubmissions, (newReveals) => {
 						return acc;
 					}, {} as Record<string, boolean>);
 
-			console.log('🔄 Filtered revealedSubmissions:', filteredReveals);
+			// console.log('🔄 Filtered revealedSubmissions:', filteredReveals);
 
 			// Force reactivity by creating a new object
 			revealedCards.value = {...filteredReveals}
-			console.log('🔄 Updated revealedCards from watch:', revealedCards.value)
+			// console.log('🔄 Updated revealedCards from watch:', revealedCards.value)
 		} catch (err) {
-			console.error('Failed to parse revealed submissions:', err)
+			// console.error('Failed to parse revealed submissions:', err)
 		}
 	}
 }, {immediate: true, deep: true})
@@ -311,9 +296,9 @@ watch(shuffledSubmissions, () => {
 
 			// Update revealedCards to match the current state
 			revealedCards.value = {...parsedReveals};
-			console.log('🔄 Updated revealedCards after submissions change:', revealedCards.value);
+			// console.log('🔄 Updated revealedCards after submissions change:', revealedCards.value);
 		} catch (err) {
-			console.error('Failed to update revealed cards after submissions change:', err);
+			// console.error('Failed to update revealed cards after submissions change:', err);
 		}
 	}
 }, {deep: true})
@@ -346,8 +331,7 @@ watch(() => state.value?.roundWinner, (newWinner) => {
 			// Show notification to the winner
 			if (newWinner === myId) {
 				notify({
-					title: '🏆 You Won This Round!',
-					description: 'You get a point!',
+					title: t('game.round_won_self'),
 					color: 'success',
 					icon: 'i-mdi-trophy',
 					duration: 5000
@@ -407,8 +391,8 @@ onUnmounted(() => {
 	}
 })
 
-// Add function to convert spectator to participant
-async function convertToParticipant(playerId: string) {
+// Add function to convert spectator to player
+async function convertToPlayer(playerId: string) {
   if (!isHost.value) return;
 
   try {
@@ -424,7 +408,7 @@ async function convertToParticipant(playerId: string) {
       config.public.appwritePlayerCollectionId,
       playerDoc.$id,
       {
-        playerType: 'participant'
+        playerType: 'player'
       }
     );
 
@@ -444,7 +428,7 @@ async function convertToParticipant(playerId: string) {
     const whiteDeck = gameCards.whiteDeck || [];
 
     // Get the number of cards per player from game state
-    const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 7;
+    const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 10;
 
     // Take cards from the deck
     const newHand = whiteDeck.slice(0, cardsPerPlayer);
@@ -474,17 +458,16 @@ async function convertToParticipant(playerId: string) {
     );
 
     notify({
-      title: 'Player Dealt In',
-      description: `${getPlayerName(playerId)} is now participating in the game.`,
+      title: t('game.player_dealt_in'),
+      description: t('game.player_dealt_in_description', { name: getPlayerName(playerId) }),
       color: 'success',
       icon: 'i-mdi-account-plus'
     });
 
   } catch (err) {
-    console.error('Failed to convert player to participant:', err);
+    // console.error('Failed to convert player to participant:', err);
     notify({
-      title: 'Error',
-      description: 'Failed to deal in player.',
+      title: t('game.error_player_dealt_in'),
       color: 'error',
       icon: 'i-mdi-alert'
     });
@@ -511,12 +494,12 @@ function handleLeave() {
 			<header class="flex justify-between items-center backdrop-blur-xs p-8 border-b-1 border-slate-700/50">
 				<div class="absolute top-0 left-1/2 transform -translate-x-1/2 bg-slate-700 px-4 py-2 rounded-b-xl shadow-lg">
 					<div class="text-center">
-						<h2 class="font-['Bebas_Neue'] text-3xl">Round <span class="text-success-300">{{ state?.round || 1 }}</span></h2>
+						<h2 class="font-['Bebas_Neue'] text-3xl">{{ t('game.round') }} <span class="text-success-300">{{ state?.round || 1 }}</span></h2>
 						<p class="text-slate-300 font-['Bebas_Neue'] text-2xl">
-							{{ isSubmitting ? 'SUBMISSION PHASE' : isJudging ? 'JUDGING PHASE' : 'WAITING...' }}
+							{{ isSubmitting ? t('game.phase_submission') : isJudging ? t('game.phase_judging') : t('game.waiting') }}
 						</p>
 						<p v-if="judgeId" class="text-amber-400 font-['Bebas_Neue'] text-xl">
-							Judge: {{ getPlayerName(judgeId) }}
+							{{ t('game.judge', {name: getPlayerName(judgeId)}) }}
 						</p>
 					</div>
 				</div>
@@ -582,14 +565,14 @@ function handleLeave() {
 				<!-- Submission Phase -->
 				<div v-if="isSubmitting" class="w-full flex flex-col items-center">
 					<div v-if="isJudge" class="text-center">
-						<p class="uppercase font-['Bebas_Neue'] text-4xl font-bold">You are the Judge!</p>
-						<p class="text-slate-400 font-['Bebas_Neue'] font-light">Waiting for players to submit cards...</p>
+						<p class="uppercase font-['Bebas_Neue'] text-4xl font-bold">{{ t('game.you_are_judge') }}</p>
+						<p class="text-slate-400 font-['Bebas_Neue'] font-light">{{ t('game.waiting_for_submissions') }}</p>
 						<!-- See who already submitted -->
 						<div v-if="Object.keys(submissions).length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
 							<div v-for="playerId in Object.keys(submissions)" :key="playerId"
 							     class="p-8 outline-2 outline-green-900 bg-slate-800 rounded-xl shadow-md text-center">
 								<p class="font-bold text-white uppercase font-['Bebas_Neue'] text-3xl">{{ getPlayerName(playerId) }}</p>
-								<p class="text-green-500 uppercase font-['Bebas_Neue'] text-xl font-medium">Submitted</p>
+								<p class="text-green-500 uppercase font-['Bebas_Neue'] text-xl font-medium">{{ t('game.player_submitted') }}</p>
 							</div>
 						</div>
 
@@ -597,11 +580,11 @@ function handleLeave() {
 
 					<div v-else>
 						<div v-if="submissions[myId]" class="text-center">
-							<p class="uppercase font-['Bebas_Neue'] text-4xl font-bold">You've submitted your cards!</p>
+							<p class="uppercase font-['Bebas_Neue'] text-4xl font-bold">{{ t('game.you_submitted') }}</p>
 							<div class="flex justify-center gap-4">
 								<whiteCard v-for="cardId in submissions[myId]" :key="cardId" :cardId="cardId"/>
 							</div>
-							<p class="mt-4 italic text-gray-500">Waiting for others...</p>
+							<p class="mt-4 italic text-gray-500">{{ t('game.waiting_for_submissions') }}</p>
 						</div>
 						<!-- Participant view with UserHand -->
 						<div v-if="blackCard && isParticipant && !submissions[myId]" class="w-full flex justify-center items-end bottom-0 fixed translate-x-[-50%] z-50">
@@ -616,15 +599,15 @@ function handleLeave() {
 						<!-- Spectator view with message -->
 						<div v-if="blackCard && isSpectator" class="w-full flex justify-center mt-8">
 							<div class="spectator-message bg-slate-800 p-6 rounded-xl text-center max-w-md">
-								<p class="text-xl mb-4">You are currently spectating this game.</p>
+								<p class="text-xl mb-4">{{ t('game.you_are_spectating') }}</p>
 								<!-- Only show this button to the host -->
 								<UButton 
 									v-if="isHost" 
-									@click="convertToParticipant(myId)"
+									@click="convertToPlayer(myId)"
 									color="primary"
 									icon="i-mdi-account-plus"
 								>
-									Deal In This Player
+									{{ t('game.convert_to_participant') }}
 								</UButton>
 							</div>
 						</div>
@@ -636,14 +619,14 @@ function handleLeave() {
 
 				<!-- Judging Phase -->
 				<div v-else-if="isJudging" class="mt-8 bg-slate-700/25 border-y-2 border-b-slate-700 border-t-slate-900 rounded-3xl p-8 text-center">
-					<p v-if="!isJudge" class="text-center mb-6 text-slate-100 text-3xl font-['Bebas_Neue']">SUBMISSIONS</p>
+					<p v-if="!isJudge" class="text-center mb-6 text-slate-100 text-3xl font-['Bebas_Neue']">{{ t('game.submissions') }}</p>
 					<!-- Judge view -->
 					<div v-if="isJudge">
 						<!-- Judge selecting a winner - all cards are shown directly -->
 						<div>
 							<p v-if="!winnerSelected"
 							   class="text-center mb-6 text-slate-100 text-3xl font-['Bebas_Neue']">
-								Select a Winner
+								{{ t('game.select_winner') }}
 							</p>
 
 							<!-- Desktop view - hidden on mobile -->
@@ -674,10 +657,10 @@ function handleLeave() {
 												@click="handleSelectWinner(sub.playerId)"
 										>
 											<span
-													class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">Select Winner</span>
+													class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">{{ t('game.select_winner') }}</span>
 										</UButton>
 										<p v-else-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
-											🏆 WINNER! 🏆
+											🏆 {{ t('game.winner') }} 🏆
 										</p>
 									</div>
 								</div>
@@ -713,12 +696,12 @@ function handleLeave() {
 												@click="handleSelectWinner(sub.playerId)"
 											>
 												<span class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">
-													Select Winner
+													{{ t('game.select_winner') }}
 												</span>
 											</UButton>
 
 											<p v-else-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
-												🏆 WINNER! 🏆
+												🏆 {{ t('game.winner') }} 🏆
 											</p>
 										</div>
 									</div>
@@ -733,7 +716,7 @@ function handleLeave() {
 						<div v-if="submissions[myId] && (!effectiveRoundWinner || effectiveRoundWinner === myId)" class="">
 							<div class=" outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-6">
 								<p class="font-medium text-white mb-2 text-lg">
-									<span class="text-success-400 font-['Bebas_Neue'] text-2xl">Your Submission</span>
+									<span class="text-success-400 font-['Bebas_Neue'] text-2xl">{{ t('game.your_submission') }}</span>
 								</p>
 								<div class="inline-flex justify-center gap-2 mb-2">
 									<whiteCard
@@ -745,7 +728,7 @@ function handleLeave() {
 									/>
 								</div>
 								<p v-if="effectiveRoundWinner === myId" class="text-green-400 font-bold mt-2">
-									🏆 YOU WON! 🏆
+									🏆 {{ t('game.you_won') }} 🏆
 								</p>
 							</div>
 						</div>
@@ -760,10 +743,10 @@ function handleLeave() {
 									class=" outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-6"
 							>
 								<p v-if="effectiveRoundWinner === sub.playerId" class="font-medium text-amber-300 mb-2 font-['Bebas_Neue'] text-2xl">
-									<span class="text-amber-400 ">Submitted by </span>{{ getPlayerName(sub.playerId) }}
+									<span class="text-amber-400 ">{{ t('game.submitted_by') }} </span>{{ getPlayerName(sub.playerId) }}
 								</p>
 								<p v-else class="font-medium text-white mb-2 text-lg">
-									<span class="text-amber-400 font-['Bebas_Neue'] text-2xl">Player Submission</span>
+									<span class="text-amber-400 font-['Bebas_Neue'] text-2xl">{{ t('game.submissions') }}</span>
 								</p>
 								<div class="inline-flex justify-center gap-2 mb-2">
 										<whiteCard
@@ -775,28 +758,27 @@ function handleLeave() {
 										/>
 								</div>
 								<p v-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
-									🏆 WINNER! 🏆
+									🏆 {{ t('game.winner') }} 🏆
 								</p>
 							</div>
 						</div>
-						<p v-else class="text-center italic text-gray-500 mt-6">
-							Waiting for submissions...</p>
+						<p v-else class="text-center italic text-gray-500 mt-6">{{ t('game.waiting_for_submissions') }}</p>
 					</div>
 				</div>
 
 				<!-- Game Over -->
 				<div v-else-if="isComplete" class="text-center mt-10">
-					<h3 class="text-2xl font-bold text-gray-100">🏁 Game Over</h3>
+					<h3 class="text-2xl font-bold text-gray-100">🏁 {{ t('game.game_over') }}</h3>
 					<ul class="mt-6 space-y-2">
 						<li v-for="entry in leaderboard" :key="entry.playerId" class="font-medium text-gray-400">
-							{{ getPlayerName(entry.playerId) }} — {{ entry.points }} points
+							{{ getPlayerName(entry.playerId) }} — {{ entry.points }} {{ t('game.points') }}
 						</li>
 					</ul>
 				</div>
 
 				<!-- Waiting State -->
 				<div v-else class="text-center italic text-gray-500 mt-10">
-					Waiting for game state...
+					{{ t('game.waiting') }}
 				</div>
 			</main>
 		</div>

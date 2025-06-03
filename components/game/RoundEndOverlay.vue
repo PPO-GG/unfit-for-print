@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useGameActions } from '~/composables/useGameActions';
 
+const { t } = useI18n();
 const props = defineProps<{
 	lobbyId: string;
 	winnerName: string | null;
@@ -20,11 +21,11 @@ const hasTriggeredNextRound = ref(false);
 
 const winnerMessage = computed(() => {
 	if (props.isWinnerSelf) {
-		return "🎉 You won this round! 🎉";
+		return t('game.round_won_self');
 	} else if (props.winnerName) {
-		return `🏆 ${props.winnerName} Won this round! 🏆`;
+		return t('game.round_won_other', { name: props.winnerName });
 	} else {
-		return "Round Over!";
+		return t('game.round_over');
 	}
 });
 
@@ -89,7 +90,7 @@ watch(() => props.startTime, () => {
 				{{ remainingTime }}
 			</p>
 			<p class="text-lg text-slate-300 font-['Bebas_Neue']">
-				Next round starting soon...
+				{{ t('game.next_round_starting_soon') }}
 			</p>
 			<div class="w-full bg-slate-700 rounded-full h-2.5 mt-4 font-['Bebas_Neue']">
 				<UProgress :value="progressPercentage" color="warning" />

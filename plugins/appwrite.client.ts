@@ -23,7 +23,8 @@ export default defineNuxtPlugin(() => {
       ...config.public,
       appwriteDatabaseId: ensureString(config.public.appwriteDatabaseId, 'appwriteDatabaseId'),
       appwriteLobbyCollectionId: ensureString(config.public.appwriteLobbyCollectionId, 'appwriteLobbyCollectionId'),
-      appwritePlayerCollectionId: ensureString(config.public.appwritePlayerCollectionId, 'appwritePlayerCollectionId')
+      appwritePlayerCollectionId: ensureString(config.public.appwritePlayerCollectionId, 'appwritePlayerCollectionId'),
+      appwriteGamechatCollectionId: ensureString(config.public.appwriteGamechatCollectionId, 'appwriteGamechatCollectionId')
     }
   };
 
@@ -32,7 +33,9 @@ export default defineNuxtPlugin(() => {
     databaseIdType: typeof config.public.appwriteDatabaseId,
     lobbyCollectionIdType: typeof config.public.appwriteLobbyCollectionId,
     playerCollectionIdType: typeof config.public.appwritePlayerCollectionId,
-    playerCollectionIdValue: config.public.appwritePlayerCollectionId
+    playerCollectionIdValue: config.public.appwritePlayerCollectionId,
+    gamechatCollectionIdType: typeof config.public.appwriteGamechatCollectionId,
+    gamechatCollectionIdValue: config.public.appwriteGamechatCollectionId
   });
 
   // Validate configuration
@@ -48,14 +51,18 @@ export default defineNuxtPlugin(() => {
   if (!safeConfig.public.appwriteDatabaseId || 
       !safeConfig.public.appwriteLobbyCollectionId || 
       !safeConfig.public.appwritePlayerCollectionId ||
+      !safeConfig.public.appwriteGamechatCollectionId ||
       safeConfig.public.appwriteLobbyCollectionId === 'Infinite' ||
       safeConfig.public.appwritePlayerCollectionId === 'Infinite' ||
+      safeConfig.public.appwriteGamechatCollectionId === 'Infinite' ||
       safeConfig.public.appwriteLobbyCollectionId === 'undefined' ||
-      safeConfig.public.appwritePlayerCollectionId === 'undefined') {
+      safeConfig.public.appwritePlayerCollectionId === 'undefined' ||
+      safeConfig.public.appwriteGamechatCollectionId === 'undefined') {
     console.error('Invalid Appwrite collection IDs:', {
       databaseId: safeConfig.public.appwriteDatabaseId,
       lobbyCollectionId: safeConfig.public.appwriteLobbyCollectionId,
-      playerCollectionId: safeConfig.public.appwritePlayerCollectionId
+      playerCollectionId: safeConfig.public.appwritePlayerCollectionId,
+      gamechatCollectionId: safeConfig.public.appwriteGamechatCollectionId
     });
     throw new Error('Appwrite collection IDs are invalid. Check your environment variables.');
   }

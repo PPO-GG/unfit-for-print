@@ -8,16 +8,16 @@ export default defineEventHandler(async (event) => {
         return { error: 'Missing lobby ID' }
     }
 
+    const config = useRuntimeConfig()
     const client = new Client()
-        .setEndpoint('https://console.ppo.gg/v1') // No NUXT_PUBLIC_ here
-        .setProject('680734f2001f527a785f'!)
-        .setKey(process.env.APPWRITE_API_KEY!) // NEVER expose this to client!
+        .setEndpoint('https://console.ppo.gg/v1')
+        .setProject('682eb1b9000cb3845772')
+        .setKey(process.env.APPWRITE_API_KEY!)
 
     const databases = new Databases(client)
-    const config = useRuntimeConfig()
 
     const dbId = config.appwriteDbId
-    const collectionId = config.appwriteGamecardsCollectionId
+    const collectionId = config.public.appwriteGamecardsCollectionId
 
     // Validate database ID
     if (!dbId || dbId.length > 36 || !/^[a-zA-Z0-9_]+$/.test(dbId) || dbId.startsWith('_')) {
