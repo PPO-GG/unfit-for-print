@@ -54,6 +54,7 @@ export default defineNuxtConfig({
     { path: '~/components/', prefix: '' },
   ],
   content: {
+    experimental: { nativeSqlite: true },
     renderer: {
       anchorLinks: { h1: false, h2: false, h3: false, h4: false }
     }
@@ -70,7 +71,6 @@ export default defineNuxtConfig({
     "nuxt-og-image",
     'nuxt-umami',
     '@nuxtjs/i18n',
-    '@nuxt/content',
   ],
   sound: {
     sounds: {
