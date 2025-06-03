@@ -23,7 +23,6 @@
   "dependencies": {
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
     "@fontsource/inter": "^5.2.5",
-    "@nuxt/content": "3.5.1",
     "@nuxt/fonts": "0.11.1",
     "@nuxt/icon": "1.11.0",
     "@nuxt/ui": "3.0.2",
@@ -78,7 +77,6 @@
     "@types/markdown-it": "^14.1.2",
     "@types/string-similarity": "^4.0.2",
     "@vitest/ui": "^3.1.4",
-    "better-sqlite3": "^11.10.0",
     "commit-and-tag-version": "^12.5.1",
     "conventional-changelog": "^6.0.0",
     "conventional-changelog-conventionalcommits": "^8.0.0",
