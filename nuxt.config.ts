@@ -53,12 +53,6 @@ export default defineNuxtConfig({
     { path: '~/components/lobby', prefix: '' },
     { path: '~/components/', prefix: '' },
   ],
-  content: {
-    experimental: { nativeSqlite: true },
-    renderer: {
-      anchorLinks: { h1: false, h2: false, h3: false, h4: false }
-    }
-  },
   css: ["~/assets/css/main.css"],
   modules: [
     "@nuxt/fonts",
