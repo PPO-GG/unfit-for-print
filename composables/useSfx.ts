@@ -31,6 +31,7 @@ export const getRandomInRange = (val: number | [number, number]): number => {
 export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
     const audioContext = new AudioContext();
     let spriteAudioBuffer: AudioBuffer | null = null;
+    const bufferCache = new Map<string, AudioBuffer>();
 
     if (spriteSrc) {
         fetch(spriteSrc)
@@ -84,29 +85,34 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
         } else {
             const file = Array.isArray(src) ? src[Math.floor(Math.random() * src.length)] : src;
 
-            fetch(file)
-                .then(response => response.arrayBuffer())
-                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                .then(buffer => {
-                    bufferSource = audioContext.createBufferSource();
-                    bufferSource.buffer = buffer;
-                    bufferSource.start(0);
-
-                    gainNode = audioContext.createGain();
-                    bufferSource.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
-
-                    if (options.pitch !== undefined) {
-                        bufferSource.playbackRate.value = getRandomInRange(options.pitch);
-                    }
-
-                    if (options.volume !== undefined) {
-                        gainNode.gain.value = getRandomInRange(options.volume);
-                    }
-                })
-                .catch(err => {
+            let buffer = bufferCache.get(file);
+            if (!buffer) {
+                try {
+                    const response = await fetch(file);
+                    const arrayBuffer = await response.arrayBuffer();
+                    buffer = await audioContext.decodeAudioData(arrayBuffer);
+                    bufferCache.set(file, buffer);
+                } catch (err) {
                     if (import.meta.dev) console.warn('Failed to load audio:', err);
-                });
+                    return;
+                }
+            }
+
+            bufferSource = audioContext.createBufferSource();
+            bufferSource.buffer = buffer;
+            bufferSource.start(0);
+
+            gainNode = audioContext.createGain();
+            bufferSource.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            if (options.pitch !== undefined) {
+                bufferSource.playbackRate.value = getRandomInRange(options.pitch);
+            }
+
+            if (options.volume !== undefined) {
+                gainNode.gain.value = getRandomInRange(options.volume);
+            }
         }
     };
 
