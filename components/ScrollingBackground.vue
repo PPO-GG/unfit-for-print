@@ -1,6 +1,6 @@
 <template>
   <!-- 45° rotated infinite‑scroll card matrix (JS‑driven for perfect wrap) -->
-  <div v-if="!isMobile && !isLowPerf" ref="wrapper" class="fixed inset-[-60vw] flex rotate-45 scale-[1.8] pointer-events-none z-[-1] opacity-5 ">
+  <div v-if="showEffect" ref="wrapper" class="fixed inset-[-60vw] flex rotate-45 scale-[1.8] pointer-events-none z-[-1] opacity-5 ">
     <div
         v-for="(col, cIndex) in columns"
         :key="cIndex"
@@ -26,18 +26,31 @@ import { useThrottleFn, useWindowSize } from '@vueuse/core'
 import { isMobile } from '@basitcodeenv/vue3-device-detect'
 
 const props = withDefaults(defineProps<{
-	speedPx?: number
-	gap?: number
-	scale?: number
-	logoUrl?: string
+        speedPx?: number
+        gap?: number
+        scale?: number
+        logoUrl?: string
+        /** Disable rendering on mobile devices */
+        disableOnMobile?: boolean
+        /** Disable rendering on low‑performance devices */
+        disableOnLowPerf?: boolean
 }>(), {
-	speedPx: 60,
-	gap: 24,
-	logoUrl: '/img/unfit_logo_alt.png',
+        speedPx: 60,
+        gap: 24,
+        logoUrl: '/img/unfit_logo_alt.png',
+        disableOnMobile: true,
+        disableOnLowPerf: true,
 })
 
 const { width } = useWindowSize()
 const isLowPerf = computed(() => typeof navigator !== 'undefined' && navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4)
+
+const showEffect = computed(() => !(
+        (props.disableOnMobile && isMobile) ||
+        (props.disableOnLowPerf && isLowPerf.value)
+))
+
+const lowPerfMode = computed(() => !props.disableOnLowPerf && isLowPerf.value)
 
 const computedScale = computed(() => {
 	if (width.value < 480) return 0.3
@@ -61,10 +74,11 @@ let keyCounter = 0
 function rebuildGrid() {
 	const vw = window.innerWidth
 	const vh = window.innerHeight
-	const diag = vw + vh
-	const safetyFactor = isLowPerf.value ? 0.7 : 1
+        const diag = vw + vh
+        const safetyFactor = lowPerfMode.value ? 0.3 : 1
 	const newColCount = Math.ceil((diag / (cardW.value + props.gap)) * safetyFactor) + 3
-	const newRowCount = Math.ceil(diag / (cardH.value + props.gap)) + 3
+        const rowFactor = lowPerfMode.value ? 0.5 : 1
+        const newRowCount = Math.ceil((diag / (cardH.value + props.gap)) * rowFactor) + 3
 
 	if (newColCount === colCount.value && newRowCount === rowCount.value) return
 
@@ -123,15 +137,26 @@ function tick(ts: number) {
 
 const rebuildGridThrottled = useThrottleFn(rebuildGrid, 100)
 onMounted(() => {
-	rebuildGrid()
-	window.addEventListener('resize', rebuildGridThrottled)
-	raf = requestAnimationFrame(tick)
+        rebuildGrid()
+        window.addEventListener('resize', rebuildGridThrottled)
+        if (showEffect.value) raf = requestAnimationFrame(tick)
+})
+
+watch(showEffect, val => {
+        if (val) {
+                last = 0
+                raf = requestAnimationFrame(tick)
+        } else {
+                cancelAnimationFrame(raf)
+        }
 })
 onUnmounted(() => {
-	window.removeEventListener('resize', rebuildGridThrottled)
-	cancelAnimationFrame(raf)
+        window.removeEventListener('resize', rebuildGridThrottled)
+        cancelAnimationFrame(raf)
 })
-watch(() => [props.scale, props.gap], rebuildGrid)
+watch([() => props.scale, () => props.gap, showEffect], () => {
+        if (showEffect.value) rebuildGrid()
+})
 
 /* —— inline styles —— */
 function getColWrapperStyle() { // 🔥
