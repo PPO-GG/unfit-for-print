@@ -1,3 +1,14 @@
+## [1.2.1](https://github.com/PPO-GG/unfit-for-print/compare/v1.2.0...v1.2.1) (2025-06-04)
+
+
+### Bug Fixes
+
+* force version bump ([cf393c6](https://github.com/PPO-GG/unfit-for-print/commit/cf393c612fd23f8aca2e2766d0f82dc6a6e6bed9))
+* hotfix for the content render ([b2223ca](https://github.com/PPO-GG/unfit-for-print/commit/b2223ca26ace1c8459ff2a739fc31ee7697a2f99))
+* removed @nuxt/content from package to fix building ([d2f5b67](https://github.com/PPO-GG/unfit-for-print/commit/d2f5b675d1a62f41023d529a2dc7282ad831a8d7))
+* replace nuxt-content with markdown-it to fix build error ([9da0b37](https://github.com/PPO-GG/unfit-for-print/commit/9da0b371942df280400f4c700c0dcaaac9f5cf64))
+* replace nuxt-content with markdown-it to fix build error ([#33](https://github.com/PPO-GG/unfit-for-print/issues/33)) ([828b9ae](https://github.com/PPO-GG/unfit-for-print/commit/828b9aebd58b10800e6cd046a011b7609184bc84))
+
 # [1.2.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.1.0...v1.2.0) (2025-06-03)
 
 
