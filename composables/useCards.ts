@@ -15,13 +15,16 @@ export const useCards = () => {
       const config = useRuntimeConfig();
       const { databases } = getAppwrite();
 
-      const packKey = cardPacks && cardPacks.length > 0 ? [...cardPacks].sort().join('|') : 'ALL'
+      const packKey = cardPacks && cardPacks.length > 0
+        ? [...cardPacks].sort().join('|')
+        : 'ALL'
 
       let cached = totalsStore.getWhiteTotal(packKey)
+      let queries: string[] | any[] = []
 
       if (!cached || Date.now() - cached.lastFetched > CACHE_TTL) {
         // Create queries array for total fetch
-        let queries = [Query.limit(1)]
+        queries = [Query.limit(1)]
         if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
           const packConditions = cardPacks.map(pack => Query.equal('pack', pack))
           if (packConditions.length > 1) {
