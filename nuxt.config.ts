@@ -91,23 +91,6 @@ export default defineNuxtConfig({
     },
     skipSettingLocaleOnNavigate: false,
   },
-  css: ["~/assets/css/main.css"],
-  modules: [
-    "@nuxt/fonts",
-    "@nuxt/icon",
-    "@pinia/nuxt",
-    "@vueuse/sound/nuxt",
-    "@vueuse/nuxt",
-    "@nuxt/ui",
-    'pinia-plugin-persistedstate/nuxt',
-    "nuxt-og-image",
-    'nuxt-umami',
-  ],
-  sound: {
-    sounds: {
-      scan: true,
-    },
-  },
   runtimeConfig: {
     appwriteApiKey: process.env.APPWRITE_API_KEY,
     appwriteEndpoint: process.env.APPWRITE_ENDPOINT,
