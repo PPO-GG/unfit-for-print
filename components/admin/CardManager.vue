@@ -173,19 +173,36 @@ const fetchCards = async () => {
 		// First get total count of cards with filters applied
 		const queries = []
 
-		// Apply filters for search and pack selection
-		if (searchTerm.value) {
-			queries.push(Query.search('text', searchTerm.value))
-		}
-
+		// Apply filters for pack selection
 		if (selectedPack.value) {
 			queries.push(Query.equal('pack', selectedPack.value))
 		}
 
-		// First get count of matching cards
+		// Handle text search - try server-side search first, but be prepared to fall back to client-side filtering
+		let useServerSideSearch = false
+		let clientSideFilterNeeded = false
+
+		if (searchTerm.value) {
+			try {
+				// Try to use server-side search if fulltext index is available
+				queries.push(Query.search('text', searchTerm.value))
+				useServerSideSearch = true
+
+				// Test the query to see if it works
+				await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [...queries, Query.limit(1)])
+			} catch (searchErr) {
+				// If server-side search fails, remove the search query and note that we'll need client-side filtering
+				// This is expected behavior if fulltext indexes are still being created or propagated
+				console.info('Using client-side filtering (fulltext indexes may still be propagating)')
+				queries.pop() // Remove the search query
+				useServerSideSearch = false
+				clientSideFilterNeeded = true
+			}
+		}
+
+		// First get count of matching cards (without search if we're doing client-side filtering)
 		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [...queries, Query.limit(1)])
-		const totalMatchingCards = countResult.total
-		totalCards.value = totalMatchingCards
+		let totalMatchingCards = countResult.total
 
 		// If no cards match the filters, return early
 		if (totalMatchingCards === 0) {
@@ -213,12 +230,27 @@ const fetchCards = async () => {
 			if (result.documents.length < chunkSize) break
 		}
 
-		cards.value = allCards
+		// Apply client-side text filtering if needed
+		let filteredCards = allCards
+		if (clientSideFilterNeeded && searchTerm.value) {
+			const searchTermLower = searchTerm.value.toLowerCase()
+			filteredCards = allCards.filter(card => 
+				card.text.toLowerCase().includes(searchTermLower)
+			)
+			// Only log this at debug level since it's expected behavior while indexes propagate
+			if (filteredCards.length !== allCards.length) {
+				console.debug(`Client-side filtering: ${filteredCards.length}/${allCards.length} cards match`)
+			}
+		}
+
+		cards.value = filteredCards
+		totalCards.value = filteredCards.length
 
 		// Reset to page 1 when fetching new cards
 		currentPage.value = 1
 
-		console.log(`Fetched ${allCards.length} cards out of ${totalMatchingCards} total matching cards`)
+		// Use debug level for routine operation logs
+		console.debug(`Fetched ${filteredCards.length}/${totalMatchingCards} cards`)
 	} catch (err) {
 		console.error('Failed to fetch cards:', err)
 	} finally {
@@ -259,7 +291,7 @@ watch(cardType, () => {
 
 // Add console log for debugging pagination
 watch(currentPage, (newPage) => {
-	console.log(`Page changed to ${newPage}`)
+	console.debug(`Page changed to ${newPage}`)
 })
 
 const toggleCardActive = async (card: any) => {

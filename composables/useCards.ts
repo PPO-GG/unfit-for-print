@@ -1,7 +1,12 @@
 import { Query } from 'appwrite'
 import { getAppwrite } from '~/utils/appwrite';
+import { useCardTotalsStore } from '~/stores/cardTotalsStore';
+
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export const useCards = () => {
+
+  const totalsStore = useCardTotalsStore()
 
   const fetchRandomWhiteCard = async (cardPacks?: string[]) => {
     if (import.meta.server) return null;
@@ -10,35 +15,39 @@ export const useCards = () => {
       const config = useRuntimeConfig();
       const { databases } = getAppwrite();
 
-      // Create queries array
-      let queries = [Query.limit(1)];
+      const packKey = cardPacks && cardPacks.length > 0
+        ? [...cardPacks].sort().join('|')
+        : 'ALL'
 
-      // Add filter for card packs if specified
-      if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
-        // Create an array of pack conditions
-        const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
+      let cached = totalsStore.getWhiteTotal(packKey)
+      let queries: string[] | any[] = []
 
-        // If we have multiple packs, use Query.or to combine them
-        if (packConditions.length > 1) {
-          queries.push(Query.or(packConditions));
-        } else if (packConditions.length === 1) {
-          // If we only have one pack, just add it directly
-          queries.push(packConditions[0]);
+      if (!cached || Date.now() - cached.lastFetched > CACHE_TTL) {
+        // Create queries array for total fetch
+        queries = [Query.limit(1)]
+        if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
+          const packConditions = cardPacks.map(pack => Query.equal('pack', pack))
+          if (packConditions.length > 1) {
+            queries.push(Query.or(packConditions))
+          } else if (packConditions.length === 1) {
+            queries.push(packConditions[0])
+          }
         }
-      }
 
-      // Step 1: Get total number of white cards (filtered by card packs if specified)
-      const totalRes = await databases.listDocuments(
+        const totalRes = await databases.listDocuments(
           config.public.appwriteDatabaseId as string,
           config.public.appwriteWhiteCardCollectionId as string,
           queries
-      );
+        )
 
-      const total = totalRes.total;
-      if (total === 0) return null;
+        totalsStore.setWhiteTotal(packKey, totalRes.total)
+        cached = totalsStore.getWhiteTotal(packKey)
+      }
 
-      // Step 2: Random offset
-      const offset = Math.floor(Math.random() * total);
+      const total = cached?.total ?? 0
+      if (total === 0) return null
+
+      const offset = Math.floor(Math.random() * total)
 
       // console.log(`Fetching random white card at offset: `, offset,` (out of `,total,`)`, cardPacks ? ` from packs: ${cardPacks.join(', ')}` : '');
 
@@ -101,21 +110,27 @@ export const useCards = () => {
         }
       }
 
-      // Step 1: Get total number of black cards *matching the pick value and card packs if specified*
-      const totalRes = await databases.listDocuments(
+      const packKey = cardPacks && cardPacks.length > 0 ? [...cardPacks].sort().join('|') : 'ALL'
+
+      let cached = totalsStore.getBlackTotal(packKey, pick)
+
+      if (!cached || Date.now() - cached.lastFetched > CACHE_TTL) {
+        const totalRes = await databases.listDocuments(
           config.public.appwriteDatabaseId as string,
           config.public.appwriteBlackCardCollectionId as string,
           queries
-      );
+        )
 
-      const total = totalRes.total;
-      if (total === 0) {
-        // console.warn(`No black cards found with pick=${pick}${cardPacks ? ` and specified card packs` : ''}`);
-        return null; // No cards found with this pick value and card packs
+        totalsStore.setBlackTotal(packKey, pick, totalRes.total)
+        cached = totalsStore.getBlackTotal(packKey, pick)
       }
 
-      // Step 2: Random offset *within the filtered results*
-      const offset = Math.floor(Math.random() * total);
+      const total = cached?.total ?? 0
+      if (total === 0) {
+        return null
+      }
+
+      const offset = Math.floor(Math.random() * total)
 
       // console.log(`Fetching random black card with pick=${pick} at offset: ${offset} (out of ${total})${cardPacks ? ` from packs: ${cardPacks.join(', ')}` : ''}`);
 

@@ -4,11 +4,6 @@ export function createAppwriteClient() {
   try {
     const config = useRuntimeConfig()
 
-    console.log('[createAppwriteClient] Initializing Appwrite client with:')
-    console.log('[createAppwriteClient] Endpoint:', config.public.appwriteUrl)
-    console.log('[createAppwriteClient] Project ID:', config.public.appwriteProjectId)
-    console.log('[createAppwriteClient] API Key exists:', !!config.appwriteApiKey)
-
     // Validate configuration
     if (!config.public.appwriteUrl) {
       throw new Error('Appwrite URL is missing');
@@ -25,8 +20,6 @@ export function createAppwriteClient() {
       .setProject(config.public.appwriteProjectId)
       .setKey(config.appwriteApiKey)
       .setSelfSigned(true)
-
-    console.log('[createAppwriteClient] Appwrite client initialized successfully')
 
     return {
       client,
