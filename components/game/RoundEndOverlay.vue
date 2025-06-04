@@ -48,11 +48,21 @@ const updateTimer = () => {
 	if (remainingTime.value <= 0 && props.isHost && !hasTriggeredNextRound.value) {
 		hasTriggeredNextRound.value = true;
 
+		// Add a longer delay before calling startNextRound to ensure the server's timer has also expired
 		setTimeout(() => {
 			startNextRound(props.lobbyId, props.documentId).catch((err: unknown) => {
 				console.error("Failed to trigger next round:", err);
+				// If the first attempt fails, try again after a longer delay
+				setTimeout(() => {
+					if (hasTriggeredNextRound.value) {
+						console.log("Retrying startNextRound after initial failure");
+						startNextRound(props.lobbyId, props.documentId).catch((retryErr: unknown) => {
+							console.error("Failed to trigger next round on retry:", retryErr);
+						});
+					}
+				}, 2000);
 			});
-		}, 500);
+		}, 1000);
 
 		if (timerInterval.value) {
 			clearInterval(timerInterval.value);

@@ -11,8 +11,14 @@ import UserHand from '~/components/game/UserHand.vue'
 import whiteCard from '~/components/game/whiteCard.vue'
 import {getAppwrite} from "~/utils/appwrite";
 import {Query} from "appwrite";
+import BlackCardDeck from '~/components/game/BlackCardDeck.vue'
+import WhiteCardDeck from '~/components/game/WhiteCardDeck.vue'
+import SubmissionPhase from '~/components/game/SubmissionPhase.vue'
+import JudgingPhase from '~/components/game/JudgingPhase.vue'
+import GameOver from '~/components/game/GameOver.vue'
+import GameHeader from '~/components/game/GameHeader.vue';
 
-const { t } = useI18n()
+const {t} = useI18n()
 const props = defineProps<{ lobby: Lobby; players: Player[] }>()
 const emit = defineEmits<{
 	(e: 'leave'): void
@@ -27,7 +33,7 @@ watch(() => props.lobby, (newLobby) => {
 // Real-time updates are now handled by the parent component ([code].vue)
 
 // Initialize useGameCards to get player hands
-const { playerHands, fetchGameCards, subscribeToGameCards } = useGameCards()
+const {playerHands, fetchGameCards, subscribeToGameCards} = useGameCards()
 
 // Variable to store the unsubscribe function
 let gameCardsUnsubscribe: (() => void) | null = null;
@@ -93,7 +99,7 @@ const isSpectator = computed(() => {
 
 // Check if the current user is the host
 const isHost = computed(() => {
-  return props.lobby?.hostUserId === myId;
+	return props.lobby?.hostUserId === myId;
 });
 
 // Helper function to get player name from ID
@@ -362,7 +368,7 @@ const localRoundWinner = ref<string | null>(null)
 
 // Computed property that combines both state.roundWinner and localRoundWinner
 const effectiveRoundWinner = computed(() => {
-  return localRoundWinner.value || state.value?.roundWinner || null
+	return localRoundWinner.value || state.value?.roundWinner || null
 })
 
 function handleSelectWinner(playerId: string) {
@@ -393,85 +399,85 @@ onUnmounted(() => {
 
 // Add function to convert spectator to player
 async function convertToPlayer(playerId: string) {
-  if (!isHost.value) return;
+	if (!isHost.value) return;
 
-  try {
-    // 1. Update player type in database
-    const playerDoc = props.players.find(p => p.userId === playerId);
-    if (!playerDoc) return;
+	try {
+		// 1. Update player type in database
+		const playerDoc = props.players.find(p => p.userId === playerId);
+		if (!playerDoc) return;
 
-    const { databases } = getAppwrite();
-    const config = useRuntimeConfig();
+		const {databases} = getAppwrite();
+		const config = useRuntimeConfig();
 
-    await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      playerDoc.$id,
-      {
-        playerType: 'player'
-      }
-    );
+		await databases.updateDocument(
+				config.public.appwriteDatabaseId,
+				config.public.appwritePlayerCollectionId,
+				playerDoc.$id,
+				{
+					playerType: 'player'
+				}
+		);
 
-    // 2. Deal cards to the player
-    // Get a fresh hand from the white deck
+		// 2. Deal cards to the player
+		// Get a fresh hand from the white deck
 
-    // Get the game cards document
-    const gameCardsRes = await databases.listDocuments(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteGamecardsCollectionId,
-      [Query.equal('lobbyId', props.lobby.$id)]
-    );
+		// Get the game cards document
+		const gameCardsRes = await databases.listDocuments(
+				config.public.appwriteDatabaseId,
+				config.public.appwriteGamecardsCollectionId,
+				[Query.equal('lobbyId', props.lobby.$id)]
+		);
 
-    if (gameCardsRes.total === 0) return;
+		if (gameCardsRes.total === 0) return;
 
-    const gameCards = gameCardsRes.documents[0];
-    const whiteDeck = gameCards.whiteDeck || [];
+		const gameCards = gameCardsRes.documents[0];
+		const whiteDeck = gameCards.whiteDeck || [];
 
-    // Get the number of cards per player from game state
-    const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 10;
+		// Get the number of cards per player from game state
+		const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 10;
 
-    // Take cards from the deck
-    const newHand = whiteDeck.slice(0, cardsPerPlayer);
-    const remainingDeck = whiteDeck.slice(cardsPerPlayer);
+		// Take cards from the deck
+		const newHand = whiteDeck.slice(0, cardsPerPlayer);
+		const remainingDeck = whiteDeck.slice(cardsPerPlayer);
 
-    // Update player hands in the game cards document
-    const playerHands = gameCards.playerHands || [];
-    const parsedHands = playerHands.map(hand => JSON.parse(hand));
+		// Update player hands in the game cards document
+		const playerHands = gameCards.playerHands || [];
+		const parsedHands = playerHands.map(hand => JSON.parse(hand));
 
-    // Add or update the player's hand
-    const existingHandIndex = parsedHands.findIndex(h => h.playerId === playerId);
-    if (existingHandIndex >= 0) {
-      parsedHands[existingHandIndex].cards = newHand;
-    } else {
-      parsedHands.push({ playerId, cards: newHand });
-    }
+		// Add or update the player's hand
+		const existingHandIndex = parsedHands.findIndex(h => h.playerId === playerId);
+		if (existingHandIndex >= 0) {
+			parsedHands[existingHandIndex].cards = newHand;
+		} else {
+			parsedHands.push({playerId, cards: newHand});
+		}
 
-    // Update the game cards document
-    await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteGamecardsCollectionId,
-      gameCards.$id,
-      {
-        whiteDeck: remainingDeck,
-        playerHands: parsedHands.map(hand => JSON.stringify(hand))
-      }
-    );
+		// Update the game cards document
+		await databases.updateDocument(
+				config.public.appwriteDatabaseId,
+				config.public.appwriteGamecardsCollectionId,
+				gameCards.$id,
+				{
+					whiteDeck: remainingDeck,
+					playerHands: parsedHands.map(hand => JSON.stringify(hand))
+				}
+		);
 
-    notify({
-      title: t('game.player_dealt_in'),
-      description: t('game.player_dealt_in_description', { name: getPlayerName(playerId) }),
-      color: 'success',
-      icon: 'i-mdi-account-plus'
-    });
+		notify({
+			title: t('game.player_dealt_in'),
+			description: t('game.player_dealt_in_description', {name: getPlayerName(playerId)}),
+			color: 'success',
+			icon: 'i-mdi-account-plus'
+		});
 
-  } catch (err) {
-    // console.error('Failed to convert player to participant:', err);
-    notify({
-      title: t('game.error_player_dealt_in'),
-      color: 'error',
-      icon: 'i-mdi-alert'
-    });
-  }
+	} catch (err) {
+		// console.error('Failed to convert player to participant:', err);
+		notify({
+			title: t('game.error_player_dealt_in'),
+			color: 'error',
+			icon: 'i-mdi-alert'
+		});
+	}
 }
 
 function handleLeave() {
@@ -486,295 +492,65 @@ function handleLeave() {
 }
 </script>
 <template>
-	<div class="w-full bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen">
+	<div class="w-full bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen flex flex-col">
 		<div class="absolute w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none"></div>
 
 		<!-- Main Content -->
-		<div class="flex-1 flex flex-col w-full">
-			<header class="flex justify-between items-center backdrop-blur-xs p-8 border-b-1 border-slate-700/50">
-				<div class="absolute top-0 left-1/2 transform -translate-x-1/2 bg-slate-700 px-4 py-2 rounded-b-xl shadow-lg">
-					<div class="text-center">
-						<h2 class="font-['Bebas_Neue'] text-3xl">{{ t('game.round') }} <span class="text-success-300">{{ state?.round || 1 }}</span></h2>
-						<p class="text-slate-300 font-['Bebas_Neue'] text-2xl">
-							{{ isSubmitting ? t('game.phase_submission') : isJudging ? t('game.phase_judging') : t('game.waiting') }}
-						</p>
-						<p v-if="judgeId" class="text-amber-400 font-['Bebas_Neue'] text-xl">
-							{{ t('game.judge', {name: getPlayerName(judgeId)}) }}
-						</p>
-					</div>
-				</div>
-			</header>
+		<div class="min-h-screen flex flex-col">
+			<GameHeader 
+				:state="state" 
+				:is-submitting="isSubmitting" 
+				:is-judging="isJudging" 
+				:judge-id="judgeId" 
+				:players="props.players"
+			/>
 
-			<main class="flex-1 p-6 overflow-y-auto flex flex-col items-center">
+			<main class="flex-1 p-6 flex flex-col overflow-hidden">
 				<!-- Game Board Area with Card Decks -->
-				<div class="w-full max-w-6xl mx-auto mt-16 mb-8 flex justify-center items-start gap-16 relative">
+				<div class="w-full max-w-6xl mx-auto mt-16 mb-8 flex justify-center items-start gap-16">
 					<!-- Black Card Deck -->
-					<div class="relative w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] outline-2 outline-slate-400/25 outline-offset-16 outline-dashed rounded-xl">
-						<!-- Stack effect with multiple cards -->
-						<div  v-for="i in 5" :key="`black-stack-${i}`"
-						     :style="{
-                   position: 'absolute',
-                   top: `${i * 2}px`,
-                   left: `${i * 2}px`,
-                   // transform: `rotate(${i - 2}deg)`,
-                   zIndex: 5 - i
-                 }"
-						     class="w-full h-full -translate-x-2 -translate-y-2">
-							<BlackCard
-									:flipped="true"
-									:three-deffect="false"
-									:shine="false"
-							/>
-						</div>
-						<!-- Top card (current black card) -->
-						<div v-if="blackCard" class="absolute top-0 left-0 z-10 w-full h-full transform hover:translate-y-[-20px] hover:scale-105 -translate-x-2 -translate-y-2 transition-transform duration-300">
-							<BlackCard
-									v-if="blackCard"
-									:card-id="blackCard.id"
-									:flipped="false"
-									:num-pick="blackCard.pick"
-									:text="blackCard.text"
-									:three-deffect="true"
-							/>
-						</div>
-					</div>
+					<BlackCardDeck :black-card="blackCard" />
 
 					<!-- White Card Deck -->
-					<div class="relative w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] outline-2 outline-slate-400/25 outline-offset-16 outline-dashed rounded-xl">
-						<!-- Stack effect with multiple cards -->
-						<div v-for="i in 5" :key="`white-stack-${i}`"
-						     :style="{
-                   position: 'absolute',
-                   top: `${i * 2}px`,
-                   left: `${i * 2}px`,
-                   // transform: `rotate(${i - 2}deg)`,
-                   zIndex: 5 - i
-                 }"
-						     class="w-full h-full -translate-x-2 -translate-y-2">
-							<whiteCard
-									:flipped="true"
-									:threeDeffect="false"
-									:shine="false"
-									:backLogoUrl="'/img/ufp.svg'"
-									:mask-url="'/img/textures/hexa.png'"
-							/>
-						</div>
-					</div>
+					<WhiteCardDeck />
 				</div>
 
 				<!-- Submission Phase -->
-				<div v-if="isSubmitting" class="w-full flex flex-col items-center">
-					<div v-if="isJudge" class="text-center">
-						<p class="uppercase font-['Bebas_Neue'] text-4xl font-bold">{{ t('game.you_are_judge') }}</p>
-						<p class="text-slate-400 font-['Bebas_Neue'] font-light">{{ t('game.waiting_for_submissions') }}</p>
-						<!-- See who already submitted -->
-						<div v-if="Object.keys(submissions).length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
-							<div v-for="playerId in Object.keys(submissions)" :key="playerId"
-							     class="p-8 outline-2 outline-green-900 bg-slate-800 rounded-xl shadow-md text-center">
-								<p class="font-bold text-white uppercase font-['Bebas_Neue'] text-3xl">{{ getPlayerName(playerId) }}</p>
-								<p class="text-green-500 uppercase font-['Bebas_Neue'] text-xl font-medium">{{ t('game.player_submitted') }}</p>
-							</div>
-						</div>
-
-					</div>
-
-					<div v-else>
-						<div v-if="submissions[myId]" class="text-center">
-							<p class="uppercase font-['Bebas_Neue'] text-4xl font-bold">{{ t('game.you_submitted') }}</p>
-							<div class="flex justify-center gap-4">
-								<whiteCard v-for="cardId in submissions[myId]" :key="cardId" :cardId="cardId"/>
-							</div>
-							<p class="mt-4 italic text-gray-500">{{ t('game.waiting_for_submissions') }}</p>
-						</div>
-						<!-- Participant view with UserHand -->
-						<div v-if="blackCard && isParticipant && !submissions[myId]" class="w-full flex justify-center items-end bottom-0 fixed translate-x-[-50%] z-50">
-							<UserHand 
-								:cards="myHand" 
-								:disabled="isJudge || !isSubmitting" 
-								:cardsToSelect="blackCard?.pick || 1"
-								@select-cards="handleCardSubmit"
-							/>
-						</div>
-
-						<!-- Spectator view with message -->
-						<div v-if="blackCard && isSpectator" class="w-full flex justify-center mt-8">
-							<div class="spectator-message bg-slate-800 p-6 rounded-xl text-center max-w-md">
-								<p class="text-xl mb-4">{{ t('game.you_are_spectating') }}</p>
-								<!-- Only show this button to the host -->
-								<UButton 
-									v-if="isHost" 
-									@click="convertToPlayer(myId)"
-									color="primary"
-									icon="i-mdi-account-plus"
-								>
-									{{ t('game.convert_to_participant') }}
-								</UButton>
-							</div>
-						</div>
-					</div>
-
-
-
-				</div>
+				<SubmissionPhase 
+					v-if="isSubmitting"
+					:is-judge="isJudge"
+					:submissions="submissions"
+					:my-id="myId"
+					:black-card="blackCard"
+					:my-hand="myHand"
+					:is-participant="isParticipant"
+					:is-spectator="isSpectator"
+					:is-host="isHost"
+					:players="props.players"
+					@select-cards="handleCardSubmit"
+					@convert-to-player="convertToPlayer"
+				/>
 
 				<!-- Judging Phase -->
-				<div v-else-if="isJudging" class="mt-8 bg-slate-700/25 border-y-2 border-b-slate-700 border-t-slate-900 rounded-3xl p-8 text-center">
-					<p v-if="!isJudge" class="text-center mb-6 text-slate-100 text-3xl font-['Bebas_Neue']">{{ t('game.submissions') }}</p>
-					<!-- Judge view -->
-					<div v-if="isJudge">
-						<!-- Judge selecting a winner - all cards are shown directly -->
-						<div>
-							<p v-if="!winnerSelected"
-							   class="text-center mb-6 text-slate-100 text-3xl font-['Bebas_Neue']">
-								{{ t('game.select_winner') }}
-							</p>
-
-							<!-- Desktop view - hidden on mobile -->
-							<div class="hidden xl:flex justify-center">
-								<div class="flex flex-wrap justify-center gap-6 max-w-6xl w-full">
-									<div
-											v-for="sub in otherSubmissions"
-											:key="sub.playerId"
-											v-show="!effectiveRoundWinner || effectiveRoundWinner === sub.playerId"
-											:class="{'border-2 border-green-500': effectiveRoundWinner === sub.playerId}"
-											class="inset-shadow-sm inset-shadow-slate-900 flex flex-col items-center outline-2 outline-slate-400/15 rounded-3xl bg-slate-700/50 p-6"
-									>
-										<div class="inline-flex items-center justify-center gap-2 mb-4">
-											<whiteCard
-													v-for="cardId in sub.cards"
-													:key="cardId"
-													:cardId="cardId"
-													:is-winner="effectiveRoundWinner === sub.playerId"
-													:flipped="false"
-											/>
-										</div>
-										<UButton
-												v-if="!winnerSelected"
-												class="w-full rounded-lg mt-2 cursor-pointer"
-												color="secondary"
-												size="lg"
-												variant="solid"
-												@click="handleSelectWinner(sub.playerId)"
-										>
-											<span
-													class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">{{ t('game.select_winner') }}</span>
-										</UButton>
-										<p v-else-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
-											🏆 {{ t('game.winner') }} 🏆
-										</p>
-									</div>
-								</div>
-							</div>
-
-							<!-- Mobile view - scrollable cards in a box -->
-							<div class="xl:hidden">
-								<div class="overflow-y-auto max-h-[70vh] p-4 bg-slate-800/50 rounded-xl">
-									<div class="flex flex-wrap justify-center gap-4">
-										<div 
-											v-for="sub in otherSubmissions" 
-											:key="sub.playerId"
-											v-show="!effectiveRoundWinner || effectiveRoundWinner === sub.playerId"
-											:class="{'border-2 border-green-500': effectiveRoundWinner === sub.playerId}"
-											class="inset-shadow-sm inset-shadow-slate-900 flex flex-col items-center outline-2 outline-slate-400/15 rounded-3xl bg-slate-700/50 p-6"
-										>
-											<div class="inline-flex items-center justify-center gap-2 mb-4">
-												<whiteCard
-													v-for="cardId in sub.cards"
-													:key="cardId"
-													:cardId="cardId"
-													:is-winner="effectiveRoundWinner === sub.playerId"
-													:flipped="false"
-												/>
-											</div>
-
-											<UButton
-												v-if="!winnerSelected"
-												class="w-full rounded-lg mt-2 cursor-pointer"
-												color="secondary"
-												size="lg"
-												variant="solid"
-												@click="handleSelectWinner(sub.playerId)"
-											>
-												<span class="text-white text-center w-full font-light text-xl font-['Bebas_Neue']">
-													{{ t('game.select_winner') }}
-												</span>
-											</UButton>
-
-											<p v-else-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
-												🏆 {{ t('game.winner') }} 🏆
-											</p>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Other players view -->
-					<div v-else class="flex justify-center space-x-8">
-						<!-- Current player's submission (visible unless another player won) -->
-						<div v-if="submissions[myId] && (!effectiveRoundWinner || effectiveRoundWinner === myId)" class="">
-							<div class=" outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-6">
-								<p class="font-medium text-white mb-2 text-lg">
-									<span class="text-success-400 font-['Bebas_Neue'] text-2xl">{{ t('game.your_submission') }}</span>
-								</p>
-								<div class="inline-flex justify-center gap-2 mb-2">
-									<whiteCard
-											v-for="cardId in submissions[myId]"
-											:key="cardId"
-											:cardId="cardId"
-											:is-winner="effectiveRoundWinner === myId"
-											:flipped="false"
-									/>
-								</div>
-								<p v-if="effectiveRoundWinner === myId" class="text-green-400 font-bold mt-2">
-									🏆 {{ t('game.you_won') }} 🏆
-								</p>
-							</div>
-						</div>
-
-						<!-- Other players' submissions -->
-						<div v-if="shuffledSubmissions.length > 0" class="flex flex-wrap justify-center gap-8">
-							<div
-									v-for="(sub) in shuffledSubmissions"
-									v-show="sub.playerId !== myId && (!effectiveRoundWinner || effectiveRoundWinner === sub.playerId)"
-									:key="sub.playerId"
-									:class="{'border-2 border-green-500': effectiveRoundWinner === sub.playerId}"
-									class=" outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-6"
-							>
-								<p v-if="effectiveRoundWinner === sub.playerId" class="font-medium text-amber-300 mb-2 font-['Bebas_Neue'] text-2xl">
-									<span class="text-amber-400 ">{{ t('game.submitted_by') }} </span>{{ getPlayerName(sub.playerId) }}
-								</p>
-								<p v-else class="font-medium text-white mb-2 text-lg">
-									<span class="text-amber-400 font-['Bebas_Neue'] text-2xl">{{ t('game.submissions') }}</span>
-								</p>
-								<div class="inline-flex justify-center gap-2 mb-2">
-										<whiteCard
-												v-for="cardId in sub.cards"
-												:key="cardId"
-												:cardId="cardId"
-												:is-winner="effectiveRoundWinner === sub.playerId"
-												:flipped="false"
-										/>
-								</div>
-								<p v-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-2">
-									🏆 {{ t('game.winner') }} 🏆
-								</p>
-							</div>
-						</div>
-						<p v-else class="text-center italic text-gray-500 mt-6">{{ t('game.waiting_for_submissions') }}</p>
-					</div>
-				</div>
+				<JudgingPhase 
+					v-else-if="isJudging"
+					:is-judge="isJudge"
+					:my-id="myId"
+					:other-submissions="otherSubmissions"
+					:submissions="submissions"
+					:effective-round-winner="effectiveRoundWinner"
+					:winner-selected="winnerSelected"
+					:shuffled-submissions="shuffledSubmissions"
+					:players="props.players"
+					@select-winner="handleSelectWinner"
+				/>
 
 				<!-- Game Over -->
-				<div v-else-if="isComplete" class="text-center mt-10">
-					<h3 class="text-2xl font-bold text-gray-100">🏁 {{ t('game.game_over') }}</h3>
-					<ul class="mt-6 space-y-2">
-						<li v-for="entry in leaderboard" :key="entry.playerId" class="font-medium text-gray-400">
-							{{ getPlayerName(entry.playerId) }} — {{ entry.points }} {{ t('game.points') }}
-						</li>
-					</ul>
-				</div>
+				<GameOver 
+					v-else-if="isComplete" 
+					:leaderboard="leaderboard"
+					:players="props.players"
+				/>
 
 				<!-- Waiting State -->
 				<div v-else class="text-center italic text-gray-500 mt-10">

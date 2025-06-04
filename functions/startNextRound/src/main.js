@@ -167,7 +167,7 @@ export default async function ({ req, res, log, error }) {
 
     // Optional: Time validation (prevent starting too early)
     const timeElapsed = Date.now() - (state.roundEndStartTime || 0);
-    if (timeElapsed < countdownDuration - 600) { // Allow a buffer (600ms) to account for timing variations
+    if (timeElapsed < countdownDuration - 2000) { // Allow a larger buffer (2000ms) to account for timing variations and client-server discrepancies
         log(`Attempted to start next round too early for lobby ${lobbyId}. Time elapsed: ${timeElapsed}ms, Required: ${countdownDuration}ms`);
         return res.json({ success: false, message: 'Countdown not finished' });
     }
