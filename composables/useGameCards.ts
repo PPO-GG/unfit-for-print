@@ -1,4 +1,4 @@
-import {computed, ref} from 'vue';
+import {computed, ref, onUnmounted} from 'vue';
 import {getAppwrite} from '~/utils/appwrite';
 import type {GameCards, PlayerHand} from '~/types/gamecards';
 import type {CardId, PlayerId} from '~/types/game';
@@ -79,28 +79,40 @@ export const useGameCards = () => {
     // First fetch the initial data
     fetchGameCards(lobbyId);
 
-    // Set up polling for updates every 3 seconds
-    const pollingInterval = setInterval(async () => {
-      try {
-        const response = await $fetch<any>(`/api/gamecards/${lobbyId}`);
+    const dbId = config.public.appwriteDatabaseId as string;
+    const collectionId = config.public.appwriteGamecardsCollectionId as string;
 
-        if (!response.error) {
-          const newGameCards = response as unknown as GameCards;
+    // Subscribe to changes in the gamecards collection
+    const unsubscribe = client.subscribe(
+      [`databases.${dbId}.collections.${collectionId}.documents`],
+      ({ events, payload }) => {
+        const doc = payload as GameCards & { lobbyId: any };
+        const docLobbyId = typeof doc.lobbyId === 'object' && doc.lobbyId?.$id
+          ? doc.lobbyId.$id
+          : doc.lobbyId;
 
-          // Only update if the data has changed
-          if (JSON.stringify(newGameCards) !== JSON.stringify(gameCards.value)) {
-            gameCards.value = newGameCards;
-            if (onUpdate) onUpdate(gameCards.value);
-          }
+        if (docLobbyId !== lobbyId) return;
+
+        if (events.some(e => e.endsWith('.delete'))) {
+          gameCards.value = null;
+          return;
         }
-      } catch (err) {
-        console.error('Failed to poll game cards:', err);
-      }
-    }, 3000);
 
-    // Return a function to clear the interval when unsubscribing
+        if (events.some(e => e.endsWith('.create')) || events.some(e => e.endsWith('.update'))) {
+          gameCards.value = doc as unknown as GameCards;
+          if (onUpdate) onUpdate(gameCards.value);
+        }
+      }
+    );
+
+    // Automatically clean up when the component using this composable unmounts
+    onUnmounted(() => {
+      unsubscribe();
+    });
+
+    // Return a function to clean up the subscription
     return () => {
-      clearInterval(pollingInterval);
+      unsubscribe();
     };
   };
 

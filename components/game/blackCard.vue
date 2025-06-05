@@ -1,5 +1,5 @@
 <template>
-  <div class="select-none perspective-distant justify-center flex items-center w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] hover:z-[100]">
+  <div class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]">
     <div
       ref="card"
       class="card cursor-pointer"
@@ -11,19 +11,22 @@
         <!-- Front Side -->
         <div class="card__face card__front">
           <slot name="front">
-            <div class="card-content p-4 max-xl:text-xl min-md:text-4xl leading-none">
-              <span class="absolute bottom-0 right-0 m-2 p-1 text-xl bg-slate-900/50 rounded-lg text-slate-400 font-[Bebas_Neue]" >
+            <div class="card-content rounded-lg relative overflow-hidden">
+	            <p class="xl:text-4xl md:text-3xl text-xl md:leading-none leading-6 p-6">
+		            {{ cardText }}
+	            </p>
+	            <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
+		            <UTooltip :text="`Card ID ` + (cardId ?? '') + `\n` + cardPack" class="text-slate-500 font-light">
+							    <span class="relative flex items-center group">
+							      <Icon class="z-10" name="mdi:cards"/>
+							    </span>
+		            </UTooltip>
+	            </div>
+            </div>
+	          <span class="hidden md:flex items-center absolute bottom-0 right-0 m-2 p-1 text-lg bg-slate-900/50 rounded-lg text-slate-400 font-[Bebas_Neue]" >
                 <Icon name="mdi:cards"  class="align-middle"/>
 	              {{ computedNumPick }}
               </span>
-              <span class="">{{ cardText }}</span>
-              <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
-                <UTooltip :text="`Card ID ` + cardId">
-                  <Icon name="mdi:cards"  class="align-middle text-slate-100"/>
-                  <span class="text-sm align-middle ml-1 text-slate-500">{{ cardPack }}</span>
-                </UTooltip>
-              </div>
-            </div>
           </slot>
         </div>
 

@@ -166,10 +166,18 @@ export default async function ({ req, res, log, error }) {
     }
 
     // Optional: Time validation (prevent starting too early)
-    const timeElapsed = Date.now() - (state.roundEndStartTime || 0);
-    if (timeElapsed < countdownDuration - 2000) { // Allow a larger buffer (2000ms) to account for timing variations and client-server discrepancies
-        log(`Attempted to start next round too early for lobby ${lobbyId}. Time elapsed: ${timeElapsed}ms, Required: ${countdownDuration}ms`);
-        return res.json({ success: false, message: 'Countdown not finished' });
+    // Only perform time validation if roundEndStartTime is set and valid
+    if (state.roundEndStartTime) {
+        const timeElapsed = Date.now() - state.roundEndStartTime;
+        // Use a more lenient check - allow starting if at least 80% of the countdown has elapsed
+        // This prevents issues with timing variations across clients
+        if (timeElapsed < countdownDuration * 0.8) {
+            log(`Attempted to start next round too early for lobby ${lobbyId}. Time elapsed: ${timeElapsed}ms, Required: ${countdownDuration}ms`);
+            return res.json({ success: false, message: 'Countdown not finished' });
+        }
+        log(`Time validation passed: ${timeElapsed}ms elapsed of ${countdownDuration}ms required`);
+    } else {
+        log(`No roundEndStartTime found, skipping time validation for lobby ${lobbyId}`);
     }
 
     log(`Starting next round for lobby ${lobbyId}. Current round: ${state.round}`);
@@ -409,6 +417,7 @@ export default async function ({ req, res, log, error }) {
     await databases.updateDocument(DB, LOBBY_COLLECTION, lobbyId, {
       // status remains 'playing'
       gameState: encodeGameState(coreState),
+      // Don't update revealedSubmissions as it might not be in the schema
     });
 
     return res.json({ success: true });

@@ -2,8 +2,8 @@
 	<ClientOnly>
     <UApp>
       <NuxtLayout>
-	      <div v-if="isDev" class="opacity-50 hover:opacity-100 font-['Bebas_Neue'] fixed top-4 left-[-45px] backdrop-blur-2xl text-md font-bold uppercase tracking-wider rotate-[-45deg] w-48 text-center shadow-lg translate-y-4 z-[100]">
-		      <UButton to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" icon="i-logos-gitlab" variant="link" color="warning" >Dev Preview</UButton>
+	      <div v-if="isDev" class="fixed top-0 left-0 h-1 bg-amber-500 w-full z-50 items-center flex justify-center">
+	        <span class="text-xs text-white font-mono mt-6">Development Mode</span>
 	      </div>
           <NuxtPage />
       </NuxtLayout>
@@ -55,7 +55,7 @@ watchEffect(async () => {
 		useHead({
 			title: 'Unfit for Print',
 			meta: [
-				{ name: 'description', content: 'Play the ultimate irreverent party card game online!' },
+				{ name: 'description', content: 'Join the chaos in Unfit for Print – a Cards Against Humanity-inspired party game!' },
 				{ property: 'og:site_name', content: 'Unfit for Print' },
 				{ property: 'og:title', content: 'Unfit for Print' },
 				{ property: 'og:description', content: 'Join or create your own card game lobbies and cause chaos with friends.' },
@@ -70,13 +70,4 @@ watchEffect(async () => {
 		})
 	}
 })
-
-// defineOgImageComponent('unfit', {
-// 	title: 'Unfit for Print',
-// 	subtitle: 'The Internet’s Most Inappropriate Card Game',
-// 	logo: 'https://ufp.ppo.gg/img/ufp.svg',
-// 	textColor: '#FFFFFF',
-// 	logoPosition: 'top-right',
-// 	bgGradient: 'linear-gradient(135deg, #ff0080, #7928ca)',
-// })
 </script>
