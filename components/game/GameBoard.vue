@@ -97,7 +97,9 @@ const isHost = computed(() => {
 });
 
 // Helper function to get player name from ID
-const getPlayerName = (playerId: string): string => {
+const getPlayerName = (playerId: string | null): string => {
+	if (!playerId || playerId === "") return t('lobby.unknown_player');
+
 	// First try to find the player in the props.players array by userId
 	const playerByUserId = props.players.find(p => p.userId === playerId)
 	if (playerByUserId?.name) {
@@ -317,7 +319,7 @@ const countdownInterval = ref<NodeJS.Timeout | null>(null)
 watch(() => state.value?.roundWinner, (newWinner) => {
 	// Reset local round winner when state is updated from the server
 	if (newWinner) {
-		localRoundWinner.value = null
+		localRoundWinner.value = ""
 	}
 	if (newWinner) {
 		// First show the winning card and submitter name to all players
@@ -358,11 +360,11 @@ watch(() => state.value?.roundWinner, (newWinner) => {
 })
 
 // Create a local reactive variable to track the round winner
-const localRoundWinner = ref<string | null>(null)
+const localRoundWinner = ref<string | null>("")
 
 // Computed property that combines both state.roundWinner and localRoundWinner
 const effectiveRoundWinner = computed(() => {
-  return localRoundWinner.value || state.value?.roundWinner || null
+  return (localRoundWinner.value && localRoundWinner.value !== "") ? localRoundWinner.value : (state.value?.roundWinner || null)
 })
 
 function handleSelectWinner(playerId: string) {

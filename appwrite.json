@@ -1,9 +1,9 @@
 {
-    "projectId": "680734f2001f527a785f",
+    "projectId": "682eb1b9000cb3845772",
     "projectName": "Unfit For Print",
     "functions": [
         {
-            "$id": "6807155e000e80388d6a",
+            "$id": "68309b8c002b6c2802e6",
             "name": "playCard",
             "runtime": "node-16.0",
             "execute": [
@@ -28,7 +28,7 @@
             "path": "functions/playCard"
         },
         {
-            "$id": "6807159b0034f2852a27",
+            "$id": "68309bd000261a800de5",
             "name": "startGame",
             "runtime": "node-16.0",
             "execute": [
@@ -53,7 +53,7 @@
             "path": "functions/startGame"
         },
         {
-            "$id": "680715ac001101e8038f",
+            "$id": "68309bac00304fee8922",
             "name": "selectWinner",
             "runtime": "node-16.0",
             "execute": [
@@ -78,7 +78,7 @@
             "path": "functions/selectWinner"
         },
         {
-            "$id": "680e7f88000abf0faa9d",
+            "$id": "68309b670004f0144f30",
             "name": "startNextRound",
             "runtime": "node-16.0",
             "execute": [
@@ -103,7 +103,7 @@
             "path": "functions/startNextRound"
         },
         {
-            "$id": "68118d78003272199009",
+            "$id": "68309ae40001c70d2f60",
             "name": "cleanStaleLobbies",
             "runtime": "node-16.0",
             "execute": [
@@ -128,7 +128,7 @@
             "path": "functions/cleanStaleLobbies"
         },
         {
-            "$id": "681ad1ec0035f6a47189",
+            "$id": "68309b38000de5451d0d",
             "name": "clearOldUsers",
             "runtime": "node-16.0",
             "execute": [
@@ -186,7 +186,7 @@
     },
     "databases": [
         {
-            "$id": "680735cc000ad838ba56",
+            "$id": "682f6e7600320fde48dd",
             "name": "ufp-db",
             "enabled": true
         }
@@ -399,7 +399,14 @@
                     "default": null
                 }
             ],
-            "indexes": []
+            "indexes": [
+                {
+                    "key": "text_fulltext",
+                    "type": "fulltext",
+                    "attributes": ["text"],
+                    "orders": ["ASC"]
+                }
+            ]
         },
         {
             "$id": "6807360b0028bc1f2fcd",
@@ -435,7 +442,14 @@
                     "default": null
                 }
             ],
-            "indexes": []
+            "indexes": [
+                {
+                    "key": "text_fulltext",
+                    "type": "fulltext",
+                    "attributes": ["text"],
+                    "orders": ["ASC"]
+                }
+            ]
         }
     ]
 }

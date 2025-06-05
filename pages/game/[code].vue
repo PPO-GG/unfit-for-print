@@ -79,6 +79,146 @@ const {getPlayersForLobby} = usePlayers();
 const {initSessionIfNeeded} = useJoinLobby();
 const {isPlaying, isWaiting, isComplete, isJudging, leaderboard, isRoundEnd, roundWinner, roundEndStartTime, roundEndCountdownDuration, myId, state, myHand, hands} = useGameContext(lobby, computed(() => playerHands.value));
 
+// Create a local reactive variable to track the round winner (similar to GameBoard.vue)
+const localRoundWinner = ref<string | null>("");
+
+// Also create a local variable to store winning cards in case they're not in the state
+const localWinningCards = ref<string[] | null>([]);
+
+// Computed property that combines both state.roundWinner and localRoundWinner
+const effectiveRoundWinner = computed(() => {
+  return (localRoundWinner.value && localRoundWinner.value !== "") ? localRoundWinner.value : (roundWinner || null);
+});
+
+// Computed property to get the winning cards, with fallback to local storage
+const effectiveWinningCards = computed(() => {
+  const winner = effectiveRoundWinner.value;
+  if (!winner || winner === "") {
+    console.log('No winner available for winning cards');
+    return [];
+  }
+
+  // First try to get from state
+  const stateCards = state.value?.submissions?.[winner];
+  if (stateCards && Array.isArray(stateCards) && stateCards.length > 0) {
+    console.log('Using winning cards from state:', stateCards);
+    return stateCards;
+  }
+
+  // If we can't find the cards for the winner directly, try to find them by partial match
+  if (state.value?.submissions) {
+    for (const [playerId, cards] of Object.entries(state.value.submissions)) {
+      if ((typeof playerId === 'string' && typeof winner === 'string' && 
+          (playerId.includes(winner) || winner.includes(playerId))) && 
+          Array.isArray(cards) && cards.length > 0) {
+        console.log('Found winning cards by partial ID match:', cards);
+        return cards;
+      }
+    }
+  }
+
+  // Fall back to local storage
+  if (localWinningCards.value && Array.isArray(localWinningCards.value) && localWinningCards.value.length > 0) {
+    console.log('Using winning cards from local storage:', localWinningCards.value);
+    return localWinningCards.value;
+  }
+
+  // If all else fails, try to find any valid submission in the game state
+  if (state.value?.submissions) {
+    // First try to find the submission with the most cards (likely the correct one)
+    let bestSubmission: string[] | null = null;
+    let maxCards = 0;
+
+    for (const [_, cards] of Object.entries(state.value.submissions)) {
+      if (Array.isArray(cards) && cards.length > maxCards) {
+        bestSubmission = cards;
+        maxCards = cards.length;
+      }
+    }
+
+    if (bestSubmission && bestSubmission.length > 0) {
+      console.log('Using submission with most cards as fallback:', bestSubmission);
+      return bestSubmission;
+    }
+
+    // If we still don't have a submission, use any valid submission
+    for (const [_, cards] of Object.entries(state.value.submissions)) {
+      if (Array.isArray(cards) && cards.length > 0) {
+        console.log('Using first available submission as fallback:', cards);
+        return cards;
+      }
+    }
+  }
+
+  // If we still can't find any cards, log an error and return an empty array
+  console.log('No winning cards found, returning empty array');
+  return [];
+});
+
+// Watch for changes to roundWinner to update localRoundWinner and localWinningCards
+watch(() => roundWinner, (newWinner) => {
+  if (newWinner) {
+    // Reset local round winner when state is updated from the server
+    localRoundWinner.value = "";
+
+    // Log for debugging
+    console.log('Round winner updated from server:', newWinner);
+
+    // Also log the submissions for this winner
+    const winnerCards = state.value?.submissions?.[newWinner];
+    console.log('Submissions for winner:', winnerCards);
+
+    // Store the winning cards locally if they're available
+    if (winnerCards && Array.isArray(winnerCards) && winnerCards.length > 0) {
+      localWinningCards.value = winnerCards;
+      console.log('Stored local winning cards from roundWinner update:', localWinningCards.value);
+    } else {
+      // Ensure localWinningCards is always an array
+      localWinningCards.value = [];
+    }
+  }
+});
+
+// Watch for changes to submissions to ensure we have the latest data
+watch(() => state.value?.submissions, (newSubmissions) => {
+  if (newSubmissions && (roundWinner || localRoundWinner.value)) {
+    const winner = effectiveRoundWinner.value;
+    if (winner) {
+      console.log('Submissions updated, winner cards:', newSubmissions[winner]);
+
+      // If we have submissions for the winner but no local winning cards, store them
+      if (newSubmissions[winner] && Array.isArray(newSubmissions[winner]) && newSubmissions[winner].length > 0 && 
+          (!localWinningCards.value || !Array.isArray(localWinningCards.value) || localWinningCards.value.length === 0)) {
+        localWinningCards.value = newSubmissions[winner];
+        console.log('Stored local winning cards from submissions update:', localWinningCards.value);
+      }
+    }
+  }
+}, { deep: true });
+
+// Watch for changes to effectiveWinningCards
+watch(() => effectiveWinningCards.value, (newCards) => {
+  console.log('Effective winning cards changed:', newCards);
+}, { immediate: true });
+
+// Function to handle selecting a winner (similar to GameBoard.vue)
+function handleWinnerSelect(playerId: string) {
+  // First mark the winner locally to show the animation
+  localRoundWinner.value = playerId;
+
+  // Store the winning cards locally if they're available in the state
+  if (state.value?.submissions?.[playerId] && Array.isArray(state.value.submissions[playerId])) {
+    localWinningCards.value = state.value.submissions[playerId];
+  } else {
+    // Ensure localWinningCards is always an array
+    localWinningCards.value = [];
+  }
+
+  // Log for debugging
+  console.log('Local round winner set:', playerId);
+  console.log('Local winning cards set:', localWinningCards.value);
+}
+
 // Check if the current user is the host
 const isHost = computed(() => 
     lobby.value?.hostUserId === userStore.user?.$id
@@ -360,7 +500,7 @@ const setupRealtime = async (lobbyData: Lobby) => {
 				senderId: 'system',
 				senderName: 'System',
 				text: [message],
-				timestamp: new Date().toISOString()
+				timeStamp: new Date().toISOString()
 			}, [Permission.read(Role.any())]);
 		} catch (error) {
 			console.error('Error sending system message:', error);
@@ -368,8 +508,10 @@ const setupRealtime = async (lobbyData: Lobby) => {
 	};
 
 	// 🃏 Game Cards Realtime
-	gameCardsUnsubscribe = subscribeToGameCards(lobbyId, () => {
-		return
+	gameCardsUnsubscribe = subscribeToGameCards(lobbyId, (updatedCards) => {
+		// When game cards are updated, we need to ensure the UI reflects the changes
+		// This will trigger reactivity for components that depend on playerHands
+		console.log('Game cards updated:', updatedCards);
 	});
 
 	// Clean up all subscriptions
@@ -552,10 +694,6 @@ const handleCardSubmit = () => {
 	return
 };
 
-const handleWinnerSelect = () => {
-	return
-};
-
 const handleLeave = async () => {
 	if (!lobby.value || !userStore.user?.$id) return;
 
@@ -574,10 +712,54 @@ const handleDrawBlackCard = () => {
 	return
 };
 
-const getPlayerName = (playerId: string | null): string | null => { // Allow null playerId
-	if (!playerId) return null;
+const getPlayerName = (playerId: string | null): string => { // Allow null playerId
+	if (!playerId || playerId === "") return t('lobby.unknown_player');
+
+	// First try to find the player in the players array by userId
 	const player = players.value.find(p => p.userId === playerId);
-	return player?.name || t('lobby.unknown_player'); // Keep fallback for safety
+	if (player?.name) {
+		return player.name;
+	}
+
+	// If not found, try to find by partial match (in case the ID format is different)
+	const partialMatch = players.value.find(p => 
+		(typeof p.userId === 'string' && typeof playerId === 'string' && 
+		(p.userId.includes(playerId) || playerId.includes(p.userId)))
+	);
+	if (partialMatch?.name) {
+		return partialMatch.name;
+	}
+
+	// If still not found, check if the playerId is in the state.players object
+	if (state.value?.players && state.value.players[playerId]) {
+		return state.value.players[playerId];
+	}
+
+	// Try to find by matching with any key in the submissions object
+	if (state.value?.submissions) {
+		for (const submissionPlayerId of Object.keys(state.value.submissions)) {
+			if (typeof submissionPlayerId === 'string' && typeof playerId === 'string' &&
+				(submissionPlayerId.includes(playerId) || playerId.includes(submissionPlayerId))) {
+				// Try to find this player in the players array
+				const matchingPlayer = players.value.find(p => 
+					typeof p.userId === 'string' && 
+					(p.userId.includes(submissionPlayerId) || submissionPlayerId.includes(p.userId))
+				);
+				if (matchingPlayer?.name) {
+					return matchingPlayer.name;
+				}
+			}
+		}
+	}
+
+	// Check if this is the current user
+	if (myId.value && typeof myId.value === 'string' && typeof playerId === 'string' &&
+		(myId.value.includes(playerId) || playerId.includes(myId.value))) {
+		return t('game.you'); // Return "You" for the current user
+	}
+
+	// Last resort fallback
+	return t('lobby.unknown_player');
 };
 
 const handleContinue = async () => {
@@ -1102,12 +1284,28 @@ function copyLobbyLink() {
 				v-if="isRoundEnd && lobby && !isComplete"
 				:countdown-duration="roundEndCountdownDuration"
 				:is-host="lobby.hostUserId === myId"
-				:is-winner-self="roundWinner === myId"
+				:is-winner-self="effectiveRoundWinner === myId"
 				:lobby-id="lobby.$id"
 				:start-time="roundEndStartTime"
-				:winner-name="getPlayerName(roundWinner)"
+				:winner-name="getPlayerName(effectiveRoundWinner)"
 				:document-id="gameSettings?.$id || `settings-${lobby.$id}`"
+				:winning-cards="effectiveWinningCards"
 		/>
+
+		<!-- Debug info for round end state -->
+		<div v-if="isRoundEnd && lobby && !isComplete" style="display: none;">
+			{{ console.log('[code].vue Debug - Round End State:', {
+				roundWinner,
+				localRoundWinner: localRoundWinner.value,
+				effectiveRoundWinner,
+				submissions: state?.submissions,
+				stateWinningCards: effectiveRoundWinner && state?.submissions?.[effectiveRoundWinner],
+				localWinningCards: localWinningCards.value,
+				effectiveWinningCards,
+				players: players.value ? players.value.map(p => ({ id: p.userId, name: p.name })) : [],
+				myId: myId.value
+			}) }}
+		</div>
 
 		<!-- Catch-all fallback -->
 		<div v-else-if="!lobby"> <!-- Only show fallback if lobby truly failed to load -->

@@ -3,16 +3,18 @@
 import { useUserStore } from '~/stores/userStore'
 import { isAuthenticatedUser } from '~/composables/useUserUtils'
 import { useNotifications } from '~/composables/useNotifications'
-import {ref} from "vue";
-import {useRouter} from "#vue-router";
+import {ref, watch} from "vue";
+import {useRouter, useRoute} from "#vue-router";
 import {useLobby} from "~/composables/useLobby";
 import { useUiStore } from '~/stores/uiStore';
 import { useShrinkOnScroll } from '~/composables/useShrinkOnScroll'
 import { version } from '~/utils/version'
+import { useI18n } from 'vue-i18n'
 
 const { isShrunk } = useShrinkOnScroll(50) // shrink after scrolling 50px
 const { getActiveLobbyForUser } = useLobby();
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore()
 const uiStore = useUiStore();
 const { notify } = useNotifications()
@@ -22,8 +24,14 @@ const showCreate = ref(false);
 const isJoining = ref(false);
 const isCreating = ref(false);
 const config = useRuntimeConfig();
-import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
+
+// Watch for route changes to close mobile menu
+watch(() => route.path, () => {
+  if (isMobileMenuOpen.value) {
+    isMobileMenuOpen.value = false;
+  }
+})
 
 const handleLoginWithDiscord = async (): Promise<void> => {
   try {
@@ -59,15 +67,9 @@ const handleLogout = async () => {
 const avatarUrl = computed(() => {
   const user = userStore.user;
   if (!user?.prefs) return null;
-
   if (user.provider === 'discord' && user.prefs.discordUserId && user.prefs.avatar) {
     return `https://cdn.discordapp.com/avatars/${user.prefs.discordUserId}/${user.prefs.avatar}.png`;
   }
-
-  if (user.provider === 'google' && user.prefs.avatar) {
-    return user.prefs.avatar; // Google usually gives a direct URL
-  }
-
   return null;
 });
 
@@ -231,7 +233,7 @@ const isAdmin = useIsAdmin()
 					/>
 				</div>
 
-				<UButton block size="xl" class="mb-2 text-xl py-3 cursor-pointer" color="info" variant="soft" icon="i-solar-home-smile-bold-duotone">
+				<UButton to="/" block size="xl" class="mb-2 text-xl py-3 cursor-pointer" color="info" variant="soft" icon="i-solar-home-smile-bold-duotone">
 					{{ t('nav.home') }}
 				</UButton>
 				<UButton block size="xl" @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="mb-2 text-xl py-3 cursor-pointer" color="success" variant="soft" icon="i-solar-hand-shake-line-duotone">
@@ -260,15 +262,6 @@ const isAdmin = useIsAdmin()
 					<UButton block @click="handleLoginWithDiscord" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-logos-discord-icon">
 						{{ t('nav.login_discord') }}
 					</UButton>
-					<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
-						<USeparator class="my-2" />
-						<UButton block @click="openPolicyModal" class="mb-2 text-xl py-3" color="neutral" variant="soft" icon="i-solar-shield-check-line-duotone">
-							{{ t('nav.privacy_policy') }}
-						</UButton>
-						<p class="text-sm">{{ t('footer.copyright') }}</p>
-						<p class="text-sm">{{ t('footer.made_by') }}</p>
-						<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">{{ version }}</NuxtLink>
-					</div>
 				</template>
 
 				<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
@@ -277,8 +270,9 @@ const isAdmin = useIsAdmin()
 						{{ t('nav.privacy_policy') }}
 					</UButton>
 					<p class="text-sm">{{ t('footer.copyright') }}</p>
-					<p class="text-sm">{{ t('footer.made_by') }}</p>
-					<NuxtLink to="https://git.ppo.gg/MYND/unfit-for-print" target="_blank" class="">V-{{ $config.public.appVersion }}</NuxtLink>
+					<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
+					<NuxtLink to="https://github.com/PPO-GG/unfit-for-print" target="_blank" class="">V-{{ $config.public.appVersion }}</NuxtLink>
+					<LanguageSwitcher class="w-full" />
 				</div>
 			</div>
 

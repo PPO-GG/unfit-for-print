@@ -2,7 +2,7 @@
   <div class="">
 	  <div class="px-4 py-8 flex flex-col items-center text-center">
 		  <svg
-				  class="text-white mx-auto mb-4 w-full max-w-[300px] h-auto"
+				  class="text-white mx-auto mb-4 w-64 h-auto"
 				  xmlns="http://www.w3.org/2000/svg"
 				  viewBox="0 0 920.08 767.72"
 				  stroke="black"
@@ -43,8 +43,8 @@
 	      />
 		    <div v-else class="flex items-center p-2 text-white mt-4 w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] bg-[#1c2342] rounded-xl border-6 border-slate-800">
 			    <div class="grid gap-2">
-				    <USkeleton class="h-4 w-[250px] bg-slate-600/50" />
-				    <USkeleton class="h-4 w-[200px] bg-slate-600/50" />
+				    <USkeleton class="h-4 w-30 md:w-44 lg:w-48 xl:w-56 2xl:w-60 bg-slate-600/50" />
+				    <USkeleton class="h-4 w-26 md:w-40 lg:w-44 xl:w-52 2xl:w-56 bg-slate-600/50" />
 			    </div>
 		    </div>
 		  </div>
@@ -64,8 +64,8 @@
         />
 	      <div v-else class="flex items-center p-2 text-white mt-4 w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] bg-[#e7e1de] rounded-xl border-6 border-stone-400/50">
 		      <div class="grid gap-2">
-			      <USkeleton class="h-4 w-[250px] bg-stone-400/50" />
-			      <USkeleton class="h-4 w-[200px] bg-stone-400/50" />
+			      <USkeleton class="h-4 w-30 md:w-44 lg:w-48 xl:w-56 2xl:w-60 bg-stone-400/50" />
+			      <USkeleton class="h-4 w-26 md:w-40 lg:w-44 xl:w-52 2xl:w-56 bg-stone-400/50" />
 		      </div>
 	      </div>
       </div>
