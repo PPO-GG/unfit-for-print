@@ -39,7 +39,7 @@
 	          :num-pick="randomCard.pick"
 	          :shine="shine"
 	          :back-logo-url="'/img/ufp.svg'"
-	          :mask-url="'/img/textures/hexa.png'"
+	          :mask-url="'/img/textures/hexa.webp'"
 	      />
 		    <div v-else class="flex items-center p-2 text-white mt-4 w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] bg-[#1c2342] rounded-xl border-6 border-slate-800">
 			    <div class="grid gap-2">
@@ -60,7 +60,7 @@
             :three-deffect="threeDeffect"
             :shine="shine"
             :back-logo-url="'/img/ufp.svg'"
-            :mask-url="'/img/textures/hexa2.png'"
+            :mask-url="'/img/textures/hexa2.webp'"
         />
 	      <div v-else class="flex items-center p-2 text-white mt-4 w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] bg-[#e7e1de] rounded-xl border-6 border-stone-400/50">
 		      <div class="grid gap-2">

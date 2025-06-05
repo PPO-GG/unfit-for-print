@@ -419,8 +419,8 @@ const setupRealtime = async (lobbyData: Lobby) => {
 
 				// Clean up old events (older than the debounce time)
 				// This ensures we don't accumulate stale events in memory
-				for (const [key, timestamp] of recentPlayerEvents.entries()) {
-					if (now - timestamp > LEAVE_DEBOUNCE_TIME) {
+				for (const [key, timeStamp] of recentPlayerEvents.entries()) {
+					if (now - timeStamp > LEAVE_DEBOUNCE_TIME) {
 						recentPlayerEvents.delete(key);
 					}
 				}
@@ -430,10 +430,10 @@ const setupRealtime = async (lobbyData: Lobby) => {
 					console.warn('Too many recent player events, clearing oldest events');
 					// Convert to array, sort by timestamp, and keep only the 50 most recent
 					const entries = Array.from(recentPlayerEvents.entries());
-					entries.sort((a, b) => b[1] - a[1]); // Sort by timestamp (newest first)
+					entries.sort((a, b) => b[1] - a[1]); // Sort by timeStamp (newest first)
 					recentPlayerEvents.clear();
-					entries.slice(0, 50).forEach(([key, timestamp]) => {
-						recentPlayerEvents.set(key, timestamp);
+					entries.slice(0, 50).forEach(([key, timeStamp]) => {
+						recentPlayerEvents.set(key, timeStamp);
 					});
 				}
 
@@ -1080,8 +1080,8 @@ function copyLobbyLink() {
 						@update:settings="handleSettingsUpdate"
 						class="mt-4"
 					/>
-					<LanguageSwitcher class="absolute bottom-0 left-0 py-2 m-4"/>
 				</div>
+				<LanguageSwitcher class="absolute bottom-0 left-0 py-2 m-4"/>
 			</aside>
 
 			<!-- Mobile Slideover -->
