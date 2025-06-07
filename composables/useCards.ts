@@ -8,173 +8,119 @@ export const useCards = () => {
 
   const totalsStore = useCardTotalsStore()
 
-  const fetchRandomWhiteCard = async (cardPacks?: string[]) => {
+  /**
+   * Fetches a random card of the specified type
+   * @param type The type of card to fetch ('white' or 'black')
+   * @param pick The number of cards to pick (only used for black cards, defaults to 1)
+   * @param cardPacks Optional array of card packs to filter by
+   * @returns A promise that resolves to the fetched card or null
+   */
+  const fetchRandomCard = async (type: 'white' | 'black', pick: number = 1, cardPacks?: string[]) => {
     if (import.meta.server) return null;
 
     try {
       const config = useRuntimeConfig();
       const { databases } = getAppwrite();
+
+      // Determine collection ID based on card type
+      const collectionId = type === 'white' 
+        ? config.public.appwriteWhiteCardCollectionId as string
+        : config.public.appwriteBlackCardCollectionId as string;
 
       const packKey = cardPacks && cardPacks.length > 0
         ? [...cardPacks].sort().join('|')
-        : 'ALL'
+        : 'ALL';
 
-      let cached = totalsStore.getWhiteTotal(packKey)
-      let queries: string[] | any[] = []
+      // Initialize queries array
+      let queries: any[] = [Query.limit(1)];
 
-      if (!cached || Date.now() - cached.lastFetched > CACHE_TTL) {
-        // Create queries array for total fetch
-        queries = [Query.limit(1)]
-        if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
-          const packConditions = cardPacks.map(pack => Query.equal('pack', pack))
-          if (packConditions.length > 1) {
-            queries.push(Query.or(packConditions))
-          } else if (packConditions.length === 1) {
-            queries.push(packConditions[0])
-          }
-        }
-
-        const totalRes = await databases.listDocuments(
-          config.public.appwriteDatabaseId as string,
-          config.public.appwriteWhiteCardCollectionId as string,
-          queries
-        )
-
-        totalsStore.setWhiteTotal(packKey, totalRes.total)
-        cached = totalsStore.getWhiteTotal(packKey)
+      // Add pick filter for black cards
+      if (type === 'black') {
+        queries.push(Query.equal('pick', pick));
       }
 
-      const total = cached?.total ?? 0
-      if (total === 0) return null
+      // Add filter for card packs if specified
+      if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
+        const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
+        if (packConditions.length > 1) {
+          queries.push(Query.or(packConditions));
+        } else if (packConditions.length === 1) {
+          queries.push(packConditions[0]);
+        }
+      }
 
-      const offset = Math.floor(Math.random() * total)
+      // Get cached total or fetch it
+      let cached = type === 'white' 
+        ? totalsStore.getWhiteTotal(packKey)
+        : totalsStore.getBlackTotal(packKey, pick);
 
-      // console.log(`Fetching random white card at offset: `, offset,` (out of `,total,`)`, cardPacks ? ` from packs: ${cardPacks.join(', ')}` : '');
+      if (!cached || Date.now() - cached.lastFetched > CACHE_TTL) {
+        const totalRes = await databases.listDocuments(
+          config.public.appwriteDatabaseId as string,
+          collectionId,
+          queries
+        );
 
-      // Step 3: Fetch one random card (filtered by card packs if specified)
+        if (type === 'white') {
+          totalsStore.setWhiteTotal(packKey, totalRes.total);
+          cached = totalsStore.getWhiteTotal(packKey);
+        } else {
+          totalsStore.setBlackTotal(packKey, pick, totalRes.total);
+          cached = totalsStore.getBlackTotal(packKey, pick);
+        }
+      }
+
+      const total = cached?.total ?? 0;
+      if (total === 0) return null;
+
+      const offset = Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296 * total)
+
+      // Prepare queries for fetching the random card
       queries = [Query.offset(offset), Query.limit(1)];
 
-      // Add filter for card packs if specified
-      if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
-        // Create an array of pack conditions
-        const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
+      // Add pick filter for black cards
+      if (type === 'black') {
+        queries.push(Query.equal('pick', pick));
+      }
 
-        // If we have multiple packs, use Query.or to combine them
+      // Re-add filter for card packs if specified
+      if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
+        const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
         if (packConditions.length > 1) {
           queries.push(Query.or(packConditions));
         } else if (packConditions.length === 1) {
-          // If we only have one pack, just add it directly
           queries.push(packConditions[0]);
         }
       }
 
       const res = await databases.listDocuments(
-          config.public.appwriteDatabaseId as string,
-          config.public.appwriteWhiteCardCollectionId as string,
-          queries
-      );
-
-      return res.documents[0] ?? null;
-    } catch (err) {
-      console.error("Failed to fetch white card:", err);
-      return null;
-    }
-  };
-
-  const fetchRandomBlackCard = async (pick: number = 1, cardPacks?: string[]) => {
-    if (import.meta.server) return null;
-    try {
-      const config = useRuntimeConfig();
-      const { databases } = getAppwrite();
-
-      // Define the query filter based on the 'pick' attribute
-      const pickFilter = Query.equal('pick', pick);
-
-      // Create queries array with the pick filter
-      let queries = [
-        pickFilter,
-        Query.limit(1) // We only need the total count
-      ];
-
-      // Add filter for card packs if specified
-      if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
-        // Create an array of pack conditions
-        const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
-
-        // If we have multiple packs, use Query.or to combine them
-        if (packConditions.length > 1) {
-          queries.push(Query.or(packConditions));
-        } else if (packConditions.length === 1) {
-          // If we only have one pack, just add it directly
-          queries.push(packConditions[0]);
-        }
-      }
-
-      const packKey = cardPacks && cardPacks.length > 0 ? [...cardPacks].sort().join('|') : 'ALL'
-
-      let cached = totalsStore.getBlackTotal(packKey, pick)
-
-      if (!cached || Date.now() - cached.lastFetched > CACHE_TTL) {
-        const totalRes = await databases.listDocuments(
-          config.public.appwriteDatabaseId as string,
-          config.public.appwriteBlackCardCollectionId as string,
-          queries
-        )
-
-        totalsStore.setBlackTotal(packKey, pick, totalRes.total)
-        cached = totalsStore.getBlackTotal(packKey, pick)
-      }
-
-      const total = cached?.total ?? 0
-      if (total === 0) {
-        return null
-      }
-
-      const offset = Math.floor(Math.random() * total)
-
-      // console.log(`Fetching random black card with pick=${pick} at offset: ${offset} (out of ${total})${cardPacks ? ` from packs: ${cardPacks.join(', ')}` : ''}`);
-
-      // Step 3: Fetch one random card *matching the pick value and card packs if specified*
-      queries = [
-        pickFilter,
-        Query.offset(offset),
-        Query.limit(1)
-      ];
-
-      // Add filter for card packs if specified
-      if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
-        // Create an array of pack conditions
-        const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
-
-        // If we have multiple packs, use Query.or to combine them
-        if (packConditions.length > 1) {
-          queries.push(Query.or(packConditions));
-        } else if (packConditions.length === 1) {
-          // If we only have one pack, just add it directly
-          queries.push(packConditions[0]);
-        }
-      }
-
-      const res = await databases.listDocuments(
-          config.public.appwriteDatabaseId as string,
-          config.public.appwriteBlackCardCollectionId as string,
-          queries
+        config.public.appwriteDatabaseId as string,
+        collectionId,
+        queries
       );
 
       return res.documents[0] ?? null;
     } catch (err: any) {
-      // Check if the error is due to an invalid attribute or query
-      if (err.message && err.message.includes('Attribute not found')) {
-        const config = useRuntimeConfig();
+      if (type === 'black' && err.message && err.message.includes('Attribute not found')) {
         console.error(`Failed to fetch black card: Make sure the 'pick' attribute exists'. Error: ${err}`);
       } else {
-        console.error("Failed to fetch black card:", err);
+        console.error(`Failed to fetch ${type} card:`, err);
       }
       return null;
     }
   };
 
+  // Keep the original functions for backward compatibility
+  const fetchRandomWhiteCard = async (cardPacks?: string[]) => {
+    return fetchRandomCard('white', 1, cardPacks);
+  };
+
+  const fetchRandomBlackCard = async (pick: number = 1, cardPacks?: string[]) => {
+    return fetchRandomCard('black', pick, cardPacks);
+  };
+
   return {
+    fetchRandomCard,
     fetchRandomWhiteCard,
     fetchRandomBlackCard,
   };

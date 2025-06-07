@@ -7,6 +7,7 @@ export const useUserPrefsStore = defineStore('userPrefs', {
         theme: 'system' as 'light' | 'dark' | 'system',
         chatProfanityFilter: true,
         preferredLanguage: 'en',
+        ttsVoice: '',
     }),
 
     actions: {
