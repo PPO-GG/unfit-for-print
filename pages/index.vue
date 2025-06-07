@@ -95,13 +95,37 @@ import { ref } from 'vue';
 import { useCards } from "~/composables/useCards";
 import { useVibrate } from '@vueuse/core'
 import { useBrowserSpeech } from '~/composables/useBrowserSpeech'
+import { useSpeech } from '~/composables/useSpeech'
 import { mergeCardText } from '~/composables/useMergeCards'
 import { useI18n } from 'vue-i18n'
+import { useUserPrefsStore } from '@/stores/userPrefsStore';
 
 const { t } = useI18n()
-const { speak, isSpeaking } = useBrowserSpeech()
+const userPrefs = useUserPrefsStore()
 
-// const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
+// ElevenLabs voice ID
+const elevenLabsVoiceId = 'NuIlfu52nTXRM2NXDrjS'
+
+// Get the appropriate speech function based on the selected voice
+const browserSpeech = useBrowserSpeech()
+const elevenLabsSpeech = useSpeech(elevenLabsVoiceId)
+
+// Computed to determine which speech function to use
+const isSpeaking = computed(() => {
+  return userPrefs.ttsVoice === elevenLabsVoiceId 
+    ? elevenLabsSpeech.isSpeaking.value 
+    : browserSpeech.isSpeaking.value
+})
+
+// Function to speak text using the appropriate speech function
+const speak = (text: string) => {
+  if (userPrefs.ttsVoice === elevenLabsVoiceId) {
+    elevenLabsSpeech.speak(text)
+  } else {
+    browserSpeech.speak(text)
+  }
+}
+
 // const { speak } = await useMeSpeak()
 
 const { vibrate, stop, isSupported } = useVibrate({ pattern: [10, 7, 5] })
