@@ -5,9 +5,9 @@
 </picture>
 
 ![Appwrite](https://img.shields.io/badge/Appwrite-%23FD366E.svg?style=flat&logo=appwrite&logoColor=white)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/MyndPhreak/unfit-for-print/release.yml)
-![GitHub License](https://img.shields.io/github/license/MyndPhreak/unfit-for-print)
-![GitHub package.json version (branch)](https://img.shields.io/github/package-json/v/MyndPhreak/unfit-for-print/main)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/PPO-GG/unfit-for-print/release.yml)
+![GitHub License](https://img.shields.io/github/license/PPO-GG/unfit-for-print)
+![GitHub package.json version (branch)](https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print/main)
 
 # UNFIT FOR PRINT
 

@@ -173,19 +173,36 @@ const fetchCards = async () => {
 		// First get total count of cards with filters applied
 		const queries = []
 
-		// Apply filters for search and pack selection
-		if (searchTerm.value) {
-			queries.push(Query.search('text', searchTerm.value))
-		}
-
+		// Apply filters for pack selection
 		if (selectedPack.value) {
 			queries.push(Query.equal('pack', selectedPack.value))
 		}
 
-		// First get count of matching cards
+		// Handle text search - try server-side search first, but be prepared to fall back to client-side filtering
+		let useServerSideSearch = false
+		let clientSideFilterNeeded = false
+
+		if (searchTerm.value) {
+			try {
+				// Try to use server-side search if fulltext index is available
+				queries.push(Query.search('text', searchTerm.value))
+				useServerSideSearch = true
+
+				// Test the query to see if it works
+				await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [...queries, Query.limit(1)])
+			} catch (searchErr) {
+				// If server-side search fails, remove the search query and note that we'll need client-side filtering
+				// This is expected behavior if fulltext indexes are still being created or propagated
+				console.info('Using client-side filtering (fulltext indexes may still be propagating)')
+				queries.pop() // Remove the search query
+				useServerSideSearch = false
+				clientSideFilterNeeded = true
+			}
+		}
+
+		// First get count of matching cards (without search if we're doing client-side filtering)
 		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [...queries, Query.limit(1)])
-		const totalMatchingCards = countResult.total
-		totalCards.value = totalMatchingCards
+		let totalMatchingCards = countResult.total
 
 		// If no cards match the filters, return early
 		if (totalMatchingCards === 0) {
@@ -213,12 +230,27 @@ const fetchCards = async () => {
 			if (result.documents.length < chunkSize) break
 		}
 
-		cards.value = allCards
+		// Apply client-side text filtering if needed
+		let filteredCards = allCards
+		if (clientSideFilterNeeded && searchTerm.value) {
+			const searchTermLower = searchTerm.value.toLowerCase()
+			filteredCards = allCards.filter(card => 
+				card.text.toLowerCase().includes(searchTermLower)
+			)
+			// Only log this at debug level since it's expected behavior while indexes propagate
+			if (filteredCards.length !== allCards.length) {
+				console.debug(`Client-side filtering: ${filteredCards.length}/${allCards.length} cards match`)
+			}
+		}
+
+		cards.value = filteredCards
+		totalCards.value = filteredCards.length
 
 		// Reset to page 1 when fetching new cards
 		currentPage.value = 1
 
-		console.log(`Fetched ${allCards.length} cards out of ${totalMatchingCards} total matching cards`)
+		// Use debug level for routine operation logs
+		console.debug(`Fetched ${filteredCards.length}/${totalMatchingCards} cards`)
 	} catch (err) {
 		console.error('Failed to fetch cards:', err)
 	} finally {
@@ -259,7 +291,7 @@ watch(cardType, () => {
 
 // Add console log for debugging pagination
 watch(currentPage, (newPage) => {
-	console.log(`Page changed to ${newPage}`)
+	console.debug(`Page changed to ${newPage}`)
 })
 
 const toggleCardActive = async (card: any) => {
@@ -477,10 +509,22 @@ const findSimilarCards = (card: any) => {
 
 	try {
 		// Get all cards of the same type (excluding the selected card)
+		// Also ensure we only include cards that still exist (haven't been deleted)
 		const otherCards = cards.value.filter(c => c.$id !== card.$id)
 
+		// Prefilter by text length to reduce the number of expensive comparisons
+		const filteredOtherCards = otherCards.filter(otherCard => {
+			const lengthDiff = Math.abs(card.text.length - otherCard.text.length)
+			const maxLength = Math.max(card.text.length, otherCard.text.length)
+			// Skip if length difference is more than 30%
+			return lengthDiff / maxLength <= 0.3
+		})
+
+		// Log how many cards were filtered out
+		console.debug(`Length prefiltering: ${filteredOtherCards.length}/${otherCards.length} cards remain after filtering (${Math.round((1 - filteredOtherCards.length / otherCards.length) * 100)}% reduction)`)
+
 		// Calculate similarity scores
-		const similarities = otherCards.map(otherCard => {
+		const similarities = filteredOtherCards.map(otherCard => {
 			const similarity = stringSimilarity.compareTwoStrings(
 				card.text.toLowerCase(),
 				otherCard.text.toLowerCase()
@@ -534,6 +578,10 @@ const findAllSimilarCards = () => {
 		const processedPairs = new Set<string>() // To avoid duplicate pairs
 		const similarPairs = []
 
+		// Counters for tracking filtering effectiveness
+		let totalPairs = 0
+		let filteredByLength = 0
+
 		// Compare each card with all other cards
 		for (let i = 0; i < allCards.length; i++) {
 			const card1 = allCards[i]
@@ -545,10 +593,19 @@ const findAllSimilarCards = () => {
 
 			for (let j = i + 1; j < allCards.length; j++) {
 				const card2 = allCards[j]
+				totalPairs++
 
 				// Skip if we've already processed this pair
 				const pairKey = [card1.$id, card2.$id].sort().join('-')
 				if (processedPairs.has(pairKey)) continue
+
+				// Skip cards with very different lengths (unlikely to be similar)
+				const lengthDiff = Math.abs(card1.text.length - card2.text.length)
+				const maxLength = Math.max(card1.text.length, card2.text.length)
+				if (lengthDiff / maxLength > 0.3) {
+					filteredByLength++
+					continue // Skip if length difference is more than 30%
+				}
 
 				// Calculate similarity
 				const similarity = stringSimilarity.compareTwoStrings(
@@ -571,6 +628,10 @@ const findAllSimilarCards = () => {
 
 		// Sort by similarity (highest first)
 		allSimilarPairs.value = similarPairs.sort((a, b) => b.similarity - a.similarity)
+
+		// Log filtering statistics
+		console.debug(`Length prefiltering: ${filteredByLength}/${totalPairs} pairs skipped (${Math.round((filteredByLength / totalPairs) * 100)}% reduction)`)
+		console.debug(`Found ${similarPairs.length} similar pairs out of ${totalPairs - filteredByLength} compared (${Math.round((similarPairs.length / (totalPairs - filteredByLength)) * 100)}% match rate)`)
 
 		// Open the modal if similar pairs are found
 		if (allSimilarPairs.value.length > 0) {
@@ -616,9 +677,21 @@ const handleSimilarCardAction = async (similarCard: any) => {
 		cards.value = cards.value.filter(c => c.$id !== cardToDelete.$id)
 		totalCards.value--
 
-		// Close the modal and reset
-		showSimilarCardsModal.value = false
-		similarCards.value = similarCards.value.filter(c => c.$id !== similarCard.$id)
+		// If we're deleting the original card, we need to update the selected card
+		if (cardToKeep.value === 'similar') {
+			selectedCard.value = similarCard
+			// Remove the current similar card from the list
+			similarCards.value = similarCards.value.filter(c => c.$id !== similarCard.$id)
+		} else {
+			// Just remove the current similar card from the list
+			similarCards.value = similarCards.value.filter(c => c.$id !== similarCard.$id)
+		}
+
+		// Filter out any cards that have been deleted in other comparisons
+		// This ensures we don't show cards that no longer exist
+		similarCards.value = similarCards.value.filter(c => 
+			cards.value.some(card => card.$id === c.$id)
+		)
 
 		// If no more similar cards, close the modal
 		if (similarCards.value.length === 0) {
@@ -650,6 +723,29 @@ const handleAllSimilarCardAction = async () => {
 
 		if (allSimilarPairs.value.length === 0 || currentPairIndex.value >= allSimilarPairs.value.length) {
 			return
+		}
+
+		// Filter out any pairs that contain cards that have been deleted in other comparisons
+		allSimilarPairs.value = allSimilarPairs.value.filter(pair => 
+			cards.value.some(card => card.$id === pair.card1.$id) && 
+			cards.value.some(card => card.$id === pair.card2.$id)
+		)
+
+		// If no more pairs after filtering, close the modal
+		if (allSimilarPairs.value.length === 0) {
+			showAllSimilarCardsModal.value = false
+			notify({
+				title: 'All Done',
+				description: 'No more similar cards to process.',
+				color: 'success'
+			})
+			loading.value = false
+			return
+		}
+
+		// Adjust current index if needed after filtering
+		if (currentPairIndex.value >= allSimilarPairs.value.length) {
+			currentPairIndex.value = allSimilarPairs.value.length - 1
 		}
 
 		const currentPair = allSimilarPairs.value[currentPairIndex.value]

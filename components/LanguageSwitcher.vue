@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
 
 const { locale, locales, setLocale, setLocaleCookie } = useI18n()
-const router = useRouter()
 const userPrefsStore = useUserPrefsStore()
-const switchLocalePath = useSwitchLocalePath()
 
 const flagIcons = {
 	en: 'i-flag-gb-1x1',
 	es: 'i-flag-es-1x1',
 	fr: 'i-flag-fr-1x1',
-	ru: 'i-flag-ru-1x1'
+	ru: 'i-flag-ru-1x1',
+	de: 'i-flag-de-1x1',
+	ja: 'i-flag-jp-1x1',
+	ko: 'i-flag-kr-1x1',
+	pt: 'i-flag-pt-1x1',
+	zh: 'i-flag-cn-1x1',
 } as const
 
 const currentLocale = computed(() =>
@@ -23,8 +25,6 @@ async function changeLocale(code: typeof locale.value) {
 	await setLocale(code)
 	setLocaleCookie(code)
 	userPrefsStore.setLanguage(code)
-
-	// No need to navigate to a new URL with the 'no_prefix' strategy
 }
 
 const items = computed<DropdownMenuItem[]>(() => 
@@ -42,6 +42,9 @@ const items = computed<DropdownMenuItem[]>(() =>
 	<UDropdownMenu 
 		:items="items" 
 		:content="{ align: 'start', side: 'top', sideOffset: 8 }"
+		:ui="{
+			content: 'max-h-60 overflow-y-auto'
+		}"
 	>
 		<UButton
 			color="neutral"
