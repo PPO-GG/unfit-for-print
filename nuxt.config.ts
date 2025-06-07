@@ -27,26 +27,30 @@ export default defineNuxtConfig({
     },
     vite: {
         build: {
-            sourcemap: true,
+            sourcemap: false,
             rollupOptions: {
                 output: {
                     manualChunks(id) {
                         if (id.includes('node_modules')) {
-                            if (id.includes('mespeak')) return 'vendor-mespeak'
-                            if (id.includes('appwrite')) return 'vendor-appwrite'
-                            return 'vendor'
+                            if (id.includes('mespeak')) return 'vendor-mespeak';
+                            if (id.includes('appwrite')) return 'vendor-appwrite';
+
+                            // Split each dependency into its own chunk
+                            return id.split('node_modules/')[1].split('/')[0];
                         }
-                    }
+                    },
                 },
                 plugins: [
                     visualizer({open: true, filename: 'dist/stats.html'})
                 ]
-            }
+            },
+            chunkSizeWarningLimit: 1600,
         },
         define: {
             __VERSION__: JSON.stringify(pkg.version),
         },
     },
+    sourcemap: process.env.NODE_ENV !== 'production',
     plugins: [
         {src: "~/plugins/appwrite.client.ts", mode: "client"},
         {src: "~/plugins/init-session.client.ts", mode: "client"},
