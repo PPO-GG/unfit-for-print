@@ -81,7 +81,7 @@ export function useGameSettings() {
     };
 
     // Create default game settings
-    const createDefaultGameSettings = async (lobbyId: string, lobbyName: string, hostUserId?: string): Promise<GameSettings> => {
+    const createDefaultGameSettings = async (lobbyId: string, lobbyName: string, hostUserId?: string, options?: { isPrivate?: boolean, password?: string }): Promise<GameSettings> => {
         const config = useRuntimeConfig();
 
         // First, check if settings already exist for this lobby
@@ -103,7 +103,8 @@ export function useGameSettings() {
             maxPoints: 10,
             numPlayerCards: 10,
             cardPacks: ['CAH Base Set'],
-            isPrivate: false,
+            isPrivate: options?.isPrivate || false,
+            password: options?.password,
             lobbyId, // This will be converted to a relationship by Appwrite if the collection is configured for relationships
             lobbyName
         };

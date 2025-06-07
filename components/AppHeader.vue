@@ -7,11 +7,7 @@ import {ref, watch} from "vue";
 import {useRouter, useRoute} from "#vue-router";
 import {useLobby} from "~/composables/useLobby";
 import { useUiStore } from '~/stores/uiStore';
-import { useShrinkOnScroll } from '~/composables/useShrinkOnScroll'
-import { version } from '~/utils/version'
 import { useI18n } from 'vue-i18n'
-
-const { isShrunk } = useShrinkOnScroll(50) // shrink after scrolling 50px
 const { getActiveLobbyForUser } = useLobby();
 const router = useRouter();
 const route = useRoute();
@@ -23,15 +19,30 @@ const showJoin = ref(false);
 const showCreate = ref(false);
 const isJoining = ref(false);
 const isCreating = ref(false);
-const config = useRuntimeConfig();
 const { t } = useI18n()
 
-// Watch for route changes to close mobile menu
 watch(() => route.path, () => {
   if (isMobileMenuOpen.value) {
     isMobileMenuOpen.value = false;
   }
 })
+let touchStartX = 0
+let touchEndX = 0
+function handleTouchStart(e: TouchEvent) {
+	touchStartX = e.changedTouches[0].screenX
+}
+
+function handleTouchEnd(e: TouchEvent) {
+	touchEndX = e.changedTouches[0].screenX
+	handleGesture()
+}
+
+function handleGesture() {
+	const deltaX = touchEndX - touchStartX
+	if (deltaX > 50) {
+		isMobileMenuOpen.value = false
+	}
+}
 
 const handleLoginWithDiscord = async (): Promise<void> => {
   try {
@@ -208,74 +219,89 @@ const isAdmin = useIsAdmin()
 	</header>
 
 	<!-- Mobile Navigation Slideover -->
-	<USlideover v-model:open="isMobileMenuOpen" class="lg:hidden">
+	<USlideover
+			v-model:open="isMobileMenuOpen"
+			class="lg:hidden h-full"
+			title="Mobile Navigation Menu"
+			description="Contains links to important sections of the app."
+	>
 		<template #content>
-			<div class="p-4 flex flex-col gap-4 font-['Bebas_Neue']">
+			<div class="flex flex-col h-full font-['Bebas_Neue']"
+			     @touchstart="handleTouchStart"
+			     @touchend="handleTouchEnd"
+			>
+				<!-- Sticky Welcome Section -->
+				<div class="sticky top-0 z-10 bg-slate-900 p-3 border-b-2 border-slate-700/25">
+					<div class="flex items-center justify-between gap-2">
+						<!-- Avatar + Welcome Message -->
+						<div class="flex items-center gap-2">
+							<img v-if="avatarUrl" :src="avatarUrl" alt="avatar" class="w-10 h-10 rounded-full" />
+							<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl">
+				        {{ t('nav.welcome_user', { name: userStore.user.name.toUpperCase() }) }}
+				      </span>
+							<span v-else class="text-xl">{{ t('nav.welcome_guest') }}</span>
+						</div>
 
-				<div class="flex items-center gap-2 mb-4">
-					<img
-							v-if="avatarUrl"
-							:src="avatarUrl"
-							alt="avatar"
-							class="w-10 h-10 rounded-full"
-					/>
-					<span v-if="isAuthenticatedUser(userStore.user)" class="text-xl">{{ t('nav.welcome_user', { name: userStore.user.name.toUpperCase() }) }}</span>
-					<span v-else class="text-xl">{{ t('nav.welcome_guest') }}</span>
+						<!-- Close Button Aligned Right -->
+						<UButton
+								icon="i-lucide-x"
+								color="neutral"
+								variant="ghost"
+								size="xl"
+								@click="isMobileMenuOpen = false"
+						/>
+					</div>
 				</div>
-				<div class="flex justify-between items-center">
-					<UButton
-						icon="i-lucide-x"
-						color="neutral"
-						variant="ghost"
-						size="xl"
-						@click="isMobileMenuOpen = false"
-						class="absolute right-4 top-4"
-					/>
-				</div>
 
-				<UButton to="/" block size="xl" class="mb-2 text-xl py-3 cursor-pointer" color="info" variant="soft" icon="i-solar-home-smile-bold-duotone">
-					{{ t('nav.home') }}
-				</UButton>
-				<UButton block size="xl" @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="mb-2 text-xl py-3 cursor-pointer" color="success" variant="soft" icon="i-solar-hand-shake-line-duotone">
-					{{ t('nav.joingame') }}
-				</UButton>
+				<!-- Scrollable Nav Section -->
+				<div class="flex-1 overflow-y-auto flex flex-col gap-2 p-4 ">
+					<UButton to="/" block size="xl" class="mb-2 text-xl py-3" color="info" variant="soft" icon="i-solar-home-smile-bold-duotone">
+						{{ t('nav.home') }}
+					</UButton>
+					<UButton block size="xl" @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="mb-2 text-xl py-3" color="success" variant="soft" icon="i-solar-hand-shake-line-duotone">
+						{{ t('nav.joingame') }}
+					</UButton>
+					<UButton block size="xl" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="mb-2 text-xl py-3" color="warning" variant="soft" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-down-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">
+						{{ isAuthenticatedUser(userStore.user) ? t('nav.creategame') : t('nav.login_to_create') }}
+					</UButton>
 
-				<UButton block size="xl" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="mb-2 text-xl py-3 cursor-pointer" color="warning" variant="soft" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-down-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">
-					{{ isAuthenticatedUser(userStore.user) ? t('nav.creategame') : t('nav.login_to_create') }}
-				</UButton>
+					<template v-if="isAuthenticatedUser(userStore.user)">
+						<UButton block v-if="isAdmin" to="/admin" class="mb-2 text-xl py-3 bg-slate-800 text-slate-400" variant="soft" color="info" icon="i-solar-shield-star-bold-duotone">
+							{{ t('nav.admin') }}
+						</UButton>
+						<UButton block to="/profile" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-solar-user-id-bold-duotone">
+							{{ t('nav.profile') }}
+						</UButton>
+						<UButton block to="/game" class="mb-2 text-xl py-3" color="warning" variant="soft" icon="i-solar-gamepad-bold-duotone">
+							{{ t('nav.games') }}
+						</UButton>
+						<UButton block @click="handleLogout" class="mb-2 text-xl py-3" color="error" variant="soft" icon="i-solar-logout-3-bold-duotone">
+							{{ t('nav.logout') }}
+						</UButton>
+					</template>
 
-				<template v-if="isAuthenticatedUser(userStore.user)">
-					<UButton block v-if="isAdmin" to="/admin" class="mb-2 text-xl py-3 bg-slate-800 text-slate-400" variant="soft" color="info" icon="i-solar-shield-star-bold-duotone">{{ t('nav.admin') }}</UButton>
-					<UButton block to="/profile" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-solar-user-id-bold-duotone">
-						{{ t('nav.profile') }}
-					</UButton>
-					<UButton block to="/game" class="mb-2 text-xl py-3" color="warning" variant="soft" icon="i-solar-gamepad-bold-duotone">
-						{{ t('nav.games') }}
-					</UButton>
-					<UButton block @click="handleLogout" class="mb-2 text-xl py-3" color="error" variant="soft" icon="i-solar-logout-3-bold-duotone">
-						{{ t('nav.logout') }}
-					</UButton>
-				</template>
+					<template v-else>
+						<USeparator class="my-2" />
+						<UButton block @click="handleLoginWithDiscord" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-logos-discord-icon">
+							{{ t('nav.login_discord') }}
+						</UButton>
+					</template>
 
-				<template v-else>
-					<USeparator class="my-2" />
-					<UButton block @click="handleLoginWithDiscord" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-logos-discord-icon">
-						{{ t('nav.login_discord') }}
-					</UButton>
-				</template>
-
-				<div class="absolute bottom-0 left-0 right-0 p-4 text-center">
-					<USeparator class="my-2" />
-					<UButton block @click="openPolicyModal" class="mb-2 text-xl py-3" color="neutral" variant="soft" icon="i-solar-shield-check-line-duotone">
-						{{ t('nav.privacy_policy') }}
-					</UButton>
-					<p class="text-sm">{{ t('footer.copyright') }}</p>
-					<p class="text-sm">Made with ❤️ by MYND @ PPO.GG</p>
-					<NuxtLink to="https://github.com/PPO-GG/unfit-for-print" target="_blank" class="">V-{{ $config.public.appVersion }}</NuxtLink>
-					<LanguageSwitcher class="w-full" />
+					<!-- Footer section always last in scroll -->
+					<div class="mt-auto flex flex-col items-center justify-center gap-2 pt-4">
+						<USeparator class="my-2" />
+						<UButton block @click="openPolicyModal" class="mb-2 text-sm py-3" color="neutral" variant="soft" icon="i-solar-shield-check-line-duotone">
+							{{ t('nav.privacy_policy') }}
+						</UButton>
+						<p class="text-xs">{{ t('footer.copyright') }}</p>
+						<p class="text-xs">Made with ❤️ by MYND @ PPO.GG</p>
+						<NuxtLink to="https://github.com/PPO-GG/unfit-for-print" target="_blank" class="cursor-pointer">
+							<img alt="GitHub package.json version" class="w-12" src="https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print?style=flat-square&logo=github&label=%20&labelColor=rgba(0%2C0%2C0%2C0)&color=rgba(0%2C0%2C0%2C0)">
+						</NuxtLink>
+						<LanguageSwitcher class="w-full" />
+					</div>
 				</div>
 			</div>
-
 		</template>
 	</USlideover>
 

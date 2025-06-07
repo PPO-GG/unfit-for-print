@@ -6,12 +6,7 @@ const router = useRouter()
 const userPrefsStore = useUserPrefsStore()
 const switchLocalePath = useSwitchLocalePath()
 
-const flagIcons = {
-	en: 'i-flag-gb-1x1',
-	es: 'i-flag-es-1x1',
-	fr: 'i-flag-fr-1x1',
-	ru: 'i-flag-ru-1x1'
-} as const
+const flagIcon = (code: string) => `i-flag-${code}-1x1`
 
 const currentLocale = computed(() =>
 		locales.value.find(i => i.code === locale.value) || { code: locale.value, name: locale.value }
@@ -30,7 +25,7 @@ async function changeLocale(code: typeof locale.value) {
 const items = computed<DropdownMenuItem[]>(() => 
 	locales.value.map(loc => ({
 		label: loc.name,
-		icon: flagIcons[loc.code as keyof typeof flagIcons] || 'i-heroicons-globe-alt',
+		icon: flagIcon(loc.code) || 'i-heroicons-globe-alt',
 		trailing: loc.code === locale.value ? { icon: 'i-heroicons-check', color: 'green' } : undefined,
 		onSelect: () => changeLocale(loc.code as typeof locale.value)
 	}))
@@ -47,7 +42,7 @@ const items = computed<DropdownMenuItem[]>(() =>
 			color="neutral"
 			variant="ghost"
 			class="flex items-center gap-2"
-			:icon="flagIcons[locale as keyof typeof flagIcons] || 'i-heroicons-globe-alt'"
+			:icon="flagIcon(locale) || 'i-heroicons-globe-alt'"
 		>
 			<span>{{ currentLocale.name }}</span>
 		</UButton>

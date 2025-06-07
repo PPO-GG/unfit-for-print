@@ -1,6 +1,5 @@
 <template>
-  <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg shadow-md">
-    <h2 class="text-xl font-bold mb-4 text-center text-primary-600 dark:text-primary-400">{{ t('modal.create_lobby') }}</h2>
+  <div class="p-4 rounded-lg shadow-md">
     <UForm :state="formState" @submit="onSubmit" class="space-y-4">
       <UFormField :label="t('modal.lobby_name')" name="name">
         <UInput 
@@ -10,6 +9,28 @@
           class="focus:ring-primary-500"
         />
       </UFormField>
+
+      <UFormField name="isPrivate">
+        <UCheckbox 
+          v-model="formState.isPrivate" 
+          :label="t('game.settings.is_private')"
+          class="mb-2"
+        />
+      </UFormField>
+
+      <UFormField 
+        v-if="formState.isPrivate" 
+        :label="t('game.settings.lobby_password')"
+        name="password"
+      >
+        <UInput 
+          v-model="formState.password" 
+          :placeholder="t('game.settings.lobby_password')"
+          icon="i-heroicons-lock-closed"
+          class="focus:ring-primary-500"
+        />
+      </UFormField>
+
       <UButton 
         type="submit" 
         block 
@@ -40,7 +61,11 @@ const { createLobby } = useLobby();
 const userStore = useUserStore();
 const { notify } = useNotifications();
 
-const formState = reactive({ name: '' });
+const formState = reactive({ 
+  name: '',
+  isPrivate: false,
+  password: ''
+});
 const creating = ref(false);
 
 const onSubmit = async () => {
@@ -53,7 +78,12 @@ const onSubmit = async () => {
 
     // Pass the lobby name if it's not empty
     const lobbyName = formState.name.trim() || undefined;
-    const lobby = await createLobby(userStore.user.$id, lobbyName);
+    const lobby = await createLobby(
+      userStore.user.$id, 
+      lobbyName, 
+      formState.isPrivate, 
+      formState.isPrivate ? formState.password : undefined
+    );
 
     if (!lobby?.code) {
       throw new Error('Invalid lobby response');
