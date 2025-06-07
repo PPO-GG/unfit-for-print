@@ -1,6 +1,7 @@
 import { Query } from 'appwrite'
 import { getAppwrite } from '~/utils/appwrite';
 import { useCardTotalsStore } from '~/stores/cardTotalsStore';
+import { getRandomInt } from '~/composables/useCrypto';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -73,7 +74,8 @@ export const useCards = () => {
       const total = cached?.total ?? 0;
       if (total === 0) return null;
 
-      const offset = Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296 * total)
+      // Generate a random offset using the unbiased random integer function
+      const offset = getRandomInt(total);
 
       // Prepare queries for fetching the random card
       queries = [Query.offset(offset), Query.limit(1)];

@@ -1,4 +1,5 @@
 // composables/useSfx.ts
+import { getRandomInt, getRandomFloat, getRandomInRange as getCryptoRandomInRange } from '~/composables/useCrypto';
 
 /**
  * Represents options for sound effects (SFX).
@@ -20,9 +21,7 @@ interface SpriteMap {
  *
  */
 export const getRandomInRange = (val: number | [number, number]): number => {
-    if (typeof val === 'number') return val;
-    const [min, max] = val;
-    return Math.random() * (max - min) + min;
+    return getCryptoRandomInRange(val);
 };
 
 /**
@@ -57,7 +56,7 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
             } else {
                 const spriteKeys = Object.keys(spriteMap);
                 if (spriteKeys.length > 0) {
-                    spriteToPlay = spriteKeys[Math.floor(Math.random() * spriteKeys.length)];
+                    spriteToPlay = spriteKeys[getRandomInt(spriteKeys.length)];
                 }
             }
 
@@ -83,7 +82,7 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
                 }
             }
         } else {
-            const file = Array.isArray(src) ? src[Math.floor(Math.random() * src.length)] : src;
+            const file = Array.isArray(src) ? src[getRandomInt(src.length)] : src;
 
             let buffer = bufferCache.get(file);
             if (!buffer) {

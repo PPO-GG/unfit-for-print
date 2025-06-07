@@ -2,6 +2,8 @@ import { getAppwrite } from '~/utils/appwrite';
 import { Query } from 'appwrite';
 import type { Player } from '~/types/player';
 import type { GameState } from '~/types/game';
+import { getRandomInt } from '~/composables/useCrypto';
+
 
 export const useGameEngine = () => {
     const { databases } = getAppwrite();
@@ -10,7 +12,7 @@ export const useGameEngine = () => {
     const shuffle = <T>(array: T[]): T[] => {
         const copy = [...array];
         for (let i = copy.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = getRandomInt(i + 1);
             [copy[i], copy[j]] = [copy[j], copy[i]];
         }
         return copy;
@@ -34,7 +36,7 @@ export const useGameEngine = () => {
         const blackTotal = blackTotalRes.total;
 
         // For black cards, we'll still use the offset approach since we need fewer
-        const blackOffset = Math.floor(Math.random() * Math.max(1, blackTotal - 20));
+        const blackOffset = getRandomInt(Math.max(1, blackTotal - 20));
         const blackCards = await databases.listDocuments(
             config.public.appwriteDatabaseId,
             config.public.appwriteBlackCardCollectionId,
@@ -56,7 +58,7 @@ export const useGameEngine = () => {
 
             // Try up to 10 times to get a unique card
             while (attempts < 10) {
-                const randomOffset = Math.floor(Math.random() * whiteTotal);
+                const randomOffset = getRandomInt(whiteTotal);
                 const card = await databases.listDocuments(
                     config.public.appwriteDatabaseId,
                     config.public.appwriteWhiteCardCollectionId,
@@ -76,7 +78,7 @@ export const useGameEngine = () => {
             // If we couldn't find a unique card after 10 attempts, try a different approach
             // Get a batch of cards and find the first one that hasn't been dealt
             const batchSize = 50;
-            const randomOffset = Math.floor(Math.random() * Math.max(1, whiteTotal - batchSize));
+            const randomOffset = getRandomInt(Math.max(1, whiteTotal - batchSize));
             const cards = await databases.listDocuments(
                 config.public.appwriteDatabaseId,
                 config.public.appwriteWhiteCardCollectionId,
@@ -113,7 +115,7 @@ export const useGameEngine = () => {
             whiteDeck.push(cardId);
         }
 
-        const judgeId = players[Math.floor(Math.random() * players.length)].userId;
+        const judgeId = players[getRandomInt(players.length)].userId;
 
         return {
             phase: 'submitting',
@@ -172,7 +174,7 @@ export const useGameEngine = () => {
 
             // Function to fetch a single random white card
             const fetchRandomWhiteCard = async (): Promise<string> => {
-                const randomOffset = Math.floor(Math.random() * total);
+                const randomOffset = getRandomInt(total);
                 const card = await databases.listDocuments(
                     config.public.appwriteDatabaseId,
                     config.public.appwriteWhiteCardCollectionId,
@@ -226,7 +228,7 @@ export const useGameEngine = () => {
             const cardsToFetch = 20;
 
             // Generate random offset based on total cards available
-            const offset = Math.floor(Math.random() * Math.max(1, total - cardsToFetch));
+            const offset = getRandomInt(Math.max(1, total - cardsToFetch));
 
             // Fetch random cards
             const blackCards = await databases.listDocuments(

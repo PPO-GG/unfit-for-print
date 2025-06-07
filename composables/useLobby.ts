@@ -9,6 +9,7 @@ import {isAnonymousUser} from '~/composables/useUserUtils';
 import {usePlayers} from '~/composables/usePlayers';
 import {getAppwrite} from '~/utils/appwrite';
 import {useGameSettings} from '~/composables/useGameSettings';
+import {getRandomHexString} from '~/composables/useCrypto';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
 import type {GameState} from '~/types/game';
@@ -127,7 +128,10 @@ export const useLobby = () => {
     const createLobby = async (hostUserId: string, lobbyName?: string, isPrivate?: boolean, password?: string) => {
         const { databases } = getAppwrite();
         const config = getConfig();
-        const lobbyCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        // Generate a cryptographically secure random lobby code
+        const randomValue = getRandomHexString(4);
+        const lobbyCode = randomValue.substring(0, 6).toUpperCase();
 
         try {
             // First, verify if collections exist by doing a test query
