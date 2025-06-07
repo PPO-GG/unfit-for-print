@@ -73,14 +73,15 @@
 	  <div class="flex flex-col items-center mt-8">
 		  <UButtonGroup>
 		  <UButton
-				  loading-auto
+				  :loading="isFetching"
 				  @click="fetchNewCards(); umTrackEvent('fetch-new-cards-index');"
 				  class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']" color="secondary" variant="subtle" icon="i-solar-layers-minimalistic-bold-duotone"
 		  >
 			  {{ t('try_me') }}
 		  </UButton>
 		  <UButton
-				  loading-auto
+				  :loading="isSpeaking"
+				  :disabled="isSpeaking"
 				  @click="speak(mergeCardText(blackCard.text, whiteCard.text))"
 				  class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']" color="primary" variant="subtle" icon="i-solar-user-speak-bold-duotone"
 		  />
@@ -91,17 +92,17 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import {useCards} from "~/composables/useCards";
+import { useCards } from "~/composables/useCards";
 import { useVibrate } from '@vueuse/core'
-import { useSpeech } from '~/composables/useSpeech'
+import { useBrowserSpeech } from '~/composables/useBrowserSpeech'
 import { mergeCardText } from '~/composables/useMergeCards'
 import { useI18n } from 'vue-i18n'
+
 const { t } = useI18n()
+const { speak, isSpeaking } = useBrowserSpeech()
 
-const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
-
-
-// import { isMobile, isDesktop, isChromium, isFirefox } from '@basitcodeenv/vue3-device-detect'
+// const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
+// const { speak } = await useMeSpeak()
 
 const { vibrate, stop, isSupported } = useVibrate({ pattern: [10, 7, 5] })
 useHead({
@@ -110,40 +111,49 @@ useHead({
 
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
-
 const blackCardFlipped = ref(true);
 const whiteCardFlipped = ref(true);
 const threeDeffect = ref(true);
 const shine = ref(true);
-const {fetchRandomWhiteCard, fetchRandomBlackCard} = useCards();
+const {fetchRandomCard} = useCards();
 const randomCard = ref<any>({ pick: 1 }); // Initialize with default pick value
 const {playSfx} = useSfx();
 const { notify } = useNotifications()
 
+const isFetching = ref(false)
+
 const fetchNewCards = async () => {
+	if (isFetching.value) return // Prevent spam
+	isFetching.value = true
+
 	whiteCardFlipped.value = true;
 	blackCardFlipped.value = true;
-	await playSfx('/sounds/sfx/submit.wav',{ pitch: [0.8, 1.2], volume: 0.75});
-  return new Promise<void>(res => setTimeout(res, 1000)
-  ).then(() => {
-	  vibrate()
-    fetchRandomWhiteCard().then((card: any) => {
-      whiteCard.value = card;
-	    whiteCardFlipped.value = false;
-    });
-   fetchRandomBlackCard(1).then((card: any) => {
-      blackCard.value = card;
-      randomCard.value = card; // Store the card in randomCard.value as well
-	    blackCardFlipped.value = false;
-    });
-    notify({
-      title: t('notification.fetched_cards'),
-      icon: "i-mdi-cards",
-      color: 'info',
-      duration: 1000,
-    })
-  });
-};
+	await playSfx('/sounds/sfx/submit.wav', { pitch: [0.8, 1.2], volume: 0.75 });
+
+	setTimeout(() => {
+		vibrate()
+		fetchRandomCard('white').then((card: any) => {
+			whiteCard.value = card;
+			whiteCardFlipped.value = false;
+		});
+		fetchRandomCard('black', 1).then((card: any) => {
+			blackCard.value = card;
+			randomCard.value = card;
+			blackCardFlipped.value = false;
+		});
+
+		notify({
+			title: t('notification.fetched_cards'),
+			icon: "i-mdi-cards",
+			color: 'info',
+			duration: 1000,
+		});
+
+		setTimeout(() => {
+			isFetching.value = false; // Cooldown ends
+		}, 1000)
+	}, 1000);
+}
 
 onMounted(() => {
 		if (import.meta.client) {

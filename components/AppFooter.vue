@@ -29,6 +29,7 @@ const { t } = useI18n()
 			</div>
 
 			<div class="flex-1 flex justify-end items-center gap-4">
+				<VoiceSwitcher />
 				<LanguageSwitcher />
 				<UTooltip arrow :text="t('nav.privacy_policy')" class="cursor-pointer">
 					<!-- Call the store action on click -->

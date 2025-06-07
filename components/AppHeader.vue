@@ -298,7 +298,10 @@ const isAdmin = useIsAdmin()
 						<NuxtLink to="https://github.com/PPO-GG/unfit-for-print" target="_blank" class="cursor-pointer">
 							<img alt="GitHub package.json version" class="w-12" src="https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print?style=flat-square&logo=github&label=%20&labelColor=rgba(0%2C0%2C0%2C0)&color=rgba(0%2C0%2C0%2C0)">
 						</NuxtLink>
-						<LanguageSwitcher class="w-full" />
+						<div class="w-full flex flex-row gap-2 mt-4 items-center justify-center">
+							<LanguageSwitcher />
+							<VoiceSwitcher />
+						</div>
 					</div>
 				</div>
 			</div>

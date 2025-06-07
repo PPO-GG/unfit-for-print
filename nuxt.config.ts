@@ -7,7 +7,7 @@ const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'))
 
 export default defineNuxtConfig({
     compatibilityDate: "2024-11-01",
-    devtools: {enabled: true},
+    devtools: {enabled: false},
     ssr: true,
     nitro: {
         preset: 'node-server'
