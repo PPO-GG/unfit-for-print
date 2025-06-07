@@ -9,9 +9,6 @@ export default defineNuxtConfig({
     compatibilityDate: "2024-11-01",
     devtools: {enabled: false},
     ssr: true,
-    nitro: {
-        preset: 'node-server'
-    },
     umami: {
         id: '57b71d8c-e18d-4d81-b3b3-318ba64c0431',
         host: 'https://analytics.ppo.gg',
