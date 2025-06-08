@@ -5,13 +5,17 @@ import { getAppwrite } from '~/utils/appwrite';
 import type { GameSettings } from '~/types/gamesettings';
 
 export function useGameSettings() {
-    const { databases } = getAppwrite();
+    let databases: ReturnType<typeof getAppwrite>['databases'] | undefined
+    if (import.meta.client) {
+        ({ databases } = getAppwrite())
+    }
     const settings = ref<GameSettings | null>(null);
     const loading = ref(false);
     const error = ref<Error | null>(null);
 
     // Get game settings for a lobby
     const getGameSettings = async (lobbyId: string): Promise<GameSettings | null> => {
+        if (!databases) return null
         const config = useRuntimeConfig();
         loading.value = true;
         error.value = null;
@@ -82,6 +86,7 @@ export function useGameSettings() {
 
     // Create default game settings
     const createDefaultGameSettings = async (lobbyId: string, lobbyName: string, hostUserId?: string, options?: { isPrivate?: boolean, password?: string }): Promise<GameSettings> => {
+        if (!databases) throw new Error('Appwrite not initialized')
         const config = useRuntimeConfig();
 
         // First, check if settings already exist for this lobby
@@ -160,6 +165,7 @@ export function useGameSettings() {
 
     // Save game settings
     const saveGameSettings = async (lobbyId: string, newSettings: GameSettings, hostUserId?: string): Promise<GameSettings> => {
+        if (!databases) throw new Error('Appwrite not initialized')
         const config = useRuntimeConfig();
 
         try {

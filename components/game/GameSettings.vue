@@ -76,10 +76,14 @@ import {useGameSettings} from '~/composables/useGameSettings'
 import {useNotifications} from '~/composables/useNotifications'
 import {getAppwrite} from '~/utils/appwrite'
 import {Query} from 'appwrite'
+import type { Databases } from 'appwrite'
 
 const { t } = useI18n()
 const { notify } = useNotifications()
-const { databases } = getAppwrite()
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ databases } = getAppwrite())
+}
 const config = useRuntimeConfig()
 
 const props = defineProps<{
@@ -116,7 +120,8 @@ const CARD_COLLECTIONS = {
 
 // Fetch available card packs on mount
 onMounted(async () => {
-	loadingPacks.value = true
+        if (!databases) return
+        loadingPacks.value = true
 	try {
 		// First get total count of black cards
 		const blackCountResult = await databases.listDocuments(DB_ID, CARD_COLLECTIONS.black, [Query.limit(1)])

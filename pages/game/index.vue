@@ -47,13 +47,17 @@ import {useLobby} from '~/composables/useLobby'
 import {useUserAccess} from '~/composables/useUserUtils'
 import { getAppwrite } from '~/utils/appwrite'
 import { Query } from 'appwrite'
+import type { Databases } from 'appwrite'
 import { useGetPlayerName } from '~/composables/useGetPlayerName'
 import type { GameSettings } from '~/types/gamesettings'
 import type { Lobby } from '~/types/lobby'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
-const { databases } = getAppwrite()
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ databases } = getAppwrite())
+}
 const config = useRuntimeConfig()
 const showJoin = ref(false)
 const showCreate = ref(false)
@@ -76,7 +80,8 @@ const {showIfAuthenticated} = useUserAccess()
 const hostNames = ref<Record<string, string>>({})
 
 const fetchPublicLobbies = async () => {
-	try {
+        if (!databases) return
+        try {
 		const lobbyRes = await databases.listDocuments<Lobby>(DB_ID, LOBBY_COL, [
 			Query.equal('status', 'waiting'),
 			Query.orderDesc('$createdAt'),
