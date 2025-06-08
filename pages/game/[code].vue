@@ -617,6 +617,10 @@ watch(isComplete, (newIsComplete) => {
 });
 
 onMounted(async () => {
+	if (import.meta.server) {
+		return; // Skip client-side initialization during SSR
+	}
+
 	loading.value = true;
 
 	try {

@@ -79,9 +79,9 @@
 		  >
 			  {{ t('try_me') }}
 		  </UButton>
-		  <UButton
-				  :loading="isSpeaking"
-				  :disabled="isSpeaking"
+    <UButton
+				  :loading="isSpeakingClient"
+				  :disabled="isSpeakingClient"
 				  @click="handleSpeakClick"
 				  class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']" color="primary" variant="subtle" icon="i-solar-user-speak-bold-duotone"
 		  />
@@ -115,6 +115,14 @@ const isSpeaking = computed(() => {
   return userPrefs.ttsVoice === elevenLabsVoiceId 
     ? elevenLabsSpeech.isSpeaking.value 
     : browserSpeech.isSpeaking.value
+})
+
+// Safe version of isSpeaking for use in template
+const isSpeakingClient = computed(() => {
+  if (import.meta.client) {
+    return isSpeaking.value
+  }
+  return false
 })
 
 // Function to speak text using the appropriate speech function
@@ -211,6 +219,8 @@ const fetchNewCards = async () => {
 }
 
 onMounted(() => {
-	fetchNewCards()
+	if (import.meta.client) {
+		fetchNewCards()
+	}
 });
 </script>

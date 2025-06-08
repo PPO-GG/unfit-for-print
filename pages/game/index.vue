@@ -128,13 +128,15 @@ const getHostName = (lobby: LobbyWithName): string => {
 }
 
 onMounted(async () => {
-	await userStore.fetchUserSession()
-	await fetchPublicLobbies()
-	const userId = userStore.user?.$id
-	if (userId) {
-		const activeLobby = await getActiveLobbyForUser(userId)
-		if (activeLobby?.code) {
-			return router.replace(`/game/${activeLobby.code}`)
+	if (import.meta.client) {
+		await userStore.fetchUserSession()
+		await fetchPublicLobbies()
+		const userId = userStore.user?.$id
+		if (userId) {
+			const activeLobby = await getActiveLobbyForUser(userId)
+			if (activeLobby?.code) {
+				return router.replace(`/game/${activeLobby.code}`)
+			}
 		}
 	}
 })

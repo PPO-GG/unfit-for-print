@@ -34,12 +34,14 @@ const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
 
 const isElevenLabsVoiceAvailable = (voiceId: string): boolean => {
 	// Check if the voice is the ElevenLabs voice and the user is an admin
-	return voiceId === elevenLabsVoiceId && isAdmin.value;
+	// Only check admin status on client side
+	return voiceId === elevenLabsVoiceId && import.meta.client && isAdmin.value;
 }
 
 const updateVoice = () => {
 	// If the current voice is ElevenLabs and user is admin, keep it
-	if (userPrefs.ttsVoice === elevenLabsVoiceId && isAdmin.value) {
+	// Only check admin status on client side
+	if (userPrefs.ttsVoice === elevenLabsVoiceId && import.meta.client && isAdmin.value) {
 		return;
 	}
 
@@ -62,7 +64,8 @@ const loadVoices = () => {
 		userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || ''
 	} else if (userPrefs.ttsVoice === elevenLabsVoiceId) {
 		// If ElevenLabs voice is selected but user is not admin, reset to browser voice
-		if (!isAdmin.value) {
+		// Only check admin status on client side
+		if (import.meta.client && !isAdmin.value) {
 			const bestMatch = findBestMatchingVoice()
 			userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || ''
 		}
@@ -74,7 +77,8 @@ const loadVoices = () => {
 
 const currentVoice = computed(() => {
 	// If the selected voice is ElevenLabs and user is admin, return a special object
-	if (userPrefs.ttsVoice === elevenLabsVoiceId && isAdmin.value) {
+	// Only check admin status on client side
+	if (userPrefs.ttsVoice === elevenLabsVoiceId && import.meta.client && isAdmin.value) {
 		return {
 			name: 'ElevenLabs AI Voice',
 			// Add other properties that might be needed
@@ -101,7 +105,8 @@ const items = computed<DropdownMenuItem[]>(() => {
 		});
 
 	// Add ElevenLabs voice option for admins
-	if (isAdmin.value) {
+	// Only check admin status on client side
+	if (import.meta.client && isAdmin.value) {
 		const isElevenLabsSelected = userPrefs.ttsVoice === elevenLabsVoiceId;
 		browserVoices.unshift({
 			label: 'ElevenLabs AI Voice',

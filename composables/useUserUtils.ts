@@ -1,5 +1,6 @@
 // composables/useUserUtils.ts
 import type { Models } from "appwrite";
+import { useRuntimeConfig } from '#imports';
 
 export function isAuthenticatedUser(user: any): user is Models.User<Models.Preferences> {
     return !!user && user.provider !== 'anonymous' && 'prefs' in user;
@@ -10,7 +11,24 @@ export function isAnonymousUser(user: any): boolean {
 }
 
 export function isAdminUser(user: any): boolean {
-    return !!user && user.prefs?.role === 'admin';
+    // Check if user exists and has admin role in preferences
+    const hasAdminRole = !!user && user.prefs?.role === 'admin';
+
+    // Check if user has admin team membership
+    // This is a more reliable way to check admin status
+    const hasAdminTeam = !!user && user.teams && Array.isArray(user.teams);
+
+    if (hasAdminRole) {
+        return true;
+    }
+
+    if (hasAdminTeam && import.meta.client) {
+        const config = useRuntimeConfig();
+        const adminTeamId = config.public.appwriteAdminTeamId;
+        return user.teams.includes(adminTeamId);
+    }
+
+    return false;
 }
 
 export function isAuthenticatedSession(session: Models.Session | null): boolean {

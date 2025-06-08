@@ -21,6 +21,42 @@ const isJoining = ref(false);
 const isCreating = ref(false);
 const { t } = useI18n()
 
+// Computed properties for client-side checks
+const isAuthenticatedUserClient = computed(() => {
+  if (import.meta.client) {
+    return isAuthenticatedUser(userStore.user)
+  }
+  return false
+})
+
+const isAdminClient = computed(() => {
+  if (import.meta.client) {
+    return isAdmin.value
+  }
+  return false
+})
+
+const createButtonIcon = computed(() => {
+  if (import.meta.client && !isAuthenticatedUser(userStore.user)) {
+    return 'i-solar-double-alt-arrow-right-bold-duotone'
+  }
+  return 'i-solar-magic-stick-3-bold-duotone'
+})
+
+const createButtonIconMobile = computed(() => {
+  if (import.meta.client && !isAuthenticatedUser(userStore.user)) {
+    return 'i-solar-double-alt-arrow-down-bold-duotone'
+  }
+  return 'i-solar-magic-stick-3-bold-duotone'
+})
+
+const createButtonText = computed(() => {
+  if (import.meta.client && isAuthenticatedUser(userStore.user)) {
+    return t('nav.creategame')
+  }
+  return t('nav.login_to_create')
+})
+
 watch(() => route.path, () => {
   if (isMobileMenuOpen.value) {
     isMobileMenuOpen.value = false;
@@ -203,11 +239,11 @@ const isAdmin = useIsAdmin()
 			<UButton to="/" size="xl" class="text-xl py-2 px-4 cursor-pointer" color="info" variant="ghost" icon="i-solar-home-smile-bold-duotone">{{ t('nav.home') }}</UButton>
 			<UButtonGroup>
 				<UButton @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer" color="success" variant="ghost" icon="i-solar-hand-shake-line-duotone">{{ t('nav.joingame') }}</UButton>
-				<UButton @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-right-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">{{ isAuthenticatedUser(userStore.user) ? t('nav.creategame') : t('nav.login_to_create') }}</UButton>
+    <UButton @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUserClient" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" :icon="createButtonIcon">{{ createButtonText }}</UButton>
 			</UButtonGroup>
 			<UButton to="/game" class="text-xl py-2 px-4 cursor-pointer" color="warning" variant="ghost" icon="i-solar-gamepad-bold-duotone">{{ t('nav.games') }}</UButton>
 			<div v-if="isAuthenticatedUser(userStore.user)">
-				<UButton v-if="isAdmin" to="/admin" class="text-xl py-2 px-4 cursor-pointer text-info-200" variant="ghost" color="info" icon="i-solar-shield-star-bold-duotone">{{ t('nav.admin') }}</UButton>
+    <UButton v-if="isAdminClient" to="/admin" class="text-xl py-2 px-4 cursor-pointer text-info-200" variant="ghost" color="info" icon="i-solar-shield-star-bold-duotone">{{ t('nav.admin') }}</UButton>
 				<UButton to="/profile" class="text-xl py-2 px-4 cursor-pointer" color="secondary" variant="ghost" icon="i-solar-user-id-bold-duotone">{{ t('nav.profile') }}</UButton>
 				<UButton @click="handleLogout" class="text-xl py-2 px-4 cursor-pointer" color="error" variant="ghost" icon="i-solar-logout-3-bold-duotone">{{ t('nav.logout') }}</UButton>
 			</div>
@@ -261,12 +297,12 @@ const isAdmin = useIsAdmin()
 					<UButton block size="xl" @click="checkForActiveLobbyAndJoin" :loading="isJoining" class="mb-2 text-xl py-3" color="success" variant="soft" icon="i-solar-hand-shake-line-duotone">
 						{{ t('nav.joingame') }}
 					</UButton>
-					<UButton block size="xl" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUser(userStore.user)" class="mb-2 text-xl py-3" color="warning" variant="soft" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-down-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'">
-						{{ isAuthenticatedUser(userStore.user) ? t('nav.creategame') : t('nav.login_to_create') }}
+     <UButton block size="xl" @click="checkForActiveLobbyAndCreate" :loading="isCreating" :disabled="!isAuthenticatedUserClient" class="mb-2 text-xl py-3" color="warning" variant="soft" :icon="createButtonIconMobile">
+						{{ createButtonText }}
 					</UButton>
 
 					<template v-if="isAuthenticatedUser(userStore.user)">
-						<UButton block v-if="isAdmin" to="/admin" class="mb-2 text-xl py-3 bg-slate-800 text-slate-400" variant="soft" color="info" icon="i-solar-shield-star-bold-duotone">
+      <UButton block v-if="isAdminClient" to="/admin" class="mb-2 text-xl py-3 bg-slate-800 text-slate-400" variant="soft" color="info" icon="i-solar-shield-star-bold-duotone">
 							{{ t('nav.admin') }}
 						</UButton>
 						<UButton block to="/profile" class="mb-2 text-xl py-3" color="secondary" variant="soft" icon="i-solar-user-id-bold-duotone">
