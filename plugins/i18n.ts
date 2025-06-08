@@ -4,10 +4,17 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   // Make sure i18n is available for both client and server
   const i18n = nuxtApp.$i18n
 
+  const userPrefsStore = useUserPrefsStore()
+
+  if (process.server) {
+    // Sync the user's language preference store with the server
+    userPrefsStore.setLanguage(i18n.locale.value)
+    return
+  }
+
   // Only run the client-side specific code in the browser
   if (process.client) {
     const { setLocaleCookie } = i18n
-    const userPrefsStore = useUserPrefsStore()
 
     const preferred = userPrefsStore.preferredLanguage
     const current = i18n.locale.value

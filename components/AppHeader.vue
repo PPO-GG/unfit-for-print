@@ -22,36 +22,28 @@ const isCreating = ref(false);
 const { t } = useI18n()
 
 // Computed properties for client-side checks
-const isAuthenticatedUserClient = computed(() => {
-  if (import.meta.client) {
-    return isAuthenticatedUser(userStore.user)
-  }
-  return false
-})
+const isAuthenticatedUserClient = computed(() =>
+  isAuthenticatedUser(userStore.user)
+)
 
-const isAdminClient = computed(() => {
-  if (import.meta.client) {
-    return isAdmin.value
-  }
-  return false
-})
+const isAdminClient = computed(() => isAdmin.value)
 
 const createButtonIcon = computed(() => {
-  if (import.meta.client && !isAuthenticatedUser(userStore.user)) {
+  if (!isAuthenticatedUser(userStore.user)) {
     return 'i-solar-double-alt-arrow-right-bold-duotone'
   }
   return 'i-solar-magic-stick-3-bold-duotone'
 })
 
 const createButtonIconMobile = computed(() => {
-  if (import.meta.client && !isAuthenticatedUser(userStore.user)) {
+  if (!isAuthenticatedUser(userStore.user)) {
     return 'i-solar-double-alt-arrow-down-bold-duotone'
   }
   return 'i-solar-magic-stick-3-bold-duotone'
 })
 
 const createButtonText = computed(() => {
-  if (import.meta.client && isAuthenticatedUser(userStore.user)) {
+  if (isAuthenticatedUser(userStore.user)) {
     return t('nav.creategame')
   }
   return t('nav.login_to_create')
