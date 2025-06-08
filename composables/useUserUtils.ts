@@ -22,7 +22,7 @@ export function isAdminUser(user: any): boolean {
         return true;
     }
 
-    if (hasAdminTeam && import.meta.client) {
+    if (hasAdminTeam) {
         const config = useRuntimeConfig();
         const adminTeamId = config.public.appwriteAdminTeamId;
         return user.teams.includes(adminTeamId);

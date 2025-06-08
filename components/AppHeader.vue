@@ -26,7 +26,7 @@ const isAuthenticatedUserClient = computed(() =>
   isAuthenticatedUser(userStore.user)
 )
 
-const isAdminClient = computed(() => isAdmin.value)
+const isAdminClient = computed(() => isAdminUser(userStore.user))
 
 const createButtonIcon = computed(() => {
   if (!isAuthenticatedUser(userStore.user)) {
@@ -197,10 +197,9 @@ const handleJoined = (code: string) => {
 };
 
 const openPolicyModal = () => {
-	isMobileMenuOpen.value = false;
-	uiStore.togglePolicyModal(true);
-};
-const isAdmin = useIsAdmin()
+        isMobileMenuOpen.value = false;
+        uiStore.togglePolicyModal(true);
+}
 </script>
 
 <template class="">

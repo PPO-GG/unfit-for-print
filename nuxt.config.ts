@@ -51,6 +51,7 @@ export default defineNuxtConfig({
     plugins: [
         {src: "~/plugins/appwrite.client.ts", mode: "client"},
         {src: "~/plugins/init-session.client.ts", mode: "client"},
+        {src: "~/plugins/init-session.server.ts", mode: "server"},
         {src: "~/plugins/i18n.ts"},
     ],
     components: [
