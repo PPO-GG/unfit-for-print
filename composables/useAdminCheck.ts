@@ -20,8 +20,11 @@ export const useAdminCheck = async (): Promise<boolean> => {
     }
 
     try {
-        // console.log('[useAdminCheck] Getting Appwrite teams service')
-        const { teams } = getAppwrite()
+        let teams
+        if (import.meta.client) {
+            ({ teams } = getAppwrite())
+        }
+        if (!teams) return false
         const config = useRuntimeConfig()
         const ADMIN_TEAM_ID = config.public.appwriteAdminTeamId as string
         // console.log('[useAdminCheck] Admin team ID:', ADMIN_TEAM_ID)

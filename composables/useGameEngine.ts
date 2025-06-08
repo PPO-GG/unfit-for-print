@@ -6,7 +6,10 @@ import { getRandomInt } from '~/composables/useCrypto';
 
 
 export const useGameEngine = () => {
-    const { databases } = getAppwrite();
+    let databases: ReturnType<typeof getAppwrite>['databases'] | undefined
+    if (import.meta.client) {
+        ({ databases } = getAppwrite())
+    }
     const config = useRuntimeConfig();
 
     const shuffle = <T>(array: T[]): T[] => {

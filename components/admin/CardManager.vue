@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { getAppwrite } from '~/utils/appwrite'
 import { Query } from 'appwrite'
+import type { Databases } from 'appwrite'
 import { useNotifications } from '~/composables/useNotifications'
 import { ref, computed, watch, onMounted } from 'vue'
 import { watchDebounced } from '@vueuse/core'
 import stringSimilarity from 'string-similarity'
 import type { RadioGroupItem, RadioGroupValue } from '@nuxt/ui'
 
-const { databases } = getAppwrite()
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ databases } = getAppwrite())
+}
 const config = useRuntimeConfig()
 const { notify } = useNotifications()
 
@@ -92,7 +96,8 @@ const CARD_COLLECTION = computed(() => CARD_COLLECTIONS[cardType.value])
 
 // Fetch available card packs on mount
 onMounted(async () => {
-	try {
+        if (!databases) return
+        try {
 		// First get total count of cards
 		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(1)])
 		const totalCards = countResult.total
@@ -129,7 +134,8 @@ onMounted(async () => {
 
 // Watch for card type changes to reload packs
 watch(cardType, async () => {
-	try {
+        if (!databases) return
+        try {
 		// First get total count of cards
 		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(1)])
 		const totalCards = countResult.total
@@ -167,7 +173,8 @@ watch(cardType, async () => {
 
 // Fetch cards
 const fetchCards = async () => {
-	loading.value = true
+        if (!databases) return
+        loading.value = true
 
 	try {
 		// First get total count of cards with filters applied
