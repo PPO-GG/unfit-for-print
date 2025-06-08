@@ -10,6 +10,7 @@ import {useGameCards} from '~/composables/useGameCards'
 import UserHand from '~/components/game/UserHand.vue'
 import whiteCard from '~/components/game/whiteCard.vue'
 import {getAppwrite} from "~/utils/appwrite";
+import type { Databases } from 'appwrite';
 import {Query} from "appwrite";
 import BlackCardDeck from '~/components/game/BlackCardDeck.vue'
 import WhiteCardDeck from '~/components/game/WhiteCardDeck.vue'
@@ -19,6 +20,10 @@ import GameOver from '~/components/game/GameOver.vue'
 import GameHeader from '~/components/game/GameHeader.vue';
 
 const {t} = useI18n()
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ databases } = getAppwrite())
+}
 const props = defineProps<{ lobby: Lobby; players: Player[] }>()
 const emit = defineEmits<{
 	(e: 'leave'): void
@@ -188,9 +193,9 @@ async function revealCard(playerId: string) {
 	}
 
 	// Update revealed cards in Appwrite
-	try {
-		const config = useRuntimeConfig();
-		const {databases} = getAppwrite();
+        try {
+                if (!databases) return
+                const config = useRuntimeConfig();
 
 		// Get the current revealed submissions from the database
 		let currentRevealedSubmissions = {};
@@ -406,8 +411,8 @@ async function convertToPlayer(playerId: string) {
 		const playerDoc = props.players.find(p => p.userId === playerId);
 		if (!playerDoc) return;
 
-		const {databases} = getAppwrite();
-		const config = useRuntimeConfig();
+                if (!databases) return;
+                const config = useRuntimeConfig();
 
 		await databases.updateDocument(
 				config.public.appwriteDatabaseId,

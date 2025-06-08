@@ -12,13 +12,19 @@ import {useGameState} from "~/composables/useGameState";
 import {useGameCards} from "~/composables/useGameCards";
 import { useSfx } from '~/composables/useSfx';
 import { ID, Permission, Role, Query } from 'appwrite';
+import { getAppwrite } from '~/utils/appwrite';
+import type { Databases, Client } from 'appwrite';
 import {useGameSettings} from '~/composables/useGameSettings';
 import type {GameSettings} from '~/types/gamesettings';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
-import {useAppwrite} from "~/composables/useAppwrite";
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
+let client: Client | undefined
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ client, databases } = getAppwrite())
+}
 
 definePageMeta({
 	layout: 'game'
@@ -273,8 +279,8 @@ const LEAVE_DEBOUNCE_TIME = 5000; // 5 seconds
 
 // Set up real-time listener for game settings changes
 const setupGameSettingsRealtime = (lobbyId: string) => {
-	const {client} = getAppwrite();
-	const config = useRuntimeConfig();
+        if (!client) return
+        const config = useRuntimeConfig();
 
 	// Subscribe to changes in the game settings collection for this lobby
 	const unsubscribeGameSettings = client.subscribe(
@@ -310,10 +316,9 @@ const setupGameSettingsRealtime = (lobbyId: string) => {
 };
 
 const setupRealtime = async (lobbyData: Lobby) => {
-	const {client} = getAppwrite();
-	const { databases } = useAppwrite();
-	const config = useRuntimeConfig();
-	const lobbyId = lobbyData.$id;
+        if (!client || !databases) return
+        const config = useRuntimeConfig();
+        const lobbyId = lobbyData.$id;
 	// initial fetch
 	players.value = await getPlayersForLobby(lobbyId);
 
@@ -572,8 +577,8 @@ watch(isComplete, (newIsComplete) => {
 		// Game just completed, initialize the gameEndTime if needed
 		if (state.value && !state.value.gameEndTime) {
 			// Update the game state to set the gameEndTime, but don't mark the player as returned
-			const { databases } = getAppwrite();
-			const config = useRuntimeConfig();
+                        if (!databases) return
+                        const config = useRuntimeConfig();
 
 			try {
 				// Get the current lobby
@@ -866,7 +871,7 @@ const convertToPlayer = async (playerId: string) => {
     const playerDoc = players.value.find(p => p.userId === playerId);
     if (!playerDoc) return;
 
-    const { databases } = getAppwrite();
+    if (!databases) return;
     const config = useRuntimeConfig();
 
     await databases.updateDocument(

@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { getAppwrite } from '~/utils/appwrite'
 import { Query } from 'appwrite'
+import type { Databases } from 'appwrite'
 import { useNotifications } from '~/composables/useNotifications'
 import type { GameSettings } from '~/types/gamesettings'
 import type { Lobby } from '~/types/lobby'
@@ -11,7 +12,10 @@ type LobbyWithName = Lobby & {
   lobbyName?: string | null
 }
 
-const { databases } = getAppwrite()
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ databases } = getAppwrite())
+}
 const config = useRuntimeConfig()
 const { notify } = useNotifications()
 
@@ -59,7 +63,8 @@ const totalPages = computed(() => {
 })
 
 const checkActiveLobbies = async () => {
-	loading.value = true
+        if (!databases) return
+        loading.value = true
 	try {
 		// 1. Fetch all lobbies, ordered by creation date
 		const lobbyRes = await databases.listDocuments(DB_ID, LOBBY_COL, [
