@@ -43,6 +43,17 @@ const { t } = useI18n()
 // Track which submission is currently visible
 const activeSubmissionIndex = ref(0)
 
+// Determine if horizontal scrolling is needed based on total number of
+// submissions (player + others). We approximate that more than two
+// submissions will overflow on most screen sizes and therefore need
+// scrolling.
+const totalSubmissions = computed(() => {
+  const mySubmission = props.submissions[props.myId] ? 1 : 0
+  return props.shuffledSubmissions.length + mySubmission
+})
+
+const shouldShowScroll = computed(() => totalSubmissions.value > 2)
+
 // Helper function to get player name from ID
 const getPlayerName = (playerId) => {
   // First try to find the player in the props.players array by userId
@@ -112,10 +123,13 @@ function handleScroll(event) {
           <!-- Horizontal scrolling container with snap scrolling -->
           <div
             ref="submissionsContainer"
-            class="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 pb-4 snap-x snap-mandatory flex gap-4 sm:gap-6 w-full h-full"
+            :class="[
+              'pb-4 snap-x snap-mandatory flex gap-4 sm:gap-6 w-full h-full',
+              shouldShowScroll ? 'overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800' : 'justify-center'
+            ]"
             @scroll="handleScroll">
             <!-- Add a spacer at the beginning to center the first card on smaller screens -->
-            <div class="flex-shrink-0 w-[calc(50%-125px)] min-w-[10px] sm:min-w-[20px] md:min-w-[50px]"></div>
+            <div v-if="shouldShowScroll" class="flex-shrink-0 w-[calc(50%-125px)] min-w-[10px] sm:min-w-[20px] md:min-w-[50px]"></div>
 
             <div
                 v-for="sub in otherSubmissions"
@@ -153,17 +167,27 @@ function handleScroll(event) {
             </div>
 
             <!-- Add a spacer at the end to center the last card on smaller screens -->
-            <div class="flex-shrink-0 w-[calc(50%-125px)] min-w-[10px] sm:min-w-[20px] md:min-w-[50px]"></div>
+            <div v-if="shouldShowScroll" class="flex-shrink-0 w-[calc(50%-125px)] min-w-[10px] sm:min-w-[20px] md:min-w-[50px]"></div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Other players view -->
-    <div v-else class="flex justify-center space-x-4 sm:space-x-6 md:space-x-8">
-      <!-- Current player's submission (visible unless another player won) -->
-      <div v-if="submissions[myId] && (!effectiveRoundWinner || effectiveRoundWinner === myId)" class="">
-        <div class="outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-3 sm:p-4 md:p-6">
+    <div v-else class="w-full">
+      <div :class="[
+            'pb-4 flex gap-4 sm:gap-6 md:gap-8 snap-x snap-mandatory',
+            shouldShowScroll ? 'overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800' : 'justify-center'
+        ]">
+        <!-- Spacer at the start for centering on small screens -->
+        <div v-if="shouldShowScroll" class="flex-shrink-0 w-[calc(50%-125px)] min-w-[10px] sm:min-w-[20px] md:min-w-[50px]"></div>
+
+        <!-- Current player's submission -->
+        <div v-if="submissions[myId]"
+             :class="[
+                'snap-center flex-shrink-0 outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-3 sm:p-4 md:p-6 w-[250px] sm:w-[300px] md:w-[350px]',
+                { 'border-2 border-green-500': effectiveRoundWinner === myId }
+             ]">
           <p class="font-medium text-white mb-1 sm:mb-2 text-base sm:text-lg">
             <span class="text-success-400 font-['Bebas_Neue'] text-xl sm:text-2xl">{{ t('game.your_submission') }}</span>
           </p>
@@ -180,39 +204,44 @@ function handleScroll(event) {
             🏆 {{ t('game.you_won') }} 🏆
           </p>
         </div>
-      </div>
 
-      <!-- Other players' submissions -->
-      <div v-if="shuffledSubmissions.length > 0" class="flex flex-wrap justify-center gap-8">
-        <div
-            v-for="(sub) in shuffledSubmissions"
-            v-show="sub.playerId !== myId && (!effectiveRoundWinner || effectiveRoundWinner === sub.playerId)"
-            :key="sub.playerId"
-            :class="{'border-2 border-green-500': effectiveRoundWinner === sub.playerId}"
-            class="outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-3 sm:p-4 md:p-6"
-        >
-          <p v-if="effectiveRoundWinner === sub.playerId"
-             class="font-medium text-amber-300 mb-1 sm:mb-2 font-['Bebas_Neue'] text-xl sm:text-2xl">
-            <span class="text-amber-400">{{ t('game.submitted_by') }} </span>{{ getPlayerName(sub.playerId) }}
-          </p>
-          <p v-else class="font-medium text-white mb-1 sm:mb-2 text-base sm:text-lg">
-            <span class="text-amber-400 font-['Bebas_Neue'] text-xl sm:text-2xl">{{ t('game.submissions') }}</span>
-          </p>
-          <div class="flex flex-nowrap justify-start gap-2 mb-2 pb-2 max-w-full">
-            <whiteCard
-                v-for="cardId in sub.cards"
-                :key="cardId"
-                :cardId="cardId"
-                :flipped="false"
-                :is-winner="effectiveRoundWinner === sub.playerId"
-            />
+        <!-- Other players' submissions -->
+        <template v-if="shuffledSubmissions.length > 0">
+          <div
+              v-for="(sub) in shuffledSubmissions"
+              v-show="sub.playerId !== myId"
+              :key="sub.playerId"
+              :class="[
+                'snap-center flex-shrink-0 outline-2 outline-slate-400/25 outline-dashed rounded-3xl bg-slate-700/50 p-3 sm:p-4 md:p-6 w-[250px] sm:w-[300px] md:w-[350px]',
+                { 'border-2 border-green-500': effectiveRoundWinner === sub.playerId }
+              ]"
+          >
+            <p v-if="effectiveRoundWinner === sub.playerId"
+               class="font-medium text-amber-300 mb-1 sm:mb-2 font-['Bebas_Neue'] text-xl sm:text-2xl">
+              <span class="text-amber-400">{{ t('game.submitted_by') }} </span>{{ getPlayerName(sub.playerId) }}
+            </p>
+            <p v-else class="font-medium text-white mb-1 sm:mb-2 text-base sm:text-lg">
+              <span class="text-amber-400 font-['Bebas_Neue'] text-xl sm:text-2xl">{{ t('game.submissions') }}</span>
+            </p>
+            <div class="flex flex-nowrap justify-start gap-2 mb-2 pb-2 max-w-full">
+              <whiteCard
+                  v-for="cardId in sub.cards"
+                  :key="cardId"
+                  :cardId="cardId"
+                  :flipped="false"
+                  :is-winner="effectiveRoundWinner === sub.playerId"
+              />
+            </div>
+            <p v-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-1 sm:mt-2 text-sm sm:text-base">
+              🏆 {{ t('game.winner') }} 🏆
+            </p>
           </div>
-          <p v-if="effectiveRoundWinner === sub.playerId" class="text-green-400 font-bold mt-1 sm:mt-2 text-sm sm:text-base">
-            🏆 {{ t('game.winner') }} 🏆
-          </p>
-        </div>
+        </template>
+
+        <!-- Spacer at the end for centering on small screens -->
+        <div v-if="shouldShowScroll" class="flex-shrink-0 w-[calc(50%-125px)] min-w-[10px] sm:min-w-[20px] md:min-w-[50px]"></div>
       </div>
-      <p v-else class="text-center italic text-gray-500 mt-4 sm:mt-6 text-sm sm:text-base">{{ t('game.waiting_for_submissions') }}</p>
+      <p v-if="shuffledSubmissions.length === 0" class="text-center italic text-gray-500 mt-4 sm:mt-6 text-sm sm:text-base">{{ t('game.waiting_for_submissions') }}</p>
     </div>
   </div>
 </template>

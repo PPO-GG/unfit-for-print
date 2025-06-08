@@ -99,7 +99,7 @@ const effectiveWinningCards = computed(() => {
   }
 
   // First try to get from state
-  const stateCards = state.value?.submissions?.[winner];
+  const stateCards = state.value?.submissions?.[winner as string];
   if (stateCards && Array.isArray(stateCards) && stateCards.length > 0) {
     console.log('Using winning cards from state:', stateCards);
     return stateCards;
@@ -108,9 +108,7 @@ const effectiveWinningCards = computed(() => {
   // If we can't find the cards for the winner directly, try to find them by partial match
   if (state.value?.submissions) {
     for (const [playerId, cards] of Object.entries(state.value.submissions)) {
-      if ((typeof playerId === 'string' && typeof winner === 'string' && 
-          (playerId.includes(winner) || winner.includes(playerId))) && 
-          Array.isArray(cards) && cards.length > 0) {
+      if ((typeof winner === 'string' && (playerId.includes(winner) || winner.includes(playerId))) && Array.isArray(cards) && cards.length > 0) {
         console.log('Found winning cards by partial ID match:', cards);
         return cards;
       }
@@ -165,7 +163,7 @@ watch(() => roundWinner, (newWinner) => {
     console.log('Round winner updated from server:', newWinner);
 
     // Also log the submissions for this winner
-    const winnerCards = state.value?.submissions?.[newWinner];
+    const winnerCards = state.value?.submissions?.[newWinner as string];
     console.log('Submissions for winner:', winnerCards);
 
     // Store the winning cards locally if they're available
@@ -184,12 +182,12 @@ watch(() => state.value?.submissions, (newSubmissions) => {
   if (newSubmissions && (roundWinner || localRoundWinner.value)) {
     const winner = effectiveRoundWinner.value;
     if (winner) {
-      console.log('Submissions updated, winner cards:', newSubmissions[winner]);
+      console.log('Submissions updated, winner cards:', newSubmissions[winner as string]);
 
       // If we have submissions for the winner but no local winning cards, store them
-      if (newSubmissions[winner] && Array.isArray(newSubmissions[winner]) && newSubmissions[winner].length > 0 && 
+      if (newSubmissions[winner as string] && Array.isArray(newSubmissions[winner as string]) && newSubmissions[winner as string].length > 0 && 
           (!localWinningCards.value || !Array.isArray(localWinningCards.value) || localWinningCards.value.length === 0)) {
-        localWinningCards.value = newSubmissions[winner];
+        localWinningCards.value = newSubmissions[winner as string];
         console.log('Stored local winning cards from submissions update:', localWinningCards.value);
       }
     }
@@ -493,13 +491,19 @@ const setupRealtime = async (lobbyData: Lobby) => {
 		const config = useRuntimeConfig();
 		const dbId = config.public.appwriteDatabaseId as string;
 		const messagesCollectionId = config.public.appwriteGamechatCollectionId as string;
+		const maxLength = 255; // Maximum length for text field
 
 		try {
+			// Ensure message is a string and truncate if needed
+			const safeMessage = typeof message === 'string' 
+				? message.substring(0, maxLength) 
+				: String(message).substring(0, maxLength);
+
 			await databases.createDocument(dbId, messagesCollectionId, ID.unique(), {
 				lobbyId: lobbyId,
 				senderId: 'system',
 				senderName: 'System',
-				text: [message],
+				text: safeMessage,
 				timeStamp: new Date().toISOString()
 			}, [Permission.read(Role.any())]);
 		} catch (error) {
@@ -1284,10 +1288,10 @@ function copyLobbyLink() {
 				v-if="isRoundEnd && lobby && !isComplete"
 				:countdown-duration="roundEndCountdownDuration"
 				:is-host="lobby.hostUserId === myId"
-				:is-winner-self="effectiveRoundWinner === myId"
+				:is-winner-self="effectiveRoundWinner.value === myId.value"
 				:lobby-id="lobby.$id"
 				:start-time="roundEndStartTime"
-				:winner-name="getPlayerName(effectiveRoundWinner)"
+				:winner-name="getPlayerName(effectiveRoundWinner.value)"
 				:document-id="gameSettings?.$id || `settings-${lobby.$id}`"
 				:winning-cards="effectiveWinningCards"
 		/>
@@ -1297,9 +1301,9 @@ function copyLobbyLink() {
 			{{ console.log('[code].vue Debug - Round End State:', {
 				roundWinner,
 				localRoundWinner: localRoundWinner.value,
-				effectiveRoundWinner,
+				effectiveRoundWinner: effectiveRoundWinner.value,
 				submissions: state?.submissions,
-				stateWinningCards: effectiveRoundWinner && state?.submissions?.[effectiveRoundWinner],
+				stateWinningCards: effectiveRoundWinner.value && state?.submissions?.[effectiveRoundWinner.value as string],
 				localWinningCards: localWinningCards.value,
 				effectiveWinningCards,
 				players: players.value ? players.value.map(p => ({ id: p.userId, name: p.name })) : [],

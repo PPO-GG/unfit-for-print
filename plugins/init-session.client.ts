@@ -1,12 +1,12 @@
 // plugins/initUser.client.ts
 import { useUserStore } from '~/stores/userStore'
 
-export default defineNuxtPlugin(async () => {
+export default defineNuxtPlugin(() => {
   const userStore = useUserStore()
 
   if (!userStore.isLoggedIn) {
-    await userStore.fetchUserSession()
-  } else {
-    return
+    void userStore.fetchUserSession().catch((error) => {
+      console.error('Failed to fetch user session:', error)
+    })
   }
 })

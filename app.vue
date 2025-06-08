@@ -1,5 +1,4 @@
 <template>
-	<ClientOnly>
     <UApp>
       <NuxtLayout>
 	      <div v-if="isDev" class="fixed top-0 left-0 h-1 bg-amber-500 w-full z-50 items-center flex justify-center">
@@ -8,7 +7,6 @@
           <NuxtPage />
       </NuxtLayout>
     </UApp>
-	</ClientOnly>
 </template>
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue'

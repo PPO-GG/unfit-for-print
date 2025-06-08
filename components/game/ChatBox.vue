@@ -93,13 +93,15 @@ import {useAppwrite} from '~/composables/useAppwrite';
 import {useUserStore} from '~/stores/userStore';
 import {Filter} from 'bad-words';
 import {ID, type Models, Query, Permission, Role} from 'appwrite';
-import { useMeSpeak } from '~/composables/useMeSpeak'
-const { speakWithUserId } = await useMeSpeak()
+import { useBrowserSpeech } from '~/composables/useBrowserSpeech'
+import { useSpeech } from '~/composables/useSpeech'
+import {useUserPrefsStore} from "~/stores/userPrefsStore";
+
+const elevenLabsVoiceId = 'NuIlfu52nTXRM2NXDrjS'
+const browserSpeech = useBrowserSpeech()
+const elevenLabsSpeech = useSpeech(elevenLabsVoiceId)
 const prefs = useUserPrefsStore()
 const { t } = useI18n()
-import { useSpeech } from '~/composables/useSpeech'
-const {speak} = useSpeech('NuIlfu52nTXRM2NXDrjS')
-
 const maxLength = 255
 const {playSfx} = useSfx();
 const autoResize = (e: Event) => {
@@ -107,6 +109,14 @@ const autoResize = (e: Event) => {
 	target.style.height = 'auto'
 	target.style.height = `${target.scrollHeight}px`
 	nextTick(() => target.scrollTop = target.scrollHeight)
+}
+
+const speak = (text: string) => {
+	if (prefs.ttsVoice === elevenLabsVoiceId) {
+		elevenLabsSpeech.speak(text)
+	} else {
+		browserSpeech.speak(text)
+	}
 }
 
 // Define a proper interface for chat messages
@@ -275,6 +285,9 @@ const sendMessage = async () => {
 	const safeMessage = sanitize(stripWeirdUnicode(trimmedMessage))
 	if (!safeMessage) return
 
+	// Ensure text is a string and no longer than 255 characters
+	const truncatedMessage = safeMessage.substring(0, maxLength)
+
 	try {
 		errorMessage.value = null
 		const userId = userStore.user?.$id || 'anonymous'
@@ -289,7 +302,7 @@ const sendMessage = async () => {
 			lobbyId: props.lobbyId,
 			senderId: userId,
 			senderName: userStore.user?.name || userStore.user?.prefs?.name || 'Anonymous',
-			text: safeMessage,
+			text: truncatedMessage,
 			timeStamp: new Date().toISOString(),
 		}, permissions)
 

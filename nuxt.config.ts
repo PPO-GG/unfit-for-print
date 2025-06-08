@@ -51,7 +51,7 @@ export default defineNuxtConfig({
     plugins: [
         {src: "~/plugins/appwrite.client.ts", mode: "client"},
         {src: "~/plugins/init-session.client.ts", mode: "client"},
-        {src: "~/plugins/i18n.client.ts", mode: "client"},
+        {src: "~/plugins/i18n.ts"},
     ],
     components: [
         {path: '~/components/game', prefix: ''},

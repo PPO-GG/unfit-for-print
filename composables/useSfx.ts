@@ -28,6 +28,11 @@ export const getRandomInRange = (val: number | [number, number]): number => {
  *
  */
 export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
+    if (!import.meta.client) {
+        const playSfx = async () => {}
+        return { playSfx, getRandomInRange }
+    }
+
     const audioContext = new AudioContext();
     let spriteAudioBuffer: AudioBuffer | null = null;
     const bufferCache = new Map<string, AudioBuffer>();

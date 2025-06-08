@@ -74,7 +74,7 @@
 		  <UButtonGroup>
 		  <UButton
 				  :loading="isFetching"
-				  @click="fetchNewCards(); umTrackEvent('fetch-new-cards-index');"
+				  @click="handleTryMeClick"
 				  class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']" color="secondary" variant="subtle" icon="i-solar-layers-minimalistic-bold-duotone"
 		  >
 			  {{ t('try_me') }}
@@ -82,7 +82,7 @@
 		  <UButton
 				  :loading="isSpeaking"
 				  :disabled="isSpeaking"
-				  @click="speak(mergeCardText(blackCard.text, whiteCard.text))"
+				  @click="handleSpeakClick"
 				  class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']" color="primary" variant="subtle" icon="i-solar-user-speak-bold-duotone"
 		  />
 		  </UButtonGroup>
@@ -119,6 +119,8 @@ const isSpeaking = computed(() => {
 
 // Function to speak text using the appropriate speech function
 const speak = (text: string) => {
+  if (!import.meta.client) return; // Only run on client side
+
   if (userPrefs.ttsVoice === elevenLabsVoiceId) {
     elevenLabsSpeech.speak(text)
   } else {
@@ -126,9 +128,27 @@ const speak = (text: string) => {
   }
 }
 
+// Safe wrapper for the Try Me button click handler
+const handleTryMeClick = () => {
+  fetchNewCards();
+
+  // Only track events on client side
+  if (import.meta.client) {
+    umTrackEvent('fetch-new-cards-index');
+  }
+}
+
+// Safe wrapper for the speak button click handler
+const handleSpeakClick = () => {
+  if (!import.meta.client) return; // Only run on client side
+  if (!blackCard || !whiteCard) return; // Make sure cards are loaded
+
+  speak(mergeCardText(blackCard.text, whiteCard.text));
+}
+
 // const { speak } = await useMeSpeak()
 
-const { vibrate, stop, isSupported } = useVibrate({ pattern: [10, 7, 5] })
+const { vibrate } = useVibrate({ pattern: [10, 7, 5] })
 useHead({
   title: `Unfit for Print`,
 })
@@ -152,10 +172,18 @@ const fetchNewCards = async () => {
 
 	whiteCardFlipped.value = true;
 	blackCardFlipped.value = true;
-	await playSfx('/sounds/sfx/submit.wav', { pitch: [0.8, 1.2], volume: 0.75 });
+
+	// Only play sound effects on client side
+	if (import.meta.client) {
+		await playSfx('/sounds/sfx/submit.wav', { pitch: [0.8, 1.2], volume: 0.75 });
+	}
 
 	setTimeout(() => {
-		vibrate()
+		// Only vibrate on client side
+		if (import.meta.client) {
+			vibrate()
+		}
+
 		fetchRandomCard('white').then((card: any) => {
 			whiteCard.value = card;
 			whiteCardFlipped.value = false;
@@ -166,22 +194,23 @@ const fetchNewCards = async () => {
 			blackCardFlipped.value = false;
 		});
 
-		notify({
-			title: t('notification.fetched_cards'),
-			icon: "i-mdi-cards",
-			color: 'info',
-			duration: 1000,
-		});
+		// Only show notifications on client side
+		if (import.meta.client) {
+			notify({
+				title: t('notification.fetched_cards'),
+				icon: "i-mdi-cards",
+				color: 'info',
+				duration: 1000,
+			});
+		}
 
 		setTimeout(() => {
 			isFetching.value = false; // Cooldown ends
 		}, 1000)
-	}, 1000);
+	});
 }
 
 onMounted(() => {
-		if (import.meta.client) {
-			fetchNewCards()
-		}
+	fetchNewCards()
 });
 </script>
