@@ -5,15 +5,11 @@ import whiteCard from '~/components/game/whiteCard.vue';
 
 const { t } = useI18n();
 
-// Debug function to log props
+// Function to log props (commented out for production)
 function logDebugInfo() {
-  console.log('RoundEndOverlay props:', {
-    winningCards: props.winningCards,
-    roundWinner: props.winnerName,
-    isWinnerSelf: props.isWinnerSelf
-  });
+  // Debug logging removed for production
 }
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	lobbyId: string;
 	winnerName: string | null;
 	isWinnerSelf: boolean;
@@ -22,8 +18,12 @@ const props = defineProps<{
 	isHost: boolean;
 	documentId?: string;
 	winningCards?: string[];
-}>();
+}>(), {
+	isWinnerSelf: false,
+	isHost: false
+});
 
+// Extract startNextRound function from useGameActions
 const { startNextRound } = useGameActions();
 
 const remainingTime = ref(props.countdownDuration);
@@ -46,12 +46,10 @@ const winnerMessage = computed(() => {
 const effectiveWinningCards = computed(() => {
 	// If winning cards are provided and not empty, use them
 	if (props.winningCards && Array.isArray(props.winningCards) && props.winningCards.length > 0) {
-		console.log('Using provided winning cards:', props.winningCards);
 		return props.winningCards;
 	}
 
 	// Otherwise, return an empty array to prevent null reference errors
-	console.log('No winning cards available, returning empty array');
 	return [];
 });
 
@@ -72,39 +70,51 @@ const updateTimer = () => {
 	remainingTime.value = Math.max(0, Math.ceil(remainingMs / 1000));
 
 	if (remainingTime.value <= 0 && props.isHost && !hasTriggeredNextRound.value) {
+		console.log("Timer expired, host is triggering next round automatically");
+		console.log("Host status:", props.isHost);
+		console.log("Lobby ID:", props.lobbyId);
+		console.log("Document ID:", props.documentId);
+
+		// Ensure we have a valid lobby ID
+		if (!props.lobbyId) {
+			console.error("No lobby ID provided, cannot start next round");
+			return;
+		}
+
 		hasTriggeredNextRound.value = true;
 		retryFailed.value = false;
 		isRetrying.value = true;
 
- 	// Add a shorter delay before calling startNextRound
+ 		// Add a shorter delay before calling startNextRound
 		setTimeout(() => {
-			console.log("Attempting to start next round for lobby:", props.lobbyId);
+			console.log("Calling startNextRound with:", { lobbyId: props.lobbyId, documentId: props.documentId });
+
 			startNextRound(props.lobbyId, props.documentId)
 				.then((result) => {
-					console.log("Start next round result:", result);
+					console.log("Auto start next round result:", result);
 					if (result && result.success) {
-						console.log("Successfully started next round");
+						console.log("Successfully started next round automatically");
 						isRetrying.value = false;
 					} else {
-						// console.warn("Start next round returned unsuccessful result:", result);
+						console.warn("Auto start next round returned unsuccessful result:", result);
 						// If the first attempt returns unsuccessful (not an error), retry after a delay
 						setTimeout(() => {
-							// console.log("Retrying startNextRound after initial unsuccessful result");
+							console.log("Retrying startNextRound after initial unsuccessful result");
 							isRetrying.value = true;
 							startNextRound(props.lobbyId, props.documentId)
 								.then((retryResult) => {
-									// console.log("Retry result:", retryResult);
+									console.log("Auto retry result:", retryResult);
 									if (retryResult && retryResult.success) {
-										// console.log("Successfully started next round on retry");
+										console.log("Successfully started next round on auto retry");
 										isRetrying.value = false;
 									} else {
-										// console.warn("Retry also returned unsuccessful result");
+										console.warn("Auto retry also returned unsuccessful result");
 										retryFailed.value = true;
 										isRetrying.value = false;
 									}
 								})
 								.catch((retryErr) => {
-									// console.error("Failed to trigger next round on retry:", retryErr);
+									console.error("Failed to trigger next round on auto retry:", retryErr);
 									retryFailed.value = true;
 									isRetrying.value = false;
 								});
@@ -112,25 +122,26 @@ const updateTimer = () => {
 					}
 				})
 				.catch((err) => {
-					console.error("Failed to trigger next round:", err);
+					console.error("Failed to trigger next round automatically:", err);
 
 					// If the first attempt fails with an error, retry after a delay
 					setTimeout(() => {
-						// console.log("Retrying startNextRound after initial error");
+						console.log("Retrying startNextRound after initial error");
 						isRetrying.value = true;
 						startNextRound(props.lobbyId, props.documentId)
 							.then((retryResult) => {
+								console.log("Auto retry after error result:", retryResult);
 								if (retryResult && retryResult.success) {
-									// console.log("Successfully started next round on retry after error");
+									console.log("Successfully started next round on auto retry after error");
 									isRetrying.value = false;
 								} else {
-									// console.warn("Retry after error returned unsuccessful result");
+									console.warn("Auto retry after error returned unsuccessful result");
 									retryFailed.value = true;
 									isRetrying.value = false;
 								}
 							})
 							.catch((retryErr) => {
-								console.error("Failed to trigger next round on retry after error:", retryErr);
+								console.error("Failed to trigger next round on auto retry after error:", retryErr);
 								retryFailed.value = true;
 								isRetrying.value = false;
 							});
@@ -144,12 +155,55 @@ const updateTimer = () => {
 };
 
 onMounted(() => {
+	console.log("RoundEndOverlay mounted");
+	console.log("Props:", {
+		lobbyId: props.lobbyId,
+		documentId: props.documentId,
+		isHost: props.isHost,
+		isWinnerSelf: props.isWinnerSelf,
+		winningCards: props.winningCards
+	});
+
 	hasTriggeredNextRound.value = false;
 	updateTimer();
 	timerInterval.value = setInterval(updateTimer, 1000);
 
-	// Log debug info when component mounts
-	logDebugInfo();
+	// Add a direct call to startNextRound after a delay if we're the host
+	// This is a temporary fix to ensure the game progresses
+	if (props.isHost) {
+		console.log("Host detected, will attempt direct call to startNextRound after delay");
+
+		setTimeout(() => {
+			if (!hasTriggeredNextRound.value) {
+				console.log("Attempting direct call to startNextRound");
+				console.log("Lobby ID:", props.lobbyId);
+				console.log("Document ID:", props.documentId);
+
+				// Ensure we have a valid lobby ID
+				if (!props.lobbyId) {
+					console.error("No lobby ID provided for direct call, cannot start next round");
+					return;
+				}
+
+				startNextRound(props.lobbyId, props.documentId)
+					.then((result) => {
+						console.log("Direct call to startNextRound result:", result);
+						if (result && result.success) {
+							console.log("Successfully started next round via direct call");
+						} else {
+							console.warn("Direct call to startNextRound returned unsuccessful result:", result);
+						}
+					})
+					.catch((err) => {
+						console.error("Failed to directly trigger next round:", err);
+					});
+			} else {
+				console.log("Next round already triggered, skipping direct call");
+			}
+		}, 5000); // Wait 5 seconds before trying
+	} else {
+		console.log("Not host, skipping direct call to startNextRound");
+	}
 });
 
 onUnmounted(() => {
@@ -160,20 +214,45 @@ onUnmounted(() => {
 
 // Function to manually retry starting the next round
 const manualRetry = () => {
-	if (!props.isHost) return;
+	console.log("Manual retry called, checking host status:", props.isHost);
+	console.log("Lobby ID:", props.lobbyId);
+	console.log("Document ID:", props.documentId);
+
+	if (!props.isHost) {
+		console.warn("Not host, cannot trigger next round");
+		return;
+	}
 
 	retryFailed.value = false;
 	isRetrying.value = true;
 
-	startNextRound(props.lobbyId, props.documentId).catch((err: unknown) => {
-		console.error("Failed to manually trigger next round:", err);
+	// Ensure we have a valid lobby ID
+	if (!props.lobbyId) {
+		console.error("No lobby ID provided, cannot start next round");
 		retryFailed.value = true;
 		isRetrying.value = false;
-	}).then((result) => {
-		if (result && result.success) {
+		return;
+	}
+
+	console.log("Calling startNextRound with:", { lobbyId: props.lobbyId, documentId: props.documentId });
+
+	startNextRound(props.lobbyId, props.documentId)
+		.then((result) => {
+			console.log("Manual retry result:", result);
+			if (result && result.success) {
+				console.log("Successfully started next round");
+				isRetrying.value = false;
+			} else {
+				console.warn("Failed to start next round:", result);
+				retryFailed.value = true;
+				isRetrying.value = false;
+			}
+		})
+		.catch((err: unknown) => {
+			console.error("Failed to manually trigger next round:", err);
+			retryFailed.value = true;
 			isRetrying.value = false;
-		}
-	});
+		});
 };
 
 // Function to refresh the page as a last resort
@@ -190,25 +269,7 @@ watch(() => props.startTime, () => {
 	timerInterval.value = setInterval(updateTimer, 1000);
 });
 
-// Watch for changes to winningCards prop
-watch(() => props.winningCards, (newCards) => {
-	console.log('winningCards changed:', newCards);
-	console.log('winningCards type:', typeof newCards, Array.isArray(newCards));
-	if (newCards && Array.isArray(newCards)) {
-		console.log('winningCards length:', newCards.length);
-		console.log('winningCards content:', JSON.stringify(newCards));
-	}
-	logDebugInfo();
-}, { immediate: true });
-
-// Watch for changes to effectiveWinningCards computed property
-watch(() => effectiveWinningCards.value, (newCards) => {
-	console.log('effectiveWinningCards changed:', newCards);
-	if (newCards && Array.isArray(newCards)) {
-		console.log('effectiveWinningCards length:', newCards.length);
-		console.log('effectiveWinningCards content:', JSON.stringify(newCards));
-	}
-}, { immediate: true });
+// Watch for changes to props and computed properties (debug watches removed for production)
 </script>
 
 <template>
@@ -229,17 +290,26 @@ watch(() => effectiveWinningCards.value, (newCards) => {
    		/>
    	</div>
    </div>
-   <!-- Debug info for winning cards -->
-   <div v-else class="text-red-500 text-sm">
-   	{{ console.log('Winning cards not displayed:', {
-   		winningCards: props.winningCards,
-   		effectiveWinningCards,
-   		condition: effectiveWinningCards && Array.isArray(effectiveWinningCards) && effectiveWinningCards.length > 0
-   	}) }}
-   	<p v-if="!effectiveWinningCards || !Array.isArray(effectiveWinningCards)">No winning cards available</p>
-   	<p v-else-if="effectiveWinningCards.length === 0">Winning cards array is empty</p>
+   <!-- Fallback message if no winning cards are available -->
+   <div v-else class="text-gray-500 text-sm">
+   	<p>{{ t('game.no_winning_cards') || 'No winning cards available' }}</p>
    </div>
 			<!-- Timer removed as it was showing 0 and not accurate -->
+
+			<!-- Host-only manual next round button -->
+			<div v-if="props.isHost" class="mb-6 mt-4">
+				<UButton 
+					@click="manualRetry" 
+					color="primary" 
+					size="lg" 
+					block
+					:loading="isRetrying"
+					:disabled="isRetrying"
+					class="font-['Bebas_Neue'] text-xl"
+				>
+					{{ t('game.start_next_round') || 'Start Next Round Manually' }}
+				</UButton>
+			</div>
 
 			<!-- Different messages based on state -->
 			<div v-if="!retryFailed && !isRetrying">

@@ -23,7 +23,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useThrottleFn, useWindowSize } from '@vueuse/core'
-import { isMobile } from '@basitcodeenv/vue3-device-detect'
+const { isMobile } = useDevice()
 
 const props = withDefaults(defineProps<{
         speedPx?: number

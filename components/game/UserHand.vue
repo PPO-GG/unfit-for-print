@@ -112,7 +112,7 @@ function handleCardClick(cardId: string) {
 							block
 							class="md:w-full w-64 p-4 font-bold rounded-lg cursor-pointer disabled:bg-gray-500/50 disabled:text-gray-200/50"
 							color="primary"
-							icon="i-lucide-rocket"
+							icon="i-solar-file-send-bold-duotone"
 							size="xl"
 							variant="solid"
 							@click="handleSubmitCards"

@@ -25,7 +25,9 @@ const { t } = useI18n()
 
 			<div class="flex-1 flex justify-center items-center align-middle gap-2">
 				<p class="text-sm h-full flex items-center">Made with ❤️ by MYND @ PPO.GG</p>
-				<NuxtLink to="https://github.com/PPO-GG/unfit-for-print" target="_blank" class="h-full flex items-center cursor-pointer align-middle mb-1"><img alt="GitHub package.json version" src="https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print?style=flat-square&logo=github&label=%20&labelColor=rgba(0%2C0%2C0%2C0)&color=rgba(0%2C0%2C0%2C0)"></NuxtLink>
+    <ClientOnly>
+    					<NuxtLink to="https://github.com/PPO-GG/unfit-for-print" target="_blank" class="h-full flex items-center cursor-pointer align-middle mb-1"><img alt="GitHub package.json version" src="https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print?style=flat-square&logo=github&label=%20&labelColor=rgba(0%2C0%2C0%2C0)&color=rgba(0%2C0%2C0%2C0)"></NuxtLink>
+    				</ClientOnly>
 			</div>
 
 			<div class="flex-1 flex justify-end items-center gap-4">

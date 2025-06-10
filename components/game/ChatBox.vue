@@ -88,55 +88,59 @@
 </template>
 
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue';
-import {useAppwrite} from '~/composables/useAppwrite';
-import {useUserStore} from '~/stores/userStore';
-import {Filter} from 'bad-words';
-import {ID, type Models, Query, Permission, Role} from 'appwrite';
-import { useBrowserSpeech } from '~/composables/useBrowserSpeech'
-import { useSpeech } from '~/composables/useSpeech'
-import {useUserPrefsStore} from "~/stores/userPrefsStore";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { getAppwrite } from '~/utils/appwrite';
+import { useUserStore } from '~/stores/userStore';
+import { Filter } from 'bad-words';
+import { ID, Query, Permission, Role, type Models, type Databases } from 'appwrite';
+import { useBrowserSpeech } from '~/composables/useBrowserSpeech';
+import { useSpeech } from '~/composables/useSpeech';
+import { useUserPrefsStore } from '~/stores/userPrefsStore';
 
-const elevenLabsVoiceId = 'NuIlfu52nTXRM2NXDrjS'
-const browserSpeech = useBrowserSpeech()
-const elevenLabsSpeech = useSpeech(elevenLabsVoiceId)
-const prefs = useUserPrefsStore()
-const { t } = useI18n()
-const maxLength = 255
-const {playSfx} = useSfx();
+const elevenLabsVoiceId = 'NuIlfu52nTXRM2NXDrjS';
+const browserSpeech = useBrowserSpeech();
+const elevenLabsSpeech = useSpeech(elevenLabsVoiceId);
+const prefs = useUserPrefsStore();
+const { t } = useI18n();
+const maxLength = 255;
+const { playSfx } = useSfx();
 const autoResize = (e: Event) => {
-	const target = e.target as HTMLTextAreaElement
-	target.style.height = 'auto'
-	target.style.height = `${target.scrollHeight}px`
-	nextTick(() => target.scrollTop = target.scrollHeight)
-}
+	const target = e.target as HTMLTextAreaElement;
+	target.style.height = 'auto';
+	target.style.height = `${target.scrollHeight}px`;
+	nextTick(() => (target.scrollTop = target.scrollHeight));
+};
 
 const speak = (text: string) => {
 	if (prefs.ttsVoice === elevenLabsVoiceId) {
-		elevenLabsSpeech.speak(text)
+		elevenLabsSpeech.speak(text);
 	} else {
-		browserSpeech.speak(text)
+		browserSpeech.speak(text);
 	}
-}
+};
 
-// Define a proper interface for chat messages
 interface ChatMessage extends Models.Document {
-  lobbyId: string;
-  senderId: string;
-  senderName: string;
-  text: string;
-  timeStamp: string;
+	lobbyId: string;
+	senderId: string;
+	senderName: string;
+	text: string;
+	timeStamp: string;
 	type?: 'user' | 'system';
 }
 
-
-const props = withDefaults(defineProps<{
-	lobbyId?: string;
-}>(), {
-	lobbyId: ''
-});
-const { sanitize } = useSanitize()
-const { databases } = useAppwrite();
+const props = withDefaults(
+		defineProps<{
+			lobbyId?: string;
+		}>(),
+		{
+			lobbyId: '',
+		}
+);
+const { sanitize } = useSanitize();
+let databases: Databases;
+if (import.meta.client) {
+	({ databases } = getAppwrite());
+}
 const userStore = useUserStore();
 const config = useRuntimeConfig();
 const dbId = config.public.appwriteDatabaseId;
@@ -144,126 +148,107 @@ const messagesCollectionId = config.public.appwriteGamechatCollectionId;
 
 const messages = ref<ChatMessage[]>([]);
 const newMessage = ref('');
-const safeText = (text: string) => sanitize(text)
+const safeText = (text: string) => sanitize(text);
 const chatContainer = ref<HTMLDivElement | null>(null);
 const isAtBottom = ref(true);
 const errorMessage = ref<string | null>(null);
 
-// Computed property to check if the message input is empty
 const isMessageEmpty = computed(() => !newMessage.value.trim());
 
-// Bad-words filter setup
 const filter = new Filter();
 
 function uidToHSLColor(uid: string): string {
-	// Simple hash of UID to number
 	let hash = 0;
 	for (let i = 0; i < uid.length; i++) {
 		hash = uid.charCodeAt(i) + ((hash << 5) - hash);
 	}
 
-	// Convert hash to hue (0–360)
 	const hue = hash % 360;
-	const saturation = 65; // %
-	const lightness = 55;  // %
+	const saturation = 65;
+	const lightness = 55;
 
 	return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-// Fetch and subscribe to messages
 const loadMessages = async () => {
 	try {
 		errorMessage.value = null;
 
-		// Check if lobbyId is defined and not empty
 		if (!props.lobbyId) {
-			// console.error('Error: lobbyId is undefined or empty');
 			errorMessage.value = t('chat.error_loading_messages');
 			return () => {};
 		}
 
 		const res = await databases.listDocuments(dbId, messagesCollectionId, [
 			Query.equal('lobbyId', props.lobbyId),
-			Query.orderAsc('timeStamp')
+			Query.orderAsc('timeStamp'),
 		]);
 
-		messages.value = res.documents.map((doc) => {
-			// Handle case where doc.text might still be an array from previous data
+		messages.value = res.documents.map((doc: Models.Document) => {
 			const text = Array.isArray(doc.text) ? doc.text.join(' ') : doc.text;
 			const safe = sanitize(text);
 			return {
 				...doc,
-				text: prefs.chatProfanityFilter ? safe : filter.clean(safe)
+				text: prefs.chatProfanityFilter ? safe : filter.clean(safe),
 			};
 		}) as ChatMessage[];
 
-		// Subscribe to new messages
-		return databases.client.subscribe(`databases.${dbId}.collections.${messagesCollectionId}.documents`, (e) => {
-			if (e.events.includes('databases.*.collections.*.documents.*.create')) {
-				const doc = e.payload as ChatMessage;
-				// Check if lobbyId is defined and matches the document's lobbyId
-				// Handle case where doc.lobbyId is a relationship object
-				const docLobbyId = typeof doc.lobbyId === 'object' && doc.lobbyId?.$id 
-					? doc.lobbyId.$id 
-					: doc.lobbyId;
+		return databases.client.subscribe(
+				`databases.${dbId}.collections.${messagesCollectionId}.documents`,
+				(e: Models.Event) => {
+					if (e.events.includes('databases.*.collections.*.documents.*.create')) {
+						const doc = e.payload as ChatMessage;
+						const docLobbyId =
+								typeof doc.lobbyId === 'object' && (doc.lobbyId as Models.Relationship).$id
+										? (doc.lobbyId as Models.Relationship).$id
+										: doc.lobbyId;
 
-				if (props.lobbyId && docLobbyId === props.lobbyId) {
-					// Handle case where doc.text might still be an array from previous data
-					const text = Array.isArray(doc.text) ? doc.text.join(' ') : doc.text;
-					const safe = sanitize(text);
-					const safeDoc = {
-						...doc,
-						text: prefs.chatProfanityFilter ? safe : filter.clean(safe)
-					};
-					messages.value.push(safeDoc);
-					if(safeDoc.senderId !== userStore.user?.$id) {
-						playSfx('/sounds/sfx/chatReceive.wav');
-					}
+						if (props.lobbyId && docLobbyId === props.lobbyId) {
+							const text = Array.isArray(doc.text) ? doc.text.join(' ') : doc.text;
+							const safe = sanitize(text);
+							const safeDoc = {
+								...doc,
+								text: prefs.chatProfanityFilter ? safe : filter.clean(safe),
+							};
+							messages.value.push(safeDoc);
+							if (safeDoc.senderId !== userStore.user?.$id) {
+								playSfx('/sounds/sfx/chatReceive.wav');
+							}
 
-					if (prefs.ttsEnabled) {
-						// if(safeDoc.senderId !== userStore.user?.$id && safeDoc.text && safeDoc.text.length > 0) {
-						// 	// speakWithUserId(safeDoc.text, safeDoc.senderId);
-						// 	speak(safeDoc.text)
-						// }
-						if(safeDoc.text && safeDoc.text.length > 0) {
-							// speakWithUserId(safeDoc.text, safeDoc.senderId);
-							speak(safeDoc.text)
+							if (prefs.ttsEnabled) {
+								if (safeDoc.text && safeDoc.text.length > 0) {
+									speak(`${safeDoc.senderName} says: ${safeDoc.text}`);
+								}
+							}
 						}
 					}
 				}
-			}
-		});
+		);
 	} catch (error) {
-		// console.error('Error loading or subscribing to messages:', error);
 		errorMessage.value = t('chat.error_loading_messages');
 		return () => {};
 	}
 };
 
-// Scroll to bottom function that can be called manually or automatically
 const scrollToBottom = () => {
 	if (!chatContainer.value) return;
 	chatContainer.value.scrollTo({
 		top: chatContainer.value.scrollHeight,
 		behavior: 'smooth',
-	})
+	});
 	isAtBottom.value = true;
 };
 
-// Track if user is scrolled to bottom
 const checkIfAtBottom = () => {
 	if (!chatContainer.value) return;
 	const { scrollTop, scrollHeight, clientHeight } = chatContainer.value;
-	// Consider "at bottom" if within 50px of the bottom
 	isAtBottom.value = scrollHeight - scrollTop - clientHeight < 50;
 };
 
-// Handle scroll events to detect if user has scrolled up
 const handleScroll = () => {
 	checkIfAtBottom();
 };
 
-// Auto-scroll to bottom when new message (only if user was already at bottom)
 watch(messages, () => {
 	nextTick(() => {
 		if (chatContainer.value && isAtBottom.value) {
@@ -272,67 +257,66 @@ watch(messages, () => {
 	});
 });
 
-const chatInput = ref<HTMLTextAreaElement | null>(null)
+const chatInput = ref<HTMLTextAreaElement | null>(null);
 
 const sendMessage = async () => {
-	// Check for empty message first before processing
-	const trimmedMessage = newMessage.value.trim()
-	if (!trimmedMessage) return
+	const trimmedMessage = newMessage.value.trim();
+	if (!trimmedMessage) return;
 
 	const stripWeirdUnicode = (str: string) =>
-			str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+			str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
-	const safeMessage = sanitize(stripWeirdUnicode(trimmedMessage))
-	if (!safeMessage) return
+	const safeMessage = sanitize(stripWeirdUnicode(trimmedMessage));
+	if (!safeMessage) return;
 
-	// Ensure text is a string and no longer than 255 characters
-	const truncatedMessage = safeMessage.substring(0, maxLength)
+	const truncatedMessage = safeMessage.substring(0, maxLength);
 
 	try {
-		errorMessage.value = null
-		const userId = userStore.user?.$id || 'anonymous'
+		errorMessage.value = null;
+		const userId = userStore.user?.$id || 'anonymous';
 
 		const permissions = [
 			Permission.read(Role.any()),
 			Permission.update(Role.user(userId)),
 			Permission.delete(Role.user(userId)),
-		]
+		];
 
-		await databases.createDocument(dbId, messagesCollectionId, ID.unique(), {
-			lobbyId: props.lobbyId,
-			senderId: userId,
-			senderName: userStore.user?.name || userStore.user?.prefs?.name || 'Anonymous',
-			text: truncatedMessage,
-			timeStamp: new Date().toISOString(),
-		}, permissions)
+		await databases.createDocument(
+				dbId,
+				messagesCollectionId,
+				ID.unique(),
+				{
+					lobbyId: props.lobbyId,
+					senderId: userId,
+					senderName: userStore.user?.name || userStore.user?.prefs?.name || 'Anonymous',
+					text: truncatedMessage,
+					timeStamp: new Date().toISOString(),
+				},
+				permissions
+		);
 
-		newMessage.value = ''
+		newMessage.value = '';
 
 		await nextTick(() => {
-			scrollToBottom()
-			playSfx('/sounds/sfx/chatSend.wav')
-		})
+			scrollToBottom();
+			playSfx('/sounds/sfx/chatSend.wav');
+		});
 	} catch (error: any) {
-		console.error('Error sending message:', error)
-		// Provide more specific error information
 		if (error?.message) {
-			errorMessage.value = `${t('chat.error_sending')}: ${error.message}`
+			errorMessage.value = `${t('chat.error_sending')}: ${error.message}`;
 		} else {
-			errorMessage.value = t('chat.error_sending')
+			errorMessage.value = t('chat.error_sending');
 		}
 	}
-}
-
+};
 
 let unsubscribe: (() => void) | null = null;
 
 onMounted(() => {
-	// Initialize scroll position
 	nextTick(() => {
 		scrollToBottom();
 	});
 
-	// Load messages and set up subscription
 	loadMessages().then((unsub) => {
 		unsubscribe = unsub;
 	});
@@ -342,7 +326,3 @@ onUnmounted(() => {
 	if (unsubscribe) unsubscribe();
 });
 </script>
-
-<style scoped>
-/* You can tweak these */
-</style>

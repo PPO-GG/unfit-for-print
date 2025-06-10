@@ -5,7 +5,7 @@
         <UInput 
           v-model="formState.name" 
           :placeholder="t('modal.lobby_name')"
-          icon="i-heroicons-user-group"
+          icon="i-solar-users-group-rounded-bold-duotone"
           class="focus:ring-primary-500"
         />
       </UFormField>
@@ -26,7 +26,7 @@
         <UInput 
           v-model="formState.password" 
           :placeholder="t('game.settings.lobby_password')"
-          icon="i-heroicons-lock-closed"
+          icon="i-solar-lock-password-bold-duotone"
           class="focus:ring-primary-500"
         />
       </UFormField>
@@ -38,7 +38,7 @@
         :loading="creating"
       >
         <span class="flex items-center gap-2">
-          <i class="i-heroicons-play-circle"></i>
+          <i class="i-solar-play-bold"></i>
           {{ t('modal.create_lobby') }}
         </span>
       </UButton>

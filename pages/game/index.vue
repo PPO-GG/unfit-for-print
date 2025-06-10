@@ -19,9 +19,11 @@
 
 			<p v-else class="text-gray-400 text-center">{{ t('game.nogamesavailable') }}</p>
 			<div class="space-x-4 uppercase font-['Bebas_Neue']">
-				<UButton size="xl" @click="showJoin = true" class="text-white text-2xl" variant="subtle" color="success">{{ t('modal.join_lobby') }}</UButton>
-				<UButton v-if="showIfAuthenticated" size="xl" @click="showCreate = true" class="text-white text-2xl" variant="subtle" color="warning">{{ t('modal.create_lobby') }}</UButton>
-			</div>
+                                <UButton size="xl" @click="showJoin = true" class="text-white text-2xl" variant="subtle" color="success">{{ t('modal.join_lobby') }}</UButton>
+                                <ClientOnly>
+                                        <UButton v-if="showIfAuthenticated" size="xl" @click="showCreate = true" class="text-white text-2xl" variant="subtle" color="warning">{{ t('modal.create_lobby') }}</UButton>
+                                </ClientOnly>
+                        </div>
 
 			<!-- Modals -->
 			<UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
