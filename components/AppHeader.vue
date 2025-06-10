@@ -8,6 +8,7 @@ import {useRouter, useRoute} from "#vue-router";
 import {useLobby} from "~/composables/useLobby";
 import {useUiStore} from '~/stores/uiStore';
 import {useI18n} from 'vue-i18n'
+import {useIsAdmin} from '~/composables/useAdminCheck'
 
 const {getActiveLobbyForUser} = useLobby();
 const router = useRouter();
