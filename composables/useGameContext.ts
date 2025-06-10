@@ -38,25 +38,45 @@ export function useGameContext(
     return {
         state,
         // UI phases
-        isWaiting: computed(() => state.value?.phase === 'waiting'),
-        isSubmitting: computed(() => state.value?.phase === 'submitting'),
+        isWaiting: computed(() => {
+            // If state is null or empty object, or phase is explicitly 'waiting', consider it waiting
+            const result = state.value?.phase === 'waiting' || 
+                   state.value === null || 
+                   (state.value && Object.keys(state.value).length === 0) || 
+                   state.value?.phase === undefined || 
+                   false;
+
+            if (import.meta.dev && typeof window !== 'undefined') {
+                console.log('[GameContext] Checking isWaiting:', {
+                    stateValue: state.value,
+                    statePhase: state.value?.phase,
+                    isNull: state.value === null,
+                    isEmpty: state.value && Object.keys(state.value).length === 0,
+                    isUndefined: state.value?.phase === undefined,
+                    result
+                });
+            }
+
+            return result;
+        }),
+        isSubmitting: computed(() => state.value?.phase === 'submitting' || false),
         isPlaying: computed(() => {
-            if (import.meta.dev) {
+            if (import.meta.dev && typeof window !== 'undefined') {
                 console.log('[GameContext] Checking isPlaying:', {
                     lobbyStatus: lobbyRef.value?.status,
                     gamePhase: state.value?.phase
                 })
             }
-            return lobbyRef.value?.status === 'playing' ||
-                (state.value?.phase && PLAYING_PHASES.includes(state.value.phase))
+            return (lobbyRef.value?.status === 'playing') ||
+                (state.value?.phase && PLAYING_PHASES.includes(state.value.phase)) || false
         }),
-        isJudging: computed(() => state.value?.phase === 'judging'),
-        isComplete: computed(() => state.value?.phase === 'complete'),
-        isRoundEnd: computed(() => state.value?.phase === 'roundEnd'),
+        isJudging: computed(() => state.value?.phase === 'judging' || false),
+        isComplete: computed(() => state.value?.phase === 'complete' || false),
+        isRoundEnd: computed(() => state.value?.phase === 'roundEnd' || false),
 
         // Judge info
         judgeId: computed((): PlayerId | null => state.value?.judgeId ?? null),
-        isJudge: computed(() => myId.value === state.value?.judgeId),
+        isJudge: computed(() => myId.value === state.value?.judgeId || false),
 
         // Black card prompt
         blackCard: computed(() => state.value?.blackCard ?? null),
@@ -118,9 +138,10 @@ export function useGameContext(
         // Round End Info
         roundWinner: computed((): PlayerId | undefined => state.value?.roundWinner),
         roundEndStartTime: computed((): number | null => state.value?.roundEndStartTime ?? null),
-        roundEndCountdownDuration: computed((): number =>
-            lobbyRef.value?.roundEndCountdownDuration ?? DEFAULT_COUNTDOWN_DURATION
-        ),
+        roundEndCountdownDuration: computed((): number => {
+            if (!lobbyRef.value) return DEFAULT_COUNTDOWN_DURATION;
+            return lobbyRef.value.roundEndCountdownDuration ?? DEFAULT_COUNTDOWN_DURATION;
+        }),
         myId,
     }
 }

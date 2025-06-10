@@ -40,7 +40,7 @@
 			<div v-if="players.length >= 3">
 				<UButton
 						v-if="isHost && !isStarting"
-						icon="i-lucide-play"
+						icon="i-solar-play-bold"
 						@click="startGameWrapper"
 				>
 					{{ t('lobby.start_game') }}

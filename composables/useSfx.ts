@@ -20,17 +20,10 @@ interface SpriteMap {
 /**
  *
  */
-export const getRandomInRange = (val: number | [number, number]): number => {
-    return getCryptoRandomInRange(val);
-};
-
-/**
- *
- */
 export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
     if (!import.meta.client) {
         const playSfx = async () => {}
-        return { playSfx, getRandomInRange }
+        return { playSfx }
     }
 
     const audioContext = new AudioContext();
@@ -79,11 +72,11 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
                 gainNode.connect(audioContext.destination);
 
                 if (options.pitch !== undefined) {
-                    bufferSource.playbackRate.value = getRandomInRange(options.pitch);
+                    bufferSource.playbackRate.value = getCryptoRandomInRange(options.pitch);
                 }
 
                 if (options.volume !== undefined) {
-                    gainNode.gain.value = getRandomInRange(options.volume);
+                    gainNode.gain.value = getCryptoRandomInRange(options.volume);
                 }
             }
         } else {
@@ -111,14 +104,14 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
             gainNode.connect(audioContext.destination);
 
             if (options.pitch !== undefined) {
-                bufferSource.playbackRate.value = getRandomInRange(options.pitch);
+                bufferSource.playbackRate.value = getCryptoRandomInRange(options.pitch);
             }
 
             if (options.volume !== undefined) {
-                gainNode.gain.value = getRandomInRange(options.volume);
+                gainNode.gain.value = getCryptoRandomInRange(options.volume);
             }
         }
     };
 
-    return { playSfx, getRandomInRange };
+    return { playSfx };
 };

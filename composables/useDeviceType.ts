@@ -14,19 +14,19 @@ export function useDeviceType() {
         isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
     })
 
-    const isMobile = computed(() => breakpoints.smaller('tablet').value)
-    const isTablet = computed(() => breakpoints.between('tablet', 'desktop').value)
-    const isDesktop = computed(() => breakpoints.greater('tablet').value)
+    const isSizeMobile = computed(() => breakpoints.smaller('tablet').value)
+    const isSizeTablet = computed(() => breakpoints.between('tablet', 'desktop').value)
+    const isSizeDesktop = computed(() => breakpoints.greater('tablet').value)
 
     const deviceType = computed<'Mobile' | 'Tablet' | 'Desktop' | 'Unknown'>(() => {
 
-        if (isMobile.value) return 'Mobile'
+        if (isSizeMobile.value) return 'Mobile'
 
-        if (isTablet.value) {
+        if (isSizeTablet.value) {
             return isTouchDevice.value ? 'Tablet' : 'Desktop'
         }
 
-        if (isDesktop.value) {
+        if (isSizeDesktop.value) {
             return isTouchDevice.value ? 'Tablet' : 'Desktop'
         }
 
@@ -35,9 +35,9 @@ export function useDeviceType() {
 
     return {
         deviceType,
-        isMobile,
-        isTablet,
-        isDesktop,
+        isSizeMobile,
+        isSizeTablet,
+        isSizeDesktop,
         isTouchDevice,
     }
 }

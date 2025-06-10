@@ -186,6 +186,7 @@ export default async function ({ req, res, log, error }) {
     state.phase = 'submitting';
     state.round += 1;
     state.roundWinner = null; // Clear winner from previous round
+    state.winningCards = null; // Clear winning cards from previous round
     state.roundEndStartTime = null; // Clear start time
 
     // Rotate judge
@@ -396,6 +397,7 @@ export default async function ({ req, res, log, error }) {
         scores: state.scores || {},
         round: state.round,
         roundWinner: state.roundWinner,
+        winningCards: state.winningCards || null, // Include winning cards
         roundEndStartTime: state.roundEndStartTime,
         returnedToLobby: state.returnedToLobby,
         gameEndTime: state.gameEndTime,

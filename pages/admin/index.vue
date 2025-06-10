@@ -19,9 +19,9 @@ const activeTab = ref('cards')
 		<!-- Tab Navigation for smaller screens -->
 		<div class="block lg:hidden mb-6">
 			<UTabs v-model="activeTab" :items="[
-			  { label: 'Card Manager', slot: 'cards', value: 'cards', icon: 'i-heroicons-document-text' },
-			  { label: 'Lobby Monitor', slot: 'lobbies', value: 'lobbies', icon: 'i-heroicons-users' },
-			  { label: 'User Manager', slot: 'users', value: 'users', icon: 'i-heroicons-users' }
+			  { label: 'Card Manager', slot: 'cards', value: 'cards', icon: 'i-solar-documents-bold-duotone' },
+			  { label: 'Lobby Monitor', slot: 'lobbies', value: 'lobbies', icon: 'i-solar-clipboard-bold-duotone' },
+			  { label: 'User Manager', slot: 'users', value: 'users', icon: 'i-solar-users-group-rounded-bold-duotone' }
 			]">
 				<template #cards>
 					<div class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg">

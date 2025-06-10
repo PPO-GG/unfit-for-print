@@ -264,7 +264,7 @@ watch([searchTerm, statusFilter], () => {
 					@click="resetFilters"
 					color="neutral"
 					variant="soft"
-					icon="i-heroicons-x-mark"
+					icon="i-solar-close-circle-line-duotone"
 					:disabled="!searchTerm && !statusFilter"
 				>
 					Clear
@@ -274,7 +274,7 @@ watch([searchTerm, statusFilter], () => {
 					@click="checkActiveLobbies"
 					color="secondary" 
 					variant="soft" 
-					icon="i-heroicons-arrow-path"
+					icon="i-solar-refresh-broken"
 				>
 					Refresh
 				</UButton>
@@ -308,7 +308,7 @@ watch([searchTerm, statusFilter], () => {
 
 		<!-- Empty State -->
 		<div v-else-if="!lobbies.length" class="text-center py-8">
-			<UIcon name="i-heroicons-user-group" class="h-12 w-12 mx-auto text-gray-400 mb-2" />
+			<UIcon name="i-solar-users-group-rounded-bold-duotone" class="h-12 w-12 mx-auto text-gray-400 mb-2" />
 			<p class="text-gray-400">No lobbies found.</p>
 		</div>
 
@@ -344,7 +344,7 @@ watch([searchTerm, statusFilter], () => {
 								v-if="lobby.status !== 'complete'"
 								color="warning"
 								variant="ghost" 
-								icon="i-heroicons-check-circle" 
+								icon="i-solar-check-circle-bold-duotone"
 								size="xs" 
 								@click="markLobbyCompleted(lobby)"
 								class="rounded-full"
@@ -353,7 +353,7 @@ watch([searchTerm, statusFilter], () => {
 							<UButton 
 								color="error"
 								variant="ghost" 
-								icon="i-heroicons-trash" 
+								icon="i-solar-trash-bin-trash-bold-duotone"
 								size="xs" 
 								@click="deleteLobby(lobby)"
 								class="rounded-full"

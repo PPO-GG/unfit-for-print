@@ -111,6 +111,16 @@ export default async function ({ req, res, log, error }) {
       // Transition to round end phase
       state.phase = 'roundEnd';
       state.roundWinner = winnerId; // Store round winner
+
+      // Store the winning cards for display in the round end overlay
+      if (state.submissions && state.submissions[winnerId]) {
+        state.winningCards = state.submissions[winnerId];
+        log(`Stored winning cards: ${JSON.stringify(state.winningCards)}`);
+      } else {
+        state.winningCards = [];
+        log(`No winning cards found for winner ${winnerId}`);
+      }
+
       state.roundEndStartTime = Date.now(); // Record start time for countdown
       log(
         `Round ${state.round} ended. Winner: ${winnerId}. Starting countdown.`
@@ -139,6 +149,7 @@ export default async function ({ req, res, log, error }) {
         scores: state.scores || {},
         round: state.round,
         roundWinner: state.roundWinner,
+        winningCards: state.winningCards || [], // Include winning cards
         roundEndStartTime: state.roundEndStartTime,
         returnedToLobby: state.returnedToLobby,
         gameEndTime: state.gameEndTime
