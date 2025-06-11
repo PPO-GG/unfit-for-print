@@ -18,7 +18,7 @@
           marginTop: `${headerSize.height}px`,
           marginBottom: `${footerSize.height}px`
         }"
-					class="flex-1 p-4 mt-8"
+					class="flex-1 p-4 mt-16"
 			>
 				<slot/>
 			</main>

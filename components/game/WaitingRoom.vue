@@ -1,5 +1,6 @@
 <template>
-	<div v-if="lobby" class="flex h-screen bg-gray-900 overflow-hidden">
+	<div v-if="lobby" class="w-full bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen flex flex-col">
+		<div class="absolute w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none"></div>
 		<!-- Sidebar - only render if not moved to [code].vue -->
 		<aside v-if="!sidebarMoved" class="max-w-1/4 w-auto h-screen p-4 flex flex-col shadow-inner border-r border-slate-800 space-y-4">
 			<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">

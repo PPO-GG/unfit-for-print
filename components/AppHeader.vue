@@ -235,6 +235,11 @@ const isAdmin = useIsAdmin()
 					         variant="ghost">{{ t('nav.games') }}
 					</UButton>
 				</ClientOnly>
+				<ClientOnly v-if="isAuthenticatedUser(userStore.user)">
+					<UButton class="text-xl py-2 px-4 cursor-pointer" color="primary" icon="i-solar-card-bold-duotone" to="/submissions"
+					         variant="ghost">Card Submissions
+					</UButton>
+				</ClientOnly>
 				<div v-if="isAuthenticatedUser(userStore.user)">
 					<ClientOnly>
 						<UButton v-if="isAdmin" class="text-xl py-2 px-4 cursor-pointer text-info-200" color="info" icon="i-solar-shield-star-bold-duotone"
@@ -332,6 +337,12 @@ const isAdmin = useIsAdmin()
 								<UButton block class="mb-2 text-xl py-3" color="warning" icon="i-solar-gamepad-bold-duotone" to="/game"
 								         variant="soft">
 									{{ t('nav.games') }}
+								</UButton>
+							</ClientOnly>
+							<ClientOnly v-if="isAuthenticatedUser(userStore.user)">
+								<UButton block class="mb-2 text-xl py-3" color="primary" icon="i-solar-card-bold-duotone" to="/submissions"
+								         variant="soft">
+									Card Submissions
 								</UButton>
 							</ClientOnly>
 							<UButton block class="mb-2 text-xl py-3" color="error" icon="i-solar-logout-3-bold-duotone" variant="soft"

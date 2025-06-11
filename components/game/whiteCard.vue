@@ -7,12 +7,12 @@
 			@mouseleave="resetTransform"
 			@mousemove="handleMouseMove"
 		>
-			<div class="card__inner">
+			<div class="card__inner cursor-pointer">
 				<!-- Front Side -->
-				<div class="card__face card__front">
+				<div class="card__face card__front cursor-pointer">
 					<slot name="front">
-						<div class="card-content rounded-lg relative overflow-hidden">
-							<p class="xl:text-4xl md:text-3xl text-xl md:leading-none leading-6 p-6">
+						<div class="card-content rounded-lg relative overflow-hidden cursor-pointer">
+							<p class="xl:text-4xl md:text-3xl text-xl leading-5 md:leading-none p-6 text-pretty cursor-pointer">
 								{{ cardText }}
 							</p>
 							<div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
@@ -27,13 +27,13 @@
 				</div>
 
 				<!-- Back Side -->
-				<div class="card__face card__back">
+				<div class="card__face card__back cursor-pointer">
 					<slot name="back">
-						<div class="card-content">
+						<div class="card-content cursor-pointer">
 							<img
 									:src="backLogoUrl"
 									alt="Card Back Logo"
-									class="w-3/4 max-w-[10rem] object-contain opacity-75"
+									class="w-3/4 max-w-[10rem] object-contain opacity-75 cursor-pointer"
 									draggable="false"
 							/>
 						</div>
@@ -47,13 +47,12 @@
 
 <script lang="ts" setup>
 import {useAppwrite} from "~/composables/useAppwrite";
+import { gsap } from 'gsap'
+
 const { getRandomInRange } = useCrypto()
 const { playSfx } = useSfx();
 const {vibrate, stop, isSupported} = useVibrate({pattern: [getRandomInRange([1, 3]), 2, getRandomInRange([1, 3])]})
-import {isMobile} from '@basitcodeenv/vue3-device-detect'
-import {useSpeech} from '~/composables/useSpeech'
-
-const {speak} = useSpeech('1SM7GgM6IMuvQlz2BwM3')
+const { isMobile } = useDevice();
 
 function playRandomFlip() {
 	vibrate()
@@ -158,15 +157,13 @@ function handleMouseMove(e: MouseEvent) {
 
 function applyTransform(rotateX = 0, rotateY = 0) {
 	if (!card.value) return;
-
 	const intensity = props.threeDeffect ? 1 : 0.3;
-	const flipTransform = props.flipped ? "rotateY(180deg)" : "";
-	const tiltTransform = `
+
+	// Only tilt the outer .card container
+	card.value.style.transform = `
     rotateX(${rotateX * intensity}deg)
     rotateY(${rotateY * intensity}deg)
   `;
-
-	card.value.style.transform = `${flipTransform} ${tiltTransform}`;
 }
 
 function resetTransform() {
@@ -176,23 +173,17 @@ function resetTransform() {
 	}
 }
 
-watch(
-		() => props.flipped,
-		(newValue, oldValue) => {
-			if (newValue !== oldValue) {
-				// Only play when the value actually changes
-				playRandomFlip();
-			}
-		}
-);
+watch(() => props.flipped, (flipped) => {
+	const el = card.value?.querySelector('.card__inner')
+	if (!el) return;
 
-watch(
-		() => props.flipped,
-		() => {
-			applyTransform(rotation.value.x, rotation.value.y);
-		},
-		{immediate: true}
-);
+	gsap.to(el, {
+		rotateY: flipped ? 180 : 0,
+		duration: 1.5,
+		ease: 'elastic.out(0.2,0.1)',
+		onStart: () => playRandomFlip(),
+	});
+});
 
 onMounted(async () => {
 	if (!props.text) {
@@ -207,12 +198,12 @@ onMounted(async () => {
 			const config = useRuntimeConfig();
 			if (!props.cardId) {
 				console.warn("No card ID provided for whiteCard component");
-				fallbackText.value = "Card ID missing";
+				fallbackText.value = "CARD TEXT HERE";
 				return;
 			}
 
 			// Check if the card ID is valid (should be a string with reasonable length)
-			if (typeof props.cardId !== 'string' || props.cardId.length < 5) {
+			if (props.cardId.length < 20) {
 				console.warn("Invalid card ID format:", props.cardId);
 				fallbackText.value = "Invalid card format";
 				return;

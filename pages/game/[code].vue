@@ -1107,7 +1107,7 @@ function copyLobbyLink() {
 
 <template>
 	<div class="bg-slate-900 text-white">
-		<div v-if="loading">{{ t('game.loading_game') }}</div>
+		<LoadingOverlay :is-loading="loading" :message="t('game.loading_game')" />
 
 		<!-- Show join modal if user isn't in the game -->
 		<div v-if="showJoinModal" class="flex flex-col justify-center items-center min-h-screen">
@@ -1226,6 +1226,7 @@ function copyLobbyLink() {
 				<div class="w-full flex flex-row gap-2 mt-4 items-center justify-center">
 					<LanguageSwitcher />
 					<VoiceSwitcher />
+					<ThemeSwitcher />
 				</div>
 			</aside>
 

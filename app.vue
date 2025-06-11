@@ -4,16 +4,39 @@
 	      <div v-if="isDev" class="fixed top-0 left-0 h-1 bg-amber-500 w-full z-50 items-center flex justify-center">
 	        <span class="text-xs text-white font-mono mt-6">Development Mode</span>
 	      </div>
+          <LoadingOverlay :is-loading="isPageLoading" />
           <NuxtPage />
       </NuxtLayout>
+      <ConfirmDialog />
     </UApp>
 </template>
 <script setup lang="ts">
-import { ref, watchEffect } from 'vue'
+import { ref, watchEffect, onMounted } from 'vue'
 import { useRoute } from '#vue-router'
-import { useHead, useAsyncData, useRuntimeConfig } from '#imports'
+import { useHead, useAsyncData, useRuntimeConfig, useNuxtApp } from '#imports'
 import type { Lobby } from '~/types/lobby'
+import ConfirmDialog from '~/components/ConfirmDialog.vue'
 const isDev = import.meta.env.DEV
+const isPageLoading = ref(true)
+
+// Handle page loading state
+onMounted(() => {
+  // Set loading to false after the page is mounted
+  setTimeout(() => {
+    isPageLoading.value = false
+  }, 250) // Small delay to ensure components are rendered
+})
+
+// Show loading overlay during page transitions
+const nuxtApp = useNuxtApp()
+nuxtApp.hook('page:start', () => {
+  isPageLoading.value = true
+})
+nuxtApp.hook('page:finish', () => {
+  setTimeout(() => {
+    isPageLoading.value = false
+  }, 200) // Small delay to ensure smooth transition
+})
 const lobby = ref<Lobby | null>(null)
 const route = useRoute()
 const config = useRuntimeConfig()

@@ -1,5 +1,6 @@
 <template>
-	<div class="">
+	<div class="flex flex-col items-center justify-center">
+		<LoadingOverlay :is-loading="isLoading" />
 		<div class="px-4 py-8 flex flex-col items-center text-center">
 			<svg
 					class="text-white mx-auto mb-4 w-64 h-auto"
@@ -108,6 +109,7 @@
 			</ClientOnly>
 		</div>
 	</div>
+
 </template>
 
 <script lang="ts" setup>
@@ -119,6 +121,9 @@ import { useSpeech } from '~/composables/useSpeech';
 import { mergeCardText } from '~/composables/useMergeCards';
 import { useI18n } from 'vue-i18n';
 import { useUserPrefsStore } from '@/stores/userPrefsStore';
+
+// Loading state
+const isLoading = ref(true);
 
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
@@ -248,5 +253,10 @@ const fetchNewCards = async () => {
 
 onMounted(() => {
 	fetchNewCards();
+
+	// Hide loading overlay after a short delay
+	setTimeout(() => {
+		isLoading.value = false;
+	}, 500);
 });
 </script>

@@ -2,18 +2,19 @@
   <div class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]">
     <div
       ref="card"
-      class="card cursor-pointer"
-      @mousemove="handleMouseMove"
-      @mouseleave="resetTransform"
       :class="{ 'card--flipped': flipped }"
+      class="card cursor-pointer"
+      @mouseleave="resetTransform"
+      @mousemove="handleMouseMove"
     >
-      <div class="card__inner">
+      <div class="card__inner cursor-pointer">
         <!-- Front Side -->
-        <div class="card__face card__front">
+        <div class="card__face card__front cursor-pointer">
           <slot name="front">
-            <div class="card-content rounded-lg relative overflow-hidden">
-	            <p class="xl:text-4xl md:text-3xl text-xl md:leading-none leading-6 p-6">
-		            {{ cardText }}
+            <div class="card-content rounded-lg relative overflow-hidden cursor-pointer">
+	            <p class="xl:text-4xl md:text-3xl text-xl leading-5 md:leading-none p-6 text-pretty cursor-pointer"
+                v-html="formattedCardText"
+              >
 	            </p>
 	            <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
 		            <UTooltip :text="`Card ID ` + (cardId ?? '') + `\n` + cardPack" class="text-slate-500 font-light">
@@ -31,13 +32,13 @@
         </div>
 
         <!-- Back Side -->
-        <div class="card__face card__back">
+        <div class="card__face card__back cursor-pointer">
           <slot name="back">
-            <div class="card-content">
+            <div class="card-content cursor-pointer">
               <img
                 :src="backLogoUrl"
                 alt="Card Back Logo"
-                class="w-3/4 max-w-[10rem] object-contain invert opacity-75"
+                class="w-3/4 max-w-[10rem] object-contain invert opacity-75 cursor-pointer"
                 draggable="false"
               />
             </div>
@@ -50,12 +51,12 @@
 </template>
 
 <script setup lang="ts">
+import {gsap} from "gsap";
+
 const { getRandomInRange } = useCrypto()
 const { playSfx } = useSfx();
 const { vibrate, stop, isSupported } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
-import { isMobile } from '@basitcodeenv/vue3-device-detect'
-import { useSpeech } from '~/composables/useSpeech'
-const {speak} = useSpeech('1SM7GgM6IMuvQlz2BwM3')
+const { isMobile } = useDevice();
 function playRandomFlip() {
 	vibrate()
 	playSfx([
@@ -95,6 +96,11 @@ const computedNumPick = computed(() => {
 
 const fallbackText = ref('');
 const cardText = computed(() => props.text || fallbackText.value);
+
+const formattedCardText = computed(() => {
+  return cardText.value.replace(/_/g, '<span class="inline-block relative w-1/2 py-1 md:py-2 h-4 lg:h-8 align-middle bg-slate-600/50 rounded-sm md:rounded-lg outline-dashed outline-1 outline-white/25 inset-shadow-xs inset-shadow-black/50 border-b-1 border-white/25 mx-1"></span>');
+});
+
 const cardPack = ref(props.cardPack || null);
 
 // Watch for changes to the cardPack prop and update the ref
@@ -174,16 +180,14 @@ function handleMouseMove(e: MouseEvent) {
 }
 
 function applyTransform(rotateX = 0, rotateY = 0) {
-  if (!card.value) return;
+	if (!card.value) return;
+	const intensity = props.threeDeffect ? 1 : 0.3;
 
-  const intensity = props.threeDeffect ? 1 : 0.3;
-  const flipTransform = props.flipped ? "rotateY(180deg)" : "";
-  const tiltTransform = `
+	// Only tilt the outer .card container
+	card.value.style.transform = `
     rotateX(${rotateX * intensity}deg)
     rotateY(${rotateY * intensity}deg)
   `;
-
-  card.value.style.transform = `${flipTransform} ${tiltTransform}`;
 }
 
 function resetTransform() {
@@ -193,22 +197,17 @@ function resetTransform() {
   }
 }
 
-watch(
-  () => props.flipped,
-  (newValue, oldValue) => {
-    if (newValue !== oldValue) {
-      playRandomFlip();
-    }
-  }
-);
+watch(() => props.flipped, (flipped) => {
+	const el = card.value?.querySelector('.card__inner')
+	if (!el) return;
 
-watch(
-  () => props.flipped,
-  () => {
-    applyTransform(rotation.value.x, rotation.value.y);
-  },
-  { immediate: true }
-);
+	gsap.to(el, {
+		rotateY: flipped ? 180 : 0,
+		duration: 1.5,
+		ease: 'elastic.out(0.2,0.1)',
+		onStart: () => playRandomFlip(),
+	});
+});
 
 onMounted(async () => {
 	// Fetch card data only if text AND numPick are not provided, but cardId is.

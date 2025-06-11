@@ -22,6 +22,9 @@ export default defineNuxtConfig({
         // enabled: false,
         // logErrors: true,
     },
+    routeRules: {
+        '/': { prerender: true }
+    },
     vite: {
         build: {
             sourcemap: false,
@@ -37,9 +40,6 @@ export default defineNuxtConfig({
                         }
                     },
                 },
-                plugins: [
-                    visualizer({open: true, filename: 'dist/stats.html'})
-                ]
             },
             chunkSizeWarningLimit: 1600,
         },
@@ -52,6 +52,7 @@ export default defineNuxtConfig({
         {src: "~/plugins/appwrite.client.ts", mode: "client"},
         {src: "~/plugins/init-session.client.ts", mode: "client"},
         {src: "~/plugins/i18n.client.ts", mode: "client"},
+        {src: "~/plugins/gsap.client.ts", mode: "client"},
     ],
     components: [
         {path: '~/components/game', prefix: ''},
@@ -124,6 +125,7 @@ export default defineNuxtConfig({
             appwriteGamecardsCollectionId: process.env.NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID,
             appwriteGamechatCollectionId: process.env.NUXT_PUBLIC_APPWRITE_GAMECHAT_COLLECTION_ID,
             appwriteGameSettingsCollectionId: process.env.NUXT_PUBLIC_APPWRITE_GAMESETTINGS_COLLECTION_ID,
+            appwriteSubmissionCollectionId: process.env.NUXT_PUBLIC_APPWRITE_SUBMISSION_COLLECTION_ID,
             appwriteAdminTeamId: process.env.NUXT_PUBLIC_APPWRITE_ADMIN_TEAM_ID,
             appwriteFunctionsStartGame: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_START_GAME,
             appwriteFunctionsPlayCard: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_PLAY_CARD,
