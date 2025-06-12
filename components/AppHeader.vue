@@ -182,6 +182,7 @@ const isAdmin = useIsAdmin()
 	<header
 			class="fixed top-0 left-0 right-0 z-50 flex w-full h-16 items-center p-4 backdrop-blur-2xl dark:bg-slate-900/50 bg-slate-200 shadow-md text-2xl font-medium border-b-2 border-slate-700/25 transition-all duration-250 linear"
 	>
+		<!-- Mobile Menu Button -->
 		<UButton
 				class="lg:hidden absolute right-4 p-4"
 				color="neutral"
@@ -190,59 +191,100 @@ const isAdmin = useIsAdmin()
 				variant="subtle"
 				@click="isMobileMenuOpen = true"
 		/>
+
+		<!-- Mobile Join/Create Buttons -->
+		<ClientOnly>
+			<UButtonGroup class="lg:hidden absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1">
+				<UButton
+						:loading="isJoining"
+						aria-label="Join Game"
+						class="text-xl p-2 outline-1 dark:outline-none font-['Bebas_Neue']"
+						color="success"
+						icon="i-solar-hand-shake-line-duotone"
+						label="Join Game"
+						size="lg"
+						variant="soft"
+						@click="checkForActiveLobbyAndJoin"
+				/>
+				<UButton
+						:disabled="!isAuthenticatedUser(userStore.user)"
+						:label="isAuthenticatedUser(userStore.user) ? 'Create Game' : 'Login to Create'"
+						:loading="isCreating"
+						aria-label="Create Game"
+						class="text-xl p-2 outline-1 dark:outline-none font-['Bebas_Neue']"
+						color="warning"
+						icon="i-solar-magic-stick-3-bold-duotone"
+						size="lg"
+						variant="soft"
+						@click="checkForActiveLobbyAndCreate"
+				/>
+			</UButtonGroup>
+		</ClientOnly>
+
 		<div class="flex-1 flex">
 			<ClientOnly>
 				<NuxtLink class="font-['Bebas_Neue'] cursor-pointer" to="/">
-					<img src="/img/ufp2.svg" alt="Unfit For Print Logo" class="mx-auto w-10 h-auto" />
+					<img alt="Unfit For Print Logo" class="mx-auto w-10 h-auto" src="/img/ufp2.svg"/>
 				</NuxtLink>
 			</ClientOnly>
 		</div>
 		<ClientOnly>
 			<nav class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto align-middle">
 				<ClientOnly>
-					<UButton class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="info" icon="i-solar-home-smile-bold-duotone" size="xl" to="/"
+					<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="info"
+					         icon="i-solar-home-smile-bold-duotone" size="xl" to="/"
 					         variant="subtle">{{ t('nav.home') }}
 					</UButton>
 				</ClientOnly>
 				<UButtonGroup>
-					<UButton :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="success"
-					         icon="i-solar-hand-shake-line-duotone" variant="subtle" @click="checkForActiveLobbyAndJoin">{{ t('nav.joingame') }}
+					<UButton :loading="isJoining" class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+					         color="success"
+					         icon="i-solar-hand-shake-line-duotone" variant="subtle" @click="checkForActiveLobbyAndJoin">
+						{{ t('nav.joingame') }}
 					</UButton>
-					<UButton :disabled="!isAuthenticatedUser(userStore.user)" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-right-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'"
-					         :loading="isCreating" class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none"
+					<UButton :disabled="!isAuthenticatedUser(userStore.user)"
+					         :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-right-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'"
+					         :loading="isCreating" class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
 					         color="warning" variant="subtle"
 					         @click="checkForActiveLobbyAndCreate">
 						{{ isAuthenticatedUser(userStore.user) ? t('nav.creategame') : t('nav.login_to_create') }}
 					</UButton>
 				</UButtonGroup>
 				<ClientOnly>
-					<UButton class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="warning" icon="i-solar-gamepad-bold-duotone" to="/game"
+					<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="warning"
+					         icon="i-solar-gamepad-bold-duotone" to="/game"
 					         variant="subtle">{{ t('nav.games') }}
 					</UButton>
 				</ClientOnly>
 				<ClientOnly v-if="isAuthenticatedUser(userStore.user)">
-					<UButton class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="primary" icon="i-solar-card-bold-duotone" to="/submissions"
-					         variant="subtle">Card Submissions
+					<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="primary"
+					         icon="i-solar-card-bold-duotone" to="/submissions"
+					         variant="subtle">Labs
 					</UButton>
 				</ClientOnly>
-				<div v-if="isAuthenticatedUser(userStore.user)" class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto align-middle">
+				<div v-if="isAuthenticatedUser(userStore.user)"
+				     class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto align-middle">
 					<ClientOnly>
-						<UButton v-if="isAdmin" class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="error" icon="i-solar-shield-star-bold-duotone"
+						<UButton v-if="isAdmin" class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="error"
+						         icon="i-solar-shield-star-bold-duotone"
 						         to="/admin" variant="subtle">{{ t('nav.admin') }}
 						</UButton>
 					</ClientOnly>
-					<ClientOnly>
-						<UButton class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="secondary" icon="i-solar-user-id-bold-duotone" to="/profile"
-						         variant="subtle">{{ t('nav.profile') }}
-						</UButton>
-					</ClientOnly>
-					<UButton class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="error" icon="i-solar-logout-3-bold-duotone" variant="subtle"
+<!--					<ClientOnly>-->
+<!--						<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="secondary"-->
+<!--						         icon="i-solar-user-id-bold-duotone" to="/profile"-->
+<!--						         variant="subtle">{{ t('nav.profile') }}-->
+<!--						</UButton>-->
+<!--					</ClientOnly>-->
+					<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="error"
+					         icon="i-solar-logout-3-bold-duotone" variant="subtle"
 					         @click="handleLogout">{{ t('nav.logout') }}
 					</UButton>
 				</div>
 
 				<template v-else>
-					<UButton class="text-xl py-2 px-4 cursor-pointer border-1 dark:border-none" color="secondary" icon="i-logos-discord-icon" variant="subtle"
+					<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="secondary"
+					         icon="i-logos-discord-icon" variant="subtle"
 					         @click="handleLoginWithDiscord">{{ t('nav.login_discord') }}
 					</UButton>
 				</template>
@@ -277,10 +319,11 @@ const isAdmin = useIsAdmin()
 
 							<!-- Close Button Aligned Right -->
 							<UButton
+									class="lg:hidden absolute right-4 p-4"
 									color="neutral"
-									icon="i-solar-close-square-bold-duotone"
+									icon="i-solar-close-square-outline"
 									size="xl"
-									variant="ghost"
+									variant="subtle"
 									@click="isMobileMenuOpen = false"
 							/>
 						</div>
@@ -289,16 +332,20 @@ const isAdmin = useIsAdmin()
 					<!-- Scrollable Nav Section -->
 					<div class="flex-1 overflow-y-auto flex flex-col p-4 bg-slate-100 dark:bg-slate-900">
 						<ClientOnly>
-							<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="info" icon="i-solar-home-smile-bold-duotone" size="xl" to="/"
+							<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="info"
+							         icon="i-solar-home-smile-bold-duotone" size="xl" to="/"
 							         variant="soft">
 								{{ t('nav.home') }}
 							</UButton>
 						</ClientOnly>
-						<UButton :loading="isJoining" block class="mb-2 text-xl py-3 border-2 dark:border-none" color="success" icon="i-solar-hand-shake-line-duotone"
+						<UButton :loading="isJoining" block class="mb-2 text-xl py-3 border-2 dark:border-none" color="success"
+						         icon="i-solar-hand-shake-line-duotone"
 						         size="xl" variant="soft" @click="checkForActiveLobbyAndJoin">
 							{{ t('nav.joingame') }}
 						</UButton>
-						<UButton :disabled="!isAuthenticatedUser(userStore.user)" :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-down-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'" :loading="isCreating" block
+						<UButton :disabled="!isAuthenticatedUser(userStore.user)"
+						         :icon="!isAuthenticatedUser(userStore.user) ? 'i-solar-double-alt-arrow-down-bold-duotone' : 'i-solar-magic-stick-3-bold-duotone'"
+						         :loading="isCreating" block
 						         class="mb-2 text-xl py-3 border-2 dark:border-none" color="warning" size="xl"
 						         variant="soft"
 						         @click="checkForActiveLobbyAndCreate">
@@ -312,25 +359,29 @@ const isAdmin = useIsAdmin()
 									{{ t('nav.admin') }}
 								</UButton>
 							</ClientOnly>
+<!--							<ClientOnly>-->
+<!--								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="secondary"-->
+<!--								         icon="i-solar-user-id-bold-duotone" to="/profile"-->
+<!--								         variant="soft">-->
+<!--									{{ t('nav.profile') }}-->
+<!--								</UButton>-->
+<!--							</ClientOnly>-->
 							<ClientOnly>
-								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="secondary" icon="i-solar-user-id-bold-duotone" to="/profile"
-								         variant="soft">
-									{{ t('nav.profile') }}
-								</UButton>
-							</ClientOnly>
-							<ClientOnly>
-								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="warning" icon="i-solar-gamepad-bold-duotone" to="/game"
+								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="warning"
+								         icon="i-solar-gamepad-bold-duotone" to="/game"
 								         variant="soft">
 									{{ t('nav.games') }}
 								</UButton>
 							</ClientOnly>
 							<ClientOnly v-if="isAuthenticatedUser(userStore.user)">
-								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="primary" icon="i-solar-card-bold-duotone" to="/submissions"
+								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="primary"
+								         icon="i-solar-card-bold-duotone" to="/submissions"
 								         variant="soft">
-									Card Submissions
+									Labs
 								</UButton>
 							</ClientOnly>
-							<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="error" icon="i-solar-logout-3-bold-duotone" variant="soft"
+							<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="error"
+							         icon="i-solar-logout-3-bold-duotone" variant="soft"
 							         @click="handleLogout">
 								{{ t('nav.logout') }}
 							</UButton>
@@ -338,7 +389,8 @@ const isAdmin = useIsAdmin()
 
 						<template v-else>
 							<USeparator class="my-2"/>
-							<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="secondary" icon="i-logos-discord-icon" variant="soft"
+							<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="secondary"
+							         icon="i-logos-discord-icon" variant="soft"
 							         @click="handleLoginWithDiscord">
 								{{ t('nav.login_discord') }}
 							</UButton>
@@ -347,7 +399,8 @@ const isAdmin = useIsAdmin()
 						<!-- Footer section always last in scroll -->
 						<div class="mt-auto flex flex-col items-center justify-center gap-2 pt-4">
 							<USeparator class="my-2"/>
-							<UButton block class="mb-2 text-sm py-3 border-2 dark:border-none" color="secondary" icon="i-solar-shield-check-line-duotone" variant="soft"
+							<UButton block class="mb-2 text-sm py-3 border-2 dark:border-none" color="secondary"
+							         icon="i-solar-shield-check-line-duotone" variant="soft"
 							         @click="openPolicyModal">
 								{{ t('nav.privacy_policy') }}
 							</UButton>

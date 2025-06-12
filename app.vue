@@ -1,8 +1,8 @@
 <template>
     <UApp>
       <NuxtLayout>
-	      <div v-if="isDev" class="fixed top-0 left-0 h-1 bg-amber-500 w-full z-50 items-center flex justify-center">
-	        <span class="text-xs text-white font-mono mt-6">Development Mode</span>
+	      <div v-if="isDev" class="fixed top-0 left-0 border-t-1 h-0 border-amber-500 w-full z-50 items-center flex justify-start">
+	        <span class="text-[0.5em] dark:text-white text-black font-mono mt-4 ml-1">DEV MODE</span>
 	      </div>
           <LoadingOverlay :is-loading="isPageLoading" />
           <NuxtPage />

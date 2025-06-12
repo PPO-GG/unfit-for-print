@@ -68,10 +68,10 @@
         <ClientOnly>
           <div class="flex justify-center">
             <div v-if="cardType === 'white'" class="w-64">
-              <whiteCard :text="cardText.trim()" :threeDeffect="true" />
+              <WhiteCard :text="cardText.trim()" :threeDeffect="true" />
             </div>
             <div v-else class="w-64">
-              <blackCard :text="cardText.trim()" :numPick="calculatePicks" :threeDeffect="true" />
+              <BlackCard :text="cardText.trim()" :numPick="calculatePicks" :threeDeffect="true" />
             </div>
           </div>
         </ClientOnly>

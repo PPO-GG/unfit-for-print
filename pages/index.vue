@@ -206,24 +206,16 @@ const fetchNewCards = async () => {
 			vibrate();
 		}
 
-		fetchRandomCard('white').then((card: any) => {
-			whiteCard.value = card;
-			whiteCardFlipped.value = false;
-		});
 		fetchRandomCard('black', 1).then((card: any) => {
 			blackCard.value = card;
 			randomCard.value = card;
 			blackCardFlipped.value = false;
-		});
 
-		// if (isClient.value) {
-		// 	notify({
-		// 		title: t('notification.fetched_cards'),
-		// 		icon: "i-mdi-cards",
-		// 		color: 'info',
-		// 		duration: 500,
-		// 	});
-		// }
+			return fetchRandomCard('white');
+		}).then((card: any) => {
+			whiteCard.value = card;
+			whiteCardFlipped.value = false;
+		});
 
 		setTimeout(() => {
 			isFetching.value = false;

@@ -22,7 +22,7 @@ defineProps({
            zIndex: 5 - i
          }"
          class="w-full h-full -translate-x-3 -translate-y-3 md:-translate-x-1 md:-translate-y-1">
-      <whiteCard
+      <WhiteCard
           :backLogoUrl="backLogoUrl"
           :flipped="true"
           :mask-url="maskUrl"

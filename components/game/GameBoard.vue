@@ -8,7 +8,7 @@ import {useLobby} from '~/composables/useLobby'
 import {useNotifications} from '~/composables/useNotifications'
 import {useGameCards} from '~/composables/useGameCards'
 import UserHand from '~/components/game/UserHand.vue'
-import whiteCard from '~/components/game/whiteCard.vue'
+import WhiteCard from '~/components/game/WhiteCard.vue'
 import {getAppwrite} from "~/utils/appwrite";
 import {Query} from "appwrite";
 import BlackCardDeck from '~/components/game/BlackCardDeck.vue'

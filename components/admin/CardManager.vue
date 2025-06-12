@@ -27,6 +27,7 @@ const showEditModal = ref(false)
 const editingCard = ref<any>(null)
 const newCardText = ref('')
 const editingCardPicks = ref(1)
+const numPick = ref(1)
 
 // Add single card feature
 const showAddCardModal = ref(false)
@@ -93,6 +94,9 @@ const CARD_COLLECTIONS = {
 	white: config.public.appwriteWhiteCardCollectionId as string
 }
 const CARD_COLLECTION = computed(() => CARD_COLLECTIONS[cardType.value])
+
+// Computed property to determine if numPick input should be disabled
+const isNumPickDisabled = computed(() => cardType.value === 'white')
 
 // Fetch available card packs on mount
 onMounted(async () => {
@@ -183,6 +187,11 @@ const fetchCards = async () => {
 		// Apply filters for pack selection
 		if (selectedPack.value) {
 			queries.push(Query.equal('pack', selectedPack.value))
+		}
+
+		// Apply filter for numPick when card type is black
+		if (cardType.value === 'black' && numPick.value > 0) {
+			queries.push(Query.equal('pick', numPick.value))
 		}
 
 		// Handle text search - try server-side search first, but be prepared to fall back to client-side filtering
@@ -283,7 +292,7 @@ const totalPages = computed(() => {
 
 // Reset page when search or filter changes
 watchDebounced(
-		[searchTerm, selectedPack],
+		[searchTerm, selectedPack, numPick],
 		() => {
 			currentPage.value = 1
 			fetchCards()
@@ -292,8 +301,13 @@ watchDebounced(
 )
 
 // Watch for card type changes
-watch(cardType, () => {
+watch(cardType, (newType) => {
 	currentPage.value = 1
+
+	// Reset numPick to default when switching to white cards
+	if (newType === 'white') {
+		numPick.value = 1
+	}
 })
 
 // Add console log for debugging pagination
@@ -1125,10 +1139,14 @@ const resumeUpload = () => {
 
 <template>
 	<div class="space-y-4">
-		<div class="flex gap-4 items-center">
-			<UInput v-model="searchTerm" placeholder="Search card text..." class="flex-1" icon="i-solar-magnifer-broken" />
+		<UInput v-model="searchTerm" placeholder="Search card text..." class="flex w-full" icon="i-solar-magnifer-broken" />
+		<div class="flex items-center">
+			<UButtonGroup class="w-full flex">
+				<USelectMenu v-model="selectedPack" :items="availablePacks" placeholder="Filter by pack" clearable class="w-1/3"/>
+				<USelectMenu v-model="cardType" :items="['black', 'white']" class="w-1/3" />
+    <UInputNumber v-model="numPick" :min="0" :max="10" :default-value="1" class="w-1/3" :disabled="isNumPickDisabled"/>
+			</UButtonGroup>
 			<div class="flex items-center gap-2">
-				<USelectMenu v-model="selectedPack" :items="availablePacks" placeholder="Filter by pack" clearable />
 				<div v-if="selectedPack" class="flex gap-1">
 					<UTooltip text="Activate all cards in this pack">
 						<UButton 
@@ -1157,7 +1175,6 @@ const resumeUpload = () => {
 					</div>
 				</div>
 			</div>
-			<USelectMenu v-model="cardType" :items="['black', 'white']" />
 		</div>
 
 		<div class="flex justify-between items-center">

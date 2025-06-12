@@ -78,6 +78,7 @@
 							:submissions="paginatedSubmissions"
 							@delete="handleDelete"
 							@upvote="handleUpvote"
+							@adopt="handleAdopt"
 					/>
 
 					<!-- Pagination -->
@@ -382,6 +383,68 @@ async function handleDelete(submissionId: string) {
 		useToast().add({
 			title: 'Error',
 			description: 'Failed to delete submission',
+			color: 'error'
+		});
+	}
+}
+
+async function handleAdopt(submission: any) {
+	if (!isAdmin.value) {
+		useToast().add({
+			title: 'Error',
+			description: 'Only administrators can adopt submissions',
+			color: 'error'
+		});
+		return;
+	}
+
+	try {
+		// Determine which collection to add to based on card type
+		const collectionId = submission.cardType === 'white' 
+			? config.public.appwriteWhiteCardCollectionId 
+			: config.public.appwriteBlackCardCollectionId;
+
+		// Create the card data
+		const cardData: any = {
+			text: submission.text,
+			pack: "Unfit Labs",
+			active: true,
+			submittedBy: submission.submitterName
+		};
+
+		// Add pick property for black cards
+		if (submission.cardType === 'black' && submission.pick) {
+			cardData.pick = submission.pick;
+		}
+
+		// Add the card to the appropriate collection
+		await databases.createDocument(
+			config.public.appwriteDatabaseId,
+			collectionId,
+			'unique()',
+			cardData
+		);
+
+		// Delete the submission from the database
+		await databases.deleteDocument(
+			config.public.appwriteDatabaseId,
+			config.public.appwriteSubmissionCollectionId,
+			submission.$id
+		);
+
+		// Remove the submission from the local state
+		submissions.value = submissions.value.filter(s => s.$id !== submission.$id);
+
+		useToast().add({
+			title: 'Success',
+			description: `Card successfully adopted to the Unfit Labs pack!`,
+			color: 'success'
+		});
+	} catch (error) {
+		console.error('Error adopting submission:', error);
+		useToast().add({
+			title: 'Error',
+			description: 'Failed to adopt submission',
 			color: 'error'
 		});
 	}

@@ -298,7 +298,7 @@ watch(() => props.startTime, () => {
    		</div>
    		<!-- Display the winning submission on the right -->
    		<div class="flex flex-wrap items-center justify-center gap-2">
-   			<whiteCard
+   			<WhiteCard
    				v-for="cardId in effectiveWinningCards"
    				:key="cardId"
    				:cardId="cardId"

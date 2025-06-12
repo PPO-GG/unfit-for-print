@@ -22,46 +22,35 @@ export const useCards = () => {
     try {
       const config = useRuntimeConfig();
       const { databases } = getAppwrite();
-
-      // Determine collection ID based on card type
-      const collectionId = type === 'white' 
-        ? config.public.appwriteWhiteCardCollectionId as string
-        : config.public.appwriteBlackCardCollectionId as string;
-
+      const collectionId = type === 'white'
+          ? config.public.appwriteWhiteCardCollectionId as string
+          : config.public.appwriteBlackCardCollectionId as string;
       const packKey = cardPacks && cardPacks.length > 0
-        ? [...cardPacks].sort().join('|')
-        : 'ALL';
+          ? [...cardPacks].sort().join('|')
+          : 'ALL';
 
-      // Initialize queries array
       let queries: any[] = [Query.limit(1)];
 
-      // Add pick filter for black cards
       if (type === 'black') {
         queries.push(Query.equal('pick', pick));
       }
-
-      // Add filter for card packs if specified
       if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
         const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
-        if (packConditions.length > 1) {
-          queries.push(Query.or(packConditions));
-        } else if (packConditions.length === 1) {
-          queries.push(packConditions[0]);
-        }
+        queries.push(packConditions.length > 1 ? Query.or(packConditions) : packConditions[0]);
       }
 
-      // Get cached total or fetch it
-      let cached = type === 'white' 
-        ? totalsStore.getWhiteTotal(packKey)
-        : totalsStore.getBlackTotal(packKey, pick);
+      let cached = type === 'white'
+          ? totalsStore.getWhiteTotal(packKey)
+          : totalsStore.getBlackTotal(packKey, pick);
 
-      if (!cached || Date.now() - cached.lastFetched > CACHE_TTL) {
+      // Bypass caching for black cards; white cards still use cache.
+      if ((type === 'white' && (!cached || Date.now() - cached.lastFetched > CACHE_TTL)) ||
+          type === 'black') {
         const totalRes = await databases.listDocuments(
-          config.public.appwriteDatabaseId as string,
-          collectionId,
-          queries
+            config.public.appwriteDatabaseId as string,
+            collectionId,
+            queries
         );
-
         if (type === 'white') {
           totalsStore.setWhiteTotal(packKey, totalRes.total);
           cached = totalsStore.getWhiteTotal(packKey);
@@ -74,37 +63,26 @@ export const useCards = () => {
       const total = cached?.total ?? 0;
       if (total === 0) return null;
 
-      // Generate a random offset using the unbiased random integer function
       const offset = getRandomInt(total);
-
-      // Prepare queries for fetching the random card
       queries = [Query.offset(offset), Query.limit(1)];
-
-      // Add pick filter for black cards
       if (type === 'black') {
         queries.push(Query.equal('pick', pick));
       }
-
-      // Re-add filter for card packs if specified
       if (cardPacks && Array.isArray(cardPacks) && cardPacks.length > 0) {
         const packConditions = cardPacks.map(pack => Query.equal('pack', pack));
-        if (packConditions.length > 1) {
-          queries.push(Query.or(packConditions));
-        } else if (packConditions.length === 1) {
-          queries.push(packConditions[0]);
-        }
+        queries.push(packConditions.length > 1 ? Query.or(packConditions) : packConditions[0]);
       }
 
       const res = await databases.listDocuments(
-        config.public.appwriteDatabaseId as string,
-        collectionId,
-        queries
+          config.public.appwriteDatabaseId as string,
+          collectionId,
+          queries
       );
 
       return res.documents[0] ?? null;
     } catch (err: any) {
       if (type === 'black' && err.message && err.message.includes('Attribute not found')) {
-        console.error(`Failed to fetch black card: Make sure the 'pick' attribute exists'. Error: ${err}`);
+        console.error(`Failed to fetch black card: Make sure the 'pick' attribute exists. Error: ${err}`);
       } else {
         console.error(`Failed to fetch ${type} card:`, err);
       }

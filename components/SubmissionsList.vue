@@ -4,10 +4,10 @@
       <!-- Card Preview -->
       <div class="p-4 flex justify-center">
         <div v-if="submission.cardType === 'white'" class="">
-          <whiteCard :text="submission.text" :threeDeffect="true" />
+          <WhiteCard :text="submission.text" :threeDeffect="true" />
         </div>
         <div v-else >
-          <blackCard :text="submission.text" :numPick="submission.pick || 1" :threeDeffect="true" />
+          <BlackCard :text="submission.text" :numPick="submission.pick || 1" :threeDeffect="true" />
         </div>
       </div>
 
@@ -45,17 +45,31 @@
               {{ submission.upvotes || 0 }}
             </div>
 
-            <!-- Delete button for admins -->
-            <UButton
-              v-if="isAdmin"
-              color="error"
-              variant="ghost"
-              icon="i-solar-trash-bin-trash-bold-duotone"
-              size="sm"
-              @click="deleteSubmission(submission.$id)"
-              :loading="deletingId === submission.$id"
-              :disabled="deletingId === submission.$id"
-            />
+            <!-- Admin buttons -->
+            <div v-if="isAdmin" class="flex gap-2">
+              <!-- Adopt button -->
+              <UButton
+                color="success"
+                variant="ghost"
+                icon="i-solar-check-circle-bold-duotone"
+                size="sm"
+                @click="adoptSubmission(submission)"
+                :loading="adoptingId === submission.$id"
+                :disabled="adoptingId === submission.$id || deletingId === submission.$id"
+                tooltip="Adopt this card"
+              />
+
+              <!-- Delete button -->
+              <UButton
+                color="error"
+                variant="ghost"
+                icon="i-solar-trash-bin-trash-bold-duotone"
+                size="sm"
+                @click="deleteSubmission(submission.$id)"
+                :loading="deletingId === submission.$id"
+                :disabled="deletingId === submission.$id || adoptingId === submission.$id"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -100,6 +114,39 @@
     </template>
   </UModal>
 
+  <!-- Adopt Confirmation Modal -->
+  <UModal v-model:open="showAdoptModal" :title="'Adopt Submission'">
+    <template #body>
+      <div class="py-4">
+        <p>Are you sure you want to adopt this {{ submissionToAdopt?.cardType }} card to the "Unfit Labs" pack?</p>
+        <div class="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded">
+          <p class="font-medium">{{ submissionToAdopt?.text }}</p>
+          <p class="text-sm text-gray-500 mt-2">Submitted by: {{ submissionToAdopt?.submitterName }}</p>
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-3">
+        <UButton
+          color="gray"
+          variant="soft"
+          class="p-3"
+          @click="showAdoptModal = false"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          color="success"
+          variant="soft"
+          class="p-3"
+          @click="confirmAdopt"
+        >
+          Adopt Card
+        </UButton>
+      </div>
+    </template>
+  </UModal>
+
 
 </template>
 
@@ -115,7 +162,7 @@ const props = defineProps<{
 }>();
 
 // Emits
-const emit = defineEmits(['upvote', 'delete']);
+const emit = defineEmits(['upvote', 'delete', 'adopt']);
 
 // User authentication
 const userStore = useUserStore();
@@ -125,8 +172,11 @@ const isAdmin = useIsAdmin();
 // State
 const upvotingId = ref<string | null>(null);
 const deletingId = ref<string | null>(null);
+const adoptingId = ref<string | null>(null);
 const showDeleteModal = ref(false);
 const submissionToDelete = ref<any>(null);
+const showAdoptModal = ref(false);
+const submissionToAdopt = ref<any>(null);
 
 // Methods
 function formatDate(dateString: string) {
@@ -182,6 +232,31 @@ async function confirmDelete() {
 		// Small delay to prevent rapid clicking
 		setTimeout(() => {
 			deletingId.value = null;
+		}, 500);
+	}
+}
+
+function adoptSubmission(submission: any) {
+	if (!isAdmin.value) return;
+
+	// Set the submission to adopt and show the modal
+	submissionToAdopt.value = submission;
+	showAdoptModal.value = true;
+}
+
+async function confirmAdopt() {
+	if (!submissionToAdopt.value) return;
+
+	const submission = submissionToAdopt.value;
+	adoptingId.value = submission.$id;
+
+	try {
+		emit('adopt', submission);
+		showAdoptModal.value = false;
+	} finally {
+		// Small delay to prevent rapid clicking
+		setTimeout(() => {
+			adoptingId.value = null;
 		}, 500);
 	}
 }

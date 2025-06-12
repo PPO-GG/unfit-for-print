@@ -365,7 +365,7 @@ onUnmounted(() => {
                     : 'outline-green-500/0 shadow-none rounded-xl outline-4'
                 ]"
 							>
-								<whiteCard :cardId="cardId"/>
+								<WhiteCard :cardId="cardId"/>
 							</div>
 						</div>
 					</div>

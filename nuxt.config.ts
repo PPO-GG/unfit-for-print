@@ -113,11 +113,11 @@ export default defineNuxtConfig({
         appwriteGamecardsCollectionId: process.env.APPWRITE_GAMECARDS_COLLECTION_ID,
         appwriteAdminTeamId: process.env.APPWRITE_ADMIN_TEAM_ID,
         elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
-
         public: {
             appwriteUrl: process.env.NUXT_PUBLIC_APPWRITE_URL,
             appwriteProjectId: process.env.NUXT_PUBLIC_APPWRITE_PROJECT_ID,
             appwriteDatabaseId: process.env.NUXT_PUBLIC_APPWRITE_DATABASE,
+
             appwriteWhiteCardCollectionId: process.env.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID,
             appwriteBlackCardCollectionId: process.env.NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID,
             appwriteLobbyCollectionId: process.env.NUXT_PUBLIC_APPWRITE_LOBBY_COLLECTION_ID,
@@ -126,6 +126,8 @@ export default defineNuxtConfig({
             appwriteGamechatCollectionId: process.env.NUXT_PUBLIC_APPWRITE_GAMECHAT_COLLECTION_ID,
             appwriteGameSettingsCollectionId: process.env.NUXT_PUBLIC_APPWRITE_GAMESETTINGS_COLLECTION_ID,
             appwriteSubmissionCollectionId: process.env.NUXT_PUBLIC_APPWRITE_SUBMISSION_COLLECTION_ID,
+            appwriteReportsCollectionId: process.env.NUXT_PUBLIC_APPWRITE_REPORTS_COLLECTION_ID,
+
             appwriteAdminTeamId: process.env.NUXT_PUBLIC_APPWRITE_ADMIN_TEAM_ID,
             appwriteFunctionsStartGame: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_START_GAME,
             appwriteFunctionsPlayCard: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_PLAY_CARD,

@@ -255,9 +255,12 @@ onMounted(async () => {
 					config.public.appwriteBlackCardCollectionId,
 					props.cardId
 			);
-			// Update fallbacks only if the corresponding prop wasn't provided
 			if (!props.text) {
 				fallbackText.value = doc.text;
+			}
+			if (!props.cardId) {
+				fallbackText.value = "CARD TEXT HERE";
+				return;
 			}
 			if (props.numPick === undefined) {
 				fallbackNumPick.value = doc.pick; // Store the fetched pick value

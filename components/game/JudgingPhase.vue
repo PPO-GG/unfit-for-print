@@ -130,7 +130,7 @@ function handleScroll(event) {
 								class="snap-center flex-shrink-0 inset-shadow-sm inset-shadow-slate-900 flex flex-col items-center outline-2 outline-slate-400/15 rounded-3xl bg-slate-700/50 p-3 sm:p-4 md:p-6 w-[250px] sm:w-[300px] md:w-[350px]"
 						>
 							<div class="flex flex-nowrap overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 justify-start gap-2 mb-4 pb-2 max-w-full">
-								<whiteCard
+								<WhiteCard
 										v-for="cardId in sub.cards"
 										:key="cardId"
 										:cardId="cardId"
@@ -173,7 +173,7 @@ function handleScroll(event) {
 						<span class="text-success-400 font-['Bebas_Neue'] text-xl sm:text-2xl">{{ t('game.your_submission') }}</span>
 					</p>
 					<div class="flex flex-nowrap justify-start gap-2 mb-2 pb-2 max-w-full">
-						<whiteCard
+						<WhiteCard
 								v-for="cardId in submissions[myId]"
 								:key="cardId"
 								:cardId="cardId"
@@ -204,7 +204,7 @@ function handleScroll(event) {
 						<span class="text-amber-400 font-['Bebas_Neue'] text-xl sm:text-2xl">{{ t('game.submissions') }}</span>
 					</p>
 					<div class="flex flex-nowrap justify-start gap-2 mb-2 pb-2 max-w-full">
-						<whiteCard
+						<WhiteCard
 								v-for="cardId in sub.cards"
 								:key="cardId"
 								:cardId="cardId"
