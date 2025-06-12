@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useGameActions } from '~/composables/useGameActions';
-import whiteCard from '~/components/game/whiteCard.vue';
-import BlackCard from '~/components/game/BlackCard.vue';
 
 const { t } = useI18n();
 
