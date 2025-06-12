@@ -3,12 +3,8 @@ import {useAppwrite} from '~/composables/useAppwrite'
 
 export function useGameActions() {
     const appwrite = useAppwrite();
-    console.log('useAppwrite result:', appwrite);
     const { functions } = appwrite;
-    console.log('functions object:', functions);
-
     const config = useRuntimeConfig();
-    console.log('config.public:', config.public);
 
     const FUNCTIONS: Record<'START_GAME' | 'PLAY_CARD' | 'SELECT_WINNER' | 'START_NEXT_ROUND', string> = {
         START_GAME: config.public.appwriteFunctionsStartGame as string,
@@ -16,8 +12,6 @@ export function useGameActions() {
         SELECT_WINNER: config.public.appwriteFunctionsSelectWinner as string,
         START_NEXT_ROUND: config.public.appwriteFunctionsStartNextRound as string,
     };
-
-    console.log('FUNCTIONS:', FUNCTIONS);
 
     const startGame = async (payload: string) => {
         try {
@@ -51,8 +45,6 @@ export function useGameActions() {
     }
 
     const startNextRound = async (lobbyId: string, documentId?: string) => {
-        console.log('startNextRound called with:', { lobbyId, documentId });
-
         if (!lobbyId) {
             console.error('startNextRound called with no lobbyId');
             throw new Error('No lobbyId provided to startNextRound');
@@ -64,9 +56,10 @@ export function useGameActions() {
         }
 
         try {
-            const payload = JSON.stringify({lobbyId, documentId});
-            console.log('startNextRound payload:', payload);
-            console.log('startNextRound function ID:', FUNCTIONS.START_NEXT_ROUND);
+            const payload = JSON.stringify({
+                lobbyId: lobbyId.toString(), // Ensure lobbyId is a string
+                documentId: documentId?.toString() // Ensure documentId is a string if present
+            });
 
             // Check if functions object is available
             if (!functions || typeof functions.createExecution !== 'function') {
@@ -74,14 +67,27 @@ export function useGameActions() {
                 throw new Error('Appwrite functions not available');
             }
 
-            console.log('Calling functions.createExecution with:', {
-                functionId: FUNCTIONS.START_NEXT_ROUND,
-                payload
-            });
+            const result = await functions.createExecution(
+                FUNCTIONS.START_NEXT_ROUND,
+                payload,
+                false // Set to false to ensure we get a response
+            );
 
-            const result = await functions.createExecution(FUNCTIONS.START_NEXT_ROUND, payload);
-            console.log('startNextRound result:', result);
-            return result;
+            // Proper response validation
+            if (result && result.status === 'completed') {
+                return {
+                    success: true,
+                    $id: result.$id,
+                    status: result.status
+                };
+            } else {
+                console.warn('Function execution completed but with unexpected status:', result?.status);
+                return {
+                    success: false,
+                    status: result?.status || 'unknown',
+                    error: 'Function execution failed'
+                };
+            }
         } catch (error) {
             console.error('Error in startNextRound:', error);
             throw error;

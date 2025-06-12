@@ -7,7 +7,6 @@
           <LoadingOverlay :is-loading="isPageLoading" />
           <NuxtPage />
       </NuxtLayout>
-      <ConfirmDialog />
     </UApp>
 </template>
 <script setup lang="ts">
@@ -15,10 +14,8 @@ import { ref, watchEffect, onMounted } from 'vue'
 import { useRoute } from '#vue-router'
 import { useHead, useAsyncData, useRuntimeConfig, useNuxtApp } from '#imports'
 import type { Lobby } from '~/types/lobby'
-import ConfirmDialog from '~/components/ConfirmDialog.vue'
 const isDev = import.meta.env.DEV
 const isPageLoading = ref(true)
-
 // Handle page loading state
 onMounted(() => {
   // Set loading to false after the page is mounted

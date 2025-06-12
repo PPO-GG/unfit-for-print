@@ -11,15 +11,16 @@ import {isAuthenticatedUser} from '~/composables/useUserUtils';
 import {useGameState} from "~/composables/useGameState";
 import {useGameCards} from "~/composables/useGameCards";
 import {useGameActions} from "~/composables/useGameActions";
-import { useSfx } from '~/composables/useSfx';
-import { ID, Permission, Role, Query } from 'appwrite';
-import { getAppwrite } from '~/utils/appwrite';
-import type { Databases, Client } from 'appwrite';
+import {useSfx} from '~/composables/useSfx';
+import GameOver from '~/components/game/GameOver.vue';
+import type {Client, Databases} from 'appwrite';
+import {ID, Permission, Query, Role} from 'appwrite';
+import {getAppwrite} from '~/utils/appwrite';
 import {useGameSettings} from '~/composables/useGameSettings';
 import type {GameSettings} from '~/types/gamesettings';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
-import { useI18n } from 'vue-i18n'
+import {useI18n} from 'vue-i18n'
 
 const { t } = useI18n()
 let client: Client | undefined
@@ -264,9 +265,7 @@ function handleWinnerSelect(playerId: string) {
     let found = false;
     if (state.value?.submissions) {
       for (const [submissionPlayerId, cards] of Object.entries(state.value.submissions)) {
-        if (typeof submissionPlayerId === 'string' && typeof playerId === 'string' &&
-            (submissionPlayerId.includes(playerId) || playerId.includes(submissionPlayerId)) &&
-            Array.isArray(cards) && cards.length > 0) {
+        if ((submissionPlayerId.includes(playerId) || playerId.includes(submissionPlayerId)) && Array.isArray(cards) && cards.length > 0) {
           localWinningCards.value = cards;
           console.log('Found winning cards by partial match:', submissionPlayerId, cards);
           found = true;
@@ -382,33 +381,31 @@ const setupGameSettingsRealtime = (lobbyId: string) => {
         const config = useRuntimeConfig();
 
 	// Subscribe to changes in the game settings collection for this lobby
-	const unsubscribeGameSettings = client.subscribe(
-		[`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`],
-		async ({payload}) => {
-			// Check if this is a game settings document for our lobby
-			const settings = payload as GameSettings;
-			// Handle case where lobbyId is a relationship object
-			const settingsLobbyId = typeof settings.lobbyId === 'object' && settings.lobbyId?.$id 
-				? settings.lobbyId.$id 
-				: settings.lobbyId;
+	return client.subscribe(
+			[`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`],
+			async ({payload}) => {
+				// Check if this is a game settings document for our lobby
+				const settings = payload as GameSettings;
+				// Handle case where lobbyId is a relationship object
+				const settingsLobbyId = typeof settings.lobbyId === 'object' && settings.lobbyId?.$id
+						? settings.lobbyId.$id
+						: settings.lobbyId;
 
-			if (settingsLobbyId === lobbyId) {
-				gameSettings.value = settings;
+				if (settingsLobbyId === lobbyId) {
+					gameSettings.value = settings;
 
-				// If you're not the host and settings changed, show a notification
-				if (!isHost.value) {
-					notify({
-						title: t('game.settings.updated'),
-						icon: 'i-solar-info-circle-bold-duotone',
-						color: 'primary',
-						duration: 3000
-					});
+					// If you're not the host and settings changed, show a notification
+					if (!isHost.value) {
+						notify({
+							title: t('game.settings.updated'),
+							icon: 'i-solar-info-circle-bold-duotone',
+							color: 'primary',
+							duration: 3000
+						});
+					}
 				}
 			}
-		}
 	);
-
-	return unsubscribeGameSettings;
 };
 
 const setupRealtime = async (lobbyData: Lobby) => {
@@ -596,7 +593,7 @@ const setupRealtime = async (lobbyData: Lobby) => {
 
 		try {
 			// Ensure message is a string and truncate if needed
-			const safeMessage = typeof message === 'string' 
+			const safeMessage = true
 				? message.substring(0, maxLength) 
 				: String(message).substring(0, maxLength);
 
@@ -764,8 +761,7 @@ onMounted(async () => {
 
 		// Fetch lobby data using $fetch instead of useAsyncData
 		try {
-			const lobbyData = await $fetch<Lobby>(`/api/lobby/${code}`);
-			lobby.value = lobbyData;
+			lobby.value = await $fetch<Lobby>(`/api/lobby/${code}`);
 		} catch (error) {
 			console.error('Failed to fetch lobby data:', error);
 		}
@@ -786,9 +782,9 @@ onMounted(async () => {
 
 				// Only check for refresh on client side
 				if (typeof window !== 'undefined') {
-					isRefresh = window.performance && 
-						window.performance.navigation &&
-						window.performance.navigation.type === 1;
+					isRefresh = window.performance &&
+							window.performance && window.performance.getEntriesByType &&
+							window.performance.getEntriesByType('navigation')[0]?.type === 'reload';
 				}
 
 				if (isRefresh) {
@@ -849,6 +845,24 @@ const handleLeave = async () => {
 
 const handleDrawBlackCard = () => {
 	return
+};
+
+// Add handler for when round is started
+const handleRoundStarted = async () => {
+    console.log('Round started, refreshing game state');
+    if (lobby.value?.$id) {
+        // Re-fetch game cards and update state
+        await $fetch<Lobby>(`/api/lobby/${code}`).then(updatedLobby => {
+            if (updatedLobby) {
+                lobby.value = updatedLobby;
+            }
+        }).catch(err => {
+            console.error('Failed to refresh lobby data:', err);
+        });
+
+        // Play a sound effect if available
+        playSfx('nextRound');
+    }
 };
 
 const getPlayerName = (playerId: string | null): string => { // Allow null playerId
@@ -1016,11 +1030,23 @@ const convertToPlayer = async (playerId: string) => {
     // 2. Deal cards to the player
     // Get a fresh hand from the white deck
 
+    // Check if lobby ID is available
+    if (!lobby.value || !lobby.value.$id) {
+      console.error('Cannot convert player: Lobby ID is undefined');
+      notify({
+        title: t('game.error_player_dealt_in'),
+        description: t('game.lobby_id_missing'),
+        color: 'error',
+        icon: 'i-mdi-alert'
+      });
+      return;
+    }
+
     // Get the game cards document
     const gameCardsRes = await databases.listDocuments(
       config.public.appwriteDatabaseId as string,
       config.public.appwriteGamecardsCollectionId,
-      [Query.equal('lobbyId', lobby.value?.$id)]
+      [Query.equal('lobbyId', lobby.value.$id)]
     );
 
     if (gameCardsRes.total === 0) return;
@@ -1355,7 +1381,7 @@ function copyLobbyLink() {
 				</ClientOnly>
 
 				<!-- In-game view -->
-				<ClientOnly v-if="(isPlaying || isJudging || isRoundEnd) && lobby && players">
+				<ClientOnly v-if="(isPlaying || isJudging || isRoundEnd) && !isComplete && lobby && players">
 					<GameBoard
 							:lobby="lobby || {}"
 							:players="players"
@@ -1364,6 +1390,15 @@ function copyLobbyLink() {
 							@submit-card="handleCardSubmit"
 							@select-winner="handleWinnerSelect"
 							@draw-black-card="handleDrawBlackCard"
+					/>
+				</ClientOnly>
+
+				<!-- Game Over view -->
+				<ClientOnly v-if="isComplete && !hasReturnedToLobby && lobby && players">
+					<GameOver
+							:leaderboard="leaderboard"
+							:players="players"
+							@continue="handleContinue"
 					/>
 				</ClientOnly>
 			</div>
@@ -1381,60 +1416,6 @@ function copyLobbyLink() {
 			</ClientOnly>
 		</div>
 
-		<!-- Game complete - Show scoreboard if player hasn't returned to lobby -->
-		<ClientOnly>
-			<div v-if="isComplete && lobby && players" class="flex-1 max-w-4xl mx-auto py-8 px-4">
-				<h2 class="text-3xl font-bold text-center mb-6">{{ t('game.game_over') }}</h2>
-
-				<!-- Auto-return timer -->
-				<div class="bg-slate-700 rounded-lg p-4 mb-6 text-center">
-					<p class="text-4xl font-bold text-white">{{ t('lobby.returning_in', { seconds: autoReturnTimeRemaining }) }}</p>
-				</div>
-
-				<!-- Winner display -->
-				<div class="bg-slate-800 rounded-lg p-6 mb-8 text-center">
-					<h3 class="text-2xl font-bold mb-4">Winner</h3>
-					<div v-if="leaderboard.length > 0" class="flex flex-col items-center">
-						<div class="text-yellow-400 text-5xl mb-2">🏆</div>
-						<div class="text-2xl font-bold text-yellow-400">
-							{{ getPlayerName(leaderboard[0].playerId) }}
-						</div>
-						<div class="text-xl mt-2">
-							{{ leaderboard[0].points }} {{ t('game.points') }}
-						</div>
-					</div>
-				</div>
-
-				<!-- Leaderboard -->
-				<div class="bg-slate-800 rounded-lg p-6 mb-8">
-					<h3 class="text-xl font-bold mb-4 text-center">{{ t('game.final_scores') }}</h3>
-					<div class="space-y-2">
-						<div v-for="(entry, index) in leaderboard" :key="entry.playerId"
-						     :class="index === 0 ? 'bg-yellow-900/30' : 'bg-slate-700/50'"
-						     class="flex justify-between items-center p-2 rounded">
-							<div class="flex items-center">
-								<span class="w-8 text-center">{{ index + 1 }}</span>
-								<span>{{ getPlayerName(entry.playerId) }}</span>
-							</div>
-							<span class="font-bold">{{ entry.points }} pts</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Continue button -->
-				<div class="text-center mt-8">
-					<UButton
-							color="primary"
-							icon="i-solar-multiple-forward-right-bold-duotone"
-							size="lg"
-							@click="handleContinue"
-					>
-						{{ t('lobby.continue_to_lobby') }}
-					</UButton>
-				</div>
-			</div>
-		</ClientOnly>
-
 		<!-- Round End Overlay - Don't show if we're transitioning to the scoreboard -->
 		<ClientOnly>
 			<!-- Debug info for host status - hidden -->
@@ -1451,13 +1432,14 @@ function copyLobbyLink() {
 			<RoundEndOverlay
 					v-if="isRoundEnd && lobby && !isComplete"
 					:countdown-duration="roundEndCountdownDuration"
-					:is-host="isHost.value"
+					:is-host="isHost"
 					:is-winner-self="myId.value && (typeof effectiveRoundWinner.value === 'object' ? (effectiveRoundWinner.value as any)?.value === myId.value : effectiveRoundWinner.value === myId.value)"
 					:lobby-id="lobby?.$id || ''"
 					:start-time="roundEndStartTime"
 					:winner-name="getPlayerName(typeof effectiveRoundWinner.value === 'object' ? (effectiveRoundWinner.value as any)?.value : effectiveRoundWinner.value)"
 					:document-id="gameSettings?.$id || (lobby?.$id ? `settings-${lobby.$id}` : undefined)"
-					:winning-cards="effectiveWinningCards.value && effectiveWinningCards.value.length > 0 ? effectiveWinningCards.value : (localWinningCards.value && localWinningCards.value.length > 0 ? localWinningCards.value : [])"
+					:winning-cards="state.value?.winningCards || []"
+					@round-started="handleRoundStarted"
 			/>
 		</ClientOnly>
 

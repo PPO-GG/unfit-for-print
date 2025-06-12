@@ -10,7 +10,6 @@ import {useGameCards} from '~/composables/useGameCards'
 import UserHand from '~/components/game/UserHand.vue'
 import whiteCard from '~/components/game/whiteCard.vue'
 import {getAppwrite} from "~/utils/appwrite";
-import type { Databases } from 'appwrite';
 import {Query} from "appwrite";
 import BlackCardDeck from '~/components/game/BlackCardDeck.vue'
 import WhiteCardDeck from '~/components/game/WhiteCardDeck.vue'
@@ -18,12 +17,9 @@ import SubmissionPhase from '~/components/game/SubmissionPhase.vue'
 import JudgingPhase from '~/components/game/JudgingPhase.vue'
 import GameOver from '~/components/game/GameOver.vue'
 import GameHeader from '~/components/game/GameHeader.vue';
+import RoundEndOverlay from '~/components/game/RoundEndOverlay.vue';
 
 const {t} = useI18n()
-let databases: Databases | undefined
-if (import.meta.client) {
-  ({ databases } = getAppwrite())
-}
 const props = defineProps<{ lobby: Lobby; players: Player[] }>()
 const emit = defineEmits<{
 	(e: 'leave'): void
@@ -103,9 +99,18 @@ const isSpectator = computed(() => {
 });
 
 // Check if the current user is the host
-const isHost = computed(() => {
-	return props.lobby?.hostUserId === myId;
-});
+const isHost = computed(() => lobbyRef.value?.hostId === myId);
+
+// Add handler for when round is started
+const handleRoundStarted = async () => {
+    console.log('Round started, refreshing game state');
+    if (props.lobby?.$id) {
+        // Re-fetch game cards and update state
+        await fetchGameCards(props.lobby.$id);
+        // Play a sound effect if available
+        playSfx('nextRound');
+    }
+};
 
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string): string => {
@@ -193,9 +198,9 @@ async function revealCard(playerId: string) {
 	}
 
 	// Update revealed cards in Appwrite
-        try {
-                if (!databases) return
-                const config = useRuntimeConfig();
+	try {
+		const config = useRuntimeConfig();
+		const {databases} = getAppwrite();
 
 		// Get the current revealed submissions from the database
 		let currentRevealedSubmissions = {};
@@ -411,8 +416,8 @@ async function convertToPlayer(playerId: string) {
 		const playerDoc = props.players.find(p => p.userId === playerId);
 		if (!playerDoc) return;
 
-                if (!databases) return;
-                const config = useRuntimeConfig();
+		const {databases} = getAppwrite();
+		const config = useRuntimeConfig();
 
 		await databases.updateDocument(
 				config.public.appwriteDatabaseId,
@@ -495,6 +500,7 @@ function handleLeave() {
 	// Emit the leave event to the parent component
 	emit('leave')
 }
+
 </script>
 <template>
 	<div class="w-full bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen flex flex-col">
@@ -502,17 +508,17 @@ function handleLeave() {
 
 		<!-- Main Content -->
 		<div class="min-h-screen flex flex-col">
-			<GameHeader 
-				:state="state" 
-				:is-submitting="isSubmitting" 
-				:is-judging="isJudging" 
-				:judge-id="judgeId" 
-				:players="props.players"
+			<GameHeader
+					:state="state"
+					:is-submitting="isSubmitting"
+					:is-judging="isJudging"
+					:judge-id="judgeId"
+					:players="props.players"
 			/>
 
 			<main class="flex-1 p-6 flex flex-col overflow-hidden">
 				<!-- Game Board Area with Card Decks -->
-				<div class="w-full max-w-6xl mx-auto mt-16 mb-8 flex justify-center items-start gap-16">
+				<div class="w-full max-w-6xl mx-auto mt-16 mb-6 flex justify-center items-start gap-8 md:gap-12">
 					<!-- Black Card Deck -->
 					<BlackCardDeck :black-card="blackCard" />
 
@@ -521,46 +527,56 @@ function handleLeave() {
 				</div>
 
 				<!-- Submission Phase -->
-				<SubmissionPhase 
-					v-if="isSubmitting"
-					:is-judge="isJudge"
-					:submissions="submissions"
-					:my-id="myId"
-					:black-card="blackCard"
-					:my-hand="myHand"
-					:is-participant="isParticipant"
-					:is-spectator="isSpectator"
-					:is-host="isHost"
-					:players="props.players"
-					@select-cards="handleCardSubmit"
-					@convert-to-player="convertToPlayer"
+				<SubmissionPhase
+						v-if="isSubmitting"
+						:is-judge="isJudge"
+						:submissions="submissions"
+						:my-id="myId"
+						:black-card="blackCard"
+						:my-hand="myHand"
+						:is-participant="isParticipant"
+						:is-spectator="isSpectator"
+						:is-host="isHost"
+						:players="props.players"
+						@select-cards="handleCardSubmit"
+						@convert-to-player="convertToPlayer"
 				/>
 
 				<!-- Judging Phase -->
-				<JudgingPhase 
-					v-else-if="isJudging"
-					:is-judge="isJudge"
-					:my-id="myId"
-					:other-submissions="otherSubmissions"
-					:submissions="submissions"
-					:effective-round-winner="effectiveRoundWinner"
-					:winner-selected="winnerSelected"
-					:shuffled-submissions="shuffledSubmissions"
-					:players="props.players"
-					@select-winner="handleSelectWinner"
+				<JudgingPhase
+						v-else-if="isJudging"
+						:is-judge="isJudge"
+						:my-id="myId"
+						:other-submissions="otherSubmissions"
+						:submissions="submissions"
+						:effective-round-winner="effectiveRoundWinner"
+						:winner-selected="winnerSelected"
+						:shuffled-submissions="shuffledSubmissions"
+						:players="props.players"
+						:revealed-cards="revealedCards"
+						@select-winner="handleSelectWinner"
 				/>
 
-				<!-- Game Over -->
-				<GameOver 
-					v-else-if="isComplete" 
-					:leaderboard="leaderboard"
-					:players="props.players"
-				/>
 
 				<!-- Waiting State -->
 				<div v-else class="text-center italic text-gray-500 mt-10">
 					{{ t('game.waiting') }}
 				</div>
+
+				<!-- Round End Overlay -->
+				<RoundEndOverlay
+					v-if="winnerSelected"
+					:lobby-id="props.lobby.$id"
+					:winner-name="getPlayerName(state.value?.roundWinner || '')"
+					:is-winner-self="state.value?.roundWinner === myId"
+					:countdown-duration="countdownTimer"
+					:start-time="winnerSelected ? Date.now() : null"
+					:is-host="isHost"
+					:document-id="props.lobby.$id"
+					:winning-cards="state.value?.winningCards"
+					:black-card="blackCard"
+					@round-started="handleRoundStarted"
+				/>
 			</main>
 		</div>
 	</div>

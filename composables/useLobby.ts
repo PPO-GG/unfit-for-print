@@ -272,12 +272,8 @@ export const useLobby = () => {
     ) => {
         const { databases, account } = getAppwrite();
         const config = getConfig();
-        if (import.meta.client && !userStore.session && !options?.skipSession) {
-            await userStore.fetchUserSession();
-            if (!userStore.session) {
-                await account.createAnonymousSession();
-                await userStore.fetchUserSession();
-            }
+        if (!userStore.session && !options?.skipSession) {
+            await account.createAnonymousSession();
         }
         const user = await account.get();
         const session = await account.getSession('current');

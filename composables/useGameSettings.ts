@@ -87,6 +87,7 @@ export function useGameSettings() {
     // Create default game settings
     const createDefaultGameSettings = async (lobbyId: string, lobbyName: string, hostUserId?: string, options?: { isPrivate?: boolean, password?: string }): Promise<GameSettings> => {
         if (!databases) throw new Error('Appwrite not initialized')
+        if (!lobbyId) throw new Error('Cannot create game settings without a valid lobbyId')
         const config = useRuntimeConfig();
 
         // First, check if settings already exist for this lobby

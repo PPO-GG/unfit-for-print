@@ -12,8 +12,8 @@
         <div class="card__face card__front cursor-pointer">
           <slot name="front">
             <div class="card-content rounded-lg relative overflow-hidden cursor-pointer">
-	            <p class="xl:text-4xl md:text-3xl text-xl leading-5 md:leading-none p-6 text-pretty cursor-pointer"
-                v-html="formattedCardText"
+	            <p ref="textElement" class="p-3 md:p-4 text-pretty cursor-pointer" :style="textStyle"
+	               v-html="formattedCardText"
               >
 	            </p>
 	            <div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
@@ -52,11 +52,14 @@
 
 <script setup lang="ts">
 import {gsap} from "gsap";
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
+import {debounce} from 'lodash-es';
 
 const { getRandomInRange } = useCrypto()
 const { playSfx } = useSfx();
-const { vibrate, stop, isSupported } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
+const { vibrate } = useVibrate({ pattern: [getRandomInRange([1,3]), 2, getRandomInRange([1,3])] })
 const { isMobile } = useDevice();
+
 function playRandomFlip() {
 	vibrate()
 	playSfx([
@@ -65,6 +68,7 @@ function playRandomFlip() {
 		'/sounds/sfx/flip3.wav',
 	], { volume: 0.75, pitch: [0.95, 1.05] })
 }
+
 const props = defineProps<{
   cardId?: string
   text?: string
@@ -93,8 +97,8 @@ const computedNumPick = computed(() => {
 	// Note: The underscore counting logic is removed as we prioritize the database value.
 });
 
-
 const fallbackText = ref('');
+
 const cardText = computed(() => props.text || fallbackText.value);
 
 const formattedCardText = computed(() => {
@@ -109,8 +113,24 @@ watch(() => props.cardPack, (newCardPack) => {
 });
 
 const card = ref<HTMLElement | null>(null);
+const textSize = ref(1); // Default size multiplier
 const rotation = ref({ x: 0, y: 0 });
 const shineOffset = ref({ x: 0, y: 0 });
+
+const textStyle = computed(() => {
+	return {
+		fontSize: `${textSize.value}rem`,
+		lineHeight: `${Math.max(1, textSize.value * 1.1)}rem`,
+		padding: `${textSize.value * 0.5}rem`
+	};
+});
+
+function calculateTextSize() {
+	if (!card.value) return;
+
+	const width = card.value.offsetWidth;
+	textSize.value = Math.max(0.2, width / 125);
+}
 
 function animateShine() {
   const ease = 0.05;
@@ -197,6 +217,16 @@ function resetTransform() {
   }
 }
 
+// Watch for card content changes
+watch(() => cardText.value, () => {
+	nextTick(calculateTextSize);
+});
+
+watch(() => card.value?.offsetWidth, () => {
+	calculateTextSize();
+});
+
+
 watch(() => props.flipped, (flipped) => {
 	const el = card.value?.querySelector('.card__inner')
 	if (!el) return;
@@ -240,8 +270,16 @@ onMounted(async () => {
 			if (props.numPick === undefined) fallbackNumPick.value = 1;
 		}
 	}
+
+	calculateTextSize();
+	window.addEventListener('resize', calculateTextSize);
+
 	resetTransform();
 	animateShine();
+
+	onBeforeUnmount(() => {
+		window.removeEventListener('resize', calculateTextSize);
+	});
 });
 
 </script>

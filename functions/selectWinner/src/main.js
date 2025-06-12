@@ -56,17 +56,15 @@ export default async function ({ req, res, log, error }) {
     if (!lobbyId) throw new Error('lobbyId is required');
     if (!winnerId) throw new Error('winnerId is required');
 
-    const lobby = await databases.getDocument(
-      DB,
-      LOBBY_COLLECTION,
-      lobbyId
-    );
+    const lobby = await databases.getDocument(DB, LOBBY_COLLECTION, lobbyId);
     const state = decodeGameState(lobby.gameState);
 
     // Fetch the gamecards document
-    const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS_COLLECTION, [
-      Query.equal('lobbyId', lobbyId)
-    ]);
+    const gameCardsQuery = await databases.listDocuments(
+      DB,
+      GAMECARDS_COLLECTION,
+      [Query.equal('lobbyId', lobbyId)]
+    );
 
     if (gameCardsQuery.documents.length === 0) {
       throw new Error(`No gamecards document found for lobby ${lobbyId}`);
@@ -82,6 +80,15 @@ export default async function ({ req, res, log, error }) {
 
     // Award point
     state.scores[winnerId] = (state.scores[winnerId] || 0) + 1;
+
+    // Store the winning cards for display in the round end overlay BEFORE clearing submissions
+    if (state.submissions && state.submissions[winnerId]) {
+      state.winningCards = state.submissions[winnerId];
+      log(`Stored winning cards: ${JSON.stringify(state.winningCards)}`);
+    } else {
+      state.winningCards = [];
+      log(`No winning cards found for winner ${winnerId}`);
+    }
 
     // Discard played white cards (ensure discardWhite exists)
     state.discardWhite = state.discardWhite || [];
@@ -112,15 +119,6 @@ export default async function ({ req, res, log, error }) {
       state.phase = 'roundEnd';
       state.roundWinner = winnerId; // Store round winner
 
-      // Store the winning cards for display in the round end overlay
-      if (state.submissions && state.submissions[winnerId]) {
-        state.winningCards = state.submissions[winnerId];
-        log(`Stored winning cards: ${JSON.stringify(state.winningCards)}`);
-      } else {
-        state.winningCards = [];
-        log(`No winning cards found for winner ${winnerId}`);
-      }
-
       state.roundEndStartTime = Date.now(); // Record start time for countdown
       log(
         `Round ${state.round} ended. Winner: ${winnerId}. Starting countdown.`
@@ -136,27 +134,32 @@ export default async function ({ req, res, log, error }) {
       blackDeck: gameCards.blackDeck,
       discardWhite: state.discardWhite,
       discardBlack: state.discardBlack,
-      playerHands: gameCards.playerHands
+      playerHands: gameCards.playerHands,
     };
 
     // Create a clean state object without card data
     const coreState = {
-        phase: state.phase,
-        judgeId: state.judgeId,
-        blackCard: state.blackCard,
-        submissions: state.submissions || {},
-        playedCards: state.playedCards || {},
-        scores: state.scores || {},
-        round: state.round,
-        roundWinner: state.roundWinner,
-        winningCards: state.winningCards || [], // Include winning cards
-        roundEndStartTime: state.roundEndStartTime,
-        returnedToLobby: state.returnedToLobby,
-        gameEndTime: state.gameEndTime
+      phase: state.phase,
+      judgeId: state.judgeId,
+      blackCard: state.blackCard,
+      submissions: state.submissions || {},
+      playedCards: state.playedCards || {},
+      scores: state.scores || {},
+      round: state.round,
+      roundWinner: state.roundWinner,
+      winningCards: state.winningCards || [], // Include winning cards
+      roundEndStartTime: state.roundEndStartTime,
+      returnedToLobby: state.returnedToLobby,
+      gameEndTime: state.gameEndTime,
     };
 
     // Update both documents
-    await databases.updateDocument(DB, GAMECARDS_COLLECTION, gameCards.$id, updatedGameCards);
+    await databases.updateDocument(
+      DB,
+      GAMECARDS_COLLECTION,
+      gameCards.$id,
+      updatedGameCards
+    );
 
     await databases.updateDocument(DB, LOBBY_COLLECTION, lobbyId, {
       status: state.phase === 'complete' ? 'complete' : 'playing', // Keep 'playing' during 'roundEnd'

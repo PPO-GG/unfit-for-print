@@ -236,18 +236,18 @@ const fetchNewCards = async () => {
 			blackCardFlipped.value = false;
 		});
 
-		if (isClient.value) {
-			notify({
-				title: t('notification.fetched_cards'),
-				icon: "i-mdi-cards",
-				color: 'info',
-				duration: 1000,
-			});
-		}
+		// if (isClient.value) {
+		// 	notify({
+		// 		title: t('notification.fetched_cards'),
+		// 		icon: "i-mdi-cards",
+		// 		color: 'info',
+		// 		duration: 500,
+		// 	});
+		// }
 
 		setTimeout(() => {
 			isFetching.value = false;
-		}, 1000);
+		}, 1250);
 	});
 };
 

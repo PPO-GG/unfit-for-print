@@ -3,24 +3,27 @@ import { ref } from 'vue';
 export interface ConfirmOptions {
   title?: string;
   message?: string;
-  buttonText?: string;
-  buttonColor?: string;
+  confirmButtonText?: string;
+  confirmButtonColor?: string;
   cancelButtonText?: string;
+  cancelButtonColor?: string;
 }
 
-// Create a singleton instance for the confirm dialog
-const isOpen = ref(false);
-const resolvePromise = ref<((value: boolean) => void) | null>(null);
-const options = ref<ConfirmOptions>({
-  title: 'Confirm',
-  message: 'Are you sure you want to proceed?',
-  buttonText: 'Confirm',
-  buttonColor: 'primary',
-  cancelButtonText: 'Cancel'
-});
-
+// Create a composable that manages the confirm dialog state
 export function useConfirm() {
-  function confirm(opts: ConfirmOptions = {}): Promise<boolean> {
+  // Use nuxt's useState to make this state available globally
+  const isOpen = useState('confirm-dialog-open', () => false);
+  const resolvePromise = ref<((value: boolean) => void) | null>(null);
+  const options = useState<ConfirmOptions>('confirm-dialog-options', () => ({
+    title: 'Confirm',
+    message: 'Are you sure you want to proceed?',
+    confirmButtonText: 'Confirm',
+    confirmButtonColor: 'primary',
+    cancelButtonText: 'Cancel',
+    cancelButtonColor: 'gray'
+  }));
+
+  function confirm(opts: Partial<ConfirmOptions> = {}): Promise<boolean> {
     return new Promise((resolve) => {
       // Merge default options with provided options
       options.value = {
@@ -58,8 +61,5 @@ export function useConfirm() {
   };
 }
 
-// For compatibility with the way it's used in components
-export default (options: ConfirmOptions = {}) => {
-  const { confirm } = useConfirm();
-  return confirm(options);
-};
+// Add default export
+export default useConfirm;

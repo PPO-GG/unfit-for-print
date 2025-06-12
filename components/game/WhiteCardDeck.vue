@@ -12,7 +12,7 @@ defineProps({
 </script>
 
 <template>
-  <div class="relative w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] outline-2 outline-slate-400/25 outline-offset-16 outline-dashed rounded-xl">
+  <div class="relative w-40 md:w-56 lg:w-64 xl:w-72 aspect-[3/4] outline-2 outline-slate-400/25 md:outline-offset-6 outline-offset-2 outline-dashed rounded-xl">
     <!-- Stack effect with multiple cards -->
     <div v-for="i in 5" :key="`white-stack-${i}`"
          :style="{
@@ -21,13 +21,14 @@ defineProps({
            left: `${i * 2}px`,
            zIndex: 5 - i
          }"
-         class="w-full h-full -translate-x-2 -translate-y-2">
+         class="w-full h-full -translate-x-3 -translate-y-3 md:-translate-x-1 md:-translate-y-1">
       <whiteCard
           :backLogoUrl="backLogoUrl"
           :flipped="true"
           :mask-url="maskUrl"
           :shine="false"
           :threeDeffect="false"
+          :disableHover="true"
       />
     </div>
   </div>

@@ -10,14 +10,14 @@ export default defineEventHandler(async (event) => {
 
     const config = useRuntimeConfig()
     const client = new Client()
-        .setEndpoint('https://console.ppo.gg/v1')
-        .setProject('682eb1b9000cb3845772')
+        .setEndpoint(process.env.APPWRITE_ENDPOINT || 'https://console.ppo.gg/v1')
+        .setProject(process.env.APPWRITE_PROJECT_ID || '682eb1b9000cb3845772')
         .setKey(process.env.APPWRITE_API_KEY!)
 
     const databases = new Databases(client)
 
-    const dbId = config.appwriteDbId
-    const collectionId = config.public.appwriteGamecardsCollectionId
+    const dbId = process.env.APPWRITE_DB_ID || config.appwriteDbId
+    const collectionId = process.env.NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID || config.public.appwriteGamecardsCollectionId
 
     // Validate database ID
     if (!dbId || dbId.length > 36 || !/^[a-zA-Z0-9_]+$/.test(dbId) || dbId.startsWith('_')) {
