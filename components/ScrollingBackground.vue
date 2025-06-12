@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full bg-gradient-to-b from-slate-900 to-slate-800 absolute min-h-full flex flex-col -z-10">
+	<div class="w-full bg-gradient-to-b dark:from-slate-900 dark:to-slate-800 from-slate-300 to-slate-200 absolute min-h-full flex flex-col -z-10">
 		<ClientOnly>
 			<div class="absolute w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none -z-10"/>
 		</ClientOnly>
