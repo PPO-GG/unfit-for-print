@@ -926,7 +926,7 @@ const handleContinue = async () => {
 		// Each player will individually transition to the waiting room
 
 		notify({
-			title: t('lobby.returned_to_lobby'),
+			title: t('lobby.return_to_lobby'),
 			description: t('lobby.scoreboard_return_description'),
 			color: 'success',
 			icon: 'i-mdi-check-circle'

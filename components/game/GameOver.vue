@@ -75,7 +75,7 @@ const handleContinue = async () => {
 
     // Show notification
     notify({
-      title: t('lobby.returned_to_lobby'),
+      title: t('lobby.return_to_lobby'),
       description: t('lobby.scoreboard_return_description'),
       color: 'success',
       icon: 'i-mdi-check-circle'
@@ -158,7 +158,7 @@ const getPlayerName = (playerId) => {
         size="lg"
         @click="handleContinue"
       >
-        {{ t('lobby.continue_to_lobby') }}
+        {{ t('game.continue_to_lobby') }}
       </UButton>
     </div>
   </div>

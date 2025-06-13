@@ -7,7 +7,7 @@
 				<li v-for="lobby in lobbies" :key="lobby.$id" class="bg-slate-800 p-4 rounded shadow">
 					<div class="flex justify-between items-center">
 						<div>
-							<h2 class="text-xl font-semibold uppercase">{{ lobby.lobbyName || t('Unnamed Lobby') }}</h2>
+							<h2 class="text-xl font-semibold uppercase">{{ lobby.lobbyName || t('lobby.no_name') }}</h2>
 							<p class="text-gray-400 text-sm">{{ t('lobby.lobby_code') }}: {{ lobby.code }}</p>
 							<p class="text-gray-400 text-sm">{{ t('game.status') }}: {{ lobby.status }}</p>
 							<p class="text-gray-400 text-sm">{{ t('game.host') }}: {{ getHostName(lobby) }}</p>
