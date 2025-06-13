@@ -1,26 +1,44 @@
 <template>
-	<div class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]">
+	<div
+			class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]">
 		<div
-			ref="card"
-			:class="{ 'card--flipped': flipped, 'card--winner': isWinner }"
-			class="card cursor-pointer"
-			@mouseleave="resetTransform"
-			@mousemove="handleMouseMove"
+				ref="card"
+				:class="{ 'card--flipped': flipped, 'card--winner': isWinner }"
+				class="card cursor-pointer"
+				@mouseleave="resetTransform"
+				@mousemove="handleMouseMove"
+				@click="$emit('click')"
 		>
 			<div class="card__inner cursor-pointer">
 				<!-- Front Side -->
 				<div class="card__face card__front cursor-pointer">
 					<slot name="front">
 						<div class="card-content rounded-lg relative overflow-hidden cursor-pointer">
-							<p class="leading-6 md:leading-none p-3 md:p-4 text-pretty cursor-pointer" :style="textStyle">
+							<p :style="textStyle" class="leading-6 md:leading-none p-3 md:p-4 text-pretty cursor-pointer">
 								{{ cardText }}
 							</p>
-							<div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
-								<UTooltip :text="`Card ID ` + (cardId ?? '') + `\n` + cardPack" class="text-slate-900 font-light">
-							    <span class="relative flex items-center group">
-							      <Icon class="z-10" name="mdi:cards"/>
+							<div
+									class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
+								<UPopover :ui="{
+									content:'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg',
+								}" arrow>
+							    <span class="flex" @click.stop>
+							      <Icon class="z-10 cursor-pointer" name="mdi:cards"/>
 							    </span>
-								</UTooltip>
+									<template #content>
+										<div class="flex-1 p-4 font-[Bebas_Neue]">
+											<p class="text-md p-1"><span class="text-yellow-500">Card ID: </span>{{ (cardId ?? '') }}</p>
+											<p class="text-md p-1"><span class="text-yellow-500">Card Pack: </span>{{ cardPack }}</p>
+											<UButton
+													class="mt-2"
+													color="warning"
+													label="Report This Card"
+													variant="subtle"
+													@click.stop="showReportModal = true"
+											/>
+										</div>
+									</template>
+								</UPopover>
 							</div>
 						</div>
 					</slot>
@@ -43,17 +61,33 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- Report Card Modal -->
+	<UModal v-model:open="showReportModal" :overlay="false" :title="'Report A Card'" aria-describedby="Report A Card" :description="'Please select a reason for reporting this card:'">
+		<template #body>
+			<ReportCard
+					:card-id="cardId || ''"
+					card-type="black"
+					@cancel="showReportModal = false"
+					@submit="showReportModal = false"
+			/>
+		</template>
+	</UModal>
 </template>
 
 <script lang="ts" setup>
 import {useAppwrite} from "~/composables/useAppwrite";
-import { gsap } from 'gsap'
+import {gsap} from 'gsap'
 import {computed} from "vue";
+import ReportCard from '~/components/ReportCard.vue';
 
-const { getRandomInRange } = useCrypto()
-const { playSfx } = useSfx();
-const {vibrate } = useVibrate({pattern: [getRandomInRange([1, 3]), 2, getRandomInRange([1, 3])]})
-const { isMobile } = useDevice();
+// Define emits to fix the warning about extraneous non-emits event listeners
+defineEmits(['click']);
+
+const {getRandomInRange} = useCrypto()
+const {playSfx} = useSfx();
+const {vibrate} = useVibrate({pattern: [getRandomInRange([1, 3]), 2, getRandomInRange([1, 3])]})
+const {isMobile} = useDevice();
 
 function playRandomFlip() {
 	vibrate()
@@ -90,6 +124,7 @@ const card = ref<HTMLElement | null>(null);
 const textSize = ref(1);
 const rotation = ref({x: 0, y: 0});
 const shineOffset = ref({x: 0, y: 0});
+const showReportModal = ref(false);
 
 const textStyle = computed(() => {
 	return {
@@ -210,9 +245,9 @@ onMounted(async () => {
 
 			try {
 				const doc = await databases.getDocument(
-					config.public.appwriteDatabaseId, 
-					config.public.appwriteWhiteCardCollectionId, 
-					props.cardId
+						config.public.appwriteDatabaseId,
+						config.public.appwriteWhiteCardCollectionId,
+						props.cardId
 				);
 
 				if (doc && doc.text) {

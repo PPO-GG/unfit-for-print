@@ -7,6 +7,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { watchDebounced } from '@vueuse/core'
 import stringSimilarity from 'string-similarity'
 import type { RadioGroupItem, RadioGroupValue } from '@nuxt/ui'
+import { useCardSearch } from '~/composables/useCardSearch'
 
 let databases: Databases | undefined
 if (import.meta.client) {
@@ -15,7 +16,9 @@ if (import.meta.client) {
 const config = useRuntimeConfig()
 const { notify } = useNotifications()
 
-const searchTerm = ref('')
+// Use the shared card search state
+const { searchTerm, cardType } = useCardSearch()
+
 const selectedPack = ref(null)
 const availablePacks = ref<string[]>([])
 const cards = ref<any[]>([])
@@ -87,7 +90,6 @@ const selectedPackStatus = computed(() => {
 })
 
 const DB_ID = config.public.appwriteDatabaseId
-const cardType = ref<'white' | 'black'>('black')
 
 const CARD_COLLECTIONS = {
 	black: config.public.appwriteBlackCardCollectionId as string,
@@ -200,8 +202,16 @@ const fetchCards = async () => {
 
 		if (searchTerm.value) {
 			try {
-				// Try to use server-side search if fulltext index is available
-				queries.push(Query.search('text', searchTerm.value))
+				// Check if the search term might be an ID (no spaces, alphanumeric)
+				const isIdSearch = /^[a-zA-Z0-9]+$/.test(searchTerm.value) && !searchTerm.value.includes(' ');
+
+				if (isIdSearch) {
+					// If it looks like an ID, try to search by ID first
+					queries.push(Query.search('$id', searchTerm.value))
+				} else {
+					// Otherwise, search by text content
+					queries.push(Query.search('text', searchTerm.value))
+				}
 				useServerSideSearch = true
 
 				// Test the query to see if it works
@@ -251,7 +261,10 @@ const fetchCards = async () => {
 		if (clientSideFilterNeeded && searchTerm.value) {
 			const searchTermLower = searchTerm.value.toLowerCase()
 			filteredCards = allCards.filter(card => 
-				card.text.toLowerCase().includes(searchTermLower)
+				// Search by text content
+				card.text.toLowerCase().includes(searchTermLower) ||
+				// Search by ID
+				card.$id.toLowerCase().includes(searchTermLower)
 			)
 			// Only log this at debug level since it's expected behavior while indexes propagate
 			if (filteredCards.length !== allCards.length) {

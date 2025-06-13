@@ -23,7 +23,7 @@ export default defineNuxtConfig({
         // logErrors: true,
     },
     routeRules: {
-        '/': { prerender: true }
+        '/': {prerender: true}
     },
     vite: {
         build: {
@@ -61,17 +61,17 @@ export default defineNuxtConfig({
     ],
     css: ["~/assets/css/main.css"],
     modules: [
-      "@nuxt/fonts",
-      "@nuxt/icon",
-      "@pinia/nuxt",
-      "@vueuse/sound/nuxt",
-      "@vueuse/nuxt",
-      "@nuxt/ui",
-      'pinia-plugin-persistedstate/nuxt',
-      "nuxt-og-image",
-      'nuxt-umami',
-      '@nuxtjs/i18n',
-      '@nuxtjs/device',
+        "@nuxt/fonts",
+        "@nuxt/icon",
+        "@pinia/nuxt",
+        "@vueuse/sound/nuxt",
+        "@vueuse/nuxt",
+        "@nuxt/ui",
+        'pinia-plugin-persistedstate/nuxt',
+        "nuxt-og-image",
+        'nuxt-umami',
+        '@nuxtjs/i18n',
+        '@nuxtjs/device',
     ],
     sound: {
         sounds: {

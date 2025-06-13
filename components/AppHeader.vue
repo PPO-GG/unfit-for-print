@@ -180,7 +180,7 @@ const isAdmin = useIsAdmin()
 
 <template class="">
 	<header
-			class="fixed top-0 left-0 right-0 z-50 flex w-full h-16 items-center p-4 backdrop-blur-2xl dark:bg-slate-900/50 bg-slate-200 shadow-md text-2xl font-medium border-b-2 border-slate-700/25 transition-all duration-250 linear"
+			class="fixed top-0 left-0 right-0 z-50 flex w-full h-16 items-center p-4 backdrop-blur-2xl dark:bg-slate-900/50 bg-slate-200 shadow-md text-2xl font-medium border-b-2 border-slate-700/50 transition-all duration-250 linear"
 	>
 		<!-- Mobile Menu Button -->
 		<UButton
@@ -259,7 +259,7 @@ const isAdmin = useIsAdmin()
 				<ClientOnly v-if="isAuthenticatedUser(userStore.user)">
 					<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="primary"
 					         icon="i-solar-card-bold-duotone" to="/submissions"
-					         variant="subtle">Labs
+					         variant="subtle">{{ t('nav.labs') }}
 					</UButton>
 				</ClientOnly>
 				<div v-if="isAuthenticatedUser(userStore.user)"
@@ -376,8 +376,7 @@ const isAdmin = useIsAdmin()
 							<ClientOnly v-if="isAuthenticatedUser(userStore.user)">
 								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="primary"
 								         icon="i-solar-card-bold-duotone" to="/submissions"
-								         variant="soft">
-									Labs
+								         variant="soft">{{ t('nav.labs') }}
 								</UButton>
 							</ClientOnly>
 							<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="error"
