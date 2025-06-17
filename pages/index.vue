@@ -72,6 +72,7 @@
 				<UButtonGroup>
 					<UButton
 							:loading="isFetching"
+							data-rybbit-event="tryme_clicked"
 							class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
 							color="secondary" icon="i-solar-layers-minimalistic-bold-duotone" variant="subtle"
 							@click="handleTryMeClick"
@@ -158,7 +159,6 @@ const speak = (text: string) => {
 // Safe wrapper for the Try Me button click handler
 const handleTryMeClick = () => {
 	fetchNewCards();
-
 	if (isClient.value) {
 		umTrackEvent('fetch-new-cards-index');
 	}

@@ -9,18 +9,20 @@ export default defineNuxtConfig({
     compatibilityDate: "2024-11-01",
     devtools: {enabled: false},
     ssr: true,
+    head: {
+        script: [
+            {
+                src: 'https://rybbit.ppo.gg/api/script.js',
+                async: true,
+                defer: true,
+                'data-site-id': '2',
+            },
+        ],
+    },
     umami: {
         id: '57b71d8c-e18d-4d81-b3b3-318ba64c0431',
         host: 'https://analytics.ppo.gg',
         autoTrack: true,
-        // proxy: 'cloak',
-        // useDirective: true,
-        // ignoreLocalhost: true,
-        // excludeQueryParams: false,
-        // domains: ['cool-site.app', 'my-space.site'],
-        // customEndpoint: '/my-custom-endpoint',
-        // enabled: false,
-        // logErrors: true,
     },
     routeRules: {
         '/': {prerender: true}
@@ -61,17 +63,18 @@ export default defineNuxtConfig({
     ],
     css: ["~/assets/css/main.css"],
     modules: [
-        "@nuxt/fonts",
-        "@nuxt/icon",
-        "@pinia/nuxt",
-        "@vueuse/sound/nuxt",
-        "@vueuse/nuxt",
-        "@nuxt/ui",
-        'pinia-plugin-persistedstate/nuxt',
-        "nuxt-og-image",
-        'nuxt-umami',
-        '@nuxtjs/i18n',
-        '@nuxtjs/device',
+      "@nuxt/fonts",
+      "@nuxt/icon",
+      "@pinia/nuxt",
+      "@vueuse/sound/nuxt",
+      "@vueuse/nuxt",
+      "@nuxt/ui",
+      'pinia-plugin-persistedstate/nuxt',
+      "nuxt-og-image",
+      'nuxt-umami',
+      '@nuxtjs/i18n',
+      '@nuxtjs/device',
+      '@nuxt/scripts',
     ],
     sound: {
         sounds: {
