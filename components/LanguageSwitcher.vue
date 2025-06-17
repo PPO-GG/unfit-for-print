@@ -30,8 +30,8 @@ async function changeLocale(code: typeof locale.value) {
 const items = computed<DropdownMenuItem[]>(() => 
 	locales.value.map(loc => ({
 		label: loc.name,
-		icon: flagIcons[loc.code as keyof typeof flagIcons] || 'i-heroicons-globe-alt',
-		trailing: loc.code === locale.value ? { icon: 'i-heroicons-check', color: 'green' } : undefined,
+		icon: flagIcons[loc.code as keyof typeof flagIcons] || 'i-solar-globus-bold-duotone',
+		trailing: loc.code === locale.value ? { icon: 'i-solar-check-circle-bold-duotone', color: 'green' } : undefined,
 		onSelect: () => changeLocale(loc.code as typeof locale.value)
 	}))
 )
@@ -39,20 +39,22 @@ const items = computed<DropdownMenuItem[]>(() =>
 </script>
 
 <template>
-	<UDropdownMenu 
-		:items="items" 
-		:content="{ align: 'start', side: 'top', sideOffset: 8 }"
-		:ui="{
-			content: 'max-h-60 overflow-y-auto'
-		}"
-	>
-		<UButton
-			color="neutral"
-			variant="ghost"
-			class="flex items-center gap-2"
-			:icon="flagIcons[locale as keyof typeof flagIcons] || 'i-heroicons-globe-alt'"
+	<ClientOnly>
+		<UDropdownMenu 
+			:items="items" 
+			:content="{ align: 'start', side: 'top', sideOffset: 8 }"
+			:ui="{
+				content: 'max-h-60 overflow-y-auto'
+			}"
 		>
-			<span>{{ currentLocale.name }}</span>
-		</UButton>
-	</UDropdownMenu>
+			<UButton
+				color="neutral"
+				variant="ghost"
+				class="flex items-center gap-2"
+				:icon="flagIcons[locale as keyof typeof flagIcons] || 'i-solar-globus-bold-duotone'"
+			>
+				<span>{{ currentLocale.name }}</span>
+			</UButton>
+		</UDropdownMenu>
+	</ClientOnly>
 </template>

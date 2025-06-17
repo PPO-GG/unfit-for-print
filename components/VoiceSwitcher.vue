@@ -1,12 +1,12 @@
-<script setup lang="ts">
-import { useUserPrefsStore } from '@/stores/userPrefsStore';
+<script lang="ts" setup>
+import {useUserPrefsStore} from '@/stores/userPrefsStore';
 import {ref} from "vue";
 import {useBrowserSpeech} from "~/composables/useBrowserSpeech";
 import {useIsAdmin} from "~/composables/useAdminCheck";
 
 const userPrefs = useUserPrefsStore()
 const voices = ref<SpeechSynthesisVoice[]>([])
-const { getVoices, isVoiceAvailable } = useBrowserSpeech()
+const {getVoices, isVoiceAvailable} = useBrowserSpeech()
 const isAdmin = useIsAdmin()
 
 // ElevenLabs voice ID - must match the one in index.vue
@@ -17,14 +17,14 @@ const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
 	const preferredLang = userPrefs.preferredLanguage.toLowerCase()
 
 	// Try to find a voice that exactly matches the preferred language
-	let bestMatch = voices.value.find(voice => 
-		voice.lang.toLowerCase().startsWith(preferredLang)
+	let bestMatch = voices.value.find(voice =>
+			voice.lang.toLowerCase().startsWith(preferredLang)
 	)
 
 	// If no exact match, try to find a voice that starts with the same language code
 	if (!bestMatch) {
-		bestMatch = voices.value.find(voice => 
-			voice.lang.toLowerCase().split('-')[0] === preferredLang
+		bestMatch = voices.value.find(voice =>
+				voice.lang.toLowerCase().split('-')[0] === preferredLang
 		)
 	}
 
@@ -88,17 +88,16 @@ const currentVoice = computed(() => {
 const items = computed<DropdownMenuItem[]>(() => {
 	// Start with browser voices
 	const browserVoices = [...voices.value]
-		.sort((a, b) => a.name.localeCompare(b.name))
-		.map(voice => {
-			const isSelected = voice.name === userPrefs.ttsVoice;
-			return {
-				label: voice.name,
-				color: isSelected ? 'primary' : undefined,
-				icon: isSelected ? 'i-heroicons-speaker-wave' : undefined,
-				trailing: isSelected ? { icon: 'i-heroicons-check', color: 'green' } : undefined,
-				onSelect: () => userPrefs.ttsVoice = voice.name
-			};
-		});
+			.sort((a, b) => a.name.localeCompare(b.name))
+			.map(voice => {
+				const isSelected = voice.name === userPrefs.ttsVoice;
+				return {
+					label: voice.name,
+					color: isSelected ? 'primary' : undefined,
+					icon: isSelected ? 'i-solar-user-speak-bold-duotone' : undefined,
+					onSelect: () => userPrefs.ttsVoice = voice.name
+				};
+			});
 
 	// Add ElevenLabs voice option for admins
 	if (isAdmin.value) {
@@ -107,7 +106,6 @@ const items = computed<DropdownMenuItem[]>(() => {
 			label: 'ElevenLabs AI Voice',
 			color: isElevenLabsSelected ? 'primary' : undefined,
 			icon: 'i-solar-magic-stick-3-bold-duotone',
-			trailing: isElevenLabsSelected ? { icon: 'i-heroicons-check', color: 'green' } : undefined,
 			onSelect: () => userPrefs.ttsVoice = elevenLabsVoiceId
 		});
 	}
@@ -116,7 +114,7 @@ const items = computed<DropdownMenuItem[]>(() => {
 })
 
 onMounted(() => {
-	if (import.meta.client) {
+	if (typeof window !== 'undefined') {
 		if (speechSynthesis.onvoiceschanged !== undefined) {
 			speechSynthesis.onvoiceschanged = loadVoices
 		}
@@ -126,26 +124,28 @@ onMounted(() => {
 </script>
 
 <template>
-	<UDropdownMenu
-			:items="items"
-			:content="{
+	<ClientOnly>
+		<UDropdownMenu
+				:content="{
       align: 'start',
       side: 'bottom',
       sideOffset: 8
     }"
-			:ui="{
+				:items="items"
+				:ui="{
       content: 'w-48 max-h-60 overflow-y-auto'
     }"
-	>
-		<UButton
-				color="neutral"
-				variant="ghost"
-				class="flex items-center gap-2 text-xs"
-				icon="i-solar-user-speak-bold-duotone"
 		>
-			<span>TTS Voice</span>
-		</UButton>
-	</UDropdownMenu>
+			<UButton
+					class="flex items-center gap-2 text-xs"
+					color="neutral"
+					icon="i-solar-user-speak-bold-duotone"
+					variant="ghost"
+			>
+				<span>TTS Voice</span>
+			</UButton>
+		</UDropdownMenu>
+	</ClientOnly>
 </template>
 
 <style scoped>

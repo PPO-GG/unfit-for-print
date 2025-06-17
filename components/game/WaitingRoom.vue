@@ -1,5 +1,6 @@
 <template>
-	<div v-if="lobby" class="flex h-screen bg-gray-900 overflow-hidden">
+	<div v-if="lobby" class="w-full bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen flex flex-col">
+		<div class="absolute w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none"></div>
 		<!-- Sidebar - only render if not moved to [code].vue -->
 		<aside v-if="!sidebarMoved" class="max-w-1/4 w-auto h-screen p-4 flex flex-col shadow-inner border-r border-slate-800 space-y-4">
 			<div class="font-['Bebas_Neue'] text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600">
@@ -40,7 +41,7 @@
 			<div v-if="players.length >= 3">
 				<UButton
 						v-if="isHost && !isStarting"
-						icon="i-lucide-play"
+						icon="i-solar-play-bold"
 						@click="startGameWrapper"
 				>
 					{{ t('lobby.start_game') }}
@@ -87,6 +88,7 @@ import {useRouter} from 'vue-router';
 import {useUserStore} from '~/stores/userStore';
 import {useLobby} from '~/composables/useLobby';
 import {getAppwrite} from '~/utils/appwrite';
+import type { Client } from 'appwrite';
 import type {Lobby} from '~/types/lobby';
 import type {Player} from '~/types/player';
 import type {GameSettings} from '~/types/gamesettings';
@@ -94,7 +96,12 @@ import {useNotifications} from "~/composables/useNotifications";
 
 const { t } = useI18n();
 const {notify} = useNotifications();
-const props = defineProps<{ 
+
+let client: Client | undefined
+if (import.meta.client) {
+  ({ client } = getAppwrite())
+}
+const props = defineProps<{
 	lobby: Lobby; 
 	players: Player[];
 	sidebarMoved?: boolean;
@@ -121,11 +128,11 @@ const gameSettings = ref<GameSettings | null>(null);
 const setupGameSettingsRealtime = () => {
 	if (!props.lobby) return;
 
-	const {client} = getAppwrite();
-	const config = useRuntimeConfig();
+        if (!client) return
+        const config = useRuntimeConfig();
 
-	// Subscribe to changes in the game settings collection for this lobby
-	const unsubscribeGameSettings = client.subscribe(
+        // Subscribe to changes in the game settings collection for this lobby
+        const unsubscribeGameSettings = client.subscribe(
 			[`databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`],
 			async ({payload}) => {
 				// Check if this is a game settings document for our lobby

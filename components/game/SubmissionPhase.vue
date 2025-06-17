@@ -93,7 +93,7 @@ function convertToPlayer(playerId) {
       <div v-if="submissions[myId]" class="text-center">
         <p class="uppercase font-['Bebas_Neue'] text-4xl font-bold">{{ t('game.you_submitted') }}</p>
         <div class="flex justify-center gap-4">
-          <whiteCard v-for="cardId in submissions[myId]" :key="cardId" :cardId="cardId"/>
+          <WhiteCard v-for="cardId in submissions[myId]" :key="cardId" :cardId="cardId"/>
         </div>
         <p class="mt-4 italic text-gray-500">{{ t('game.waiting_for_submissions') }}</p>
       </div>

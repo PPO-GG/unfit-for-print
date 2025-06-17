@@ -19,11 +19,13 @@ export const useJoinLobby = () => {
     const { isBadUsername } = useProfanityFilter();
 
     const initSessionIfNeeded = async () => {
+        if (import.meta.server) return
         const { account } = getAppwrite();
+        await userStore.fetchUserSession();
         if (!userStore.session) {
             await account.createAnonymousSession();
+            await userStore.fetchUserSession();
         }
-        await userStore.fetchUserSession();
     };
 
     const validateUsername = (username: string): string | null => {

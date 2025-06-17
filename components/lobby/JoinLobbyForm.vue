@@ -26,11 +26,10 @@
           autocomplete="off"
       />
     </UFormField>
-
-    <UButton type="submit" block class="mt-4 cursor-pointer" :loading="joining">
-	    {{ t('game.joingame') }}
-    </UButton>
-
+<UButtonGroup size="lg" class="">
+    <UButton type="submit" class="mt-4 cursor-pointer" :loading="joining" color="primary" variant="subtle" icon="i-solar-hand-shake-line-duotone" :label="t('game.joingame') " />
+	  <UButton class="mt-4 cursor-pointer" color="warning" variant="subtle" icon="i-solar-exit-bold-duotone" to="/" :label="t('nav.home')" />
+</UButtonGroup>
     <p v-if="error" class="text-sm text-red-500 mt-2">{{ error }}</p>
   </UForm>
 </template>

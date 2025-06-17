@@ -18,6 +18,7 @@ export default async function ({ req, res, log, error }) {
     log('Current time:', now.toISOString());
 
     const accountAge = new Date(now);
+
     accountAge.setHours(accountAge.getHours() - 2);
     const staleTimestamp = accountAge.toISOString();
 

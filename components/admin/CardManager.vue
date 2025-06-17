@@ -1,17 +1,24 @@
 <script setup lang="ts">
 import { getAppwrite } from '~/utils/appwrite'
 import { Query } from 'appwrite'
+import type { Databases } from 'appwrite'
 import { useNotifications } from '~/composables/useNotifications'
 import { ref, computed, watch, onMounted } from 'vue'
 import { watchDebounced } from '@vueuse/core'
 import stringSimilarity from 'string-similarity'
 import type { RadioGroupItem, RadioGroupValue } from '@nuxt/ui'
+import { useCardSearch } from '~/composables/useCardSearch'
 
-const { databases } = getAppwrite()
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ databases } = getAppwrite())
+}
 const config = useRuntimeConfig()
 const { notify } = useNotifications()
 
-const searchTerm = ref('')
+// Use the shared card search state
+const { searchTerm, cardType } = useCardSearch()
+
 const selectedPack = ref(null)
 const availablePacks = ref<string[]>([])
 const cards = ref<any[]>([])
@@ -23,6 +30,7 @@ const showEditModal = ref(false)
 const editingCard = ref<any>(null)
 const newCardText = ref('')
 const editingCardPicks = ref(1)
+const numPick = ref(1)
 
 // Add single card feature
 const showAddCardModal = ref(false)
@@ -82,7 +90,6 @@ const selectedPackStatus = computed(() => {
 })
 
 const DB_ID = config.public.appwriteDatabaseId
-const cardType = ref<'white' | 'black'>('black')
 
 const CARD_COLLECTIONS = {
 	black: config.public.appwriteBlackCardCollectionId as string,
@@ -90,9 +97,13 @@ const CARD_COLLECTIONS = {
 }
 const CARD_COLLECTION = computed(() => CARD_COLLECTIONS[cardType.value])
 
+// Computed property to determine if numPick input should be disabled
+const isNumPickDisabled = computed(() => cardType.value === 'white')
+
 // Fetch available card packs on mount
 onMounted(async () => {
-	try {
+        if (!databases) return
+        try {
 		// First get total count of cards
 		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(1)])
 		const totalCards = countResult.total
@@ -129,7 +140,8 @@ onMounted(async () => {
 
 // Watch for card type changes to reload packs
 watch(cardType, async () => {
-	try {
+        if (!databases) return
+        try {
 		// First get total count of cards
 		const countResult = await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [Query.limit(1)])
 		const totalCards = countResult.total
@@ -167,7 +179,8 @@ watch(cardType, async () => {
 
 // Fetch cards
 const fetchCards = async () => {
-	loading.value = true
+        if (!databases) return
+        loading.value = true
 
 	try {
 		// First get total count of cards with filters applied
@@ -178,14 +191,27 @@ const fetchCards = async () => {
 			queries.push(Query.equal('pack', selectedPack.value))
 		}
 
+		// Apply filter for numPick when card type is black
+		if (cardType.value === 'black' && numPick.value > 0) {
+			queries.push(Query.equal('pick', numPick.value))
+		}
+
 		// Handle text search - try server-side search first, but be prepared to fall back to client-side filtering
 		let useServerSideSearch = false
 		let clientSideFilterNeeded = false
 
 		if (searchTerm.value) {
 			try {
-				// Try to use server-side search if fulltext index is available
-				queries.push(Query.search('text', searchTerm.value))
+				// Check if the search term might be an ID (no spaces, alphanumeric)
+				const isIdSearch = /^[a-zA-Z0-9]+$/.test(searchTerm.value) && !searchTerm.value.includes(' ');
+
+				if (isIdSearch) {
+					// If it looks like an ID, try to search by ID first
+					queries.push(Query.search('$id', searchTerm.value))
+				} else {
+					// Otherwise, search by text content
+					queries.push(Query.search('text', searchTerm.value))
+				}
 				useServerSideSearch = true
 
 				// Test the query to see if it works
@@ -235,7 +261,10 @@ const fetchCards = async () => {
 		if (clientSideFilterNeeded && searchTerm.value) {
 			const searchTermLower = searchTerm.value.toLowerCase()
 			filteredCards = allCards.filter(card => 
-				card.text.toLowerCase().includes(searchTermLower)
+				// Search by text content
+				card.text.toLowerCase().includes(searchTermLower) ||
+				// Search by ID
+				card.$id.toLowerCase().includes(searchTermLower)
 			)
 			// Only log this at debug level since it's expected behavior while indexes propagate
 			if (filteredCards.length !== allCards.length) {
@@ -276,7 +305,7 @@ const totalPages = computed(() => {
 
 // Reset page when search or filter changes
 watchDebounced(
-		[searchTerm, selectedPack],
+		[searchTerm, selectedPack, numPick],
 		() => {
 			currentPage.value = 1
 			fetchCards()
@@ -285,8 +314,13 @@ watchDebounced(
 )
 
 // Watch for card type changes
-watch(cardType, () => {
+watch(cardType, (newType) => {
 	currentPage.value = 1
+
+	// Reset numPick to default when switching to white cards
+	if (newType === 'white') {
+		numPick.value = 1
+	}
 })
 
 // Add console log for debugging pagination
@@ -1118,10 +1152,14 @@ const resumeUpload = () => {
 
 <template>
 	<div class="space-y-4">
-		<div class="flex gap-4 items-center">
-			<UInput v-model="searchTerm" placeholder="Search card text..." class="flex-1" icon="i-solar-magnifer-broken" />
+		<UInput v-model="searchTerm" placeholder="Search card text..." class="flex w-full" icon="i-solar-magnifer-broken" />
+		<div class="flex items-center">
+			<UButtonGroup class="w-full flex">
+				<USelectMenu v-model="selectedPack" :items="availablePacks" placeholder="Filter by pack" clearable class="w-1/3"/>
+				<USelectMenu v-model="cardType" :items="['black', 'white']" class="w-1/3" />
+    <UInputNumber v-model="numPick" :min="0" :max="10" :default-value="1" class="w-1/3" :disabled="isNumPickDisabled"/>
+			</UButtonGroup>
 			<div class="flex items-center gap-2">
-				<USelectMenu v-model="selectedPack" :items="availablePacks" placeholder="Filter by pack" clearable />
 				<div v-if="selectedPack" class="flex gap-1">
 					<UTooltip text="Activate all cards in this pack">
 						<UButton 
@@ -1150,7 +1188,6 @@ const resumeUpload = () => {
 					</div>
 				</div>
 			</div>
-			<USelectMenu v-model="cardType" :items="['black', 'white']" />
 		</div>
 
 		<div class="flex justify-between items-center">

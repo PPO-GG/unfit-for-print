@@ -166,7 +166,7 @@ const getPlayerAvatarUrl = (player: Player) => {
         <UAvatar
             v-else
             size="sm"
-            icon="i-heroicons-user"
+            icon="i-solar-user-bold-duotone"
         />
 
         <!-- Host Crown -->

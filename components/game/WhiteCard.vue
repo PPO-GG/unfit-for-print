@@ -1,39 +1,57 @@
 <template>
-	<div class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]">
+	<div
+			class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]">
 		<div
-			ref="card"
-			:class="{ 'card--flipped': flipped, 'card--winner': isWinner }"
-			class="card cursor-pointer"
-			@mouseleave="resetTransform"
-			@mousemove="handleMouseMove"
+				ref="card"
+				:class="{ 'card--flipped': flipped, 'card--winner': isWinner }"
+				class="card cursor-pointer"
+				@mouseleave="resetTransform"
+				@mousemove="handleMouseMove"
+				@click="$emit('click')"
 		>
-			<div class="card__inner">
+			<div class="card__inner cursor-pointer">
 				<!-- Front Side -->
-				<div class="card__face card__front">
+				<div class="card__face card__front cursor-pointer">
 					<slot name="front">
-						<div class="card-content rounded-lg relative overflow-hidden">
-							<p class="xl:text-4xl md:text-3xl text-xl md:leading-none leading-6 p-6">
+						<div class="card-content rounded-lg relative overflow-hidden cursor-pointer">
+							<p :style="textStyle" class="leading-6 md:leading-none p-3 md:p-4 text-pretty cursor-pointer">
 								{{ cardText }}
 							</p>
-							<div class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
-								<UTooltip :text="`Card ID ` + (cardId ?? '') + `\n` + cardPack" class="text-slate-900 font-light">
-							    <span class="relative flex items-center group">
-							      <Icon class="z-10" name="mdi:cards"/>
+							<div
+									class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500">
+								<UPopover :ui="{
+									content:'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg',
+								}" arrow>
+							    <span class="flex" @click.stop>
+							      <Icon class="z-10 cursor-pointer" name="mdi:cards"/>
 							    </span>
-								</UTooltip>
+									<template #content>
+										<div class="flex-1 p-4 font-[Bebas_Neue]">
+											<p class="text-md p-1"><span class="text-yellow-500">Card ID: </span>{{ (cardId ?? '') }}</p>
+											<p class="text-md p-1"><span class="text-yellow-500">Card Pack: </span>{{ cardPack }}</p>
+											<UButton
+													class="mt-2"
+													color="warning"
+													label="Report This Card"
+													variant="subtle"
+													@click.stop="showReportModal = true"
+											/>
+										</div>
+									</template>
+								</UPopover>
 							</div>
 						</div>
 					</slot>
 				</div>
 
 				<!-- Back Side -->
-				<div class="card__face card__back">
+				<div class="card__face card__back cursor-pointer">
 					<slot name="back">
-						<div class="card-content">
+						<div class="card-content cursor-pointer">
 							<img
 									:src="backLogoUrl"
 									alt="Card Back Logo"
-									class="w-3/4 max-w-[10rem] object-contain opacity-75"
+									class="w-3/4 max-w-[10rem] object-contain opacity-75 cursor-pointer"
 									draggable="false"
 							/>
 						</div>
@@ -43,17 +61,33 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- Report Card Modal -->
+	<UModal v-model:open="showReportModal" :overlay="false" :title="'Report A Card'" aria-describedby="Report A Card" :description="'Please select a reason for reporting this card:'">
+		<template #body>
+			<ReportCard
+					:card-id="cardId || ''"
+					card-type="black"
+					@cancel="showReportModal = false"
+					@submit="showReportModal = false"
+			/>
+		</template>
+	</UModal>
 </template>
 
 <script lang="ts" setup>
 import {useAppwrite} from "~/composables/useAppwrite";
+import {gsap} from 'gsap'
+import {computed} from "vue";
+import ReportCard from '~/components/ReportCard.vue';
 
-const {playSfx, getRandomInRange} = useSfx();
-const {vibrate, stop, isSupported} = useVibrate({pattern: [getRandomInRange([1, 3]), 2, getRandomInRange([1, 3])]})
-import {isMobile} from '@basitcodeenv/vue3-device-detect'
-import {useSpeech} from '~/composables/useSpeech'
+// Define emits to fix the warning about extraneous non-emits event listeners
+defineEmits(['click']);
 
-const {speak} = useSpeech('1SM7GgM6IMuvQlz2BwM3')
+const {getRandomInRange} = useCrypto()
+const {playSfx} = useSfx();
+const {vibrate} = useVibrate({pattern: [getRandomInRange([1, 3]), 2, getRandomInRange([1, 3])]})
+const {isMobile} = useDevice();
 
 function playRandomFlip() {
 	vibrate()
@@ -74,6 +108,7 @@ const props = defineProps<{
 	shine?: boolean
 	maskUrl?: string
 	isWinner?: boolean
+	disableHover?: boolean
 }>();
 
 const fallbackText = ref('');
@@ -86,8 +121,25 @@ watch(() => props.cardPack, (newCardPack) => {
 });
 
 const card = ref<HTMLElement | null>(null);
+const textSize = ref(1);
 const rotation = ref({x: 0, y: 0});
 const shineOffset = ref({x: 0, y: 0});
+const showReportModal = ref(false);
+
+const textStyle = computed(() => {
+	return {
+		fontSize: `${textSize.value}rem`,
+		lineHeight: `${Math.max(1, textSize.value * 1.1)}rem`,
+		padding: `${textSize.value * 0.5}rem`
+	};
+});
+
+function calculateTextSize() {
+	if (!card.value) return;
+
+	const width = card.value.offsetWidth;
+	textSize.value = Math.max(0.2, width / 125);
+}
 
 function animateShine() {
 	const ease = 0.05;
@@ -101,27 +153,7 @@ const shineStyle = computed(() => {
 	const offsetX = -shineOffset.value.y + 50;
 	const offsetY = -shineOffset.value.x + 50;
 	return {
-		background: `
-      linear-gradient(
-        ${angle}deg,
-        transparent,
-        red,
-        transparent,
-        orange,
-        transparent,
-        yellow,
-        transparent,
-        green,
-        transparent,
-        cyan,
-        transparent,
-        blue,
-        transparent,
-        violet,
-        transparent,
-        red
-      )
-    `,
+		background: `linear-gradient(${angle}deg, transparent, red, transparent, orange, transparent, yellow, transparent, green, transparent, cyan, transparent, blue, transparent, violet, transparent, red)`,
 		backgroundPosition: `${offsetX}% ${offsetY}%`,
 		backgroundSize: "500% 500%",
 		mixBlendMode: "screen" as "screen",
@@ -141,6 +173,7 @@ const shineStyle = computed(() => {
 function handleMouseMove(e: MouseEvent) {
 	if (!card.value) return;
 	if (isMobile) return;
+	if (props.disableHover) return;
 
 	const cardRect = card.value.getBoundingClientRect();
 	const x = e.clientX - cardRect.left;
@@ -158,41 +191,34 @@ function handleMouseMove(e: MouseEvent) {
 
 function applyTransform(rotateX = 0, rotateY = 0) {
 	if (!card.value) return;
-
 	const intensity = props.threeDeffect ? 1 : 0.3;
-	const flipTransform = props.flipped ? "rotateY(180deg)" : "";
-	const tiltTransform = `
-    rotateX(${rotateX * intensity}deg)
-    rotateY(${rotateY * intensity}deg)
-  `;
 
-	card.value.style.transform = `${flipTransform} ${tiltTransform}`;
+	// Only tilt the outer .card container
+	card.value.style.transform = `rotateX(${rotateX * intensity}deg) rotateY(${rotateY * intensity}deg)`;
 }
 
 function resetTransform() {
-	if (card.value) {
+	if (card.value && !props.disableHover) {
 		rotation.value = {x: 0, y: 0};
 		applyTransform(0, 0);
 	}
 }
 
-watch(
-		() => props.flipped,
-		(newValue, oldValue) => {
-			if (newValue !== oldValue) {
-				// Only play when the value actually changes
-				playRandomFlip();
-			}
-		}
-);
+watch(() => props.flipped, (flipped) => {
+	const el = card.value?.querySelector('.card__inner')
+	if (!el) return;
 
-watch(
-		() => props.flipped,
-		() => {
-			applyTransform(rotation.value.x, rotation.value.y);
-		},
-		{immediate: true}
-);
+	gsap.to(el, {
+		rotateY: flipped ? 180 : 0,
+		duration: 1.5,
+		ease: 'elastic.out(0.2,0.1)',
+		onStart: () => playRandomFlip(),
+	});
+});
+
+watch(() => card.value?.offsetWidth, () => {
+	calculateTextSize();
+});
 
 onMounted(async () => {
 	if (!props.text) {
@@ -206,44 +232,39 @@ onMounted(async () => {
 
 			const config = useRuntimeConfig();
 			if (!props.cardId) {
-				console.warn("No card ID provided for whiteCard component");
-				fallbackText.value = "Card ID missing";
+				fallbackText.value = "CARD TEXT HERE";
 				return;
 			}
 
 			// Check if the card ID is valid (should be a string with reasonable length)
-			if (typeof props.cardId !== 'string' || props.cardId.length < 5) {
+			if (props.cardId.length < 20) {
 				console.warn("Invalid card ID format:", props.cardId);
 				fallbackText.value = "Invalid card format";
 				return;
 			}
 
 			try {
-				// Log the card ID we're trying to fetch
-				console.log("Fetching card with ID:", props.cardId);
-
 				const doc = await databases.getDocument(
-					config.public.appwriteDatabaseId, 
-					config.public.appwriteWhiteCardCollectionId, 
-					props.cardId
+						config.public.appwriteDatabaseId,
+						config.public.appwriteWhiteCardCollectionId,
+						props.cardId
 				);
 
 				if (doc && doc.text) {
 					fallbackText.value = doc.text;
 					cardPack.value = doc.pack || null;
-					console.log("Successfully loaded card text for ID:", props.cardId);
 				} else {
 					console.warn("Card document found but text is missing for ID:", props.cardId);
 					fallbackText.value = "Card text unavailable";
 				}
-			} catch (docError) {
+			} catch (docError: string | any) {
 				console.error("Error fetching card text:", docError);
 				console.log("Card ID:", props.cardId);
 
 				// Provide a more specific error message for document not found
-				if (docError.toString().includes("Document with the requested ID could not be found")) {
+				if (docError.includes("Document with the requested ID could not be found")) {
 					fallbackText.value = "This card is from another game";
-				} else if (docError.toString().includes("Network error")) {
+				} else if (docError.includes("Network error")) {
 					fallbackText.value = "Network error - check connection";
 				} else {
 					fallbackText.value = "Error loading card content";
@@ -254,28 +275,23 @@ onMounted(async () => {
 			fallbackText.value = "Unexpected error loading card";
 		}
 	}
-	resetTransform();
-	animateShine();
+
+	calculateTextSize();
+	window.addEventListener('resize', calculateTextSize);
+
+	if (!props.disableHover) {
+		resetTransform();
+		animateShine();
+	}
+
+	onBeforeUnmount(() => {
+		window.removeEventListener('resize', calculateTextSize);
+	});
 });
+
 </script>
 
 <style scoped>
-.card-container {
-	perspective: 1500px;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	-webkit-touch-callout: none; /* iOS Safari */
-	-webkit-user-select: none; /* Safari */
-	-moz-user-select: none; /* Old versions of Firefox */
-	-ms-user-select: none; /* Internet Explorer/Edge */
-	user-select: none;
-}
-
-.card-container:hover {
-	z-index: 100 !important;
-}
-
 .card {
 	width: 100%;
 	height: 100%;

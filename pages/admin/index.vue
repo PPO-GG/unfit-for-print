@@ -3,8 +3,10 @@ definePageMeta({
 	middleware: 'admin'
 })
 
-// For tab navigation
-const activeTab = ref('cards')
+import { useCardSearch } from '~/composables/useCardSearch'
+
+// For tab navigation - use the shared state from useCardSearch
+const { activeTab } = useCardSearch()
 </script>
 
 <template>
@@ -19,9 +21,10 @@ const activeTab = ref('cards')
 		<!-- Tab Navigation for smaller screens -->
 		<div class="block lg:hidden mb-6">
 			<UTabs v-model="activeTab" :items="[
-			  { label: 'Card Manager', slot: 'cards', value: 'cards', icon: 'i-heroicons-document-text' },
-			  { label: 'Lobby Monitor', slot: 'lobbies', value: 'lobbies', icon: 'i-heroicons-users' },
-			  { label: 'User Manager', slot: 'users', value: 'users', icon: 'i-heroicons-users' }
+			  { label: 'Card Manager', slot: 'cards', value: 'cards', icon: 'i-solar-documents-bold-duotone' },
+			  { label: 'Lobby Monitor', slot: 'lobbies', value: 'lobbies', icon: 'i-solar-clipboard-bold-duotone' },
+			  { label: 'User Manager', slot: 'users', value: 'users', icon: 'i-solar-users-group-rounded-bold-duotone' },
+			  { label: 'Reports', slot: 'reports', value: 'reports', icon: 'i-solar-flag-bold-duotone' }
 			]">
 				<template #cards>
 					<div class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg">
@@ -36,6 +39,11 @@ const activeTab = ref('cards')
 				<template #users>
 					<div class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg">
 						<AdminUserManager />
+					</div>
+				</template>
+				<template #reports>
+					<div class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg">
+						<AdminReportViewer />
 					</div>
 				</template>
 			</UTabs>
@@ -74,6 +82,17 @@ const activeTab = ref('cards')
 					</div>
 				</template>
 				<AdminUserManager />
+			</UCard>
+
+			<!-- Report Viewer -->
+			<UCard class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6">
+				<template #header>
+					<div class="flex justify-between items-center">
+						<h2 class="text-2xl font-semibold font-['Bebas_Neue']">Reports</h2>
+						<UBadge icon="i-solar-info-square-bold-duotone" size="md" color="info" variant="solid">View and manage reported cards</UBadge>
+					</div>
+				</template>
+				<AdminReportViewer />
 			</UCard>
 
 		</div>

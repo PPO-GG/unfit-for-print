@@ -7,7 +7,7 @@
 				<li v-for="lobby in lobbies" :key="lobby.$id" class="bg-slate-800 p-4 rounded shadow">
 					<div class="flex justify-between items-center">
 						<div>
-							<h2 class="text-xl font-semibold uppercase">{{ lobby.lobbyName || t('Unnamed Lobby') }}</h2>
+							<h2 class="text-xl font-semibold uppercase">{{ lobby.lobbyName || t('lobby.no_name') }}</h2>
 							<p class="text-gray-400 text-sm">{{ t('lobby.lobby_code') }}: {{ lobby.code }}</p>
 							<p class="text-gray-400 text-sm">{{ t('game.status') }}: {{ lobby.status }}</p>
 							<p class="text-gray-400 text-sm">{{ t('game.host') }}: {{ getHostName(lobby) }}</p>
@@ -19,9 +19,11 @@
 
 			<p v-else class="text-gray-400 text-center">{{ t('game.nogamesavailable') }}</p>
 			<div class="space-x-4 uppercase font-['Bebas_Neue']">
-				<UButton size="xl" @click="showJoin = true" class="text-white text-2xl" variant="subtle" color="success">{{ t('modal.join_lobby') }}</UButton>
-				<UButton v-if="showIfAuthenticated" size="xl" @click="showCreate = true" class="text-white text-2xl" variant="subtle" color="warning">{{ t('modal.create_lobby') }}</UButton>
-			</div>
+                                <UButton size="xl" @click="showJoin = true" class="text-white text-2xl" variant="subtle" color="success">{{ t('modal.join_lobby') }}</UButton>
+                                <ClientOnly>
+                                        <UButton v-if="showIfAuthenticated" size="xl" @click="showCreate = true" class="text-white text-2xl" variant="subtle" color="warning">{{ t('modal.create_lobby') }}</UButton>
+                                </ClientOnly>
+                        </div>
 
 			<!-- Modals -->
 			<UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
@@ -47,13 +49,17 @@ import {useLobby} from '~/composables/useLobby'
 import {useUserAccess} from '~/composables/useUserUtils'
 import { getAppwrite } from '~/utils/appwrite'
 import { Query } from 'appwrite'
+import type { Databases } from 'appwrite'
 import { useGetPlayerName } from '~/composables/useGetPlayerName'
 import type { GameSettings } from '~/types/gamesettings'
 import type { Lobby } from '~/types/lobby'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
-const { databases } = getAppwrite()
+let databases: Databases | undefined
+if (import.meta.client) {
+  ({ databases } = getAppwrite())
+}
 const config = useRuntimeConfig()
 const showJoin = ref(false)
 const showCreate = ref(false)
@@ -76,7 +82,8 @@ const {showIfAuthenticated} = useUserAccess()
 const hostNames = ref<Record<string, string>>({})
 
 const fetchPublicLobbies = async () => {
-	try {
+        if (!databases) return
+        try {
 		const lobbyRes = await databases.listDocuments<Lobby>(DB_ID, LOBBY_COL, [
 			Query.equal('status', 'waiting'),
 			Query.orderDesc('$createdAt'),

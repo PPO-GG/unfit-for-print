@@ -4,7 +4,11 @@ import type {GameCards, PlayerHand} from '~/types/gamecards';
 import type {CardId, PlayerId} from '~/types/game';
 
 export const useGameCards = () => {
-  const { databases, client } = getAppwrite();
+  let databases: ReturnType<typeof getAppwrite>['databases'] | undefined
+  let client: ReturnType<typeof getAppwrite>['client'] | undefined
+  if (import.meta.client) {
+    ({ databases, client } = getAppwrite())
+  }
   const config = useRuntimeConfig();
 
   // Reactive state
@@ -76,6 +80,7 @@ export const useGameCards = () => {
 
   // Subscribe to real-time updates for game cards
   const subscribeToGameCards = (lobbyId: string, onUpdate?: (cards: GameCards) => void) => {
+    if (!client) return () => {}
     // First fetch the initial data
     fetchGameCards(lobbyId);
 

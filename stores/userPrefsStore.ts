@@ -8,6 +8,7 @@ export const useUserPrefsStore = defineStore('userPrefs', {
         chatProfanityFilter: true,
         preferredLanguage: 'en',
         ttsVoice: '',
+        acceptedWarning: false,
     }),
 
     actions: {
@@ -22,6 +23,9 @@ export const useUserPrefsStore = defineStore('userPrefs', {
         },
         toggleProfanityFilter() {
             this.chatProfanityFilter = !this.chatProfanityFilter
+        },
+        setAcceptedWarning(value: boolean) {
+            this.acceptedWarning = value
         }
     },
 

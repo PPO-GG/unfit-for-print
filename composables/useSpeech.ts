@@ -2,10 +2,14 @@ import { ref } from 'vue'
 export function useSpeech(defaultVoiceId = 'pzxut4zZz4GImZNlqQ3H') {
     const isSpeaking = ref(false)
     const queue = ref<string[]>([])
-    const audio = new Audio()
+    let audio: HTMLAudioElement | null = null
+
+    if (import.meta.client) {
+        audio = new Audio()
+    }
 
     const playNext = async () => {
-        if (isSpeaking.value || queue.value.length === 0) return
+        if (!import.meta.client || !audio || isSpeaking.value || queue.value.length === 0) return
         const text = queue.value.shift()
         if (!text) return
 
@@ -53,7 +57,7 @@ export function useSpeech(defaultVoiceId = 'pzxut4zZz4GImZNlqQ3H') {
     }
 
     const speak = (text: string) => {
-        if (!text) return
+        if (!import.meta.client || !text) return
         queue.value.push(text)
         playNext()
     }

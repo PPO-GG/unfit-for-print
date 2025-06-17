@@ -1,6 +1,7 @@
 // composables/useAdminCheck.ts
 import {getAppwrite} from '~/utils/appwrite'
 import {useUserStore} from '~/stores/userStore'
+import {ref, onMounted, watch} from 'vue'
 
 /**
  * Checks if the current user is an admin by verifying team membership.
@@ -20,8 +21,11 @@ export const useAdminCheck = async (): Promise<boolean> => {
     }
 
     try {
-        // console.log('[useAdminCheck] Getting Appwrite teams service')
-        const { teams } = getAppwrite()
+        let teams
+        if (import.meta.client) {
+            ({ teams } = getAppwrite())
+        }
+        if (!teams) return false
         const config = useRuntimeConfig()
         const ADMIN_TEAM_ID = config.public.appwriteAdminTeamId as string
         // console.log('[useAdminCheck] Admin team ID:', ADMIN_TEAM_ID)
@@ -45,10 +49,17 @@ export const useAdminCheck = async (): Promise<boolean> => {
  */
 export const useIsAdmin = () => {
     const isAdmin = ref(false)
+    const userStore = useUserStore()
 
+    // Check admin status on mount
     onMounted(async () => {
         isAdmin.value = await useAdminCheck()
     })
+
+    // Watch for changes in user session
+    watch(() => [userStore.user, userStore.session], async () => {
+        isAdmin.value = await useAdminCheck()
+    }, { immediate: true })
 
     return isAdmin
 }
