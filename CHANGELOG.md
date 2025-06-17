@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.3.0...v1.4.0) (2025-06-17)
+
+
+### Features
+
+* merge dev to main ([1e8afd6](https://github.com/PPO-GG/unfit-for-print/commit/1e8afd628b16efebd963afc679d0b39412946d51)), closes [#23](https://github.com/PPO-GG/unfit-for-print/issues/23) [#35](https://github.com/PPO-GG/unfit-for-print/issues/35) [#38](https://github.com/PPO-GG/unfit-for-print/issues/38) [#39](https://github.com/PPO-GG/unfit-for-print/issues/39) [#36](https://github.com/PPO-GG/unfit-for-print/issues/36) [#41](https://github.com/PPO-GG/unfit-for-print/issues/41) [#43](https://github.com/PPO-GG/unfit-for-print/issues/43)
+
 # [1.3.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.2.1...v1.3.0) (2025-06-07)
 
 
