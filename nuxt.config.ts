@@ -1,5 +1,4 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-import {visualizer} from 'rollup-plugin-visualizer'
 import {readFileSync} from 'node:fs'
 import {join} from 'node:path'
 
@@ -9,20 +8,15 @@ export default defineNuxtConfig({
     compatibilityDate: "2024-11-01",
     devtools: {enabled: false},
     ssr: true,
-    head: {
-        script: [
-            {
-                src: 'https://rybbit.ppo.gg/api/script.js',
-                async: true,
-                defer: true,
-                'data-site-id': '2',
-            },
-        ],
-    },
-    umami: {
-        id: '57b71d8c-e18d-4d81-b3b3-318ba64c0431',
-        host: 'https://analytics.ppo.gg',
-        autoTrack: true,
+    scripts: {
+        registry: {
+            rybbitAnalytics: {
+                siteId: '2',
+                scriptInput: {
+                    src: 'https://rybbit.ppo.gg/api/script.js'
+                }
+            }
+        }
     },
     routeRules: {
         '/': {prerender: true}
@@ -71,7 +65,6 @@ export default defineNuxtConfig({
       "@nuxt/ui",
       'pinia-plugin-persistedstate/nuxt',
       "nuxt-og-image",
-      'nuxt-umami',
       '@nuxtjs/i18n',
       '@nuxtjs/device',
       '@nuxt/scripts',

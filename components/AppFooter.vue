@@ -50,13 +50,9 @@ const {t} = useI18n()
 		</div>
 	</footer>
 	<!-- Bind v-model:open to the store state -->
-	<UModal v-model:open="uiStore.showPolicy" :title="t('modal.privacy_policy')" class="m-4 rounded-lg backdrop-blur-2xl bg-slate-900/50"
-	        fullscreen>
+	<UModal v-model:open="uiStore.showPolicy" :title="t('modal.privacy_policy')" class="m-4 rounded-lg backdrop-blur-2xl bg-slate-900/50" fullscreen>
 		<template #body>
 			<div class="prose prose-invert max-w-none" v-html="policy"/>
-		</template>
-		<template #footer>
-			<span class="text-sm">June 1, 2025 · © Unfit for Print</span>
 		</template>
 	</UModal>
 </template>
