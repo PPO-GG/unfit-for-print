@@ -35,7 +35,7 @@ export function mergeCardText(blackText: string | undefined | null, whiteText: s
     const finalResult = result.join('').trim()
     // Only log on client side (redundant check since we already check at the beginning, but just to be safe)
     if (typeof window !== 'undefined') {
-        console.info('%c%s','color:lightblue;font-weight:bold;font-size:2em;text-transform:uppercase;',finalResult);
+        // console.info('%c%s','color:lightblue;font-weight:bold;font-size:2em;text-transform:uppercase;',finalResult);
     }
     return finalResult
 }

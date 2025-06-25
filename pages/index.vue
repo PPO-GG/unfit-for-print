@@ -72,7 +72,6 @@
 				<UButtonGroup>
 					<UButton
 							:loading="isFetching"
-							data-rybbit-event="tryme_clicked"
 							class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
 							color="secondary" icon="i-solar-layers-minimalistic-bold-duotone" variant="subtle"
 							@click="handleTryMeClick"
@@ -97,86 +96,20 @@
 import { ref, computed, onMounted } from 'vue';
 import { useCards } from '~/composables/useCards';
 import { useVibrate } from '@vueuse/core';
-import { useBrowserSpeech } from '~/composables/useBrowserSpeech';
 import { useSpeech } from '~/composables/useSpeech';
 import { mergeCardText } from '~/composables/useMergeCards';
 import { useI18n } from 'vue-i18n';
 import { useUserPrefsStore } from '@/stores/userPrefsStore';
+import { TTS_PROVIDERS, getProviderFromVoiceId } from '~/constants/ttsProviders';
+import {useUserStore} from "~/stores/userStore";
+type TTSProvider = 'browser' | 'elevenlabs' | 'openai';
 
-// Loading state
+const { proxy: { event } } = useScriptRybbitAnalytics()
 const isLoading = ref(true);
-
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
-
-// ElevenLabs voice ID
-const elevenLabsVoiceId = 'NuIlfu52nTXRM2NXDrjS';
-
-// Initialize speech functions only on client side
-let browserSpeech = {
-	speak: (text: string, voiceOverride?: string, rate?: number) => {
-		console.log(`Speaking with browser speech: ${text}`);
-	},
-	isSpeaking: ref(false)
-};
-let elevenLabsSpeech = {
-	speak: (text: string) => {
-		console.log(`Speaking with ElevenLabs speech: ${text}`);
-	},
-	isSpeaking: ref(false)
-};
-
-if (typeof window !== 'undefined') {
-	browserSpeech = useBrowserSpeech();
-	elevenLabsSpeech = useSpeech(elevenLabsVoiceId);
-}
-
-// Computed to determine if we're on the client side
-const isClient = computed(() => {
-	return typeof window !== 'undefined';
-});
-
-// Computed to determine which speech function to use
-const isSpeaking = computed(() => {
-	if (!isClient.value) return false;
-
-	return userPrefs.ttsVoice === elevenLabsVoiceId
-			? elevenLabsSpeech.isSpeaking.value
-			: browserSpeech.isSpeaking.value;
-});
-
-// Function to speak text using the appropriate speech function
-const speak = (text: string) => {
-	if (!isClient.value || !text) return;
-
-	if (userPrefs.ttsVoice === elevenLabsVoiceId) {
-		elevenLabsSpeech.speak(text);
-	} else {
-		browserSpeech.speak(text, undefined, 1.0); // Example with default rate
-	}
-};
-
-// Safe wrapper for the Try Me button click handler
-const handleTryMeClick = () => {
-	fetchNewCards();
-	if (isClient.value) {
-		umTrackEvent('fetch-new-cards-index');
-	}
-};
-
-// Safe wrapper for the speak button click handler
-const handleSpeakClick = () => {
-	if (!blackCard.value || !whiteCard.value) return;
-	const mergedText = mergeCardText(blackCard.value.text, whiteCard.value.text);
-	if (!mergedText) return;
-	speak(mergedText);
-};
-
-const { vibrate } = useVibrate({ pattern: [10, 7, 5] });
-useHead({
-	title: `Unfit for Print`,
-});
-
+const openAIConfig = TTS_PROVIDERS.OPENAI;
+const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
 const blackCardFlipped = ref(true);
@@ -187,8 +120,61 @@ const { fetchRandomCard } = useCards();
 const randomCard = ref<any>({ pick: 1 });
 const { playSfx } = useSfx();
 const { notify } = useNotifications();
-
 const isFetching = ref(false);
+const userStore = useUserStore();
+
+let speechService = {
+	speak: (provider: TTSProvider, text: string) => {
+		console.log(`Speaking with ${provider} speech: ${text}`);
+	},
+	isSpeaking: ref(false)
+};
+
+if (typeof window !== 'undefined') {
+	speechService = useSpeech({
+		elevenLabsVoiceId: elevenLabsConfig.apiVoice,
+		openAIVoice: openAIConfig.apiVoice,
+	});
+}
+
+const isClient = computed(() => {
+	return typeof window !== 'undefined';
+});
+
+const currentProvider = computed((): TTSProvider => 
+	getProviderFromVoiceId(userPrefs.ttsVoice)
+);
+
+const isSpeaking = computed(() => {
+	if (!isClient.value) return false;
+	return speechService.isSpeaking.value;
+});
+
+const speak = (text: string) => {
+	if (!isClient.value || !text) return;
+	speechService.speak(currentProvider.value, text);
+};
+
+const handleSpeakClick = () => {
+  if (!blackCard.value || !whiteCard.value) return;
+  const mergedText = mergeCardText(blackCard.value.text, whiteCard.value.text);
+  if (!mergedText) return;
+  speak(mergedText);
+  console.info('%c%s','color:lightblue;font-weight:bold;font-size:2em;text-transform:uppercase;',mergedText);
+};
+
+const handleTryMeClick = () => {
+	fetchNewCards();
+	if (isClient.value) {
+    event('FetchCards', { userId: `${userStore.user.$id}`, combo: `${mergeCardText(blackCard.value.text, whiteCard.value.text)}` });
+	}
+};
+
+
+const { vibrate } = useVibrate({ pattern: [10, 7, 5] });
+useHead({
+	title: `Unfit for Print`,
+});
 
 const fetchNewCards = async () => {
 	if (isFetching.value) return;

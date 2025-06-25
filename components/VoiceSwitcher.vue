@@ -3,14 +3,16 @@ import {useUserPrefsStore} from '@/stores/userPrefsStore';
 import {ref} from "vue";
 import {useBrowserSpeech} from "~/composables/useBrowserSpeech";
 import {useIsAdmin} from "~/composables/useAdminCheck";
+import {TTS_PROVIDERS} from "~/constants/ttsProviders";
 
 const userPrefs = useUserPrefsStore()
 const voices = ref<SpeechSynthesisVoice[]>([])
 const {getVoices, isVoiceAvailable} = useBrowserSpeech()
 const isAdmin = useIsAdmin()
 
-// ElevenLabs voice ID - must match the one in index.vue
-const elevenLabsVoiceId = 'NuIlfu52nTXRM2NXDrjS'
+// Get provider configurations
+const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
+const openAIConfig = TTS_PROVIDERS.OPENAI;
 
 const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
 	// Get the user's preferred language from the store
@@ -32,14 +34,14 @@ const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
 	return bestMatch || voices.value[0] || null
 }
 
-const isElevenLabsVoiceAvailable = (voiceId: string): boolean => {
-	// Check if the voice is the ElevenLabs voice and the user is an admin
-	return voiceId === elevenLabsVoiceId && isAdmin.value;
+const isAIVoiceAvailable = (voiceId: string): boolean => {
+	// Check if the voice is an AI voice (ElevenLabs or OpenAI) and the user is an admin
+	return (voiceId === elevenLabsConfig.id || voiceId === openAIConfig.id) && isAdmin.value;
 }
 
 const updateVoice = () => {
-	// If the current voice is ElevenLabs and user is admin, keep it
-	if (userPrefs.ttsVoice === elevenLabsVoiceId && isAdmin.value) {
+	// If the current voice is an AI voice (ElevenLabs or OpenAI) and user is admin, keep it
+	if (isAIVoiceAvailable(userPrefs.ttsVoice)) {
 		return;
 	}
 
@@ -60,8 +62,8 @@ const loadVoices = () => {
 	if (!userPrefs.ttsVoice) {
 		const bestMatch = findBestMatchingVoice()
 		userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || ''
-	} else if (userPrefs.ttsVoice === elevenLabsVoiceId) {
-		// If ElevenLabs voice is selected but user is not admin, reset to browser voice
+	} else if (userPrefs.ttsVoice === elevenLabsConfig.id || userPrefs.ttsVoice === openAIConfig.id) {
+		// If an AI voice is selected but user is not admin, reset to browser voice
 		if (!isAdmin.value) {
 			const bestMatch = findBestMatchingVoice()
 			userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || ''
@@ -74,9 +76,17 @@ const loadVoices = () => {
 
 const currentVoice = computed(() => {
 	// If the selected voice is ElevenLabs and user is admin, return a special object
-	if (userPrefs.ttsVoice === elevenLabsVoiceId && isAdmin.value) {
+	if (userPrefs.ttsVoice === elevenLabsConfig.id && isAdmin.value) {
 		return {
-			name: 'ElevenLabs AI Voice',
+			name: elevenLabsConfig.displayName,
+			// Add other properties that might be needed
+		} as any;
+	}
+
+	// If the selected voice is OpenAI and user is admin, return a special object
+	if (userPrefs.ttsVoice === openAIConfig.id && isAdmin.value) {
+		return {
+			name: openAIConfig.displayName,
 			// Add other properties that might be needed
 		} as any;
 	}
@@ -99,14 +109,24 @@ const items = computed<DropdownMenuItem[]>(() => {
 				};
 			});
 
-	// Add ElevenLabs voice option for admins
+	// Add AI voice options for admins
 	if (isAdmin.value) {
-		const isElevenLabsSelected = userPrefs.ttsVoice === elevenLabsVoiceId;
+		// Add OpenAI voice option
+		const isOpenAISelected = userPrefs.ttsVoice === openAIConfig.id;
 		browserVoices.unshift({
-			label: 'ElevenLabs AI Voice',
+			label: openAIConfig.displayName,
+			color: isOpenAISelected ? 'primary' : undefined,
+			icon: 'i-solar-magic-stick-3-bold-duotone',
+			onSelect: () => userPrefs.ttsVoice = openAIConfig.id
+		});
+
+		// Add ElevenLabs voice option
+		const isElevenLabsSelected = userPrefs.ttsVoice === elevenLabsConfig.id;
+		browserVoices.unshift({
+			label: elevenLabsConfig.displayName,
 			color: isElevenLabsSelected ? 'primary' : undefined,
 			icon: 'i-solar-magic-stick-3-bold-duotone',
-			onSelect: () => userPrefs.ttsVoice = elevenLabsVoiceId
+			onSelect: () => userPrefs.ttsVoice = elevenLabsConfig.id
 		});
 	}
 
