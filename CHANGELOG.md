@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.4.0...v1.5.0) (2025-06-25)
+
+
+### Features
+
+* add Rybbit analytics ([1215725](https://github.com/PPO-GG/unfit-for-print/commit/1215725450a81c50669dfb7a6e91fca0b721922e))
+
 # [1.4.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.3.0...v1.4.0) (2025-06-17)
 
 
