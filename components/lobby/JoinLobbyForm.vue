@@ -118,7 +118,11 @@ const onSubmit = async () => {
 
   // Ensure username is not empty for authenticated users
   if (!showIfAnonymous.value && (!username || username.trim() === '')) {
-    const randomSuffix = crypto.getRandomValues(new Uint32Array(1))[0] % 1000;
+    let randomSuffix;
+    do {
+      randomSuffix = crypto.getRandomValues(new Uint32Array(1))[0];
+    } while (randomSuffix >= 4294967000); // Discard values >= 2^32 - (2^32 % 1000)
+    randomSuffix %= 1000;
     username = 'Player_' + randomSuffix;
     // console.warn('Empty username for authenticated user, using fallback:', username);
   }
