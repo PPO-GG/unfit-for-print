@@ -129,6 +129,12 @@ export const useLobby = () => {
         const { databases } = getAppwrite();
         const config = getConfig();
 
+        // Check if the user already has an active lobby
+        const existingLobby = await getActiveLobbyForUser(hostUserId);
+        if (existingLobby) {
+            throw new Error('You already have an active lobby. Please finish or leave that lobby before creating a new one.');
+        }
+
         // Generate a cryptographically secure random lobby code
         const randomValue = getRandomHexString(4);
         const lobbyCode = randomValue.substring(0, 6).toUpperCase();
