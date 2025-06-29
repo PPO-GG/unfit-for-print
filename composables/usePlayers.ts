@@ -27,6 +27,7 @@ export const usePlayers = () => {
         joinedAt: doc.joinedAt,
         provider: doc.provider,
         playerType: doc.playerType || 'player',
+        afk: doc.afk ?? false,
       })) satisfies Player[];
     } catch (err) {
       console.error('Failed to fetch players for lobby:', err);

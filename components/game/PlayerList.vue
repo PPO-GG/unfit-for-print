@@ -47,7 +47,7 @@ const lobbyRef = ref<Lobby>(createLobby({
 
 
 const { scores } = useGameContext(lobbyRef)
-const { kickPlayer, promoteToHost, reshufflePlayerCards } = useLobby()
+const { kickPlayer, promoteToHost, reshufflePlayerCards, setPlayerAfk } = useLobby()
 const userStore = useUserStore()
 const { notify } = useNotifications()
 
@@ -143,6 +143,15 @@ const getPlayerAvatarUrl = (player: Player) => {
   return null;
 };
 
+const toggleAfk = async (player: Player) => {
+  try {
+    await setPlayerAfk(props.lobbyId, player.$id, !player.afk)
+    player.afk = !player.afk
+  } catch (err) {
+    console.error('Failed to toggle AFK:', err)
+  }
+};
+
 </script>
 
 <template>
@@ -214,6 +223,15 @@ const getPlayerAvatarUrl = (player: Player) => {
 
         <!-- Admin Actions -->
         <div class="flex gap-1">
+          <button
+              v-if="player.userId === currentUserId"
+              @click="toggleAfk(player)"
+              class="admin-btn"
+              :class="player.afk ? 'text-orange-400 hover:text-orange-300 hover:bg-orange-900/30' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-900/30'"
+              title="AFK"
+          >
+            <Icon :name="player.afk ? 'mdi:pause' : 'mdi:play'" />
+          </button>
           <!-- Deal in spectator button -->
           <button
               v-if="isHost && player.userId !== currentUserId && player.playerType === 'spectator'"

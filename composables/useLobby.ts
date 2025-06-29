@@ -406,6 +406,7 @@ export const useLobby = () => {
                 joinedAt: new Date().toISOString(),
                 provider: session.provider,
                 playerType, // Set the player type
+                afk: false,
             },
             permissions
         );
@@ -842,6 +843,18 @@ export const useLobby = () => {
         }
     };
 
+    const setPlayerAfk = async (lobbyId: string, playerId: string, value: boolean) => {
+        const { databases } = getAppwrite();
+        const config = getConfig();
+
+        await databases.updateDocument(
+            config.public.appwriteDatabaseId,
+            config.public.appwritePlayerCollectionId,
+            playerId,
+            { afk: value }
+        );
+    };
+
     // Check if all players have returned to the lobby or if the auto-return timer has expired
     // This function no longer resets the game state for everyone
     const checkAllPlayersReturned = async (lobbyId: string) => {
@@ -903,6 +916,7 @@ export const useLobby = () => {
         resetGameState,
         reshufflePlayerCards,
         markPlayerReturnedToLobby,
+        setPlayerAfk,
         checkAllPlayersReturned,
     };
 };

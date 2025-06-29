@@ -30,6 +30,19 @@ const shuffle = (array) => {
   return copy;
 };
 
+export function determineNextJudge(currentJudgeId, order, players) {
+  const map = {};
+  players.forEach(p => { map[p.userId] = p; });
+  const eligible = order.filter(id => {
+    const doc = map[id];
+    return doc && doc.playerType !== 'spectator' && !doc.afk;
+  });
+  if (eligible.length === 0) return null;
+  const idx = eligible.indexOf(currentJudgeId);
+  const nextIndex = (idx === -1 || idx >= eligible.length - 1) ? 0 : idx + 1;
+  return eligible[nextIndex];
+}
+
 // Helper to fetch all IDs from a collection
 async function fetchAllIds(collectionId, databases, DB, cardPacks = null) {
   const BATCH = 100;
@@ -88,6 +101,7 @@ export default async function ({ req, res, log, error }) {
   const BLACK_CARDS_COLLECTION = process.env.BLACK_CARDS_COLLECTION;
   const GAMECARDS_COLLECTION = process.env.GAMECARDS_COLLECTION;
   const GAMESETTINGS_COL = process.env.GAMESETTINGS_COLLECTION;
+  const PLAYER_COLLECTION = process.env.PLAYER_COLLECTION;
 
   try {
     const raw = req.body ?? req.payload ?? '';
@@ -191,18 +205,35 @@ export default async function ({ req, res, log, error }) {
     state.submissionStartTime = Date.now();
     state.submissionCountdownDuration = parseInt(process.env.SUBMISSION_DURATION || '60', 10);
 
-    // Rotate judge
-    const playerIds = Object.keys(state.hands || {}); // Ensure hands exist
-    if (playerIds.length > 0) {
-        const currentJudgeIndex = playerIds.indexOf(state.judgeId);
-        // Ensure judgeId is valid and exists in players
-        const nextJudgeIndex = (currentJudgeIndex === -1 || currentJudgeIndex >= playerIds.length - 1)
+    // Rotate judge, skipping AFK players and spectators
+    const playerIds = Object.keys(state.hands || {}); // Maintain current order
+    let eligibleIds = [];
+    if (PLAYER_COLLECTION) {
+        try {
+            const playersRes = await databases.listDocuments(DB, PLAYER_COLLECTION, [Query.equal('lobbyId', lobbyId)]);
+            const playerMap = {};
+            playersRes.documents.forEach(doc => { playerMap[doc.userId] = doc; });
+            eligibleIds = playerIds.filter(id => {
+                const p = playerMap[id];
+                return p && p.playerType !== 'spectator' && !p.afk;
+            });
+        } catch (err) {
+            log('Failed to fetch players for judge rotation:', err.message);
+            eligibleIds = playerIds;
+        }
+    } else {
+        eligibleIds = playerIds;
+    }
+
+    if (eligibleIds.length > 0) {
+        const currentJudgeIndex = eligibleIds.indexOf(state.judgeId);
+        const nextJudgeIndex = (currentJudgeIndex === -1 || currentJudgeIndex >= eligibleIds.length - 1)
                                ? 0
                                : currentJudgeIndex + 1;
-        state.judgeId = playerIds[nextJudgeIndex];
+        state.judgeId = eligibleIds[nextJudgeIndex];
         log(`New judge for round ${state.round}: ${state.judgeId}`);
     } else {
-        log('No players found to assign judge.');
+        log('No eligible players found to assign judge.');
         state.judgeId = null;
     }
 
