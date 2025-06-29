@@ -181,6 +181,8 @@ export default async function ({ req, res, log, error }) {
       round: 1,
       roundWinner: null,
       roundEndStartTime: null,
+      submissionStartTime: Date.now(),
+      submissionCountdownDuration: parseInt(process.env.SUBMISSION_DURATION || '60', 10),
       gameEndTime: null,
       returnedToLobby: {},
 

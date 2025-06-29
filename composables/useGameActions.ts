@@ -6,11 +6,12 @@ export function useGameActions() {
     const { functions } = appwrite;
     const config = useRuntimeConfig();
 
-    const FUNCTIONS: Record<'START_GAME' | 'PLAY_CARD' | 'SELECT_WINNER' | 'START_NEXT_ROUND', string> = {
+    const FUNCTIONS: Record<'START_GAME' | 'PLAY_CARD' | 'SELECT_WINNER' | 'START_NEXT_ROUND' | 'END_SUBMISSION_PHASE', string> = {
         START_GAME: config.public.appwriteFunctionsStartGame as string,
         PLAY_CARD: config.public.appwriteFunctionsPlayCard as string,
         SELECT_WINNER: config.public.appwriteFunctionsSelectWinner as string,
         START_NEXT_ROUND: config.public.appwriteFunctionsStartNextRound as string,
+        END_SUBMISSION_PHASE: config.public.appwriteFunctionsEndSubmissionPhase as string,
     };
 
     const startGame = async (payload: string) => {
@@ -94,5 +95,22 @@ export function useGameActions() {
         }
     }
 
-    return { startGame, playCard, selectWinner, startNextRound }
+    const endSubmissionPhase = async (lobbyId: string) => {
+        if (!lobbyId) {
+            throw new Error('No lobbyId provided to endSubmissionPhase');
+        }
+
+        try {
+            return await functions.createExecution(
+                FUNCTIONS.END_SUBMISSION_PHASE,
+                JSON.stringify({ lobbyId }),
+                false
+            );
+        } catch (error) {
+            console.error('Error in endSubmissionPhase:', error);
+            throw error;
+        }
+    };
+
+    return { startGame, playCard, selectWinner, startNextRound, endSubmissionPhase }
 }

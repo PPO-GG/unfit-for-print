@@ -21,6 +21,14 @@ const props = defineProps({
   players: {
     type: Array,
     required: true
+  },
+  remainingTime: {
+    type: Number,
+    default: null
+  },
+  lobbyId: {
+    type: String,
+    default: ''
   }
 })
 
@@ -57,6 +65,9 @@ const getPlayerName = (playerId) => {
         </p>
         <p v-if="judgeId" class="text-amber-400 font-['Bebas_Neue'] text-xl">
           {{ t('game.judge', {name: getPlayerName(judgeId)}) }}
+        </p>
+        <p v-if="isSubmitting && remainingTime !== null" class="text-red-400 font-['Bebas_Neue'] text-xl">
+          {{ remainingTime }}s
         </p>
       </div>
     </div>

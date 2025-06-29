@@ -65,10 +65,10 @@ watch(() => props.lobby?.$id, (newLobbyId, oldLobbyId) => {
 })
 
 const {
-	state,
-	isSubmitting,
-	isJudging,
-	isComplete,
+        state,
+        isSubmitting,
+        isJudging,
+        isComplete,
 	isJudge,
 	myHand,
 	submissions,
@@ -76,14 +76,43 @@ const {
 	judgeId,
 	blackCard,
 	leaderboard,
-	hands
+        hands
+        ,
+        submissionStartTime,
+        submissionCountdownDuration
 } = useGameContext(lobbyRef, computed(() => playerHands.value))
 const {playSfx} = useSfx();
-const {playCard, selectWinner} = useGameActions()
+const {playCard, selectWinner, endSubmissionPhase} = useGameActions()
 const {leaveLobby} = useLobby()
 const userStore = useUserStore()
 const myId = userStore.user?.$id ?? ''
 const {notify} = useNotifications()
+
+const now = ref(Date.now())
+let submissionTimer: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+        submissionTimer = setInterval(() => {
+                now.value = Date.now()
+        }, 1000)
+})
+
+onUnmounted(() => {
+        if (submissionTimer) clearInterval(submissionTimer)
+})
+
+const remainingSubmissionTime = computed(() => {
+        if (!submissionStartTime.value) return submissionCountdownDuration.value
+        const elapsed = now.value - submissionStartTime.value
+        const remaining = submissionCountdownDuration.value * 1000 - elapsed
+        return Math.max(0, Math.ceil(remaining / 1000))
+})
+
+watch(remainingSubmissionTime, (val) => {
+        if (val === 0 && isHost.value && state.value?.phase === 'submitting') {
+                endSubmissionPhase(props.lobby.$id)
+        }
+})
 
 // Add computed properties to check player type
 const currentPlayer = computed(() => {
@@ -508,13 +537,15 @@ function handleLeave() {
 
 		<!-- Main Content -->
 		<div class="min-h-screen flex flex-col">
-			<GameHeader
-					:state="state"
-					:is-submitting="isSubmitting"
-					:is-judging="isJudging"
-					:judge-id="judgeId"
-					:players="props.players"
-			/>
+                        <GameHeader
+                                        :state="state"
+                                        :is-submitting="isSubmitting"
+                                        :is-judging="isJudging"
+                                        :judge-id="judgeId"
+                                        :players="props.players"
+                                        :remaining-time="remainingSubmissionTime"
+                                        :lobby-id="props.lobby.$id"
+                        />
 
 			<main class="flex-1 p-6 flex flex-col overflow-hidden">
 				<!-- Game Board Area with Card Decks -->
