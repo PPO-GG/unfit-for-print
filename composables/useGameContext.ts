@@ -142,6 +142,8 @@ export function useGameContext(
             if (!lobbyRef.value) return DEFAULT_COUNTDOWN_DURATION;
             return lobbyRef.value.roundEndCountdownDuration ?? DEFAULT_COUNTDOWN_DURATION;
         }),
+        submissionStartTime: computed((): number | null => state.value?.submissionStartTime ?? null),
+        submissionCountdownDuration: computed((): number => state.value?.submissionCountdownDuration ?? 60),
         myId,
     }
 }

@@ -128,6 +128,7 @@ export default defineNuxtConfig({
             appwriteFunctionsPlayCard: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_PLAY_CARD,
             appwriteFunctionsSelectWinner: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_SELECT_WINNER,
             appwriteFunctionsStartNextRound: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_START_NEXT_ROUND,
+            appwriteFunctionsEndSubmissionPhase: process.env.NUXT_PUBLIC_APPWRITE_FUNCTIONS_END_SUBMISSION_PHASE,
             baseUrl: process.env.DEPLOY_URL || process.env.NUXT_PUBLIC_BASE_URL || 'http://localhost:3000',
             oAuthRedirectUrl: process.env.NUXT_PUBLIC_OAUTH_REDIRECT_URL,
             oAuthFailUrl: process.env.NUXT_PUBLIC_OAUTH_FAIL_URL,

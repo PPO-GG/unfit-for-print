@@ -188,6 +188,8 @@ export default async function ({ req, res, log, error }) {
     state.roundWinner = null; // Clear winner from previous round
     state.winningCards = null; // Clear winning cards from previous round
     state.roundEndStartTime = null; // Clear start time
+    state.submissionStartTime = Date.now();
+    state.submissionCountdownDuration = parseInt(process.env.SUBMISSION_DURATION || '60', 10);
 
     // Rotate judge
     const playerIds = Object.keys(state.hands || {}); // Ensure hands exist
@@ -399,6 +401,8 @@ export default async function ({ req, res, log, error }) {
         roundWinner: state.roundWinner,
         winningCards: state.winningCards || null, // Include winning cards
         roundEndStartTime: state.roundEndStartTime,
+        submissionStartTime: state.submissionStartTime,
+        submissionCountdownDuration: state.submissionCountdownDuration,
         returnedToLobby: state.returnedToLobby,
         gameEndTime: state.gameEndTime,
         // Preserve the config object to ensure game settings are maintained across rounds

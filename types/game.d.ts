@@ -13,6 +13,8 @@ export interface GameState {
     round: number;
     roundWinner?: PlayerId;
     roundEndStartTime: number | null;
+    submissionStartTime?: number;
+    submissionCountdownDuration?: number;
     returnedToLobby?: Record<PlayerId, boolean>;
     gameEndTime?: number;
 
