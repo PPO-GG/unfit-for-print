@@ -22,9 +22,10 @@ vi.mock('~/composables/useGameContext', () => ({
     })
 }))
 
+const playCardMock = vi.fn()
 vi.mock('~/composables/useGameActions', () => ({
     useGameActions: () => ({
-        playCard: vi.fn(),
+        playCard: playCardMock,
         selectWinner: vi.fn()
     })
 }))
@@ -158,5 +159,16 @@ describe('GameBoard.vue', () => {
         // Access the component's internal state
         const vm = wrapper.vm
         expect(vm.isParticipant).toBe(true)
+    })
+
+    it('automatically plays a card when AFK', async () => {
+        wrapper = createWrapper({
+            players: [
+                { $id: 'player1', userId: 'user1', name: 'Test User', playerType: 'player', afk: true },
+                { $id: 'player2', userId: 'judge1', name: 'Judge User', playerType: 'player', afk: false }
+            ]
+        })
+        await flushPromises()
+        expect(playCardMock).toHaveBeenCalled()
     })
 })

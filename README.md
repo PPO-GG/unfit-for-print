@@ -67,6 +67,8 @@ is a Cards Against Humanity clone developed by **MYND** at **[PPO.GG](https://pp
 - **Lobby System**: Create private or public game rooms
 - **Chat System**: In-game chat to communicate with other players
 - **Player Management**: Kick players or convert spectators to participants
+- **AFK Mode**: Toggle AFK to let the game automatically play a random card if you're away
+  (use the AFK button next to your name in the player list)
 
 ### Customization
 
@@ -91,6 +93,7 @@ is a Cards Against Humanity clone developed by **MYND** at **[PPO.GG](https://pp
 1. **Submission Phase**:
    - Judge waits while other players select cards
    - Players choose from their hand to respond to the black card
+   - If a player has AFK mode enabled, a random card will be submitted automatically
 
 1. **Judging Phase**:
    - All submissions are revealed (anonymously)

@@ -9,4 +9,5 @@ export interface Player {
     joinedAt: string;
     provider: string;
     playerType: 'player' | 'spectator';
+    afk: boolean;
 }

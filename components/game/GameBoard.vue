@@ -124,7 +124,19 @@ const isParticipant = computed(() => {
 });
 
 const isSpectator = computed(() => {
-	return currentPlayer.value?.playerType === 'spectator';
+        return currentPlayer.value?.playerType === 'spectator';
+});
+
+watch(isSubmitting, (val) => {
+        if (val && currentPlayer.value?.afk && !isJudge.value && myHand.value.length > 0 && !submissions.value[myId]) {
+                const pick = blackCard.value?.pick || 1;
+                const cards = [...myHand.value];
+                for (let i = cards.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [cards[i], cards[j]] = [cards[j], cards[i]];
+                }
+                playCard(props.lobby.$id, myId, cards.slice(0, pick));
+        }
 });
 
 // Check if the current user is the host

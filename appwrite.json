@@ -289,6 +289,13 @@
                     "array": false,
                     "size": 255,
                     "default": null
+                },
+                {
+                    "key": "afk",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
                 }
             ],
             "indexes": []
@@ -937,6 +944,13 @@
                     "array": false,
                     "size": 48,
                     "default": null
+                },
+                {
+                    "key": "afk",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
                 },
                 {
                     "key": "playerType",
