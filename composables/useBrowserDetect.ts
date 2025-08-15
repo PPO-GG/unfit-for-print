@@ -10,24 +10,36 @@ export function useBrowserDetect() {
         isFirefox.value = navigator.userAgent.toLowerCase().includes('firefox')
     }
 
+    let proceedResolver: ((value: boolean) => void) | null = null
+    let proceedRejecter: ((reason?: any) => void) | null = null
+
+    const handleProceed = () => {
+        showFirefoxDialog.value = false
+        if (proceedResolver) {
+            proceedResolver(true)
+            proceedResolver = null
+            proceedRejecter = null
+        }
+    }
+
+    const handleCancel = () => {
+        showFirefoxDialog.value = false
+        if (proceedRejecter) {
+            proceedRejecter(false)
+            proceedResolver = null
+            proceedRejecter = null
+        }
+    }
+
     const showFirefoxPrivacyWarning = async (): Promise<boolean> => {
         if (!isFirefox.value) return true
 
         // Show the dialog and wait for user confirmation
         showFirefoxDialog.value = true
-        
-        return new Promise((resolve) => {
-            // We'll use this to handle the proceed event
-            const handleProceed = () => {
-                showFirefoxDialog.value = false
-                resolve(true)
-            }
 
-            // Export the handler so the component can call it
-            return {
-                showFirefoxDialog,
-                handleProceed
-            }
+        return new Promise<boolean>((resolve, reject) => {
+            proceedResolver = resolve
+            proceedRejecter = reject
         })
     }
 
@@ -35,6 +47,8 @@ export function useBrowserDetect() {
         isFirefox,
         detectBrowser,
         showFirefoxPrivacyWarning,
-        showFirefoxDialog
+        showFirefoxDialog,
+        handleProceed,
+        handleCancel
     }
 }

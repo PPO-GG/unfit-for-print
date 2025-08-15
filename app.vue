@@ -18,7 +18,7 @@ import {useHead, useAsyncData, useRuntimeConfig, useNuxtApp} from '#imports'
 import type {Lobby} from '~/types/lobby'
 import { useBrowserDetect } from '~/composables/useBrowserDetect'
 
-const { showFirefoxDialog, handleProceed: handleFirefoxProceed } = useBrowserDetect()
+const { showFirefoxDialog, handleFirefoxProceed } = useBrowserDetect()
 const isDev = import.meta.env.DEV
 const isPageLoading = ref(true)
 
