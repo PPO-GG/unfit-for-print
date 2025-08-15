@@ -1,4 +1,13 @@
 {
+  "browser.firefox_privacy_warning": "Important: Firefox Privacy Settings",
+  "browser.firefox_privacy_instructions": "We've detected that you're using Firefox. Some Firefox privacy features may prevent login from working correctly. Please adjust your settings to continue:",
+  "browser.steps_to_fix": "How to Enable Login:",
+  "browser.step_1": "Open Firefox Settings (click ☰ menu > Settings)",
+  "browser.step_2": "Go to Privacy & Security",
+  "browser.step_3": "Under 'Enhanced Tracking Protection', choose 'Standard' or disable 'Total Cookie Protection'",
+  "browser.privacy_note": "You can restore these settings after logging in. We respect your privacy and only use essential cookies for authentication.",
+  "browser.remind_later": "Remind Me Later",
+  "browser.understood": "I Understand, Continue to Login",
   "auth.loading": "Please wait while we log you in...",
   "auth.login_fail": "Login Failed!",
   "auth.login_successful": "Logged In Successfully!",

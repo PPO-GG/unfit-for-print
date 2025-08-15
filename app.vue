@@ -6,6 +6,7 @@
 					<span class="text-[0.5em] dark:text-white text-black font-mono mt-4 ml-1">DEV MODE</span>
 				</div>
 				<LoadingOverlay :is-loading="isPageLoading"/>
+				<FirefoxPrivacyDialog v-model="showFirefoxDialog" @proceed="handleFirefoxProceed" />
 				<NuxtPage/>
 			</NuxtLayout>
 	</UApp>
@@ -15,6 +16,9 @@ import {ref, watchEffect, onMounted} from 'vue'
 import {useRoute} from '#vue-router'
 import {useHead, useAsyncData, useRuntimeConfig, useNuxtApp} from '#imports'
 import type {Lobby} from '~/types/lobby'
+import { useBrowserDetect } from '~/composables/useBrowserDetect'
+
+const { showFirefoxDialog, handleProceed: handleFirefoxProceed } = useBrowserDetect()
 const isDev = import.meta.env.DEV
 const isPageLoading = ref(true)
 

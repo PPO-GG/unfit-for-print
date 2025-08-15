@@ -2,6 +2,7 @@ import {defineStore} from "pinia";
 import {type Models, OAuthProvider} from "appwrite";
 import type { AuthUser } from '~/types/auth'
 import {useAppwrite} from "~/composables/useAppwrite";
+import {useBrowserDetect} from "~/composables/useBrowserDetect";
 
 export const useUserStore = defineStore("user", {
     state: () => ({
@@ -41,6 +42,12 @@ export const useUserStore = defineStore("user", {
                 console.error('No account instance available');
                 return;
             }
+            
+            // Show Firefox privacy warning if needed
+            const { detectBrowser, showFirefoxPrivacyWarning } = useBrowserDetect();
+            detectBrowser();
+            const shouldContinue = await showFirefoxPrivacyWarning();
+            if (!shouldContinue) return;
 
             const config = useRuntimeConfig();
             const redirect = config.public.baseUrl + '/auth/callback'
