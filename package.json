@@ -47,6 +47,7 @@
     "dompurify": "^3.2.6",
     "dotenv": "^16.5.0",
     "gsap": "^3.13.0",
+    "html-to-image": "^1.11.11",
     "lodash-es": "^4.17.21",
     "markdown-it": "^14.1.0",
     "mespeak": "^2.0.2",
