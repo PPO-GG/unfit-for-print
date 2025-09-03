@@ -69,26 +69,33 @@
 		</div>
 		<div class="flex flex-col items-center mt-8">
 			<ClientOnly>
-				<UButtonGroup>
-					<UButton
-							:loading="isFetching"
-							class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
-							color="secondary" icon="i-solar-layers-minimalistic-bold-duotone" variant="subtle"
-							@click="handleTryMeClick"
-					>
-						{{ t('try_me') }}
-					</UButton>
-					<UButton
-							:disabled="isSpeaking"
-							:loading="isSpeaking"
-							class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
-							color="primary" icon="i-solar-user-speak-bold-duotone" variant="subtle"
-							@click="handleSpeakClick"
-					/>
-				</UButtonGroup>
-			</ClientOnly>
-		</div>
-	</div>
+                                <UButtonGroup>
+                                        <UButton
+                                                        :loading="isFetching"
+                                                        class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
+                                                        color="secondary" icon="i-solar-layers-minimalistic-bold-duotone" variant="subtle"
+                                                        @click="handleTryMeClick"
+                                        >
+                                                {{ t('try_me') }}
+                                        </UButton>
+                                        <UButton
+                                                        :disabled="isSpeaking"
+                                                        :loading="isSpeaking"
+                                                        class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
+                                                        color="primary" icon="i-solar-user-speak-bold-duotone" variant="subtle"
+                                                        @click="handleSpeakClick"
+                                        />
+                                        <ShareImage
+                                                        v-if="blackCard && whiteCard"
+                                                        :black-card="{ id: blackCard.$id, text: blackCard.text, pick: blackCard.pick }"
+                                                        :white-card-ids="[whiteCard.$id]"
+                                        >
+                                                Share
+                                        </ShareImage>
+                                </UButtonGroup>
+                        </ClientOnly>
+                </div>
+        </div>
 
 </template>
 
@@ -102,6 +109,7 @@ import { useI18n } from 'vue-i18n';
 import { useUserPrefsStore } from '@/stores/userPrefsStore';
 import { TTS_PROVIDERS, getProviderFromVoiceId } from '~/constants/ttsProviders';
 import {useUserStore} from "~/stores/userStore";
+import ShareImage from '~/components/game/ShareImage.vue';
 type TTSProvider = 'browser' | 'elevenlabs' | 'openai';
 
 const { proxy: { event } } = useScriptRybbitAnalytics()
