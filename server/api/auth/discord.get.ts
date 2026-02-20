@@ -32,12 +32,56 @@ export default defineEventHandler(async (event) => {
   const failureUrl = `${baseUrl}/?error=oauth_failed`;
 
   try {
-    const redirectUrl = await account.createOAuth2Token(
-      OAuthProvider.Discord,
-      successUrl,
-      failureUrl,
-      ["identify"],
-    );
+    const endpoint = client.config.endpoint;
+    const projectId = client.config.project;
+    const apiKey = client.config.key;
+
+    const urlObj = new URL(`${endpoint}/account/tokens/oauth2/discord`);
+    urlObj.searchParams.set("success", successUrl);
+    urlObj.searchParams.set("failure", failureUrl);
+    // Note: Appwrite may expect an array format for scopes via HTTP
+    urlObj.searchParams.set("scopes[]", "identify");
+
+    const redirectUrl = await new Promise<string>((resolve, reject) => {
+      import("https").then((https) => {
+        const req = https.request(
+          urlObj.toString(),
+          {
+            method: "GET",
+            headers: {
+              "X-Appwrite-Project": projectId,
+              "X-Appwrite-Key": apiKey,
+            },
+          },
+          (res) => {
+            if (res.statusCode === 301 || res.statusCode === 302) {
+              if (res.headers.location) {
+                resolve(res.headers.location);
+              } else {
+                reject(
+                  new Error(
+                    "No location header returned from Appwrite (301/302)",
+                  ),
+                );
+              }
+            } else {
+              let body = "";
+              res.on("data", (chunk) => (body += chunk));
+              res.on("end", () => {
+                reject(
+                  new Error(
+                    `Appwrite rejected init: [${res.statusCode}] ${body}`,
+                  ),
+                );
+              });
+            }
+          },
+        );
+
+        req.on("error", (err) => reject(err));
+        req.end();
+      });
+    });
 
     await sendRedirect(event, redirectUrl);
   } catch (error: any) {
