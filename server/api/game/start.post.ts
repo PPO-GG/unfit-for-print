@@ -13,6 +13,9 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Auth: Only the lobby host can start the game
+  await requireHost(event, lobbyId);
+
   const {
     DB,
     LOBBY,
@@ -65,7 +68,7 @@ export default defineEventHandler(async (event) => {
       await fetchAllIds(WHITE_CARDS, databases, DB, gameSettings?.cardPacks),
     );
     const CARDS_PER_PLAYER = gameSettings?.numPlayerCards || 7;
-    const EXTRA_WHITES = 20;
+    const EXTRA_WHITES = 100;
     const totalWhites = playerCount * CARDS_PER_PLAYER + EXTRA_WHITES;
 
     // Deal hands
@@ -112,7 +115,6 @@ export default defineEventHandler(async (event) => {
         pick: firstBlack.pick || 1,
       },
       submissions: {},
-      playedCards: {},
       scores: playerIds.reduce(
         (acc: Record<string, number>, id: string) => ({ ...acc, [id]: 0 }),
         {},

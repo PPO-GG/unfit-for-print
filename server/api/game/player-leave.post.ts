@@ -19,62 +19,160 @@ export default defineEventHandler(async (event) => {
       statusMessage: "leavingUserId is required",
     });
 
+  // Auth: Caller must be a player in this lobby
+  await requirePlayerInLobby(event, lobbyId);
+
   const { DB, LOBBY, PLAYER, GAMECARDS, BLACK_CARDS } = getCollectionIds();
   const databases = getAdminDatabases();
 
-  try {
-    // --- Fetch lobby and decode state ---
-    const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+  return withRetry(async () => {
+    try {
+      // --- Fetch lobby and decode state ---
+      const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+      const capturedVersion = lobby.$updatedAt;
 
-    // Only process if game is actively being played
-    if (lobby.status !== "playing") {
-      return {
-        success: true,
-        action: "none",
-        reason: "Game is not in progress",
-      };
-    }
+      // Only process if game is actively being played
+      if (lobby.status !== "playing") {
+        return {
+          success: true,
+          action: "none",
+          reason: "Game is not in progress",
+        };
+      }
 
-    const state = decodeGameState(lobby.gameState);
+      const state = decodeGameState(lobby.gameState);
 
-    // --- Fetch gamecards document ---
-    const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
-      Query.equal("lobbyId", lobbyId),
-    ]);
-    if (gameCardsQuery.documents.length === 0) {
-      return { success: true, action: "none", reason: "No gamecards document" };
-    }
-    const gameCards = gameCardsQuery.documents[0]!;
+      // --- Fetch gamecards document ---
+      const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
+        Query.equal("lobbyId", lobbyId),
+      ]);
+      if (gameCardsQuery.documents.length === 0) {
+        return {
+          success: true,
+          action: "none",
+          reason: "No gamecards document",
+        };
+      }
+      const gameCards = gameCardsQuery.documents[0]!;
 
-    // Merge hands from gamecards
-    state.hands = parsePlayerHands(gameCards.playerHands);
+      // Merge hands from gamecards
+      state.hands = parsePlayerHands(gameCards.playerHands);
 
-    // --- Fetch remaining players (excluding the one leaving) ---
-    const playersRes = await databases.listDocuments(DB, PLAYER, [
-      Query.equal("lobbyId", lobbyId),
-      Query.notEqual("playerType", "spectator"),
-      Query.limit(100),
-    ]);
-    const remainingPlayerIds = playersRes.documents
-      .map((d) => d.userId)
-      .filter((id) => id !== leavingUserId);
+      // --- Fetch remaining players (excluding the one leaving) ---
+      const playersRes = await databases.listDocuments(DB, PLAYER, [
+        Query.equal("lobbyId", lobbyId),
+        Query.notEqual("playerType", "spectator"),
+        Query.limit(100),
+      ]);
+      const remainingPlayerIds = playersRes.documents
+        .map((d) => d.userId)
+        .filter((id) => id !== leavingUserId);
 
-    // --- Remove leaving player from game state ---
-    delete state.hands[leavingUserId];
-    delete state.submissions[leavingUserId];
-    delete state.playedCards?.[leavingUserId];
-    // Remove from skippedPlayers if present
-    if (Array.isArray(state.skippedPlayers)) {
-      state.skippedPlayers = state.skippedPlayers.filter(
-        (id: string) => id !== leavingUserId,
-      );
-    }
-    // Note: we keep their score in state.scores for historical display
+      // --- Remove leaving player from game state ---
+      delete state.hands[leavingUserId];
+      delete state.submissions[leavingUserId];
+      // Remove from skippedPlayers if present
+      if (Array.isArray(state.skippedPlayers)) {
+        state.skippedPlayers = state.skippedPlayers.filter(
+          (id: string) => id !== leavingUserId,
+        );
+      }
+      // Note: we keep their score in state.scores for historical display
 
-    // --- Check if fewer than 3 players remain → revert to waiting ---
-    if (remainingPlayerIds.length < 3) {
-      state.phase = "waiting";
+      // --- Check if fewer than 3 players remain → revert to waiting ---
+      if (remainingPlayerIds.length < 3) {
+        state.phase = "waiting";
 
+        const updatedGameCards = {
+          lobbyId: gameCards.lobbyId,
+          whiteDeck: gameCards.whiteDeck,
+          blackDeck: gameCards.blackDeck,
+          discardWhite: gameCards.discardWhite,
+          discardBlack: gameCards.discardBlack,
+          playerHands: serializePlayerHands(state.hands),
+        };
+
+        await assertVersionUnchanged(lobbyId, capturedVersion);
+        await databases.updateDocument(
+          DB,
+          GAMECARDS,
+          gameCards.$id,
+          updatedGameCards,
+        );
+        await databases.updateDocument(DB, LOBBY, lobbyId, {
+          status: "waiting",
+          gameState: encodeGameState(extractCoreState(state)),
+        });
+
+        return {
+          success: true,
+          action: "reverted_to_waiting",
+          reason: "Fewer than 3 players remain",
+        };
+      }
+
+      // --- Case 1: Judge left → skip the round and rotate judge ---
+      if (leavingUserId === state.judgeId) {
+        return await handleJudgeLeft(
+          databases,
+          DB,
+          LOBBY,
+          GAMECARDS,
+          BLACK_CARDS,
+          lobbyId,
+          gameCards,
+          state,
+          remainingPlayerIds,
+          leavingUserId,
+          capturedVersion,
+        );
+      }
+
+      // --- Case 2: Non-judge left during submission phase ---
+      if (state.phase === "submitting") {
+        return await handleSubmitterLeft(
+          databases,
+          DB,
+          LOBBY,
+          GAMECARDS,
+          lobbyId,
+          gameCards,
+          state,
+          capturedVersion,
+        );
+      }
+
+      // --- Case 3: Non-judge left during judging phase ---
+      // The judge can still pick from remaining submissions. Just persist cleanup.
+      if (state.phase === "judging") {
+        const updatedGameCards = {
+          lobbyId: gameCards.lobbyId,
+          whiteDeck: gameCards.whiteDeck,
+          blackDeck: gameCards.blackDeck,
+          discardWhite: gameCards.discardWhite,
+          discardBlack: gameCards.discardBlack,
+          playerHands: serializePlayerHands(state.hands),
+        };
+
+        await assertVersionUnchanged(lobbyId, capturedVersion);
+        await databases.updateDocument(
+          DB,
+          GAMECARDS,
+          gameCards.$id,
+          updatedGameCards,
+        );
+        await databases.updateDocument(DB, LOBBY, lobbyId, {
+          gameState: encodeGameState(extractCoreState(state)),
+        });
+
+        return {
+          success: true,
+          action: "cleaned_up",
+          reason: "Player removed from judging phase, judge can still choose",
+        };
+      }
+
+      // --- Default: just persist the cleanup ---
       const updatedGameCards = {
         lobbyId: gameCards.lobbyId,
         whiteDeck: gameCards.whiteDeck,
@@ -84,65 +182,7 @@ export default defineEventHandler(async (event) => {
         playerHands: serializePlayerHands(state.hands),
       };
 
-      await databases.updateDocument(
-        DB,
-        GAMECARDS,
-        gameCards.$id,
-        updatedGameCards,
-      );
-      await databases.updateDocument(DB, LOBBY, lobbyId, {
-        status: "waiting",
-        gameState: encodeGameState(extractCoreState(state)),
-      });
-
-      return {
-        success: true,
-        action: "reverted_to_waiting",
-        reason: "Fewer than 3 players remain",
-      };
-    }
-
-    // --- Case 1: Judge left → skip the round and rotate judge ---
-    if (leavingUserId === state.judgeId) {
-      return await handleJudgeLeft(
-        databases,
-        DB,
-        LOBBY,
-        GAMECARDS,
-        BLACK_CARDS,
-        lobbyId,
-        gameCards,
-        state,
-        remainingPlayerIds,
-        leavingUserId,
-      );
-    }
-
-    // --- Case 2: Non-judge left during submission phase ---
-    if (state.phase === "submitting") {
-      return await handleSubmitterLeft(
-        databases,
-        DB,
-        LOBBY,
-        GAMECARDS,
-        lobbyId,
-        gameCards,
-        state,
-      );
-    }
-
-    // --- Case 3: Non-judge left during judging phase ---
-    // The judge can still pick from remaining submissions. Just persist cleanup.
-    if (state.phase === "judging") {
-      const updatedGameCards = {
-        lobbyId: gameCards.lobbyId,
-        whiteDeck: gameCards.whiteDeck,
-        blackDeck: gameCards.blackDeck,
-        discardWhite: gameCards.discardWhite,
-        discardBlack: gameCards.discardBlack,
-        playerHands: serializePlayerHands(state.hands),
-      };
-
+      await assertVersionUnchanged(lobbyId, capturedVersion);
       await databases.updateDocument(
         DB,
         GAMECARDS,
@@ -153,39 +193,12 @@ export default defineEventHandler(async (event) => {
         gameState: encodeGameState(extractCoreState(state)),
       });
 
-      return {
-        success: true,
-        action: "cleaned_up",
-        reason: "Player removed from judging phase, judge can still choose",
-      };
+      return { success: true, action: "cleaned_up" };
+    } catch (err: any) {
+      if (err.statusCode) throw err;
+      throw createError({ statusCode: 500, statusMessage: err.message });
     }
-
-    // --- Default: just persist the cleanup ---
-    const updatedGameCards = {
-      lobbyId: gameCards.lobbyId,
-      whiteDeck: gameCards.whiteDeck,
-      blackDeck: gameCards.blackDeck,
-      discardWhite: gameCards.discardWhite,
-      discardBlack: gameCards.discardBlack,
-      playerHands: serializePlayerHands(state.hands),
-    };
-
-    await databases.updateDocument(
-      DB,
-      GAMECARDS,
-      gameCards.$id,
-      updatedGameCards,
-    );
-    await databases.updateDocument(DB, LOBBY, lobbyId, {
-      gameState: encodeGameState(extractCoreState(state)),
-    });
-
-    return { success: true, action: "cleaned_up" };
-  } catch (err: any) {
-    console.error("[playerLeave] Error:", err.message);
-    if (err.statusCode) throw err;
-    throw createError({ statusCode: 500, statusMessage: err.message });
-  }
+  });
 });
 
 // ─── Helper: Judge Left ─────────────────────────────────────────────
@@ -208,6 +221,7 @@ async function handleJudgeLeft(
   state: Record<string, any>,
   remainingPlayerIds: string[],
   leavingJudgeId: string,
+  capturedVersion: string,
 ) {
   // Merge card data from gameCards into state for manipulation
   state.whiteDeck = gameCards.whiteDeck || [];
@@ -231,7 +245,6 @@ async function handleJudgeLeft(
 
   // Reset submissions and skippedPlayers for the new round
   state.submissions = {};
-  state.playedCards = {};
   state.skippedPlayers = [];
 
   // Rotate judge to the next player in the remaining list
@@ -305,6 +318,8 @@ async function handleJudgeLeft(
 
   const coreState = extractCoreState(state);
 
+  // --- Concurrency check + Persist ---
+  await assertVersionUnchanged(lobbyId, capturedVersion);
   await databases.updateDocument(
     DB,
     GAMECARDS,
@@ -335,6 +350,7 @@ async function handleSubmitterLeft(
   lobbyId: string,
   gameCards: any,
   state: Record<string, any>,
+  capturedVersion: string,
 ) {
   // Count players who still need to submit (non-judge, non-skipped players)
   const skippedPlayers: string[] = state.skippedPlayers || [];
@@ -366,6 +382,8 @@ async function handleSubmitterLeft(
     playerHands: serializePlayerHands(state.hands),
   };
 
+  // --- Concurrency check + Persist ---
+  await assertVersionUnchanged(lobbyId, capturedVersion);
   await databases.updateDocument(
     DB,
     GAMECARDS,

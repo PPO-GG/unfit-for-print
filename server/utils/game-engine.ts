@@ -7,18 +7,13 @@ import { Query, type Databases } from "node-appwrite";
 // ─── Game State Encoding ────────────────────────────────────────────
 
 export const encodeGameState = (state: Record<string, any>): string => {
-  try {
-    const serialized = JSON.stringify(state);
-    if (serialized.length > 14000) {
-      console.warn(
-        `[GameEngine] Warning: Encoded game state is dangerously large (${serialized.length} chars). Limit is 16384.`,
-      );
-    }
-    return serialized;
-  } catch (error) {
-    console.error("[GameEngine] Failed to encode game state:", error);
-    return "";
+  const serialized = JSON.stringify(state);
+  if (serialized.length > 14000) {
+    console.warn(
+      `[GameEngine] Warning: Encoded game state is dangerously large (${serialized.length} chars). Limit is 16384.`,
+    );
   }
+  return serialized;
 };
 
 export const decodeGameState = (raw: string | null): Record<string, any> => {
@@ -123,7 +118,6 @@ export function extractCoreState(
     judgeId: state.judgeId,
     blackCard: state.blackCard,
     submissions: state.submissions || {},
-    playedCards: state.playedCards || {},
     scores: state.scores || {},
     round: state.round,
     roundWinner: state.roundWinner,
@@ -140,6 +134,21 @@ export function extractCoreState(
       lobbyName: "Unnamed Game",
     },
   };
+}
+
+// ─── Card Filtering Helper ─────────────────────────────────────────
+// Builds a Set of all card IDs currently in use for O(1) exclusion.
+
+export function buildExclusionSet(
+  ...sources: (string[] | undefined)[]
+): Set<string> {
+  const set = new Set<string>();
+  for (const source of sources) {
+    if (source) {
+      for (const id of source) set.add(id);
+    }
+  }
+  return set;
 }
 
 // ─── Collection IDs Helper ──────────────────────────────────────────
@@ -165,4 +174,62 @@ export function getCollectionIds() {
 export function getAdminDatabases(): Databases {
   const { databases } = useAppwriteAdmin();
   return databases as unknown as Databases;
+}
+
+// ─── Optimistic Concurrency Control ─────────────────────────────────
+// Uses Appwrite's $updatedAt as a natural version field.
+// Read → mutate → verify version → write. Retry on conflict.
+
+/**
+ * Re-reads the lobby and throws a 409 if it has been modified since `capturedUpdatedAt`.
+ * Call this RIGHT BEFORE your write operations to minimize the TOCTOU window.
+ *
+ * @param lobbyId The lobby document ID
+ * @param capturedUpdatedAt The `$updatedAt` value captured when the lobby was first read
+ */
+export async function assertVersionUnchanged(
+  lobbyId: string,
+  capturedUpdatedAt: string,
+): Promise<void> {
+  const databases = getAdminDatabases();
+  const { DB, LOBBY } = getCollectionIds();
+
+  const fresh = await databases.getDocument(DB, LOBBY, lobbyId);
+  if (fresh.$updatedAt !== capturedUpdatedAt) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: "Game state was modified by another action. Retrying...",
+    });
+  }
+}
+
+/**
+ * Wraps an async operation with automatic retry on 409 (version conflict).
+ * Use this at the top level of game endpoints to handle concurrent mutations.
+ *
+ * @param fn The operation to execute (should include read, mutate, version check, and write)
+ * @param maxRetries Maximum number of attempts (default: 3)
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const isConflict = err?.statusCode === 409;
+      if (isConflict && attempt < maxRetries) {
+        console.warn(
+          `[ConcurrencyGuard] Version conflict, retry ${attempt}/${maxRetries}`,
+        );
+        // Exponential backoff: 50ms, 100ms, 150ms...
+        await new Promise((r) => setTimeout(r, 50 * attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+  // Unreachable, but TypeScript needs it
+  throw createError({ statusCode: 500, statusMessage: "Exhausted retries" });
 }
