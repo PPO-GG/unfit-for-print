@@ -19,6 +19,34 @@
 
 * implement browser tts with voice switcher ([6319562](https://github.com/PPO-GG/unfit-for-print/commit/6319562ecb2f494cd4722b345ddea666a6c6085d)), closes [#39](https://github.com/PPO-GG/unfit-for-print/issues/39) [#36](https://github.com/PPO-GG/unfit-for-print/issues/36) [#41](https://github.com/PPO-GG/unfit-for-print/issues/41)
 
+## [2.0.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.5.0...v2.0.0) (2026-02-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* migrate to Nuxt 4 and replace Appwrite functions with Nitro API routes ([#65](https://github.com/PPO-GG/unfit-for-print/issues/65))
+
+### ✨ Features
+
+* add homepage share button ([#55](https://github.com/PPO-GG/unfit-for-print/issues/55)) ([cb9c9ab](https://github.com/PPO-GG/unfit-for-print/commit/cb9c9ab057f75f60b36828184e9f1437702ffb19))
+* migrate to Nuxt 4 and replace Appwrite functions with Nitro API routes ([#65](https://github.com/PPO-GG/unfit-for-print/issues/65)) ([a91a0a2](https://github.com/PPO-GG/unfit-for-print/commit/a91a0a26a432321e384d882a243395ce882c29fd))
+
+
+### 🐛 Bug Fixes
+
+* add player leave handling and skip unresponsive players ([de07fe3](https://github.com/PPO-GG/unfit-for-print/commit/de07fe3dc0c87fa6dd04d982e898ab0da9cdfe1f))
+* improve join flow with unique username validation and notification dedup ([e300a7b](https://github.com/PPO-GG/unfit-for-print/commit/e300a7b2cf11eb523d9115e076130731dfa3f2fc))
+* resolve TypeScript errors and apply code formatting across components ([a9e13d0](https://github.com/PPO-GG/unfit-for-print/commit/a9e13d0d85663078590dce38a3fff4e212f163dc))
+
+
+### ♻️ Refactors
+
+* **admin:** extract CardManager into sub-components with composables ([43f6097](https://github.com/PPO-GG/unfit-for-print/commit/43f6097973a09400f49574ce178b60e7033e4a51))
+* centralize Appwrite client initialization for SSR safety ([21a6247](https://github.com/PPO-GG/unfit-for-print/commit/21a624760867d07cb17b56284068bfced1fc532b))
+* extract shared utilities and type definitions ([b688473](https://github.com/PPO-GG/unfit-for-print/commit/b68847396d671737a62dee54c2cccce68fcae6c3))
+* **game:** extract composables from monolithic game page ([c8f0f32](https://github.com/PPO-GG/unfit-for-print/commit/c8f0f322d9c6cc336b6f28d77a90a2f865c9592c))
+* remove dead game engine code and notification store ([84dfd56](https://github.com/PPO-GG/unfit-for-print/commit/84dfd56c7bcf3a6a08f1e7d110120e6fee1720ac))
+
 ## [1.2.1](https://github.com/PPO-GG/unfit-for-print/compare/v1.2.0...v1.2.1) (2025-06-04)
 
 
