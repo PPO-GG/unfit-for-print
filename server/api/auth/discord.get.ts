@@ -16,7 +16,10 @@ export default defineEventHandler(async (event) => {
   const { Account } = await import("node-appwrite");
   const account = new Account(client);
 
-  const baseUrl = config.public.baseUrl as string;
+  let baseUrl = config.public.baseUrl as string;
+  if (baseUrl && !baseUrl.startsWith("http")) {
+    baseUrl = `https://${baseUrl}`;
+  }
 
   // Redirect back to the CLIENT-side callback page.
   // Appwrite will append ?userId=...&secret=... to this URL.
@@ -36,6 +39,7 @@ export default defineEventHandler(async (event) => {
     console.error(
       "[Auth] Discord OAuth token creation failed:",
       error.message || error,
+      { successUrl, failureUrl, baseUrl },
     );
     await sendRedirect(event, `${baseUrl}/?error=oauth_init_failed`);
   }

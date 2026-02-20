@@ -131,8 +131,8 @@ export default defineNuxtConfig({
       appwriteReportsCollectionId:
         process.env.NUXT_PUBLIC_APPWRITE_REPORTS_COLLECTION_ID,
       baseUrl:
-        process.env.DEPLOY_URL ||
         process.env.NUXT_PUBLIC_BASE_URL ||
+        process.env.DEPLOY_URL ||
         "http://localhost:3000",
       appVersion: pkg.version,
     },
