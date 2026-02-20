@@ -1,8 +1,8 @@
 // server/utils/seed.ts
 import fs from "fs";
 import path from "path";
-import { compareTwoStrings } from 'string-similarity';
-import { Query } from 'appwrite';
+import { compareTwoStrings } from "string-similarity";
+import { Query } from "appwrite";
 
 const config = useRuntimeConfig();
 
@@ -15,15 +15,15 @@ const renderProgressBar = (current: number, total: number, barLength = 40) => {
 };
 
 export const seedCardsFromJson = async ({
-    databases,
-    databaseId,
-    whiteCollection = config.public.appwriteWhiteCardCollectionId,
-    blackCollection = config.public.appwriteBlackCardCollectionId,
-    jsonContent = null,
-    onProgress = null,
-    similarityThreshold = 0.85, // Configurable threshold (0.0 to 1.0)
-    resumeFrom = null, // For resuming from a specific point after failure
-  }: {
+  databases,
+  databaseId,
+  whiteCollection = config.public.appwriteWhiteCardCollectionId,
+  blackCollection = config.public.appwriteBlackCardCollectionId,
+  jsonContent = null,
+  onProgress = null,
+  similarityThreshold = 0.85, // Configurable threshold (0.0 to 1.0)
+  resumeFrom = null, // For resuming from a specific point after failure
+}: {
   databases: any;
   databaseId: string;
   whiteCollection?: string;
@@ -31,7 +31,11 @@ export const seedCardsFromJson = async ({
   jsonContent?: string | null;
   onProgress?: ((progress: number, stats?: any) => void) | null;
   similarityThreshold?: number;
-  resumeFrom?: { packIndex: number, cardIndex: number, cardType: 'white' | 'black' } | null;
+  resumeFrom?: {
+    packIndex: number;
+    cardIndex: number;
+    cardType: "white" | "black";
+  } | null;
 }) => {
   let data;
   const errors: string[] = [];
@@ -74,7 +78,9 @@ export const seedCardsFromJson = async ({
     totalCards += whiteCards + blackCards;
   }
 
-  console.log(`Processing ${totalCards} cards (${whiteCardCount} white, ${blackCardCount} black) from ${totalPacks} packs`);
+  console.log(
+    `Processing ${totalCards} cards (${whiteCardCount} white, ${blackCardCount} black) from ${totalPacks} packs`,
+  );
 
   // Initialize counters
   let insertedCards = 0;
@@ -94,33 +100,45 @@ export const seedCardsFromJson = async ({
     skippedSimilar,
     skippedLongText, // Add counter for cards skipped due to text > 255 chars
     failedCards,
-    currentPack: '',
-    currentCardType: '',
+    currentPack: "",
+    currentCardType: "",
     errors,
-    warnings
+    warnings,
   };
 
   // Fetch existing cards (we'll need to do this in batches for large collections)
   try {
     console.log("Fetching existing white cards...");
-    const existingWhiteCards = await fetchAllCards(databases, databaseId, whiteCollection);
+    const existingWhiteCards = await fetchAllCards(
+      databases,
+      databaseId,
+      whiteCollection,
+    );
     console.log(`Found ${existingWhiteCards.length} existing white cards`);
 
     console.log("Fetching existing black cards...");
-    const existingBlackCards = await fetchAllCards(databases, databaseId, blackCollection);
+    const existingBlackCards = await fetchAllCards(
+      databases,
+      databaseId,
+      blackCollection,
+    );
     console.log(`Found ${existingBlackCards.length} existing black cards`);
 
     // Determine starting point (for resume functionality)
     let startPackIndex = 0;
     let startCardIndex = 0;
-    let startCardType = 'white';
+    let startCardType = "white";
 
     if (resumeFrom) {
       startPackIndex = resumeFrom.packIndex;
       startCardIndex = resumeFrom.cardIndex;
       startCardType = resumeFrom.cardType;
-      console.log(`Resuming from pack ${startPackIndex}, ${startCardType} card ${startCardIndex}`);
-      warnings.push(`Resumed from previous failure at pack ${startPackIndex}, ${startCardType} card ${startCardIndex}`);
+      console.log(
+        `Resuming from pack ${startPackIndex}, ${startCardType} card ${startCardIndex}`,
+      );
+      warnings.push(
+        `Resumed from previous failure at pack ${startPackIndex}, ${startCardType} card ${startCardIndex}`,
+      );
     }
 
     // Process each pack
@@ -140,21 +158,34 @@ export const seedCardsFromJson = async ({
 
       // Process white cards
       if (pack.white && Array.isArray(pack.white)) {
-        stats.currentCardType = 'white';
+        stats.currentCardType = "white";
 
         for (let cardIndex = 0; cardIndex < pack.white.length; cardIndex++) {
           // Skip cards if resuming and in the first pack
-          if (packIndex === startPackIndex && startCardType === 'white' && cardIndex < startCardIndex) {
+          if (
+            packIndex === startPackIndex &&
+            startCardType === "white" &&
+            cardIndex < startCardIndex
+          ) {
             insertedCards++;
             continue;
           }
 
           const card = pack.white[cardIndex];
           if (!card.text) {
-            warnings.push(`Skipped white card with no text in pack "${packName}"`);
+            warnings.push(
+              `Skipped white card with no text in pack "${packName}"`,
+            );
             insertedCards++;
             continue;
           }
+
+          // Save current position for potential resume
+          const currentPosition = {
+            packIndex,
+            cardIndex,
+            cardType: "white" as const,
+          };
 
           // Skip cards with text longer than 255 characters
           if (card.text.length > 255) {
@@ -166,17 +197,18 @@ export const seedCardsFromJson = async ({
             insertedCards++;
             renderProgressBar(insertedCards, totalCards);
             if (onProgress) {
-              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+              onProgress(insertedCards / totalCards, {
+                ...stats,
+                position: currentPosition,
+              });
             }
             continue;
           }
 
-          // Save current position for potential resume
-          const currentPosition = { packIndex, cardIndex, cardType: 'white' as const };
-
           // Check for exact duplicates first (faster than similarity check)
           const exactDuplicate = existingWhiteCards.some(
-              existingCard => existingCard.text.toLowerCase() === card.text.toLowerCase()
+            (existingCard) =>
+              existingCard.text.toLowerCase() === card.text.toLowerCase(),
           );
 
           if (exactDuplicate) {
@@ -185,13 +217,20 @@ export const seedCardsFromJson = async ({
             insertedCards++;
             renderProgressBar(insertedCards, totalCards);
             if (onProgress) {
-              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+              onProgress(insertedCards / totalCards, {
+                ...stats,
+                position: currentPosition,
+              });
             }
             continue;
           }
 
           // Check for similar cards
-          const similarCard = findSimilarCard(card.text, existingWhiteCards, similarityThreshold);
+          const similarCard = findSimilarCard(
+            card.text,
+            existingWhiteCards,
+            similarityThreshold,
+          );
           if (similarCard) {
             skippedSimilar++;
             stats.skippedSimilar = skippedSimilar;
@@ -201,32 +240,36 @@ export const seedCardsFromJson = async ({
             insertedCards++;
             renderProgressBar(insertedCards, totalCards);
             if (onProgress) {
-              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+              onProgress(insertedCards / totalCards, {
+                ...stats,
+                position: currentPosition,
+              });
             }
             continue;
           }
 
           try {
             const newCard = await databases.createDocument(
-                databaseId,
-                whiteCollection,
-                "unique()",
-                {
-                  text: card.text,
-                  pack: packName,
-                  active: true,
-                }
+              databaseId,
+              whiteCollection,
+              "unique()",
+              {
+                text: card.text,
+                pack: packName,
+                active: true,
+              },
             );
 
             // Add to our local cache of existing cards
             existingWhiteCards.push(newCard);
             stats.insertedCards++;
-
           } catch (err: any) {
             if (err.code === 409) {
               skippedDuplicates++;
               stats.skippedDuplicates = skippedDuplicates;
-              warnings.push(`Duplicate white card detected: "${card.text}" in pack "${packName}"`);
+              warnings.push(
+                `Duplicate white card detected: "${card.text}" in pack "${packName}"`,
+              );
             } else {
               failedCards++;
               stats.failedCards = failedCards;
@@ -235,11 +278,11 @@ export const seedCardsFromJson = async ({
               errors.push(errorMsg);
 
               // Return current position for potential resume
-              return { 
-                success: false, 
+              return {
+                success: false,
                 message: `Failed at white card "${card.text}" in pack "${packName}"`,
                 resumePosition: currentPosition,
-                stats: { ...stats }
+                stats: { ...stats },
               };
             }
           }
@@ -247,28 +290,44 @@ export const seedCardsFromJson = async ({
           insertedCards++;
           renderProgressBar(insertedCards, totalCards);
           if (onProgress) {
-            onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+            onProgress(insertedCards / totalCards, {
+              ...stats,
+              position: currentPosition,
+            });
           }
         }
       }
 
       // Process black cards
       if (pack.black && Array.isArray(pack.black)) {
-        stats.currentCardType = 'black';
+        stats.currentCardType = "black";
 
         for (let cardIndex = 0; cardIndex < pack.black.length; cardIndex++) {
           // Skip cards if resuming and in the first pack
-          if (packIndex === startPackIndex && startCardType === 'black' && cardIndex < startCardIndex) {
+          if (
+            packIndex === startPackIndex &&
+            startCardType === "black" &&
+            cardIndex < startCardIndex
+          ) {
             insertedCards++;
             continue;
           }
 
           const card = pack.black[cardIndex];
           if (!card.text) {
-            warnings.push(`Skipped black card with no text in pack "${packName}"`);
+            warnings.push(
+              `Skipped black card with no text in pack "${packName}"`,
+            );
             insertedCards++;
             continue;
           }
+
+          // Save current position for potential resume
+          const currentPosition = {
+            packIndex,
+            cardIndex,
+            cardType: "black" as const,
+          };
 
           // Skip cards with text longer than 255 characters
           if (card.text.length > 255) {
@@ -280,17 +339,18 @@ export const seedCardsFromJson = async ({
             insertedCards++;
             renderProgressBar(insertedCards, totalCards);
             if (onProgress) {
-              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+              onProgress(insertedCards / totalCards, {
+                ...stats,
+                position: currentPosition,
+              });
             }
             continue;
           }
 
-          // Save current position for potential resume
-          const currentPosition = { packIndex, cardIndex, cardType: 'black' as const };
-
           // Check for exact duplicates first
           const exactDuplicate = existingBlackCards.some(
-              existingCard => existingCard.text.toLowerCase() === card.text.toLowerCase()
+            (existingCard) =>
+              existingCard.text.toLowerCase() === card.text.toLowerCase(),
           );
 
           if (exactDuplicate) {
@@ -299,13 +359,20 @@ export const seedCardsFromJson = async ({
             insertedCards++;
             renderProgressBar(insertedCards, totalCards);
             if (onProgress) {
-              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+              onProgress(insertedCards / totalCards, {
+                ...stats,
+                position: currentPosition,
+              });
             }
             continue;
           }
 
           // Check for similar cards
-          const similarCard = findSimilarCard(card.text, existingBlackCards, similarityThreshold);
+          const similarCard = findSimilarCard(
+            card.text,
+            existingBlackCards,
+            similarityThreshold,
+          );
           if (similarCard) {
             skippedSimilar++;
             stats.skippedSimilar = skippedSimilar;
@@ -315,33 +382,37 @@ export const seedCardsFromJson = async ({
             insertedCards++;
             renderProgressBar(insertedCards, totalCards);
             if (onProgress) {
-              onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+              onProgress(insertedCards / totalCards, {
+                ...stats,
+                position: currentPosition,
+              });
             }
             continue;
           }
 
           try {
             const newCard = await databases.createDocument(
-                databaseId,
-                blackCollection,
-                "unique()",
-                {
-                  text: card.text,
-                  pick: card.pick || 1,
-                  pack: packName,
-                  active: true,
-                }
+              databaseId,
+              blackCollection,
+              "unique()",
+              {
+                text: card.text,
+                pick: card.pick || 1,
+                pack: packName,
+                active: true,
+              },
             );
 
             // Add to our local cache of existing cards
             existingBlackCards.push(newCard);
             stats.insertedCards++;
-
           } catch (err: any) {
             if (err.code === 409) {
               skippedDuplicates++;
               stats.skippedDuplicates = skippedDuplicates;
-              warnings.push(`Duplicate black card detected: "${card.text}" in pack "${packName}"`);
+              warnings.push(
+                `Duplicate black card detected: "${card.text}" in pack "${packName}"`,
+              );
             } else {
               failedCards++;
               stats.failedCards = failedCards;
@@ -350,11 +421,11 @@ export const seedCardsFromJson = async ({
               errors.push(errorMsg);
 
               // Return current position for potential resume
-              return { 
-                success: false, 
+              return {
+                success: false,
                 message: `Failed at black card "${card.text}" in pack "${packName}"`,
                 resumePosition: currentPosition,
-                stats: { ...stats }
+                stats: { ...stats },
               };
             }
           }
@@ -362,7 +433,10 @@ export const seedCardsFromJson = async ({
           insertedCards++;
           renderProgressBar(insertedCards, totalCards);
           if (onProgress) {
-            onProgress(insertedCards / totalCards, { ...stats, position: currentPosition });
+            onProgress(insertedCards / totalCards, {
+              ...stats,
+              position: currentPosition,
+            });
           }
         }
       }
@@ -371,15 +445,16 @@ export const seedCardsFromJson = async ({
     const errorMsg = `Unexpected error during card processing: ${err.message}`;
     console.error(errorMsg);
     errors.push(errorMsg);
-    return { 
-      success: false, 
+    return {
+      success: false,
       message: errorMsg,
-      stats: { ...stats }
+      stats: { ...stats },
     };
   }
 
   // Update final stats
-  stats.insertedCards = insertedCards - skippedDuplicates - skippedSimilar - skippedLongText;
+  stats.insertedCards =
+    insertedCards - skippedDuplicates - skippedSimilar - skippedLongText;
   stats.skippedDuplicates = skippedDuplicates;
   stats.skippedSimilar = skippedSimilar;
   stats.skippedLongText = skippedLongText;
@@ -390,38 +465,38 @@ export const seedCardsFromJson = async ({
 
   if (warnings.length > 0) {
     console.log(`Warnings: ${warnings.length}`);
-    warnings.slice(0, 5).forEach(warning => console.log(` - ${warning}`));
+    warnings.slice(0, 5).forEach((warning) => console.log(` - ${warning}`));
     if (warnings.length > 5) {
       console.log(` ... and ${warnings.length - 5} more warnings`);
     }
   }
 
-  return { 
-    success: true, 
+  return {
+    success: true,
     message,
     stats: { ...stats },
     warnings: warnings.length > 0 ? warnings : undefined,
-    errors: errors.length > 0 ? errors : undefined
+    errors: errors.length > 0 ? errors : undefined,
   };
 };
 
 // Helper function to fetch all cards from a collection (with pagination)
-async function fetchAllCards(databases: any, databaseId: string, collectionId: string) {
+async function fetchAllCards(
+  databases: any,
+  databaseId: string,
+  collectionId: string,
+) {
   const limit = 100;
   let offset = 0;
   let allCards: any[] = [];
   let hasMore = true;
 
   while (hasMore) {
-    const response = await databases.listDocuments(
-        databaseId,
-        collectionId,
-        [
-          // Appwrite uses Query.limit and Query.offset for pagination
-          Query.limit(limit),
-          Query.offset(offset)
-        ]
-    );
+    const response = await databases.listDocuments(databaseId, collectionId, [
+      // Appwrite uses Query.limit and Query.offset for pagination
+      Query.limit(limit),
+      Query.offset(offset),
+    ]);
 
     allCards = [...allCards, ...response.documents];
 
@@ -436,7 +511,11 @@ async function fetchAllCards(databases: any, databaseId: string, collectionId: s
 }
 
 // Helper function to find similar cards
-function findSimilarCard(cardText: string, existingCards: any[], threshold: number) {
+function findSimilarCard(
+  cardText: string,
+  existingCards: any[],
+  threshold: number,
+) {
   const normalizedText = cardText.toLowerCase().trim();
 
   for (const existingCard of existingCards) {

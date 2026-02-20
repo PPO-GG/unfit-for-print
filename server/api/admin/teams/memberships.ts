@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   for (const team of allTeams.teams) {
     const memberships = await teams.listMemberships(team.$id);
-    const match = memberships.memberships.find((m) => m.userId === userId);
+    const match = memberships.memberships.find((m: any) => m.userId === userId);
     if (match) {
       userTeams.push({ teamId: team.$id, membershipId: match.$id });
     }

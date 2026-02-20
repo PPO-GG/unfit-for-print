@@ -320,7 +320,7 @@ async function handleUpvote(submissionId: string) {
         submissionId,
         {
           upvotes: submission.upvotes - 1,
-          upvoterIds: upvoterIds.filter((id) => id !== userId),
+          upvoterIds: upvoterIds.filter((id: string) => id !== userId),
         },
       );
     } else {
@@ -472,11 +472,11 @@ function subscribeToSubmissions() {
 
   return client.subscribe(
     [`databases.${dbId}.collections.${collectionId}.documents`],
-    (response) => {
+    (response: any) => {
       const { events, payload } = response;
 
       // Handle new submissions
-      if (events.some((e) => e.endsWith(".create"))) {
+      if (events.some((e: string) => e.endsWith(".create"))) {
         // Only add if it's not already in our list
         if (!submissions.value.some((s) => s.$id === payload.$id)) {
           submissions.value.unshift(payload);
@@ -484,7 +484,7 @@ function subscribeToSubmissions() {
       }
 
       // Handle updates (like upvotes)
-      if (events.some((e) => e.endsWith(".update"))) {
+      if (events.some((e: string) => e.endsWith(".update"))) {
         const index = submissions.value.findIndex((s) => s.$id === payload.$id);
         if (index !== -1) {
           submissions.value[index] = payload;
@@ -492,7 +492,7 @@ function subscribeToSubmissions() {
       }
 
       // Handle deletions
-      if (events.some((e) => e.endsWith(".delete"))) {
+      if (events.some((e: string) => e.endsWith(".delete"))) {
         submissions.value = submissions.value.filter(
           (s) => s.$id !== payload.$id,
         );
@@ -502,13 +502,14 @@ function subscribeToSubmissions() {
 }
 
 // Lifecycle hooks
+let unsubscribe: (() => void) | undefined;
 onMounted(async () => {
   await fetchSubmissions();
-  const unsubscribe = subscribeToSubmissions();
+  unsubscribe = subscribeToSubmissions();
+});
 
-  onUnmounted(() => {
-    if (unsubscribe) unsubscribe();
-  });
+onUnmounted(() => {
+  if (unsubscribe) unsubscribe();
 });
 
 // Reset pagination when filters change

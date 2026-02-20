@@ -363,6 +363,9 @@ describe("Gameplay Integration Test", () => {
     });
 
     expect(result.success).toBe(true);
+    // Verify winningCards returned in API response (synchronous path)
+    expect(result.winningCards).toBeTruthy();
+    expect(result.winningCards.length).toBeGreaterThan(0);
 
     const updated = await getLobbyState(lobbyId);
     expect(updated.gameState.phase).toBe("roundEnd");

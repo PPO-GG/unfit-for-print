@@ -21,7 +21,9 @@ export async function assertAdmin(event: H3Event) {
 
   const ADMIN_TEAM_ID = config.public.appwriteAdminTeamId;
   const memberships = await teams.listMemberships(ADMIN_TEAM_ID);
-  const isAdmin = memberships.memberships.some((m) => m.userId && m.confirm);
+  const isAdmin = memberships.memberships.some(
+    (m: any) => m.userId && m.confirm,
+  );
 
   if (!isAdmin) {
     throw createError({

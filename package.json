@@ -19,7 +19,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "test:gameplay": "vitest run tests/integration/gameplay.test.ts --test-timeout=60000"
+    "test:gameplay": "vitest run tests/integration/gameplay.test.ts --test-timeout=60000",
+    "schema:sync": "tsx scripts/schema-sync.ts"
   },
   "dependencies": {
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
@@ -49,7 +50,7 @@
     "dompurify": "^3.3.1",
     "dotenv": "^17.3.1",
     "gsap": "^3.14.2",
-    "html-to-image": "^1.11.11",
+    "html-to-image": "^1.11.13",
     "lodash-es": "^4.17.21",
     "markdown-it": "^14.1.0",
     "mespeak": "^2.0.2",
@@ -71,6 +72,13 @@
     "vue-router": "^4.5.1"
   },
   "packageManager": "pnpm@10.12.1",
+  "pnpm": {
+    "overrides": {
+      "devalue": ">=5.6.3",
+      "js-yaml": ">=4.1.1",
+      "glob@>=10": ">=10.5.0"
+    }
+  },
   "devDependencies": {
     "@iconify-json/solar": "^1.2.4",
     "@semantic-release/changelog": "^6.0.3",
@@ -92,6 +100,7 @@
     "rollup-plugin-visualizer": "^6.0.3",
     "semantic-release": "^24.2.7",
     "standard-version": "^9.5.0",
+    "tsx": "^4.21.0",
     "vitest": "^3.2.4",
     "vue-i18n-extract": "^2.0.7"
   }

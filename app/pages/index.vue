@@ -150,7 +150,7 @@ const userStore = useUserStore();
 
 let speechService = {
   speak: (provider: TTSProvider, text: string) => {
-    console.log(`Speaking with ${provider} speech: ${text}`);
+// `Speaking with ${provider} speech: ${text}`);
   },
   isSpeaking: ref(false),
 };
@@ -196,13 +196,13 @@ const handleTryMeClick = () => {
   fetchNewCards();
   if (isClient.value) {
     event("FetchCards", {
-      userId: `${userStore.user.$id}`,
+      userId: `${userStore.user?.$id || "anonymous"}`,
       combo: `${mergeCardText(blackCard.value.text, whiteCard.value.text)}`,
     });
   }
 };
 
-const { vibrate } = useVibrate({ pattern: [10, 7, 5] });
+const { vibrate } = useVibrate({ pattern: [10, 7, 5], interval: 0 });
 useHead({
   title: `Unfit for Print`,
 });
