@@ -87,8 +87,9 @@ export default defineEventHandler(async (event) => {
     state.playedCards[playerId] = cardIds;
 
     // --- Check if all players have submitted ---
+    const skippedPlayers: string[] = state.skippedPlayers || [];
     const toPlay = Object.keys(state.hands).filter(
-      (id) => id !== state.judgeId,
+      (id) => id !== state.judgeId && !skippedPlayers.includes(id),
     );
     if (Object.keys(state.submissions).length === toPlay.length) {
       state.phase = "judging";

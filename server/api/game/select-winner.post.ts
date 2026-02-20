@@ -113,7 +113,11 @@ export default defineEventHandler(async (event) => {
       gameState: encodeGameState(coreState),
     });
 
-    return { success: true, phase: state.phase };
+    return {
+      success: true,
+      phase: state.phase,
+      winningCards: state.winningCards || [],
+    };
   } catch (err: any) {
     console.error("[selectWinner] Error:", err.message);
     if (err.statusCode) throw err;

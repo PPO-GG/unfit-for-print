@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const INITIAL_BLACK_CARDS = 5;
-    const firstBlackId = allBlackIds[0];
+    const firstBlackId = allBlackIds[0] as string;
     const firstBlack = await databases.getDocument(
       DB,
       BLACK_CARDS,
@@ -122,6 +122,7 @@ export default defineEventHandler(async (event) => {
       roundEndStartTime: null,
       gameEndTime: null,
       returnedToLobby: {},
+      skippedPlayers: [],
       config: {
         maxPoints: gameSettings?.maxPoints || 10,
         cardsPerPlayer: CARDS_PER_PLAYER,

@@ -73,6 +73,7 @@ export default defineEventHandler(async (event) => {
     state.roundWinner = null;
     state.winningCards = null;
     state.roundEndStartTime = null;
+    state.skippedPlayers = [];
 
     // --- Rotate judge ---
     const playerIds = Object.keys(state.hands || {});

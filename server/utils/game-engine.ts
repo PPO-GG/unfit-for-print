@@ -8,7 +8,13 @@ import { Query, type Databases } from "node-appwrite";
 
 export const encodeGameState = (state: Record<string, any>): string => {
   try {
-    return JSON.stringify(state);
+    const serialized = JSON.stringify(state);
+    if (serialized.length > 14000) {
+      console.warn(
+        `[GameEngine] Warning: Encoded game state is dangerously large (${serialized.length} chars). Limit is 16384.`,
+      );
+    }
+    return serialized;
   } catch (error) {
     console.error("[GameEngine] Failed to encode game state:", error);
     return "";
@@ -30,7 +36,7 @@ export const shuffle = <T>(array: T[]): T[] => {
   const copy = [...array];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
+    [copy[i], copy[j]] = [copy[j] as T, copy[i] as T];
   }
   return copy;
 };
@@ -125,6 +131,7 @@ export function extractCoreState(
     roundEndStartTime: state.roundEndStartTime,
     returnedToLobby: state.returnedToLobby,
     gameEndTime: state.gameEndTime,
+    skippedPlayers: state.skippedPlayers || [],
     config: state.config || {
       maxPoints: 10,
       cardsPerPlayer: 7,
