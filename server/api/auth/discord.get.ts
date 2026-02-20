@@ -16,9 +16,14 @@ export default defineEventHandler(async (event) => {
   const { Account } = await import("node-appwrite");
   const account = new Account(client);
 
-  let baseUrl = config.public.baseUrl as string;
-  if (baseUrl && !baseUrl.startsWith("http")) {
-    baseUrl = `https://${baseUrl}`;
+  const requestUrl = getRequestURL(event);
+  let baseUrl = `${requestUrl.protocol}//${requestUrl.host}`;
+
+  if (!baseUrl || baseUrl === "http://") {
+    baseUrl = config.public.baseUrl as string;
+    if (baseUrl && !baseUrl.startsWith("http")) {
+      baseUrl = `https://${baseUrl}`;
+    }
   }
 
   // Redirect back to the CLIENT-side callback page.
@@ -41,6 +46,9 @@ export default defineEventHandler(async (event) => {
       error.message || error,
       { successUrl, failureUrl, baseUrl },
     );
-    await sendRedirect(event, `${baseUrl}/?error=oauth_init_failed`);
+    await sendRedirect(
+      event,
+      `${baseUrl}/?error=oauth_init_failed&message=${encodeURIComponent(error.message || "unknown")}`,
+    );
   }
 });
