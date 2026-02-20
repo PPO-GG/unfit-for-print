@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.1.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.1.0...v2.1.1) (2026-02-20)
+
+
+### 🐛 Bug Fixes
+
+* **auth:** dynamically compute base url for oauth success redirect ([881215e](https://github.com/PPO-GG/unfit-for-print/commit/881215e2aeaadc820b0fb07d6d85c36ae8d4d7d5))
+* **web:** comment out ShareImage component on home page ([e2cabac](https://github.com/PPO-GG/unfit-for-print/commit/e2cabac2c76793f1c479b1a23e2232dca6893ddd))
+
 ## [2.1.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.0.1...v2.1.0) (2026-02-20)
 
 ### ✨ Features
