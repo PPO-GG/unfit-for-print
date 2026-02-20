@@ -1,12 +1,4 @@
 {
   // https://nuxt.com/docs/guide/concepts/typescript
-  "extends": "./.nuxt/tsconfig.json",
-  "compilerOptions": {
-    "types": [
-      "~/types/appwrite",
-      "~/types/lobby",
-      "~/types/player",
-      "~/types/game"
-    ]
-  }
+  "extends": "./.nuxt/tsconfig.json"
 }
