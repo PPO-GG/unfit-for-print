@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useGameActions } from '~/composables/useGameActions';
+import ShareImage from '~/components/game/ShareImage.vue';
 
 const { t } = useI18n();
 
@@ -286,27 +287,38 @@ watch(() => props.startTime, () => {
 
    <!-- Display prompt card and winning card if available -->
    <div v-if="effectiveWinningCards && Array.isArray(effectiveWinningCards) && effectiveWinningCards.length > 0" class="flex justify-center mb-6 mt-4">
-   	<div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-   		<!-- Display the prompt card on the left -->
-   		<div v-if="props.blackCard" class="mb-4 sm:mb-0">
-   			<BlackCard
-   				:card-id="props.blackCard.id"
-   				:text="props.blackCard.text"
-   				:num-pick="props.blackCard.pick"
-   				:flipped="false"
-   			/>
-   		</div>
-   		<!-- Display the winning submission on the right -->
-   		<div class="flex flex-wrap items-center justify-center gap-2">
-   			<WhiteCard
-   				v-for="cardId in effectiveWinningCards"
-   				:key="cardId"
-   				:cardId="cardId"
-   				:is-winner="true"
-   				:flipped="false"
-   			/>
-   		</div>
-   	</div>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <!-- Display the prompt card on the left -->
+                <div v-if="props.blackCard" class="mb-4 sm:mb-0">
+                        <BlackCard
+                                :card-id="props.blackCard.id"
+                                :text="props.blackCard.text"
+                                :num-pick="props.blackCard.pick"
+                                :flipped="false"
+                        />
+                </div>
+                <!-- Display the winning submission on the right -->
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                        <WhiteCard
+                                v-for="cardId in effectiveWinningCards"
+                                :key="cardId"
+                                :cardId="cardId"
+                                :is-winner="true"
+                                :flipped="false"
+                        />
+                </div>
+        </div>
+        <div
+                class="flex justify-center mt-4"
+                v-if="props.blackCard && effectiveWinningCards.length"
+        >
+                <ShareImage
+                        :black-card="props.blackCard"
+                        :white-card-ids="effectiveWinningCards"
+                >
+                        Share
+                </ShareImage>
+        </div>
    </div>
    <!-- Fallback message if no winning cards are available -->
    <div v-else class="text-gray-500 text-sm">
