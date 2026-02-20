@@ -94,7 +94,7 @@
             variant="subtle"
             @click="handleSpeakClick"
           />
-          <ShareImage
+          <!-- <ShareImage
             v-if="blackCard && whiteCard"
             :black-card="{
               id: blackCard.$id,
@@ -104,7 +104,7 @@
             :white-card-ids="[whiteCard.$id]"
           >
             Share
-          </ShareImage>
+          </ShareImage> -->
         </UFieldGroup>
       </ClientOnly>
     </div>
@@ -150,7 +150,7 @@ const userStore = useUserStore();
 
 let speechService = {
   speak: (provider: TTSProvider, text: string) => {
-// `Speaking with ${provider} speech: ${text}`);
+    // `Speaking with ${provider} speech: ${text}`);
   },
   isSpeaking: ref(false),
 };
