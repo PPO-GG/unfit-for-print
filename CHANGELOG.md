@@ -19,6 +19,13 @@
 
 * implement browser tts with voice switcher ([6319562](https://github.com/PPO-GG/unfit-for-print/commit/6319562ecb2f494cd4722b345ddea666a6c6085d)), closes [#39](https://github.com/PPO-GG/unfit-for-print/issues/39) [#36](https://github.com/PPO-GG/unfit-for-print/issues/36) [#41](https://github.com/PPO-GG/unfit-for-print/issues/41)
 
+## [2.0.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.0.0...v2.0.1) (2026-02-20)
+
+
+### 🐛 Bug Fixes
+
+* replace local nuxt-appwrite file reference with GitHub source ([155d551](https://github.com/PPO-GG/unfit-for-print/commit/155d551f26e6853767b71a55c518247b7ce7079f))
+
 ## [2.0.0](https://github.com/PPO-GG/unfit-for-print/compare/v1.5.0...v2.0.0) (2026-02-20)
 
 
