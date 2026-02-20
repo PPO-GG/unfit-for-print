@@ -3,15 +3,14 @@ import type { ComputedRef, Ref } from "vue";
 import type { Lobby } from "~/types/lobby";
 import type { GameState } from "~/types/game";
 import { useLobby } from "~/composables/useLobby";
-import { useGameState } from "~/composables/useGameState";
 import { useNotifications } from "~/composables/useNotifications";
-import { getAppwrite } from "~/utils/appwrite";
 import { useI18n } from "vue-i18n";
 
 /**
  * Manages auto-return-to-lobby logic after a game completes.
- * Handles the 60-second countdown, gameEndTime initialization,
- * and the "Continue" action for individual players.
+ * Handles the 60-second countdown and the "Continue" action for individual players.
+ *
+ * gameEndTime is now set server-side by select-winner when phase === "complete".
  */
 export function useAutoReturn(options: {
   state: ComputedRef<GameState | null>;
@@ -21,15 +20,16 @@ export function useAutoReturn(options: {
 }) {
   const { state, myId, isComplete, lobbyRef } = options;
   const { markPlayerReturnedToLobby } = useLobby();
-  const { encodeGameState, decodeGameState } = useGameState();
   const { notify } = useNotifications();
   const { t } = useI18n();
-
-  const { databases } = getAppwrite();
 
   const autoReturnCheckInterval = ref<ReturnType<typeof setInterval> | null>(
     null,
   );
+
+  // Reactive tick counter — updated every second by the interval
+  // so that computed values depending on time actually re-evaluate.
+  const tickCounter = ref(0);
 
   /** Whether the current player has already clicked "Continue" */
   const hasReturnedToLobby = computed(() => {
@@ -42,6 +42,8 @@ export function useAutoReturn(options: {
 
   /** Seconds remaining before the auto-return fires (60s total) */
   const autoReturnTimeRemaining = computed(() => {
+    // Reference tickCounter to make this reactive on each interval tick
+    void tickCounter.value;
     if (!state.value || !state.value.gameEndTime) return 60;
     const timeElapsed = Math.floor(
       (Date.now() - state.value.gameEndTime) / 1000,
@@ -56,6 +58,9 @@ export function useAutoReturn(options: {
     }
 
     autoReturnCheckInterval.value = setInterval(async () => {
+      // Increment the tick counter to force computed recomputation
+      tickCounter.value++;
+
       if (lobbyRef.value && isComplete.value) {
         if (
           autoReturnTimeRemaining.value <= 0 &&
@@ -83,44 +88,10 @@ export function useAutoReturn(options: {
     }
   });
 
-  // Watch for game completion to start/stop auto-return + initialize gameEndTime
+  // Watch for game completion to start/stop auto-return
+  // gameEndTime is now set server-side by select-winner — no client write needed
   watch(isComplete, (newIsComplete) => {
     if (newIsComplete && lobbyRef.value?.status === "complete") {
-      // Initialize gameEndTime in the DB if not set yet
-      if (state.value && !state.value.gameEndTime) {
-        if (!databases) return;
-        const config = useRuntimeConfig();
-
-        try {
-          databases
-            .getDocument(
-              config.public.appwriteDatabaseId as string,
-              config.public.appwriteLobbyCollectionId as string,
-              lobbyRef.value.$id,
-            )
-            .then((lobbyDoc: any) => {
-              const gameState = decodeGameState(lobbyDoc.gameState);
-              if (!gameState.gameEndTime) {
-                gameState.gameEndTime = Date.now();
-                databases!
-                  .updateDocument(
-                    config.public.appwriteDatabaseId as string,
-                    config.public.appwriteLobbyCollectionId as string,
-                    lobbyRef.value!.$id,
-                    { gameState: encodeGameState(gameState) },
-                  )
-                  .catch((err: unknown) => {
-                    console.error("Failed to update gameEndTime:", err);
-                  });
-              }
-            })
-            .catch((err: unknown) => {
-              console.error("Failed to get lobby document:", err);
-            });
-        } catch (err) {
-          console.error("Failed to initialize gameEndTime:", err);
-        }
-      }
       startAutoReturnCheck();
     } else if (autoReturnCheckInterval.value) {
       clearInterval(autoReturnCheckInterval.value);

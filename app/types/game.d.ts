@@ -7,7 +7,6 @@ export interface GameState {
   judgeId: PlayerId | null;
   players?: Record<string, string>;
   blackCard: { id: CardId; text: string; pick: number } | null;
-  playedCards: Record<string, string>;
   submissions: Record<PlayerId, CardId[]>;
   scores: Record<PlayerId, number>;
   round: number;

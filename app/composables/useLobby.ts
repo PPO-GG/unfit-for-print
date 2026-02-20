@@ -121,7 +121,6 @@ export const useLobby = () => {
           round: 0,
           scores: {},
           hands: {},
-          playedCards: {},
           submissions: {},
           whiteDeck: [],
           blackDeck: [],
@@ -786,7 +785,6 @@ export const useLobby = () => {
 
       // Reset submissions since hands have changed
       state.submissions = {};
-      state.playedCards = {};
 
       // Extract updated card data for gameCards document
       // Convert hands object back to playerHands array
@@ -859,10 +857,7 @@ export const useLobby = () => {
       // Mark this player as returned
       state.returnedToLobby[playerId] = true;
 
-      // Set gameEndTime if it's not already set (for the auto-return timer)
-      if (!state.gameEndTime && state.phase === "complete") {
-        state.gameEndTime = Date.now();
-      }
+      // Note: gameEndTime is now set server-side by select-winner when phase === "complete"
 
       // Update the game state in the database
       await databases.updateDocument(
