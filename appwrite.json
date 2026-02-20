@@ -1,932 +1,891 @@
 {
-    "projectId": "682eb1b9000cb3845772",
-    "projectName": "Unfit For Print",
-    "functions": [
-        {
-            "$id": "68309b8c002b6c2802e6",
-            "name": "playCard",
-            "runtime": "node-16.0",
-            "execute": [
-                "any"
-            ],
-            "events": [],
-            "scopes": [
-                "users.read",
-                "databases.read",
-                "databases.write",
-                "collections.read",
-                "collections.write",
-                "documents.read",
-                "documents.write"
-            ],
-            "schedule": "",
-            "timeout": 15,
-            "enabled": true,
-            "logging": true,
-            "entrypoint": "src/main.js",
-            "commands": "npm install",
-            "path": "functions/playCard"
-        },
-        {
-            "$id": "68309bd000261a800de5",
-            "name": "startGame",
-            "runtime": "node-16.0",
-            "execute": [
-                "any"
-            ],
-            "events": [],
-            "scopes": [
-                "users.read",
-                "databases.read",
-                "databases.write",
-                "collections.read",
-                "collections.write",
-                "documents.read",
-                "documents.write"
-            ],
-            "schedule": "",
-            "timeout": 15,
-            "enabled": true,
-            "logging": true,
-            "entrypoint": "src/main.js",
-            "commands": "npm install",
-            "path": "functions/startGame"
-        },
-        {
-            "$id": "68309bac00304fee8922",
-            "name": "selectWinner",
-            "runtime": "node-16.0",
-            "execute": [
-                "any"
-            ],
-            "events": [],
-            "scopes": [
-                "users.read",
-                "databases.read",
-                "databases.write",
-                "collections.read",
-                "collections.write",
-                "documents.read",
-                "documents.write"
-            ],
-            "schedule": "",
-            "timeout": 15,
-            "enabled": true,
-            "logging": true,
-            "entrypoint": "src/main.js",
-            "commands": "npm install",
-            "path": "functions/selectWinner"
-        },
-        {
-            "$id": "68309b670004f0144f30",
-            "name": "startNextRound",
-            "runtime": "node-16.0",
-            "execute": [
-                "any"
-            ],
-            "events": [],
-            "scopes": [
-                "users.read",
-                "databases.read",
-                "databases.write",
-                "collections.read",
-                "collections.write",
-                "documents.read",
-                "documents.write"
-            ],
-            "schedule": "",
-            "timeout": 15,
-            "enabled": true,
-            "logging": true,
-            "entrypoint": "src/main.js",
-            "commands": "npm install",
-            "path": "functions/startNextRound"
-        },
-        {
-            "$id": "68309ae40001c70d2f60",
-            "name": "cleanStaleLobbies",
-            "runtime": "node-16.0",
-            "execute": [
-                "any"
-            ],
-            "events": [],
-            "scopes": [
-                "users.read",
-                "databases.read",
-                "databases.write",
-                "collections.read",
-                "collections.write",
-                "documents.read",
-                "documents.write"
-            ],
-            "schedule": "0 * * * *",
-            "timeout": 15,
-            "enabled": true,
-            "logging": true,
-            "entrypoint": "src/main.js",
-            "commands": "npm install",
-            "path": "functions/cleanStaleLobbies"
-        },
-        {
-            "$id": "68309b38000de5451d0d",
-            "name": "clearOldUsers",
-            "runtime": "node-16.0",
-            "execute": [
-                "any"
-            ],
-            "events": [],
-            "scopes": [
-                "users.read",
-                "users.write"
-            ],
-            "schedule": "0 */6 * * *",
-            "timeout": 15,
-            "enabled": true,
-            "logging": true,
-            "entrypoint": "src/main.js",
-            "commands": "npm install",
-            "path": "functions/clearOldUsers"
-        }
-    ],
-    "settings": {
-        "services": {
-            "account": true,
-            "avatars": true,
-            "databases": true,
-            "locale": true,
-            "health": true,
-            "storage": true,
-            "teams": true,
-            "users": true,
-            "functions": true,
-            "graphql": true,
-            "messaging": true
-        },
-        "auth": {
-            "methods": {
-                "jwt": true,
-                "phone": true,
-                "invites": true,
-                "anonymous": true,
-                "email-otp": true,
-                "magic-url": true,
-                "email-password": true
-            },
-            "security": {
-                "duration": 31536000,
-                "limit": 0,
-                "sessionsLimit": 10,
-                "passwordHistory": 0,
-                "passwordDictionary": false,
-                "personalDataCheck": false,
-                "sessionAlerts": false,
-                "mockNumbers": []
-            }
-        }
+  "projectId": "682eb1b9000cb3845772",
+  "projectName": "Unfit For Print",
+  "functions": [
+    {
+      "$id": "68309b8c002b6c2802e6",
+      "name": "playCard",
+      "runtime": "node-16.0",
+      "execute": ["any"],
+      "events": [],
+      "scopes": [
+        "users.read",
+        "databases.read",
+        "databases.write",
+        "collections.read",
+        "collections.write",
+        "documents.read",
+        "documents.write"
+      ],
+      "schedule": "",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/playCard"
     },
-    "databases": [
+    {
+      "$id": "68309bd000261a800de5",
+      "name": "startGame",
+      "runtime": "node-16.0",
+      "execute": ["any"],
+      "events": [],
+      "scopes": [
+        "users.read",
+        "databases.read",
+        "databases.write",
+        "collections.read",
+        "collections.write",
+        "documents.read",
+        "documents.write"
+      ],
+      "schedule": "",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/startGame"
+    },
+    {
+      "$id": "68309bac00304fee8922",
+      "name": "selectWinner",
+      "runtime": "node-16.0",
+      "execute": ["any"],
+      "events": [],
+      "scopes": [
+        "users.read",
+        "databases.read",
+        "databases.write",
+        "collections.read",
+        "collections.write",
+        "documents.read",
+        "documents.write"
+      ],
+      "schedule": "",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/selectWinner"
+    },
+    {
+      "$id": "68309b670004f0144f30",
+      "name": "startNextRound",
+      "runtime": "node-16.0",
+      "execute": ["any"],
+      "events": [],
+      "scopes": [
+        "users.read",
+        "databases.read",
+        "databases.write",
+        "collections.read",
+        "collections.write",
+        "documents.read",
+        "documents.write"
+      ],
+      "schedule": "",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/startNextRound"
+    },
+    {
+      "$id": "68309ae40001c70d2f60",
+      "name": "cleanStaleLobbies",
+      "runtime": "node-16.0",
+      "execute": ["any"],
+      "events": [],
+      "scopes": [
+        "users.read",
+        "databases.read",
+        "databases.write",
+        "collections.read",
+        "collections.write",
+        "documents.read",
+        "documents.write"
+      ],
+      "schedule": "0 * * * *",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/cleanStaleLobbies"
+    },
+    {
+      "$id": "68309b38000de5451d0d",
+      "name": "clearOldUsers",
+      "runtime": "node-16.0",
+      "execute": ["any"],
+      "events": [],
+      "scopes": ["users.read", "users.write"],
+      "schedule": "0 */6 * * *",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "entrypoint": "src/main.js",
+      "commands": "npm install",
+      "path": "functions/clearOldUsers"
+    }
+  ],
+  "settings": {
+    "services": {
+      "account": true,
+      "avatars": true,
+      "databases": true,
+      "locale": true,
+      "health": true,
+      "storage": true,
+      "teams": true,
+      "users": true,
+      "functions": true,
+      "graphql": true,
+      "messaging": true
+    },
+    "auth": {
+      "methods": {
+        "jwt": true,
+        "phone": true,
+        "invites": true,
+        "anonymous": true,
+        "email-otp": true,
+        "magic-url": true,
+        "email-password": true
+      },
+      "security": {
+        "duration": 31536000,
+        "limit": 0,
+        "sessionsLimit": 10,
+        "passwordHistory": 0,
+        "passwordDictionary": false,
+        "personalDataCheck": false,
+        "sessionAlerts": false,
+        "mockNumbers": []
+      }
+    }
+  },
+  "databases": [
+    {
+      "$id": "682f6e7600320fde48dd",
+      "name": "ufp-db",
+      "enabled": true
+    }
+  ],
+  "collections": [
+    {
+      "$id": "680735e9001869817994",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"users\")",
+        "read(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")",
+        "create(\"guests\")",
+        "read(\"guests\")",
+        "update(\"guests\")",
+        "delete(\"guests\")"
+      ],
+      "databaseId": "680735cc000ad838ba56",
+      "name": "players",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
         {
-            "$id": "682f6e7600320fde48dd",
-            "name": "ufp-db",
-            "enabled": true
+          "key": "userId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "lobbyId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "avatar",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "isHost",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": null
+        },
+        {
+          "key": "joinedAt",
+          "type": "datetime",
+          "required": false,
+          "array": false,
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "provider",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
         }
-    ],
-    "collections": [
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "680735fa0002c29896a8",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"users\")",
+        "read(\"users\")",
+        "update(\"users\")",
+        "read(\"guests\")",
+        "update(\"guests\")"
+      ],
+      "databaseId": "680735cc000ad838ba56",
+      "name": "lobby",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
         {
-            "$id": "680735e9001869817994",
-            "$permissions": [
-                "read(\"any\")",
-                "create(\"users\")",
-                "read(\"users\")",
-                "update(\"users\")",
-                "delete(\"users\")",
-                "create(\"guests\")",
-                "read(\"guests\")",
-                "update(\"guests\")",
-                "delete(\"guests\")"
-            ],
-            "databaseId": "680735cc000ad838ba56",
-            "name": "players",
-            "enabled": true,
-            "documentSecurity": false,
-            "attributes": [
-                {
-                    "key": "userId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "lobbyId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "name",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "avatar",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "isHost",
-                    "type": "boolean",
-                    "required": false,
-                    "array": false,
-                    "default": null
-                },
-                {
-                    "key": "joinedAt",
-                    "type": "datetime",
-                    "required": false,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                },
-                {
-                    "key": "provider",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                }
-            ],
-            "indexes": []
+          "key": "hostUserId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
         },
         {
-            "$id": "680735fa0002c29896a8",
-            "$permissions": [
-                "read(\"any\")",
-                "create(\"users\")",
-                "read(\"users\")",
-                "update(\"users\")",
-                "read(\"guests\")",
-                "update(\"guests\")"
-            ],
-            "databaseId": "680735cc000ad838ba56",
-            "name": "lobby",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "hostUserId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "players",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 1024,
-                    "default": null
-                },
-                {
-                    "key": "status",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "elements": [
-                        "waiting",
-                        "playing",
-                        "complete"
-                    ],
-                    "format": "enum",
-                    "default": null
-                },
-                {
-                    "key": "round",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 0,
-                    "max": 100,
-                    "default": null
-                },
-                {
-                    "key": "code",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "createdAt",
-                    "type": "datetime",
-                    "required": false,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                },
-                {
-                    "key": "gameState",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 4096,
-                    "default": null
-                },
-                {
-                    "key": "revealedSubmissions",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 4096,
-                    "default": null
-                }
-            ],
-            "indexes": []
+          "key": "players",
+          "type": "string",
+          "required": false,
+          "array": true,
+          "size": 1024,
+          "default": null
         },
         {
-            "$id": "68073604000a8fda6636",
-            "$permissions": [
-                "read(\"any\")"
-            ],
-            "databaseId": "680735cc000ad838ba56",
-            "name": "cards_black",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "text",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "pack",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "active",
-                    "type": "boolean",
-                    "required": false,
-                    "array": false,
-                    "default": null
-                },
-                {
-                    "key": "pick",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 1,
-                    "max": 3,
-                    "default": null
-                }
-            ],
-            "indexes": [
-                {
-                    "key": "text_fulltext",
-                    "type": "fulltext",
-                    "attributes": [
-                        "text"
-                    ],
-                    "orders": [
-                        "ASC"
-                    ]
-                }
-            ]
+          "key": "status",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "elements": ["waiting", "playing", "complete"],
+          "format": "enum",
+          "default": null
         },
         {
-            "$id": "6807360b0028bc1f2fcd",
-            "$permissions": [
-                "read(\"any\")"
-            ],
-            "databaseId": "680735cc000ad838ba56",
-            "name": "cards_white",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "text",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "pack",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "active",
-                    "type": "boolean",
-                    "required": false,
-                    "array": false,
-                    "default": null
-                }
-            ],
-            "indexes": [
-                {
-                    "key": "text_fulltext",
-                    "type": "fulltext",
-                    "attributes": [
-                        "text"
-                    ],
-                    "orders": [
-                        "ASC"
-                    ]
-                }
-            ]
+          "key": "round",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 0,
+          "max": 100,
+          "default": null
         },
         {
-            "$id": "682f6e80000ec0e482c0",
-            "$permissions": [
-                "read(\"any\")",
-                "create(\"team:682f6fb10006fb0a0b9c\")",
-                "read(\"team:682f6fb10006fb0a0b9c\")",
-                "update(\"team:682f6fb10006fb0a0b9c\")",
-                "delete(\"team:682f6fb10006fb0a0b9c\")"
-            ],
-            "databaseId": "682f6e7600320fde48dd",
-            "name": "cards_black",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "text",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "pack",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "active",
-                    "type": "boolean",
-                    "required": false,
-                    "array": false,
-                    "default": true
-                },
-                {
-                    "key": "pick",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 1,
-                    "max": 3,
-                    "default": null
-                },
-                {
-                    "key": "timesPlayed",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 0,
-                    "max": 9223372036854775807,
-                    "default": null
-                }
-            ],
-            "indexes": []
+          "key": "code",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
         },
         {
-            "$id": "682f7023002e326f6a7b",
-            "$permissions": [
-                "read(\"any\")",
-                "create(\"team:682f6fb10006fb0a0b9c\")",
-                "read(\"team:682f6fb10006fb0a0b9c\")",
-                "update(\"team:682f6fb10006fb0a0b9c\")",
-                "delete(\"team:682f6fb10006fb0a0b9c\")"
-            ],
-            "databaseId": "682f6e7600320fde48dd",
-            "name": "cards_white",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "text",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "pack",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "active",
-                    "type": "boolean",
-                    "required": false,
-                    "array": false,
-                    "default": null
-                },
-                {
-                    "key": "timesPlayed",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 0,
-                    "max": 9223372036854775807,
-                    "default": null
-                },
-                {
-                    "key": "timesWon",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 0,
-                    "max": 9223372036854775807,
-                    "default": null
-                }
-            ],
-            "indexes": []
+          "key": "createdAt",
+          "type": "datetime",
+          "required": false,
+          "array": false,
+          "format": "",
+          "default": null
         },
         {
-            "$id": "682f70a2003d1627f79e",
-            "$permissions": [
-                "create(\"any\")",
-                "read(\"any\")",
-                "update(\"any\")",
-                "delete(\"any\")"
-            ],
-            "databaseId": "682f6e7600320fde48dd",
-            "name": "gamecards",
-            "enabled": true,
-            "documentSecurity": false,
-            "attributes": [
-                {
-                    "key": "lobbyId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "whiteDeck",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "blackDeck",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "discardBlack",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "discardWhite",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "playerHands",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 4096,
-                    "default": null
-                }
-            ],
-            "indexes": []
+          "key": "gameState",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 16384,
+          "default": null
         },
         {
-            "$id": "682f71970037cff8ed48",
-            "$permissions": [
-                "create(\"users\")",
-                "read(\"users\")",
-                "update(\"users\")",
-                "delete(\"users\")",
-                "create(\"guests\")",
-                "read(\"guests\")"
-            ],
-            "databaseId": "682f6e7600320fde48dd",
-            "name": "gamechat",
-            "enabled": true,
-            "documentSecurity": false,
-            "attributes": [
-                {
-                    "key": "lobbyId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "senderId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "senderName",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "text",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "timeStamp",
-                    "type": "datetime",
-                    "required": false,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                }
-            ],
-            "indexes": []
-        },
-        {
-            "$id": "682f728c00354e3180b9",
-            "$permissions": [
-                "read(\"any\")",
-                "create(\"users\")"
-            ],
-            "databaseId": "682f6e7600320fde48dd",
-            "name": "gamesettings",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "maxPoints",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 1,
-                    "max": 9223372036854775807,
-                    "default": null
-                },
-                {
-                    "key": "numPlayerCards",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 1,
-                    "max": 9223372036854775807,
-                    "default": null
-                },
-                {
-                    "key": "cardPacks",
-                    "type": "string",
-                    "required": false,
-                    "array": true,
-                    "size": 4096,
-                    "default": null
-                },
-                {
-                    "key": "isPrivate",
-                    "type": "boolean",
-                    "required": false,
-                    "array": false,
-                    "default": false
-                },
-                {
-                    "key": "password",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "lobbyName",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "lobbyId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                }
-            ],
-            "indexes": []
-        },
-        {
-            "$id": "682f739000399dcb3559",
-            "$permissions": [
-                "read(\"any\")",
-                "create(\"users\")",
-                "read(\"users\")",
-                "update(\"users\")",
-                "read(\"guests\")",
-                "update(\"guests\")"
-            ],
-            "databaseId": "682f6e7600320fde48dd",
-            "name": "lobby",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "hostUserId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "status",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "elements": [
-                        "waiting",
-                        "playing",
-                        "complete"
-                    ],
-                    "format": "enum",
-                    "default": "waiting"
-                },
-                {
-                    "key": "round",
-                    "type": "integer",
-                    "required": false,
-                    "array": false,
-                    "min": 0,
-                    "max": 9223372036854775807,
-                    "default": null
-                },
-                {
-                    "key": "code",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "createdAt",
-                    "type": "datetime",
-                    "required": false,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                },
-                {
-                    "key": "gameState",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 4096,
-                    "default": null
-                }
-            ],
-            "indexes": []
-        },
-        {
-            "$id": "682f74c3002e6e839dcf",
-            "$permissions": [
-                "read(\"any\")",
-                "create(\"guests\")",
-                "read(\"guests\")",
-                "update(\"guests\")",
-                "delete(\"guests\")",
-                "create(\"users\")",
-                "read(\"users\")",
-                "update(\"users\")",
-                "delete(\"users\")"
-            ],
-            "databaseId": "682f6e7600320fde48dd",
-            "name": "players",
-            "enabled": true,
-            "documentSecurity": true,
-            "attributes": [
-                {
-                    "key": "userId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "lobbyId",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "name",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "avatar",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 255,
-                    "default": null
-                },
-                {
-                    "key": "isHost",
-                    "type": "boolean",
-                    "required": false,
-                    "array": false,
-                    "default": null
-                },
-                {
-                    "key": "joinedAt",
-                    "type": "datetime",
-                    "required": false,
-                    "array": false,
-                    "format": "",
-                    "default": null
-                },
-                {
-                    "key": "provider",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 48,
-                    "default": null
-                },
-                {
-                    "key": "playerType",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "elements": [
-                        "spectator",
-                        "player"
-                    ],
-                    "format": "enum",
-                    "default": "spectator"
-                }
-            ],
-            "indexes": []
+          "key": "revealedSubmissions",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 16384,
+          "default": null
         }
-    ]
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "68073604000a8fda6636",
+      "$permissions": ["read(\"any\")"],
+      "databaseId": "680735cc000ad838ba56",
+      "name": "cards_black",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
+        {
+          "key": "text",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "pack",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "active",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": null
+        },
+        {
+          "key": "pick",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 1,
+          "max": 3,
+          "default": null
+        }
+      ],
+      "indexes": [
+        {
+          "key": "text_fulltext",
+          "type": "fulltext",
+          "attributes": ["text"],
+          "orders": ["ASC"]
+        }
+      ]
+    },
+    {
+      "$id": "6807360b0028bc1f2fcd",
+      "$permissions": ["read(\"any\")"],
+      "databaseId": "680735cc000ad838ba56",
+      "name": "cards_white",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
+        {
+          "key": "text",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "pack",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "active",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": null
+        }
+      ],
+      "indexes": [
+        {
+          "key": "text_fulltext",
+          "type": "fulltext",
+          "attributes": ["text"],
+          "orders": ["ASC"]
+        }
+      ]
+    },
+    {
+      "$id": "682f6e80000ec0e482c0",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"team:682f6fb10006fb0a0b9c\")",
+        "read(\"team:682f6fb10006fb0a0b9c\")",
+        "update(\"team:682f6fb10006fb0a0b9c\")",
+        "delete(\"team:682f6fb10006fb0a0b9c\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "cards_black",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
+        {
+          "key": "text",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "pack",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "active",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": true
+        },
+        {
+          "key": "pick",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 1,
+          "max": 3,
+          "default": null
+        },
+        {
+          "key": "timesPlayed",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 0,
+          "max": 9223372036854775807,
+          "default": null
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "682f7023002e326f6a7b",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"team:682f6fb10006fb0a0b9c\")",
+        "read(\"team:682f6fb10006fb0a0b9c\")",
+        "update(\"team:682f6fb10006fb0a0b9c\")",
+        "delete(\"team:682f6fb10006fb0a0b9c\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "cards_white",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
+        {
+          "key": "text",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "pack",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "active",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": null
+        },
+        {
+          "key": "timesPlayed",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 0,
+          "max": 9223372036854775807,
+          "default": null
+        },
+        {
+          "key": "timesWon",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 0,
+          "max": 9223372036854775807,
+          "default": null
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "682f70a2003d1627f79e",
+      "$permissions": [
+        "create(\"any\")",
+        "read(\"any\")",
+        "update(\"any\")",
+        "delete(\"any\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "gamecards",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        {
+          "key": "lobbyId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "whiteDeck",
+          "type": "string",
+          "required": false,
+          "array": true,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "blackDeck",
+          "type": "string",
+          "required": false,
+          "array": true,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "discardBlack",
+          "type": "string",
+          "required": false,
+          "array": true,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "discardWhite",
+          "type": "string",
+          "required": false,
+          "array": true,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "playerHands",
+          "type": "string",
+          "required": false,
+          "array": true,
+          "size": 4096,
+          "default": null
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "682f71970037cff8ed48",
+      "$permissions": [
+        "create(\"users\")",
+        "read(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")",
+        "create(\"guests\")",
+        "read(\"guests\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "gamechat",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        {
+          "key": "lobbyId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "senderId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "senderName",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "text",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "timeStamp",
+          "type": "datetime",
+          "required": false,
+          "array": false,
+          "format": "",
+          "default": null
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "682f728c00354e3180b9",
+      "$permissions": ["read(\"any\")", "create(\"users\")"],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "gamesettings",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
+        {
+          "key": "maxPoints",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 1,
+          "max": 9223372036854775807,
+          "default": null
+        },
+        {
+          "key": "numPlayerCards",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 1,
+          "max": 9223372036854775807,
+          "default": null
+        },
+        {
+          "key": "cardPacks",
+          "type": "string",
+          "required": false,
+          "array": true,
+          "size": 4096,
+          "default": null
+        },
+        {
+          "key": "isPrivate",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": false
+        },
+        {
+          "key": "password",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "lobbyName",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "lobbyId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "682f739000399dcb3559",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"users\")",
+        "read(\"users\")",
+        "update(\"users\")",
+        "read(\"guests\")",
+        "update(\"guests\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "lobby",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
+        {
+          "key": "hostUserId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "elements": ["waiting", "playing", "complete"],
+          "format": "enum",
+          "default": "waiting"
+        },
+        {
+          "key": "round",
+          "type": "integer",
+          "required": false,
+          "array": false,
+          "min": 0,
+          "max": 9223372036854775807,
+          "default": null
+        },
+        {
+          "key": "code",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "createdAt",
+          "type": "datetime",
+          "required": false,
+          "array": false,
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "gameState",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 16384,
+          "default": null
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "$id": "682f74c3002e6e839dcf",
+      "$permissions": [
+        "read(\"any\")",
+        "create(\"guests\")",
+        "read(\"guests\")",
+        "update(\"guests\")",
+        "delete(\"guests\")",
+        "create(\"users\")",
+        "read(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "players",
+      "enabled": true,
+      "documentSecurity": true,
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "lobbyId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "avatar",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "isHost",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": null
+        },
+        {
+          "key": "joinedAt",
+          "type": "datetime",
+          "required": false,
+          "array": false,
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "provider",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "playerType",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "elements": ["spectator", "player"],
+          "format": "enum",
+          "default": "spectator"
+        }
+      ],
+      "indexes": []
+    }
+  ]
 }
