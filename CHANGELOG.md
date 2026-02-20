@@ -19,6 +19,24 @@
 
 * implement browser tts with voice switcher ([6319562](https://github.com/PPO-GG/unfit-for-print/commit/6319562ecb2f494cd4722b345ddea666a6c6085d)), closes [#39](https://github.com/PPO-GG/unfit-for-print/issues/39) [#36](https://github.com/PPO-GG/unfit-for-print/issues/36) [#41](https://github.com/PPO-GG/unfit-for-print/issues/41)
 
+## [2.1.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.0.1...v2.1.0) (2026-02-20)
+
+
+### ✨ Features
+
+* **api:** migrate spectator conversion to secure server endpoint ([900148c](https://github.com/PPO-GG/unfit-for-print/commit/900148c9751e7ad1c83bdcf4ae8051010d7721b2))
+* **api:** secure game endpoints with session and lobby validation ([b3ac7e8](https://github.com/PPO-GG/unfit-for-print/commit/b3ac7e834a1d8355d9a8566e2e452ea26bf9a776))
+
+
+### 🐛 Bug Fixes
+
+* **oauth:** correct base_url environment variable priority and ensure https ([a93adfa](https://github.com/PPO-GG/unfit-for-print/commit/a93adfaec0ac1b02fb8bfc9024bb64ca66d148da))
+
+
+### ♻️ Refactors
+
+* **game:** remove unused playedCards and centralize round timer ([b924881](https://github.com/PPO-GG/unfit-for-print/commit/b9248817148267cd05a1ce874ddf256b1abfaac1))
+
 ## [2.0.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.0.0...v2.0.1) (2026-02-20)
 
 
