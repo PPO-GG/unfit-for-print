@@ -109,7 +109,8 @@ defineEmits(["click"]);
 const { getRandomInRange } = useCrypto();
 const { playSfx } = useSfx();
 const { vibrate } = useVibrate({
-  pattern: [getRandomInRange([1, 3]), 2, getRandomInRange([1, 3])],
+  pattern: [30, 20, 30],
+  interval: 0,
 });
 const { isMobile } = useDevice();
 
@@ -285,9 +286,9 @@ onMounted(async () => {
           props.cardId,
         );
 
-        if (doc && doc.text) {
-          fallbackText.value = doc.text;
-          cardPack.value = doc.pack || null;
+        if (doc && (doc as any).text) {
+          fallbackText.value = (doc as any).text;
+          cardPack.value = (doc as any).pack || null;
         } else {
           console.warn(
             "Card document found but text is missing for ID:",
@@ -297,7 +298,7 @@ onMounted(async () => {
         }
       } catch (docError: string | any) {
         console.error("Error fetching card text:", docError);
-        console.log("Card ID:", props.cardId);
+// "Card ID:", props.cardId);
 
         // Provide a more specific error message for document not found
         if (

@@ -2,7 +2,6 @@ import { ref } from "vue";
 import { ID, type Models, Permission, Query, Role } from "appwrite";
 import { useUserStore } from "~/stores/userStore";
 import { useGameState } from "~/composables/useGameState";
-import { useGameEngine } from "~/composables/useGameEngine";
 import { useGameActions } from "~/composables/useGameActions";
 import { isAnonymousUser } from "~/composables/useUserUtils";
 import { usePlayers } from "~/composables/usePlayers";
@@ -21,8 +20,6 @@ export const useLobby = () => {
   const userStore = useUserStore();
   const { encodeGameState, decodeGameState } = useGameState();
 
-  const toPlainLobby = (doc: any): Lobby => ({ ...doc }) as Lobby;
-
   const fetchPlayers = async (lobbyId: string) => {
     const { databases } = getAppwrite();
     const config = getConfig();
@@ -31,7 +28,7 @@ export const useLobby = () => {
       config.public.appwritePlayerCollectionId,
       [Query.equal("lobbyId", lobbyId)],
     );
-    players.value = res.documents.map((doc) => ({
+    players.value = res.documents.map((doc: Record<string, any>) => ({
       $id: doc.$id,
       userId: doc.userId,
       lobbyId: doc.lobbyId,
@@ -386,7 +383,7 @@ export const useLobby = () => {
         userId: user.$id,
         lobbyId,
         name: username,
-        avatar: avatarUrl || user.prefs?.avatar || "",
+        avatar: avatarUrl || (user.prefs as Record<string, any>)?.avatar || "",
         isHost,
         joinedAt: new Date().toISOString(),
         provider: session.provider,
@@ -512,21 +509,17 @@ export const useLobby = () => {
       }
     }
 
-    // Check if there are fewer than 3 players left and the game is in progress
-    if (players.value.length < 3 && lobby.status === "playing") {
-      // Update the game state to "waiting"
-      const state = decodeGameState(lobby.gameState);
-      state.phase = "waiting";
-
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-        {
-          status: "waiting",
-          gameState: encodeGameState(state),
-        },
-      );
+    // Delegate game state cleanup to server (handles judge leaving,
+    // submission advancement, and < 3 players revert — all atomically)
+    if (lobby.status === "playing") {
+      try {
+        await $fetch("/api/game/player-leave", {
+          method: "POST",
+          body: { lobbyId, leavingUserId: userId },
+        });
+      } catch (err) {
+        console.error("Failed to process player leave game state:", err);
+      }
     }
   };
 
@@ -672,7 +665,6 @@ export const useLobby = () => {
   const reshufflePlayerCards = async (lobbyId: string) => {
     const { databases } = getAppwrite();
     const config = getConfig();
-    const { shuffle } = useGameEngine();
 
     try {
       // Get the current lobby
@@ -702,7 +694,7 @@ export const useLobby = () => {
       // Convert playerHands array to hands object
       state.hands = {};
       if (gameCards.playerHands && Array.isArray(gameCards.playerHands)) {
-        gameCards.playerHands.forEach((handString) => {
+        gameCards.playerHands.forEach((handString: string) => {
           const hand = JSON.parse(handString);
           state.hands[hand.playerId] = hand.cards;
         });
@@ -750,9 +742,11 @@ export const useLobby = () => {
         }
 
         // Give each player 7 cards
-        state.hands[playerId] = [];
+        const newHand: string[] = [];
+        state.hands[playerId] = newHand;
         for (let i = 0; i < 7 && cardIndex < shuffledCards.length; i++) {
-          state.hands[playerId].push(shuffledCards[cardIndex]);
+          const card = shuffledCards[cardIndex];
+          if (card) newHand.push(card);
           cardIndex++;
         }
       });
@@ -777,10 +771,15 @@ export const useLobby = () => {
 
         // Now distribute cards from the filtered deck
         playerIds.forEach((playerId) => {
-          if (playerId !== state.judgeId && state.hands[playerId].length < 7) {
-            const cardsNeeded = 7 - state.hands[playerId].length;
+          const playerHand = state.hands[playerId];
+          if (
+            playerId !== state.judgeId &&
+            playerHand &&
+            playerHand.length < 7
+          ) {
+            const cardsNeeded = 7 - playerHand.length;
             const cardsToAdd = state.whiteDeck.splice(0, cardsNeeded);
-            state.hands[playerId].push(...cardsToAdd);
+            playerHand.push(...cardsToAdd);
           }
         });
       }
@@ -936,7 +935,7 @@ export const useLobby = () => {
     getLobbyByCode,
     leaveLobby,
     isInLobby,
-    toPlainLobby,
+
     startGame,
     kickPlayer,
     promoteToHost,

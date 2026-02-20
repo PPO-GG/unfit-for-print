@@ -1,26 +1,18 @@
 <script setup lang="ts">
-import { useGameContext } from '~/composables/useGameContext'
-import { useGame } from '~/composables/not_used/useGame';
-const { isJudge, gameState } = useGameContext(lobby)
+// This component is currently unused (dead code).
+// It previously relied on a deleted composable (~/composables/not_used/useGame).
+// Kept as a placeholder for future implementation.
 
-const reveal = async () => {
-  // Only judge can trigger
-  if (!isJudge.value || gameState.value.blackCard) return;
-
-  const nextCardId = gameState.value.blackDeck[0];
-  const cardData = await getCardById(nextCardId, 'black_cards');
-  await updateGameState({ blackCard: cardData, blackDeck: gameState.value.blackDeck.slice(1) });
-};
+defineProps<{
+  flipped?: boolean;
+}>();
 </script>
 
 <template>
   <WhiteCard
-      class="cursor-pointer transition-all transform hover:scale-105"
-      @click="reveal"
-      :flipped="false"
+    class="cursor-pointer transition-all transform hover:scale-105"
+    :flipped="flipped ?? false"
   />
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

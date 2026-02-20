@@ -39,7 +39,7 @@ export default defineNuxtConfig({
               if (id.includes("appwrite")) return "vendor-appwrite";
 
               // Split each dependency into its own chunk
-              return id.split("node_modules/")[1].split("/")[0];
+              return id.split("node_modules/")[1]?.split("/")[0];
             }
           },
         },

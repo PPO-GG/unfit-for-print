@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { toPng } from 'html-to-image';
-import BlackCard from '~/components/game/BlackCard.vue';
-import WhiteCard from '~/components/game/WhiteCard.vue';
-import { ref } from 'vue';
+import { toPng } from "html-to-image";
+import BlackCard from "~/components/game/BlackCard.vue";
+import WhiteCard from "~/components/game/WhiteCard.vue";
+import { ref } from "vue";
 
 const props = defineProps<{
   blackCard?: { id?: string; text: string; pick?: number };
@@ -14,13 +14,27 @@ const captureRef = ref<HTMLElement | null>(null);
 async function download() {
   if (!captureRef.value) return;
   try {
-    const dataUrl = await toPng(captureRef.value, { pixelRatio: 2 });
-    const link = document.createElement('a');
+    const dataUrl = await toPng(captureRef.value, {
+      pixelRatio: 2,
+      fontEmbedCSS: "",
+      filter: (node: Node) => {
+        // Skip card back faces — they contain images with undefined src
+        // and are invisible anyway (backface-visibility: hidden)
+        if (
+          node instanceof HTMLElement &&
+          node.classList.contains("card__back")
+        ) {
+          return false;
+        }
+        return true;
+      },
+    });
+    const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = 'unfit.png';
+    link.download = "unfit.png";
     link.click();
   } catch (e) {
-    console.error('Failed to generate image', e);
+    console.error("Failed to generate image", e);
   }
 }
 </script>

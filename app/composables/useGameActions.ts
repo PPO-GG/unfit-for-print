@@ -31,10 +31,15 @@ export function useGameActions() {
 
   const selectWinner = async (lobbyId: string, winnerId: string) => {
     try {
-      return await $fetch("/api/game/select-winner", {
+      const result = await $fetch<{
+        success: boolean;
+        phase: string;
+        winningCards: string[];
+      }>("/api/game/select-winner", {
         method: "POST",
         body: { lobbyId, winnerId },
       });
+      return result;
     } catch (error) {
       console.error("Error in selectWinner:", error);
       throw error;

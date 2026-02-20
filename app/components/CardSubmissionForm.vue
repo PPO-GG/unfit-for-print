@@ -43,7 +43,7 @@
 
       <!-- Card Text Input -->
       <ClientOnly>
-        <UForm label="Card Text" name="cardText" :state="{ cardText }">
+        <UForm :state="{ cardText }">
           <UTextarea
             v-model="cardText"
             :placeholder="
@@ -56,15 +56,11 @@
             class="w-full"
             :disabled="submitting || !isLoggedIn"
           />
-          <template #hint>
-            <div class="flex justify-between">
-              <span>{{ cardText.length }}/200 characters</span>
-              <span v-if="cardType === 'black'">
-                Picks: {{ calculatePicks }}
-              </span>
-            </div>
-          </template>
         </UForm>
+        <div class="flex justify-between text-sm text-gray-400 mt-1">
+          <span>{{ cardText.length }}/200 characters</span>
+          <span v-if="cardType === 'black'"> Picks: {{ calculatePicks }} </span>
+        </div>
       </ClientOnly>
 
       <!-- Card Preview -->
@@ -123,12 +119,12 @@ const submitting = ref(false);
 
 // Watch for changes to cardType
 watch(cardType, (newValue) => {
-  console.log("Card type changed to:", newValue);
+// "Card type changed to:", newValue);
 });
 
 // Ensure cardType is properly initialized on client side
 onMounted(() => {
-  console.log("Component mounted, cardType:", cardType.value);
+// "Component mounted, cardType:", cardType.value);
   // Force a re-render by setting the value again
   const currentType = cardType.value;
   cardType.value = currentType;
@@ -176,10 +172,12 @@ async function submitCard() {
 
     // Create submission data
     const sanitizedCardText = sanitizeText(cardText.value);
-    const submissionData = {
+    const submissionData: Record<string, unknown> = {
       submitterId: userStore.user?.$id,
       submitterName:
-        userStore.user?.name || userStore.user?.prefs?.username || "Anonymous",
+        userStore.user?.name ||
+        (userStore.user?.prefs as Record<string, unknown>)?.username ||
+        "Anonymous",
       cardType: cardType.value,
       text: sanitizedCardText,
       timestamp: new Date().toISOString(),
@@ -210,14 +208,14 @@ async function submitCard() {
     useToast().add({
       title: "Success",
       description: "Your card has been submitted!",
-      color: "green",
+      color: "success",
     });
   } catch (error) {
     console.error("Error submitting card:", error);
     useToast().add({
       title: "Error",
       description: "Failed to submit your card. Please try again.",
-      color: "red",
+      color: "error",
     });
   } finally {
     submitting.value = false;
