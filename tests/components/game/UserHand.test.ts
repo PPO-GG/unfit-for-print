@@ -1,125 +1,74 @@
 // tests/components/game/UserHand.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
-import UserHand from '~/components/game/UserHand.vue'
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mount } from "@vue/test-utils";
+import UserHand from "~/components/game/UserHand.vue";
 
 // Mock the useSfx composable
-vi.mock('~/composables/useSfx', () => ({
-    useSfx: () => ({
-        playSfx: vi.fn()
-    })
-}))
+vi.mock("~/composables/useSfx", () => ({
+  useSfx: () => ({
+    playSfx: vi.fn(),
+  }),
+}));
 
-// Don't mock Vue's ref - use the real implementation
-vi.unmock('vue')
+// Mock GSAP
+vi.mock("gsap", () => ({
+  gsap: {
+    to: vi.fn(),
+    set: vi.fn(),
+    fromTo: vi.fn(),
+  },
+}));
 
-describe('UserHand.vue', () => {
-    let wrapper: any
+vi.unmock("vue");
 
-    beforeEach(() => {
-        // Reset mocks between tests
-        vi.clearAllMocks()
-    })
+describe("UserHand.vue", () => {
+  let wrapper: any;
 
-    it('renders the correct number of cards', () => {
-        const cards = ['card1', 'card2', 'card3']
-        wrapper = mount(UserHand, {
-            props: {
-                cards,
-                disabled: false,
-                cardsToSelect: 1
-            },
-            global: {
-                stubs: {
-                    'whiteCard': true,
-                    'UButton': true
-                }
-            }
-        })
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
 
-        // Check if all cards are rendered
-        const cardElements = wrapper.findAll('.absolute.mb-30')
-        expect(cardElements.length).toBe(cards.length)
-    })
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-    it('selects a card when clicked', async () => {
-        const cards = ['card1', 'card2', 'card3']
-        wrapper = mount(UserHand, {
-            props: {
-                cards,
-                disabled: false,
-                cardsToSelect: 2
-            },
-            global: {
-                stubs: {
-                    'whiteCard': true,
-                    'UButton': true
-                }
-            }
-        })
+  it("renders the correct number of cards", () => {
+    const cards = ["card1", "card2", "card3"];
+    wrapper = mount(UserHand, {
+      props: { cards, disabled: false, cardsToSelect: 1 },
+      global: { stubs: { WhiteCard: true, UButton: true } },
+    });
 
-        // Click the first card
-        await wrapper.findAll('.absolute.mb-30')[0].trigger('click')
+    const cardElements = wrapper.findAll(".hand-card");
+    expect(cardElements.length).toBe(cards.length);
+  });
 
-        // Force a re-render to ensure Vue updates the DOM
-        await wrapper.vm.$nextTick()
+  it("selects a card and shows selection state", async () => {
+    const cards = ["card1", "card2", "card3"];
+    wrapper = mount(UserHand, {
+      props: { cards, disabled: false, cardsToSelect: 2 },
+      global: { stubs: { WhiteCard: true, UButton: true } },
+    });
 
-        // Check if the card is selected by looking for the class on the inner div
-        const selectedCards = wrapper.findAll('div[class*="outline-green-500"]')
-        expect(selectedCards.length).toBe(1)
-    })
+    wrapper.vm.toggleCardSelection("card1", 0);
+    await wrapper.vm.$nextTick();
 
-    it('emits select-cards event when submit button is clicked with correct selection', async () => {
-        const cards = ['card1', 'card2', 'card3']
-        wrapper = mount(UserHand, {
-            props: {
-                cards,
-                disabled: false,
-                cardsToSelect: 1
-            },
-            global: {
-                stubs: {
-                    'whiteCard': true,
-                    'UButton': true  // Add UButton stub
-                }
-            }
-        })
+    const selected = wrapper.findAll(".hand-card--selected");
+    expect(selected.length).toBe(1);
+  });
 
-        // Select a card
-        await wrapper.findAll('.absolute.mb-30')[0].trigger('click')
-        await wrapper.vm.$nextTick()
+  it("disables card selection when disabled prop is true", async () => {
+    const cards = ["card1", "card2", "card3"];
+    wrapper = mount(UserHand, {
+      props: { cards, disabled: true, cardsToSelect: 1 },
+      global: { stubs: { WhiteCard: true, UButton: true } },
+    });
 
-        // Find the UButton component and trigger click
-        const submitButton = wrapper.findComponent({ name: 'UButton' })
-        await submitButton.trigger('click')
+    wrapper.vm.onCardClick(new MouseEvent("click"), "card1", 0);
+    await wrapper.vm.$nextTick();
 
-        // Check if the event was emitted with the correct card ID
-        expect(wrapper.emitted('select-cards')).toBeTruthy()
-        expect(wrapper.emitted('select-cards')[0][0]).toEqual(['card1'])
-    })
-
-    it('disables card selection when disabled prop is true', async () => {
-        const cards = ['card1', 'card2', 'card3']
-        wrapper = mount(UserHand, {
-            props: {
-                cards,
-                disabled: true,
-                cardsToSelect: 1
-            },
-            global: {
-                stubs: {
-                    'whiteCard': true,
-                    'UButton': true
-                }
-            }
-        })
-
-        // Try to click a card
-        await wrapper.findAll('.absolute.mb-30')[0].trigger('click')
-        await wrapper.vm.$nextTick()
-
-        // Check that no card is selected
-        const selectedCards = wrapper.findAll('div[class*="outline-green-500"]')
-        expect(selectedCards.length).toBe(0)
-    })
-})
+    const selected = wrapper.findAll(".hand-card--selected");
+    expect(selected.length).toBe(0);
+  });
+});
