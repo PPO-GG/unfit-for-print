@@ -122,6 +122,21 @@ async function syncSchema() {
             );
             needsUpdate = true;
           }
+
+          // Compare enum elements
+          if (localAttr.format === "enum" && localAttr.elements) {
+            const remoteElements = remoteAttr.elements || [];
+            const localElements = localAttr.elements || [];
+            const elementsChanged =
+              localElements.length !== remoteElements.length ||
+              localElements.some((e: string) => !remoteElements.includes(e));
+            if (elementsChanged) {
+              console.log(
+                `[UPDATE] ${localAttr.key}: Enum elements changed from [${remoteElements}] to [${localElements}]`,
+              );
+              needsUpdate = true;
+            }
+          }
         }
 
         if (needsUpdate) {

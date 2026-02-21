@@ -664,7 +664,14 @@
           "default": null
         }
       ],
-      "indexes": []
+      "indexes": [
+        {
+          "key": "lobbyId_timeStamp",
+          "type": "key",
+          "attributes": ["lobbyId", "timeStamp"],
+          "orders": ["ASC", "ASC"]
+        }
+      ]
     },
     {
       "$id": "682f728c00354e3180b9",
@@ -880,7 +887,7 @@
           "type": "string",
           "required": false,
           "array": false,
-          "elements": ["spectator", "player"],
+          "elements": ["spectator", "player", "bot"],
           "format": "enum",
           "default": "spectator"
         }
