@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.2.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.1.2...v2.2.0) (2026-02-21)
+
+
+### ✨ Features
+
+* **api:** add server-side chat endpoints with rate limiting ([029fdc2](https://github.com/PPO-GG/unfit-for-print/commit/029fdc254cff90a85308c66350a8f92b643b1415))
+* **api:** add server-side player verification utility ([38552d4](https://github.com/PPO-GG/unfit-for-print/commit/38552d41cddeb269a22e96340df41e5fbbfac65d))
+* **api:** add synchronized card reveal endpoint for judging phase ([bcce143](https://github.com/PPO-GG/unfit-for-print/commit/bcce14343cd51f98de017787b22abb38f4c423fd))
+* **game:** add bot player system with host-controlled AI ([56ac6b0](https://github.com/PPO-GG/unfit-for-print/commit/56ac6b0278d0a86276f821fce7e4f530af685e47))
+* **game:** add centralized SFX registry and card fly-coordinate composable ([90cd65e](https://github.com/PPO-GG/unfit-for-print/commit/90cd65e5b1149034c105c27eb412316327f5f48c))
+* **game:** redesign game board with immersive table layout and physics-based card animations ([b9481fe](https://github.com/PPO-GG/unfit-for-print/commit/b9481fe2c8910bdc22997385444f68c8338eecf6))
+
+
+### 🐛 Bug Fixes
+
+* **api:** simplify Discord OAuth to use SDK method directly ([b39b0a7](https://github.com/PPO-GG/unfit-for-print/commit/b39b0a7d908ed2db8ee156cf2310aad8d5f5bc86))
+
+
+### ♻️ Refactors
+
+* **api:** migrate game endpoints to body-based userId verification ([042b1a3](https://github.com/PPO-GG/unfit-for-print/commit/042b1a3069c05dba2475851cd8660f13e81950c1))
+
 ## [2.1.2](https://github.com/PPO-GG/unfit-for-print/compare/v2.1.1...v2.1.2) (2026-02-20)
 
 
