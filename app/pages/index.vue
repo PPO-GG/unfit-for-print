@@ -125,6 +125,7 @@ import {
 } from "~/constants/ttsProviders";
 import { useUserStore } from "~/stores/userStore";
 import ShareImage from "~/components/game/ShareImage.vue";
+import { SFX } from "~/config/sfx.config";
 type TTSProvider = "browser" | "elevenlabs" | "openai";
 
 const {
@@ -215,10 +216,7 @@ const fetchNewCards = async () => {
   blackCardFlipped.value = true;
 
   if (isClient.value) {
-    await playSfx("/sounds/sfx/submit.wav", {
-      pitch: [0.8, 1.2],
-      volume: 0.75,
-    });
+    await playSfx(SFX.cardThrow, { pitch: [0.8, 1.2], volume: 0.75 });
   }
 
   setTimeout(() => {

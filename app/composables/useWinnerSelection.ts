@@ -4,6 +4,7 @@ import type { Lobby } from "~/types/lobby";
 import type { GameState } from "~/types/game";
 import { useGameActions } from "~/composables/useGameActions";
 import { useSfx } from "~/composables/useSfx";
+import { SFX } from "~/config/sfx.config";
 
 export function useWinnerSelection(options: {
   state: ComputedRef<GameState | null>;
@@ -65,10 +66,7 @@ export function useWinnerSelection(options: {
           if (result?.winningCards?.length) {
             localWinningCards.value = result.winningCards;
           }
-          playSfx("/sounds/sfx/selectWinner.wav", {
-            pitch: [0.95, 1.05],
-            volume: 0.75,
-          });
+          playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
         })
         .catch((err) => {
           console.error("Failed to select winner:", err);
