@@ -1,6 +1,6 @@
 <template>
   <div
-    class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none perspective-distant justify-center flex items-center w-32 md:w-44 lg:w-56 aspect-[3/4] hover:z-[100]"
   >
     <div
       ref="card"
@@ -17,10 +17,7 @@
             <div
               class="card-content rounded-lg relative overflow-hidden cursor-pointer"
             >
-              <p
-                :style="textStyle"
-                class="leading-6 md:leading-none p-3 md:p-4 text-pretty cursor-pointer"
-              >
+              <p class="card-text text-pretty cursor-pointer">
                 {{ cardText }}
               </p>
               <div
@@ -82,7 +79,6 @@
   <!-- Report Card Modal -->
   <UModal
     v-model:open="showReportModal"
-    :overlay="false"
     :title="'Report A Card'"
     aria-describedby="Report A Card"
     :description="'Please select a reason for reporting this card:'"
@@ -102,6 +98,7 @@
 import { gsap } from "gsap";
 import { computed } from "vue";
 import ReportCard from "~/components/ReportCard.vue";
+import { SFX } from "~/config/sfx.config";
 
 // Define emits to fix the warning about extraneous non-emits event listeners
 defineEmits(["click"]);
@@ -116,10 +113,7 @@ const { isMobile } = useDevice();
 
 function playRandomFlip() {
   vibrate();
-  playSfx(
-    ["/sounds/sfx/flip1.wav", "/sounds/sfx/flip2.wav", "/sounds/sfx/flip3.wav"],
-    { volume: 0.75, pitch: [0.95, 1.05] },
-  );
+  playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
 }
 
 const props = defineProps<{
@@ -148,25 +142,9 @@ watch(
 );
 
 const card = ref<HTMLElement | null>(null);
-const textSize = ref(1);
 const rotation = ref({ x: 0, y: 0 });
 const shineOffset = ref({ x: 0, y: 0 });
 const showReportModal = ref(false);
-
-const textStyle = computed(() => {
-  return {
-    fontSize: `${textSize.value}rem`,
-    lineHeight: `${Math.max(1, textSize.value * 1.1)}rem`,
-    padding: `${textSize.value * 0.5}rem`,
-  };
-});
-
-function calculateTextSize() {
-  if (!card.value) return;
-
-  const width = card.value.offsetWidth;
-  textSize.value = Math.max(0.2, width / 125);
-}
 
 function animateShine() {
   const ease = 0.05;
@@ -246,13 +224,6 @@ watch(
   },
 );
 
-watch(
-  () => card.value?.offsetWidth,
-  () => {
-    calculateTextSize();
-  },
-);
-
 onMounted(async () => {
   if (!props.text) {
     try {
@@ -298,7 +269,6 @@ onMounted(async () => {
         }
       } catch (docError: string | any) {
         console.error("Error fetching card text:", docError);
-// "Card ID:", props.cardId);
 
         // Provide a more specific error message for document not found
         if (
@@ -317,17 +287,10 @@ onMounted(async () => {
     }
   }
 
-  calculateTextSize();
-  window.addEventListener("resize", calculateTextSize);
-
   if (!props.disableHover) {
     resetTransform();
     animateShine();
   }
-
-  onBeforeUnmount(() => {
-    window.removeEventListener("resize", calculateTextSize);
-  });
 });
 </script>
 
@@ -458,6 +421,17 @@ onMounted(async () => {
   z-index: 1;
   color: black;
   border-radius: 12px;
+}
+
+.card-scaler {
+  container-type: inline-size;
+}
+
+.card-text {
+  font-size: clamp(0.55rem, 12.8cqi, 2.3rem);
+  line-height: 1.2;
+  padding: 6.4cqi;
+  color: black;
 }
 
 /* Winner animation styles */

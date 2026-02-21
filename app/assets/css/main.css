@@ -2,34 +2,236 @@
 @import "@nuxt/ui";
 @plugin "@tailwindcss/typography";
 
-@layer utilities {
-    .cursor-pointer {
-        cursor: url('/img/cursor/pointer.cur'), pointer !important;
-    }
-    .cursor-default {
-        cursor: url('/img/cursor/default.cur'), default !important;
-    }
-}
-@layer base {
-    html, body, * {
-        cursor: url("/img/cursor/default.cur"), default;
-    }
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Game-specific CSS custom properties
+   These are our single source of truth for colour, spacing, and type.
+   Nuxt UI semantic colours (primary → violet, neutral → slate) are resolved
+   via app.config.ts; the variables below add game-layer tokens on top.
 
-    /* Apply custom pointer cursor to interactive elements AND all their children */
-    button, button *,
-    a[href], a[href] *,
-    [role="button"], [role="button"] *,
-    input[type="button"], input[type="button"] *,
-    input[type="submit"], input[type="submit"] *,
-    summary, summary *,
-    select, select *,
-    label, label *,
-    .nuxt-link, .nuxt-link *,
-    [tabindex]:not([tabindex="-1"]), [tabindex]:not([tabindex="-1"]) *,
-    [class^="U"], [class^="U"] *,
-    [class*="UButton"], [class*="UButton"] *,
-    .ui, .ui *,
-    [data-headlessui-state], [data-headlessui-state] * {
-        cursor: url("/img/cursor/pointer.cur"), pointer !important;
-    }
+   NOTE: theme() is only valid inside Tailwind @utility / @layer utilities
+   contexts. Custom properties in :root must use literal values.
+───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Card colours ── */
+  --card-black-bg: #1c2342;
+  --card-black-text: #ffffff;
+  --card-white-bg: #e7e1de;
+  --card-white-text: #1a1a1a;
+  --card-radius: 12px;
+  --card-border-inner: rgba(255, 255, 255, 0.5);
+
+  /* ── Game surface ── */
+  --game-bg-from: #0f172a; /* slate-900 */
+  --game-bg-to: #1e293b; /* slate-800 */
+  --game-surface: rgba(30, 41, 59, 0.6); /* slate-800/60 */
+  --game-border: rgba(51, 65, 85, 0.5); /* slate-700/50 */
+  --game-panel: #334155; /* slate-700 */
+
+  /* ── Status colours (game-specific) ── */
+  --status-judge-bg: rgba(245, 158, 11, 0.15);
+  --status-judge-border: rgba(245, 158, 11, 0.35);
+  --status-judge-text: #fcd34d; /* amber-300 */
+
+  --status-submitted-bg: rgba(34, 197, 94, 0.15);
+  --status-submitted-border: rgba(34, 197, 94, 0.35);
+  --status-submitted-text: #86efac; /* green-300 */
+
+  --status-spectator-bg: rgba(139, 92, 246, 0.15);
+  --status-spectator-border: rgba(139, 92, 246, 0.35);
+  --status-spectator-text: #c4b5fd; /* violet-300 */
+
+  --status-waiting-bg: rgba(59, 130, 246, 0.15);
+  --status-waiting-border: rgba(59, 130, 246, 0.35);
+  --status-waiting-text: #93c5fd; /* blue-300 */
+
+  --status-skipped-bg: rgba(249, 115, 22, 0.15);
+  --status-skipped-border: rgba(249, 115, 22, 0.35);
+  --status-skipped-text: #fdba74; /* orange-300 */
+
+  /* ── Winner glow ── */
+  --winner-glow: rgba(74, 222, 128, 0.6); /* green-400/60 */
+  --winner-outline: rgba(74, 222, 128, 0.8); /* green-400/80 */
+
+  /* ── Typography ── */
+  --font-display: "Bebas Neue", sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  /* ── Overlay ── */
+  --overlay-bg: rgba(2, 6, 23, 0.6); /* slate-950/60 */
+  --overlay-blur: 12px;
+
+  /* ── Animation ── */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* Dark mode — our primary target */
+.dark,
+[data-theme="dark"] {
+  --game-surface: rgba(30, 41, 59, 0.8); /* slate-800/80 */
+  --overlay-bg: rgba(2, 6, 23, 0.7); /* slate-950/70 */
+}
+
+/* Light mode fallbacks — surfaces lighten, text darkens */
+.light,
+[data-theme="light"] {
+  --game-bg-from: #f1f5f9; /* slate-100 */
+  --game-bg-to: #e2e8f0; /* slate-200 */
+  --game-surface: rgba(255, 255, 255, 0.8);
+  --game-border: rgba(203, 213, 225, 0.7); /* slate-300/70 */
+  --game-panel: #e2e8f0; /* slate-200 */
+  --overlay-bg: rgba(148, 163, 184, 0.4); /* slate-400/40 */
+  --card-black-bg: #1c2342; /* cards keep canonical colours in light mode */
+  --card-white-bg: #f5f0ed;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TAILWIND THEME EXTENSION
+   Fonts declared here become font-display / font-sans Tailwind utilities.
+───────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  --font-display: "Bebas Neue", sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE LAYER
+───────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  /* Custom cursors — inherited by all children */
+  html,
+  body,
+  * {
+    cursor: url("/img/cursor/default.cur"), default;
+  }
+
+  /* Pointer cursor on interactive elements AND all their children */
+  button,
+  button *,
+  a[href],
+  a[href] *,
+  [role="button"],
+  [role="button"] *,
+  input[type="button"],
+  input[type="button"] *,
+  input[type="submit"],
+  input[type="submit"] *,
+  summary,
+  summary *,
+  select,
+  select *,
+  label,
+  label *,
+  .nuxt-link,
+  .nuxt-link *,
+  [tabindex]:not([tabindex="-1"]),
+  [tabindex]:not([tabindex="-1"]) * {
+    cursor: url("/img/cursor/pointer.cur"), pointer !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: var(--font-body);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITIES
+───────────────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Cursor helpers */
+  .cursor-pointer {
+    cursor: url("/img/cursor/pointer.cur"), pointer !important;
+  }
+  .cursor-default {
+    cursor: url("/img/cursor/default.cur"), default !important;
+  }
+
+  /* Game background gradient */
+  .game-bg {
+    background: linear-gradient(
+      to bottom,
+      var(--game-bg-from),
+      var(--game-bg-to)
+    );
+  }
+
+  /* Glassmorphism surface panel */
+  .glass-panel {
+    background: var(--game-surface);
+    border: 1px solid var(--game-border);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Bebas Neue display font utility */
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Noise texture overlay (re-usable) */
+  .noise-overlay {
+    background-image: url("/img/textures/noise.png");
+    opacity: 0.07;
+    pointer-events: none;
+  }
+
+  /* Status badge base — used in PlayerList, SubmissionPhase, etc.
+     The colour (text colour) is set per-instance with inline classes;
+     the border and bg are derived from currentColor in components. */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+    font-family: var(--font-display);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(0, 0, 0, 0.25);
+  }
+
+  /* Admin action button (PlayerList kick/promote/skip) */
+  .admin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.375rem;
+    background-color: rgba(0, 0, 0, 0.2);
+    transition: all var(--transition-fast);
+  }
+  .admin-btn:hover {
+    transform: translateY(-2px);
+    background-color: rgba(0, 0, 0, 0.35);
+  }
+
+  /* Thin scrollbar for game panels */
+  .scrollbar-game {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent; /* slate-600 */
+  }
+  .scrollbar-game::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-game::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-game::-webkit-scrollbar-thumb {
+    background-color: #475569; /* slate-600 */
+    border-radius: 3px;
+  }
 }

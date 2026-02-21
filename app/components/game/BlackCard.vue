@@ -1,6 +1,6 @@
 <template>
   <div
-    class="select-none perspective-distant justify-center flex items-center w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none perspective-distant justify-center flex items-center w-32 md:w-44 lg:w-56 aspect-[3/4] hover:z-[100]"
   >
     <div
       ref="card"
@@ -18,9 +18,7 @@
               class="card-content rounded-lg relative overflow-hidden cursor-pointer"
             >
               <p
-                ref="textElement"
-                :style="textStyle"
-                class="p-3 md:p-4 text-pretty cursor-pointer"
+                class="card-text text-pretty cursor-pointer"
                 v-html="formattedCardText"
               ></p>
               <div
@@ -88,7 +86,6 @@
   <!-- Report Card Modal -->
   <UModal
     v-model:open="showReportModal"
-    :overlay="false"
     :title="'Report A Card'"
     aria-describedby="Report A Card"
     :description="'Please select a reason for reporting this card:'"
@@ -106,9 +103,10 @@
 
 <script lang="ts" setup>
 import { gsap } from "gsap";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { debounce } from "lodash-es";
 import ReportCard from "~/components/ReportCard.vue";
+import { SFX } from "~/config/sfx.config";
 
 // Define emits to fix the warning about extraneous non-emits event listeners
 defineEmits(["click"]);
@@ -120,10 +118,7 @@ const { isMobile } = useDevice();
 
 function playRandomFlip() {
   vibrate();
-  playSfx(
-    ["/sounds/sfx/flip1.wav", "/sounds/sfx/flip2.wav", "/sounds/sfx/flip3.wav"],
-    { volume: 0.75, pitch: [0.95, 1.05] },
-  );
+  playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
 }
 
 const props = defineProps<{
@@ -161,7 +156,7 @@ const cardText = computed(() => props.text || fallbackText.value);
 const formattedCardText = computed(() => {
   return cardText.value.replace(
     /_/g,
-    '<span class="inline-block relative w-1/2 py-1 md:py-2 h-4 lg:h-8 align-middle bg-slate-600/50 rounded-sm md:rounded-lg outline-dashed outline-1 outline-white/25 inset-shadow-xs inset-shadow-black/50 border-b-1 border-white/25 mx-1"></span>',
+    '<span class="inline-block relative w-1/2 align-middle bg-slate-600/50 rounded-sm outline-dashed outline-1 outline-white/25 inset-shadow-xs inset-shadow-black/50 border-b-1 border-white/25 mx-1" style="height: 1em; padding-block: 0.1em;"></span>',
   );
 });
 
@@ -176,25 +171,9 @@ watch(
 );
 
 const card = ref<HTMLElement | null>(null);
-const textSize = ref(1); // Default size multiplier
 const rotation = ref({ x: 0, y: 0 });
 const shineOffset = ref({ x: 0, y: 0 });
 const showReportModal = ref(false);
-
-const textStyle = computed(() => {
-  return {
-    fontSize: `${textSize.value}rem`,
-    lineHeight: `${Math.max(1, textSize.value * 1.1)}rem`,
-    padding: `${textSize.value * 0.5}rem`,
-  };
-});
-
-function calculateTextSize() {
-  if (!card.value) return;
-
-  const width = card.value.offsetWidth;
-  textSize.value = Math.max(0.2, width / 125);
-}
 
 function animateShine() {
   const ease = 0.05;
@@ -281,21 +260,6 @@ function resetTransform() {
   }
 }
 
-// Watch for card content changes
-watch(
-  () => cardText.value,
-  () => {
-    nextTick(calculateTextSize);
-  },
-);
-
-watch(
-  () => card.value?.offsetWidth,
-  () => {
-    calculateTextSize();
-  },
-);
-
 watch(
   () => props.flipped,
   (flipped) => {
@@ -321,7 +285,7 @@ onMounted(async () => {
       return;
     }
     try {
-// `Fetching full card data for ID: ${props.cardId}`);
+      // `Fetching full card data for ID: ${props.cardId}`);
       const doc = await databases.getDocument(
         config.public.appwriteDatabaseId,
         config.public.appwriteBlackCardCollectionId,
@@ -346,15 +310,8 @@ onMounted(async () => {
     }
   }
 
-  calculateTextSize();
-  window.addEventListener("resize", calculateTextSize);
-
   resetTransform();
   animateShine();
-
-  onBeforeUnmount(() => {
-    window.removeEventListener("resize", calculateTextSize);
-  });
 });
 </script>
 
@@ -486,5 +443,15 @@ onMounted(async () => {
   z-index: 1;
   color: white;
   border-radius: 12px;
+}
+
+.card-scaler {
+  container-type: inline-size;
+}
+
+.card-text {
+  font-size: clamp(0.55rem, 12.8cqi, 2.3rem);
+  line-height: 1.2;
+  padding: 6.4cqi;
 }
 </style>

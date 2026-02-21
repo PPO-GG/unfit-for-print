@@ -567,22 +567,13 @@ const isAdmin = useIsAdmin();
   </ClientOnly>
 
   <!-- Modals (shared between mobile and desktop) -->
-  <UModal
-    v-model:open="showJoin"
-    :overlay="false"
-    :title="t('modal.join_lobby')"
-    class=""
-  >
+  <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
     <template #body>
       <JoinLobbyForm @joined="handleJoined" />
     </template>
   </UModal>
 
-  <UModal
-    v-model:open="showCreate"
-    :overlay="false"
-    :title="t('modal.create_lobby')"
-  >
+  <UModal v-model:open="showCreate" :title="t('modal.create_lobby')">
     <template #body>
       <CreateLobbyDialog @created="handleJoined" />
     </template>

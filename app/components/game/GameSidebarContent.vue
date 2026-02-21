@@ -31,6 +31,16 @@ const emit = defineEmits<{
   (e: "update:settings", settings: GameSettings): void;
   (e: "close"): void;
 }>();
+
+// Bot management — create reactive refs from props for the composable
+const lobbyRef = computed(() => (props.lobby as any) ?? null);
+const playersRef = computed(() => props.players);
+const isHostRef = computed(() => props.isHost);
+const { botPlayers, canAddBot, addingBot, botError, addBot } = useBots(
+  lobbyRef,
+  playersRef,
+  isHostRef,
+);
 </script>
 
 <template>
@@ -143,6 +153,26 @@ const emit = defineEmits<{
     @convert-spectator="emit('convert-spectator', $event)"
     @skip-player="emit('skip-player', $event)"
   />
+
+  <!-- Bot Controls (host only, waiting phase) -->
+  <div
+    v-if="isWaiting && (canAddBot || botPlayers.length > 0)"
+    class="font-['Bebas_Neue'] text-2xl rounded-xl p-4 shadow-lg w-full mx-auto flex flex-col gap-2 items-center border-2 border-slate-500 bg-slate-600"
+  >
+    <UButton
+      v-if="canAddBot"
+      icon="i-mdi-robot"
+      size="lg"
+      color="info"
+      class="w-full font-['Bebas_Neue'] text-xl"
+      :loading="addingBot"
+      :disabled="addingBot"
+      @click="addBot"
+    >
+      {{ t("lobby.add_bot") }} ({{ botPlayers.length }}/5)
+    </UButton>
+    <p v-if="botError" class="text-red-400 text-sm">{{ botError }}</p>
+  </div>
 
   <!-- Chat -->
   <ChatBox
