@@ -126,6 +126,7 @@ export function extractCoreState(
     returnedToLobby: state.returnedToLobby,
     gameEndTime: state.gameEndTime,
     skippedPlayers: state.skippedPlayers || [],
+    revealedCards: state.revealedCards || {},
     config: state.config || {
       maxPoints: 10,
       cardsPerPlayer: 7,

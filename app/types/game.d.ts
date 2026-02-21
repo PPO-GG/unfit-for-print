@@ -15,6 +15,7 @@ export interface GameState {
   roundEndStartTime: number | null;
   returnedToLobby?: Record<PlayerId, boolean>;
   skippedPlayers?: PlayerId[];
+  revealedCards?: Record<PlayerId, boolean>;
   gameEndTime?: number;
 
   config: {
