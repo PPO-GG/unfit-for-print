@@ -54,11 +54,32 @@
         :lobbyId="lobby.$id"
         :players="players"
       />
+
+      <!-- Bot Controls (host only) -->
+      <div
+        v-if="canAddBot || botPlayers.length > 0"
+        class="flex flex-col gap-2"
+      >
+        <UButton
+          v-if="canAddBot"
+          icon="i-mdi-robot"
+          color="neutral"
+          variant="subtle"
+          :loading="addingBot"
+          :disabled="addingBot"
+          @click="addBot"
+        >
+          {{ t("lobby.add_bot") }} ({{ botPlayers.length }}/5)
+        </UButton>
+        <p v-if="botError" class="text-red-400 text-xs">{{ botError }}</p>
+      </div>
+
       <LazyChatBox :current-user-id="myId" :lobbyId="props.lobby.$id" />
       <div v-if="players.length >= 3">
         <UButton
           v-if="isHost && !isStarting"
           icon="i-solar-play-bold"
+          color="warning"
           @click="startGameWrapper"
         >
           {{ t("lobby.start_game") }}
@@ -68,19 +89,19 @@
         </UButton>
         <p
           v-if="!isHost && !isStarting"
-          class="text-gray-400 text-center font-['Bebas_Neue'] text-4xl"
+          class="text-gray-400 text-center font-display text-4xl"
         >
           {{ t("lobby.waiting_for_host_start_game") }}
         </p>
         <p
           v-if="!isHost && isStarting"
-          class="text-green-400 text-center font-['Bebas_Neue'] text-4xl"
+          class="text-green-400 text-center font-display text-4xl"
         >
           {{ t("lobby.starting_game") }}
         </p>
       </div>
       <div v-else>
-        <p class="text-gray-400 text-center font-['Bebas_Neue'] text-2xl">
+        <p class="text-amber-400 text-center font-display text-2xl">
           {{ t("lobby.players_needed") }}
         </p>
       </div>
@@ -141,6 +162,14 @@ const { startGame, leaveLobby } = useLobby();
 const { getGameSettings, createDefaultGameSettings } = useGameSettings();
 const myId = userStore.user?.$id ?? "";
 const isHost = computed(() => props.lobby?.hostUserId === userStore.user?.$id);
+
+// Bot management
+const playersRef = computed(() => props.players);
+const { botPlayers, canAddBot, addingBot, botError, addBot } = useBots(
+  lobbyRef,
+  playersRef,
+  isHost,
+);
 
 const isStarting = ref(false);
 const gameSettings = ref<GameSettings | null>(null);

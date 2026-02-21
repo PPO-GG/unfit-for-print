@@ -59,9 +59,23 @@ const isHost = computed(() => props.hostUserId === currentUserId.value);
 
 const kick = async (player: Player) => {
   try {
-    await kickPlayer(player.$id);
+    if (player.playerType === "bot") {
+      // Bots are created server-side with admin permissions,
+      // so we must delete them via our server endpoint too
+      const userStore = useUserStore();
+      await $fetch("/api/bot/remove", {
+        method: "POST",
+        body: {
+          lobbyId: props.lobbyId,
+          botUserId: player.userId,
+          hostUserId: userStore.user?.$id,
+        },
+      });
+    } else {
+      await kickPlayer(player.$id);
+    }
   } catch (err) {
-    // console.error("Failed to kick player:", err)
+    console.error("Failed to kick player:", err);
     notify({
       title: t("lobby.error_failed_to_kick", {
         name: player.name || "Unknown Player",
@@ -169,31 +183,39 @@ const getPlayerAvatarUrl = (player: Player) => {
 
 <template>
   <div
-    class="font-['Bebas_Neue'] rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto border-2 border-slate-500 bg-slate-600"
+    class="font-display rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto border border-slate-700/50 bg-slate-800/60"
   >
     <ul class="uppercase text-lg">
       <li
         v-for="player in sortedPlayers"
         :key="player.$id"
-        class="flex items-center gap-2 p-2 mb-2 rounded-lg"
+        class="flex items-center gap-2 p-2 rounded-lg transition-colors"
         :class="{
-          'bg-yellow-900/30 border border-yellow-500/30':
+          'bg-amber-900/20 border border-amber-500/25':
             player.userId === judgeId,
-          'bg-blue-900/30 border border-blue-500/30':
-            player.userId === currentUserId,
-          'bg-slate-800/50':
+          'bg-violet-900/20 border border-violet-500/25':
+            player.userId === currentUserId && player.userId !== judgeId,
+          'bg-slate-800/40 border border-transparent':
             player.userId !== judgeId && player.userId !== currentUserId,
         }"
       >
         <UAvatar
           v-if="getPlayerAvatarUrl(player)"
-          :src="getPlayerAvatarUrl(player)"
+          :src="getPlayerAvatarUrl(player) ?? undefined"
           size="sm"
+        />
+        <UAvatar
+          v-else-if="player.playerType === 'bot'"
+          size="sm"
+          icon="i-mdi-robot"
         />
         <UAvatar v-else size="sm" icon="i-solar-user-bold-duotone" />
 
         <!-- Host Crown -->
-        <span v-if="player.userId === hostUserId" class="text-yellow-400">
+        <span
+          v-if="player.userId === hostUserId"
+          class="text-amber-400 shrink-0"
+        >
           <Icon name="solar:crown-minimalistic-bold" class="align-middle" />
         </span>
 
@@ -207,10 +229,16 @@ const getPlayerAvatarUrl = (player: Player) => {
           >(YOU)</span
         >
         <!-- Player Status Indicators -->
-        <div class="flex items-center ml-auto mr-2 gap-2">
+        <div class="flex items-center gap-1.5">
           <span
-            v-if="player.playerType === 'spectator'"
-            class="status-badge bg-purple-500/20 text-purple-300"
+            v-if="player.playerType === 'bot'"
+            class="status-badge bg-cyan-500/20 text-cyan-300"
+          >
+            <Icon name="mdi:robot" class="mr-1" />BOT
+          </span>
+          <span
+            v-else-if="player.playerType === 'spectator'"
+            class="status-badge text-violet-300"
           >
             <Icon name="mdi:eye" class="mr-1" />{{ t("game.spectator") }}
           </span>
@@ -261,75 +289,54 @@ const getPlayerAvatarUrl = (player: Player) => {
         </span>
 
         <!-- Admin Actions -->
-        <div class="flex gap-1">
-          <!-- Skip player button -->
-          <button
+        <div class="flex gap-0.5 shrink-0">
+          <UButton
             v-if="canSkipPlayer(player)"
-            @click="emit('skip-player', player.userId)"
-            class="admin-btn text-orange-400 hover:text-orange-300 hover:bg-orange-900/30"
+            icon="i-mdi-skip-next"
+            color="warning"
+            variant="ghost"
+            size="xs"
+            square
             :title="t('game.skip_player')"
-          >
-            <Icon name="mdi:skip-next" />
-          </button>
-          <!-- Deal in spectator button -->
-          <button
+            @click="emit('skip-player', player.userId)"
+          />
+          <UButton
             v-if="
               isHost &&
               player.userId !== currentUserId &&
               player.playerType === 'spectator'
             "
+            icon="i-mdi-account-plus"
+            color="success"
+            variant="ghost"
+            size="xs"
+            square
             @click="emit('convert-spectator', player.userId)"
-            class="admin-btn text-green-400 hover:text-green-300 hover:bg-green-900/30"
-            title="{{ t('game.convert_to_participant') }}"
-          >
-            <Icon name="mdi:account-plus" />
-          </button>
-          <button
+          />
+          <UButton
             v-if="
               isHost &&
               player.userId !== currentUserId &&
               player.provider !== 'anonymous'
             "
+            icon="i-mdi-crown"
+            color="warning"
+            variant="ghost"
+            size="xs"
+            square
             @click="promote(player)"
-            class="admin-btn text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/30"
-          >
-            <Icon name="mdi:crown" />
-          </button>
-          <button
+          />
+          <UButton
             v-if="isHost && player.userId !== currentUserId"
+            icon="i-mdi-account-remove"
+            color="error"
+            variant="ghost"
+            size="xs"
+            square
             @click="kick(player)"
-            class="admin-btn text-red-400 hover:text-red-300 hover:bg-red-900/30"
-          >
-            <Icon name="mdi:account-remove" />
-          </button>
+          />
         </div>
       </li>
     </ul>
   </div>
 </template>
-
-<style scoped>
-.status-badge {
-  display: flex;
-  align-items: center;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  white-space: nowrap;
-}
-
-.admin-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.25rem;
-  background-color: rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
-}
-
-.admin-btn:hover {
-  transform: translateY(-2px);
-}
-</style>
