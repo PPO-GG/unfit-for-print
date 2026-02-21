@@ -4,7 +4,7 @@ import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, documentId } = body;
+  const { lobbyId, documentId, userId } = body;
 
   if (!lobbyId)
     throw createError({
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     });
 
   // Auth: Caller must be a player in this lobby
-  await requirePlayerInLobby(event, lobbyId);
+  await verifyPlayerInLobby(userId, lobbyId);
 
   const { DB, LOBBY, WHITE_CARDS, BLACK_CARDS, GAMECARDS, GAMESETTINGS } =
     getCollectionIds();
@@ -79,6 +79,7 @@ export default defineEventHandler(async (event) => {
       state.winningCards = null;
       state.roundEndStartTime = null;
       state.skippedPlayers = [];
+      state.revealedCards = {};
 
       // --- Rotate judge ---
       const playerIds = Object.keys(state.hands || {});

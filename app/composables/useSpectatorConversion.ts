@@ -36,7 +36,11 @@ export function useSpectatorConversion(options: {
     try {
       await $fetch("/api/game/convert-spectator", {
         method: "POST",
-        body: { lobbyId: lobbyRef.value.$id, playerId },
+        body: {
+          lobbyId: lobbyRef.value.$id,
+          playerId,
+          userId: useUserStore().user?.$id,
+        },
       });
 
       notify({

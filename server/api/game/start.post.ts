@@ -4,7 +4,7 @@ import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, documentId, settings } = body;
+  const { lobbyId, documentId, settings, userId } = body;
 
   if (!lobbyId) {
     throw createError({
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Auth: Only the lobby host can start the game
-  await requireHost(event, lobbyId);
+  await verifyHost(userId, lobbyId);
 
   const {
     DB,

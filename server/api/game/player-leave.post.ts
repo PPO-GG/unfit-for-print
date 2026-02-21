@@ -6,7 +6,7 @@ import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, leavingUserId } = body;
+  const { lobbyId, leavingUserId, userId } = body;
 
   if (!lobbyId)
     throw createError({
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     });
 
   // Auth: Caller must be a player in this lobby
-  await requirePlayerInLobby(event, lobbyId);
+  await verifyPlayerInLobby(userId, lobbyId);
 
   const { DB, LOBBY, PLAYER, GAMECARDS, BLACK_CARDS } = getCollectionIds();
   const databases = getAdminDatabases();

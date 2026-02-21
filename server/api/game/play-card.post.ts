@@ -4,7 +4,7 @@ import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, playerId, cardIds } = body;
+  const { lobbyId, playerId, cardIds, userId } = body;
 
   if (!lobbyId)
     throw createError({
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Auth: Caller must be this player in this lobby
-  const userId = await requirePlayerInLobby(event, lobbyId);
+  await verifyPlayerInLobby(userId, lobbyId);
   if (userId !== playerId) {
     throw createError({
       statusCode: 403,

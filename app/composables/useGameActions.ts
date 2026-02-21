@@ -1,11 +1,18 @@
 // composables/useGameActions.ts
 // Game action composable — calls Nuxt server API routes instead of Appwrite Functions.
+// Automatically includes the current user's ID in every request for server-side verification.
 
 export function useGameActions() {
+  const userStore = useUserStore();
+
+  /** Get the current user's ID for server-side verification */
+  const getUserId = () => userStore.user?.$id || "";
+
   const startGame = async (payload: string) => {
     try {
       // The payload comes in as a JSON string from useLobby.ts, parse it for $fetch
       const body = typeof payload === "string" ? JSON.parse(payload) : payload;
+      body.userId = getUserId();
       return await $fetch("/api/game/start", { method: "POST", body });
     } catch (error) {
       console.error("Error in startGame:", error);
@@ -21,7 +28,7 @@ export function useGameActions() {
     try {
       return await $fetch("/api/game/play-card", {
         method: "POST",
-        body: { lobbyId, playerId, cardIds },
+        body: { lobbyId, playerId, cardIds, userId: getUserId() },
       });
     } catch (error) {
       console.error("Error in playCard:", error);
@@ -37,7 +44,7 @@ export function useGameActions() {
         winningCards: string[];
       }>("/api/game/select-winner", {
         method: "POST",
-        body: { lobbyId, winnerId },
+        body: { lobbyId, winnerId, userId: getUserId() },
       });
       return result;
     } catch (error) {
@@ -60,6 +67,7 @@ export function useGameActions() {
           body: {
             lobbyId: lobbyId.toString(),
             documentId: documentId?.toString(),
+            userId: getUserId(),
           },
         },
       );

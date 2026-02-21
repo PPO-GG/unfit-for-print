@@ -514,7 +514,7 @@ export const useLobby = () => {
       try {
         await $fetch("/api/game/player-leave", {
           method: "POST",
-          body: { lobbyId, leavingUserId: userId },
+          body: { lobbyId, leavingUserId: userId, userId },
         });
       } catch (err) {
         console.error("Failed to process player leave game state:", err);
@@ -532,11 +532,12 @@ export const useLobby = () => {
     const validPlayers = players.value.filter((p) => p.userId);
     if (validPlayers.length < 3) throw new Error("Not enough players to start");
 
-    // Update all players to be participants
+    // Update all non-bot players to be participants (bots keep their 'bot' type)
     const { databases } = getAppwrite();
     const config = getConfig();
 
     for (const player of players.value) {
+      if (player.playerType === "bot") continue; // Bots keep their type
       await databases.updateDocument(
         config.public.appwriteDatabaseId,
         config.public.appwritePlayerCollectionId,

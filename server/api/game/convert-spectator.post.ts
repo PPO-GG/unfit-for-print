@@ -5,7 +5,7 @@ import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, playerId } = body;
+  const { lobbyId, playerId, userId } = body;
 
   if (!lobbyId)
     throw createError({
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     });
 
   // Auth: Only the host can convert spectators
-  await requireHost(event, lobbyId);
+  await verifyHost(userId, lobbyId);
 
   const { DB, LOBBY, PLAYER, GAMECARDS } = getCollectionIds();
   const databases = getAdminDatabases();
