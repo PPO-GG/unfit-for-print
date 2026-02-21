@@ -11,7 +11,7 @@ import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useGameCards } from "~/composables/useGameCards";
 import { useGameSettings } from "~/composables/useGameSettings";
 import { useGameRealtime } from "~/composables/useGameRealtime";
-import { useWinnerSelection } from "~/composables/useWinnerSelection";
+
 import { useAutoReturn } from "~/composables/useAutoReturn";
 import { useSpectatorConversion } from "~/composables/useSpectatorConversion";
 import { useSfx } from "~/composables/useSfx";
@@ -64,10 +64,6 @@ const {
   isJudging,
   leaderboard,
   isRoundEnd,
-  roundWinner,
-  winningCards,
-  roundEndStartTime,
-  roundEndCountdownDuration,
   myId,
   state,
 } = useGameContext(
@@ -93,14 +89,6 @@ const { setupRealtime } = useGameRealtime({
   subscribeToGameCards,
 });
 
-const { effectiveRoundWinner, effectiveWinningCards, handleWinnerSelect } =
-  useWinnerSelection({
-    state,
-    lobbyRef: lobby,
-    roundWinner,
-    winningCards,
-  });
-
 const { hasReturnedToLobby, autoReturnTimeRemaining, handleContinue } =
   useAutoReturn({
     state,
@@ -116,6 +104,29 @@ const { convertToPlayer } = useSpectatorConversion({
   state,
   getPlayerName,
 });
+
+// ─── Bot Orchestration ──────────────────────────────────────────────────────
+const { removeOneBot, botPlayers } = useBots(lobby, players, isHost);
+
+// When a new real player joins during waiting, remove one bot to make room
+let previousRealPlayerCount = 0;
+watch(
+  players,
+  (newPlayers) => {
+    if (!isHost.value || !lobby.value || lobby.value.status !== "waiting")
+      return;
+    const realPlayers = newPlayers.filter((p) => p.playerType !== "bot");
+    if (
+      previousRealPlayerCount > 0 &&
+      realPlayers.length > previousRealPlayerCount &&
+      botPlayers.value.length > 0
+    ) {
+      removeOneBot();
+    }
+    previousRealPlayerCount = realPlayers.length;
+  },
+  { immediate: true },
+);
 
 // ─── Payload State Sync (for layout access) ────────────────────────────────
 watch(
@@ -173,11 +184,22 @@ useHead({
 });
 
 // ─── Sidebar Watcher ────────────────────────────────────────────────────────
+// Desktop sidebar can be toggled. Auto-collapse when game starts, but allow user to re-open.
+const showDesktopSidebar = ref(true);
 watch(isPlaying, (newIsPlaying) => {
-  if (newIsPlaying && isSidebarOpen.value) {
+  if (newIsPlaying) {
+    // Auto-collapse both mobile and desktop sidebars when game starts
     isSidebarOpen.value = false;
+    showDesktopSidebar.value = false;
+  } else {
+    // Re-show sidebar when game ends
+    showDesktopSidebar.value = true;
   }
 });
+
+function toggleDesktopSidebar() {
+  showDesktopSidebar.value = !showDesktopSidebar.value;
+}
 
 // ─── Player Name Resolution ─────────────────────────────────────────────────
 /**
@@ -324,19 +346,6 @@ const handleLeave = async () => {
   return router.replace("/");
 };
 
-const handleRoundStarted = async () => {
-  if (lobby.value?.$id) {
-    await $fetch<Lobby>(`/api/lobby/${code}`)
-      .then((updatedLobby) => {
-        if (updatedLobby) lobby.value = updatedLobby;
-      })
-      .catch((err) => {
-        console.error("Failed to refresh lobby data:", err);
-      });
-    playSfx("nextRound");
-  }
-};
-
 const handleSettingsUpdate = (newSettings: GameSettingsType) => {
   gameSettings.value = newSettings;
 };
@@ -421,7 +430,7 @@ async function handleSkipPlayer(playerId: string) {
   try {
     await $fetch("/api/game/skip-player", {
       method: "POST",
-      body: { lobbyId: lobby.value.$id, playerId },
+      body: { lobbyId: lobby.value.$id, playerId, userId: userStore.user?.$id },
     });
     const playerName = getPlayerName(playerId);
     notify({
@@ -469,10 +478,48 @@ async function handleSkipPlayer(playerId: string) {
         @click="isSidebarOpen = true"
       />
 
-      <!-- Desktop sidebar -->
+      <!-- Desktop sidebar toggle button (visible during gameplay when sidebar is hidden) -->
+      <Transition name="sidebar-toggle">
+        <div
+          v-if="!showDesktopSidebar && isPlaying"
+          class="hidden xl:flex fixed left-4 top-4 z-50 sidebar-toggle-btn"
+        >
+          <UButton
+            icon="i-solar-sidebar-minimalistic-bold-duotone"
+            color="neutral"
+            variant="soft"
+            size="lg"
+            aria-label="Toggle sidebar"
+            @click="toggleDesktopSidebar"
+          />
+        </div>
+      </Transition>
+
+      <!-- Desktop sidebar backdrop (click to close) -->
+      <Transition name="sidebar-backdrop">
+        <div
+          v-if="showDesktopSidebar && isPlaying"
+          class="hidden xl:block fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px]"
+          @click="showDesktopSidebar = false"
+        />
+      </Transition>
+
+      <!-- Desktop sidebar (slides over content) -->
       <aside
-        class="max-w-1/4 w-auto h-screen p-4 flex-col shadow-inner border-r border-slate-800 bg-slate-900 space-y-4 overflow-scroll hidden xl:flex z-10"
+        class="desktop-sidebar hidden xl:flex"
+        :class="{ 'desktop-sidebar--open': showDesktopSidebar }"
       >
+        <!-- Close button when in gameplay mode -->
+        <UButton
+          v-if="isPlaying"
+          icon="i-solar-close-square-bold-duotone"
+          color="neutral"
+          variant="ghost"
+          size="lg"
+          class="self-end -mt-1 -mr-1"
+          aria-label="Close sidebar"
+          @click="showDesktopSidebar = false"
+        />
         <GameSidebarContent
           :lobby="lobby"
           :players="players"
@@ -553,9 +600,7 @@ async function handleSkipPlayer(playerId: string) {
           <GameBoard
             :lobby="lobby || {}"
             :players="players"
-            :white-card-texts="{}"
             @leave="handleLeave"
-            @select-winner="handleWinnerSelect"
           />
         </ClientOnly>
 
@@ -587,24 +632,7 @@ async function handleSkipPlayer(playerId: string) {
       </ClientOnly>
     </div>
 
-    <!-- Round End Overlay -->
-    <ClientOnly>
-      <RoundEndOverlay
-        v-if="isRoundEnd && lobby && !isComplete"
-        :countdown-duration="roundEndCountdownDuration"
-        :is-host="isHost"
-        :is-winner-self="!!(myId && effectiveRoundWinner === myId)"
-        :lobby-id="lobby?.$id || ''"
-        :start-time="roundEndStartTime"
-        :winner-name="getPlayerName(effectiveRoundWinner)"
-        :document-id="
-          gameSettings?.$id ||
-          (lobby?.$id ? `settings-${lobby.$id}` : undefined)
-        "
-        :winning-cards="effectiveWinningCards"
-        @round-started="handleRoundStarted"
-      />
-    </ClientOnly>
+    <!-- Winner celebration is now handled inline by GameTable/GameBoard -->
 
     <!-- Fallback -->
     <div v-if="!lobby">
@@ -612,3 +640,63 @@ async function handleSkipPlayer(playerId: string) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ─── Desktop sidebar overlay ──────────────────────────────── */
+.desktop-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  height: 100vh;
+  width: 340px;
+  max-width: 90vw;
+  padding: 1rem;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.97);
+  border-right: 1px solid rgba(100, 116, 139, 0.25);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+  transform: translateX(-100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.desktop-sidebar--open {
+  transform: translateX(0);
+}
+
+/* ─── Sidebar backdrop fade ───────────────────────────────── */
+.sidebar-backdrop-enter-active,
+.sidebar-backdrop-leave-active {
+  transition: opacity 0.3s ease;
+}
+.sidebar-backdrop-enter-from,
+.sidebar-backdrop-leave-to {
+  opacity: 0;
+}
+
+/* ─── Toggle button ───────────────────────────────────────── */
+.sidebar-toggle-btn {
+  backdrop-filter: blur(8px);
+  background: rgba(30, 41, 59, 0.7) !important;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(51, 65, 85, 0.9) !important;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.sidebar-toggle-enter-active,
+.sidebar-toggle-leave-active {
+  transition: all 0.3s ease;
+}
+
+.sidebar-toggle-enter-from,
+.sidebar-toggle-leave-to {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+</style>

@@ -7,17 +7,14 @@ import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
 import { useNotifications } from "~/composables/useNotifications";
 import { useGameCards } from "~/composables/useGameCards";
-import UserHand from "~/components/game/UserHand.vue";
-import WhiteCard from "~/components/game/WhiteCard.vue";
 import { getAppwrite } from "~/utils/appwrite";
 import { Query } from "appwrite";
 import BlackCardDeck from "~/components/game/BlackCardDeck.vue";
 import WhiteCardDeck from "~/components/game/WhiteCardDeck.vue";
-import SubmissionPhase from "~/components/game/SubmissionPhase.vue";
-import JudgingPhase from "~/components/game/JudgingPhase.vue";
+import GameTable from "~/components/game/GameTable.vue";
 import GameOver from "~/components/game/GameOver.vue";
 import GameHeader from "~/components/game/GameHeader.vue";
-import RoundEndOverlay from "~/components/game/RoundEndOverlay.vue";
+import { SFX } from "~/config/sfx.config";
 
 const { t } = useI18n();
 const props = defineProps<{ lobby: Lobby; players: Player[] }>();
@@ -34,8 +31,6 @@ watch(
   },
   { immediate: true },
 );
-
-// Real-time updates are now handled by the parent component ([code].vue)
 
 // Initialize useGameCards to get player hands
 const { playerHands, fetchGameCards, subscribeToGameCards } = useGameCards();
@@ -56,14 +51,10 @@ onMounted(() => {
 watch(
   () => props.lobby?.$id,
   (newLobbyId, oldLobbyId) => {
-    // Only resubscribe if the lobby ID has changed
     if (newLobbyId && newLobbyId !== oldLobbyId) {
-      // Clean up previous subscription if it exists
       if (gameCardsUnsubscribe) {
         gameCardsUnsubscribe();
       }
-
-      // Create new subscription
       gameCardsUnsubscribe = subscribeToGameCards(newLobbyId, (cards) => {
         return;
       });
@@ -75,6 +66,7 @@ const {
   state,
   isSubmitting,
   isJudging,
+  isRoundEnd,
   isComplete,
   isJudge,
   myHand,
@@ -89,7 +81,7 @@ const {
   computed(() => playerHands.value),
 );
 const { playSfx } = useSfx();
-const { playCard, selectWinner } = useGameActions();
+const { playCard, selectWinner, startNextRound } = useGameActions();
 const { leaveLobby } = useLobby();
 const userStore = useUserStore();
 const myId = userStore.user?.$id ?? "";
@@ -114,271 +106,62 @@ const isSpectator = computed(() => {
 // Check if the current user is the host
 const isHost = computed(() => lobbyRef.value?.hostUserId === myId);
 
-// Add handler for when round is started
-const handleRoundStarted = async () => {
-// "Round started, refreshing game state");
-  if (props.lobby?.$id) {
-    // Re-fetch game cards and update state
-    await fetchGameCards(props.lobby.$id);
-    // Play a sound effect if available
-    playSfx("nextRound");
-  }
-};
-
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string): string => {
-  // First try to find the player in the props.players array by userId
   const playerByUserId = props.players.find((p) => p.userId === playerId);
-  if (playerByUserId?.name) {
-    return playerByUserId.name;
-  }
-
-  // Then try to find the player in the props.players array by $id
-  // This handles cases where the playerId might be the player document ID instead of userId
+  if (playerByUserId?.name) return playerByUserId.name;
   const playerById = props.players.find((p) => p.$id === playerId);
-  if (playerById?.name) {
-    return playerById.name;
-  }
-
-  // If not found, check if the playerId is in the state.players object
+  if (playerById?.name) return playerById.name;
   if (state.value?.players && state.value.players[playerId]) {
     return state.value.players[playerId];
   }
-
-  // If still not found, check if there's a player with a matching userId in submissions
-  const submissionKeys = Object.keys(submissions.value || {});
-  const matchingSubmission = submissionKeys.find((key) => {
-    const player = props.players.find((p) => p.userId === key);
-    return player && player.userId === playerId;
-  });
-
-  if (matchingSubmission) {
-    const player = props.players.find((p) => p.userId === matchingSubmission);
-    if (player?.name) {
-      return player.name;
-    }
-  }
-
   return t("lobby.unknown_player");
 };
 
-// Track which cards have been revealed (playerId -> boolean)
-const revealedCards = ref<Record<string, boolean>>({});
-// Store shuffled submissions to prevent re-shuffling on every render
-const shuffledSubmissions = ref<any[]>([]);
-
-// Reset revealed cards and shuffle submissions when phase changes or submissions change
-watch(
-  [isJudging, otherSubmissions],
-  ([newIsJudging, newSubmissions]) => {
-    if (newIsJudging) {
-      revealedCards.value = {};
-
-      // Shuffle submissions using the new utility
-      shuffledSubmissions.value = shuffle(newSubmissions);
-    }
-  },
-  { immediate: true },
-);
-
-// Check if all submissions are revealed
-const allCardsRevealed = computed(() => {
-  // If the user is the judge, always return true to skip the reveal process
-  if (isJudge.value) {
-    return true;
-  }
-
-  // Get all unique player IDs from shuffled submissions
-  const playerIds = shuffledSubmissions.value.map((sub) => sub.playerId);
-
-  // Check if all player IDs are in the revealed cards object
-  return playerIds.every((playerId) => revealedCards.value[playerId]);
+// Track which cards have been revealed — synced via gameState
+const revealedCards = computed<Record<string, boolean>>(() => {
+  return state.value?.revealedCards || {};
 });
-
-// Reveal only the clicked submission
-async function revealCard(playerId: string) {
-  // console.log('🎮 revealCard called with playerId:', playerId);
-  // console.log('🎮 Current revealedCards:', JSON.stringify(revealedCards.value));
-  // console.log('🎮 Current props.lobby.revealedSubmissions:', props.lobby.revealedSubmissions);
-
-  // Don't do anything if this card is already revealed
-  if (revealedCards.value[playerId]) {
-    // console.log('🎮 Card already revealed, skipping');
-    return;
-  }
-
-  // Update revealed cards in Appwrite
-  try {
-    const config = useRuntimeConfig();
-    const { databases } = getAppwrite();
-
-    // Get the current revealed submissions from the database
-    let currentRevealedSubmissions = {};
-    if (props.lobby.revealedSubmissions) {
-      try {
-        const parsedSubmissions =
-          typeof props.lobby.revealedSubmissions === "string"
-            ? JSON.parse(props.lobby.revealedSubmissions)
-            : props.lobby.revealedSubmissions;
-
-        // console.log('🎮 Parsed current revealedSubmissions:', parsedSubmissions);
-
-        // Filter out numeric indexes and only keep string player IDs
-        // This ensures we don't mix numeric indexes with player IDs
-        currentRevealedSubmissions = Object.entries(parsedSubmissions)
-          .filter(([key]) => isNaN(Number(key)) || key.length > 5) // Player IDs are long strings
-          .reduce(
-            (acc, [key, value]) => {
-              acc[key] = value as boolean;
-              return acc;
-            },
-            {} as Record<string, boolean>,
-          );
-
-        // console.log('🎮 Filtered current revealedSubmissions:', currentRevealedSubmissions);
-      } catch (parseErr) {
-        // console.error('Failed to parse current revealed submissions:', parseErr);
-      }
-    }
-
-    // Update only the clicked submission
-    const updatedRevealedSubmissions = {
-      ...currentRevealedSubmissions,
-      [playerId]: true,
-    };
-
-    // console.log('🎮 Updating revealedSubmissions in database:', updatedRevealedSubmissions);
-
-    // Update locally immediately for better UX
-    // This provides instant feedback to the judge
-    revealedCards.value = { ...updatedRevealedSubmissions };
-    // console.log('🎮 Updated revealedCards locally before database update:', revealedCards.value);
-
-    // Then update the database
-    await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteLobbyCollectionId,
-      props.lobby.$id,
-      {
-        revealedSubmissions: JSON.stringify(updatedRevealedSubmissions),
-      },
-    );
-
-    // console.log('🎮 Database update successful');
-
-    // Ensure the local state is in sync with what we sent to the database
-    // This is redundant but ensures consistency
-    revealedCards.value = { ...updatedRevealedSubmissions };
-    // console.log('🎮 Confirmed revealedCards after database update:', revealedCards.value);
-  } catch (err) {
-    // console.error('Failed to update revealed submissions:', err);
-    // Revert the local update if the database update failed
-    if (props.lobby.revealedSubmissions) {
-      try {
-        const parsedReveals =
-          typeof props.lobby.revealedSubmissions === "string"
-            ? (JSON.parse(props.lobby.revealedSubmissions) as Record<
-                string,
-                boolean
-              >)
-            : (props.lobby.revealedSubmissions as Record<string, boolean>);
-        revealedCards.value = { ...parsedReveals };
-      } catch (parseErr) {
-        // console.error('Failed to revert local update:', parseErr);
-      }
-    }
-  }
-}
-
-watch(
-  () => props.lobby?.revealedSubmissions,
-  (newReveals) => {
-    // console.log('🔄 Watch triggered for revealedSubmissions:', newReveals);
-    if (newReveals) {
-      try {
-        // Parse the JSON string if it's a string, otherwise use as is
-        const parsedReveals =
-          typeof newReveals === "string" ? JSON.parse(newReveals) : newReveals;
-        // console.log('🔄 Parsed revealedSubmissions:', parsedReveals);
-
-        // Filter out numeric indexes and only keep string player IDs
-        // This ensures we don't mix numeric indexes with player IDs
-        const filteredReveals = Object.entries(parsedReveals)
-          .filter(([key]) => isNaN(Number(key)) || key.length > 5) // Player IDs are long strings
-          .reduce(
-            (acc, [key, value]) => {
-              acc[key] = value as boolean;
-              return acc;
-            },
-            {} as Record<string, boolean>,
-          );
-
-        // console.log('🔄 Filtered revealedSubmissions:', filteredReveals);
-
-        // Force reactivity by creating a new object
-        revealedCards.value = { ...filteredReveals };
-        // console.log('🔄 Updated revealedCards from watch:', revealedCards.value)
-      } catch (err) {
-        // console.error('Failed to parse revealed submissions:', err)
-      }
-    }
-  },
-  { immediate: true, deep: true },
-);
-
-// Add a separate watch for individual submissions to ensure reactivity
-watch(
-  shuffledSubmissions,
-  () => {
-    // When submissions change, ensure revealedCards is properly updated
-    if (props.lobby?.revealedSubmissions) {
-      try {
-        const parsedReveals =
-          typeof props.lobby.revealedSubmissions === "string"
-            ? JSON.parse(props.lobby.revealedSubmissions)
-            : props.lobby.revealedSubmissions;
-
-        // Update revealedCards to match the current state
-        revealedCards.value = { ...parsedReveals };
-        // console.log('🔄 Updated revealedCards after submissions change:', revealedCards.value);
-      } catch (err) {
-        // console.error('Failed to update revealed cards after submissions change:', err);
-      }
-    }
-  },
-  { deep: true },
-);
 
 function handleCardSubmit(cardIds: string[]) {
   playCard(props.lobby.$id, myId, cardIds);
 }
 
-// Track the winner and show notification
+// ── Winner Flow ─────────────────────────────────────────────────
 const winnerSelected = ref(false);
-const countdownTimer = ref(10); // 10 seconds countdown
-const countdownInterval = ref<NodeJS.Timeout | null>(null);
+const localRoundWinner = ref<string | null>(null);
+let nextRoundTimeout: NodeJS.Timeout | null = null;
+let hasTriggeredNextRound = false;
 
-// Watch for changes to roundWinner to start countdown for all players
+const effectiveRoundWinner = computed(() => {
+  return localRoundWinner.value || state.value?.roundWinner || null;
+});
+
+// The active game phase for the GameTable component
+// During roundEnd, keep showing as "judging" so the cards/celebration stay visible
+const activePhase = computed<"submitting" | "judging">(() => {
+  if (isJudging.value || isRoundEnd.value) return "judging";
+  return "submitting";
+});
+
+// Watch for roundWinner from the server
 watch(
   () => state.value?.roundWinner,
   (newWinner) => {
-    // Reset local round winner when state is updated from the server
     if (newWinner) {
+      // Clear local optimistic winner since server confirmed
       localRoundWinner.value = null;
-    }
-    if (newWinner) {
-      // First show the winning card and submitter name to all players
-      // Play sound effect for all players
-      playSfx("/sounds/sfx/selectWinner.wav", {
-        pitch: [0.95, 1.05],
-        volume: 0.75,
-      });
 
-      // After a short delay, show the winner screen
+      // Play sound effect (skip for judge — they already heard it in handleSelectWinner)
+      if (!isJudge.value) {
+        playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
+      }
+
+      // Show the celebration after a brief delay to let winning card highlight
       setTimeout(() => {
         winnerSelected.value = true;
 
-        // Show notification to the winner
+        // Notify the winner
         if (newWinner === myId) {
           notify({
             title: t("game.round_won_self"),
@@ -388,61 +171,74 @@ watch(
           });
         }
 
-        // Start countdown to next round for all players
-        if (countdownInterval.value) {
-          clearInterval(countdownInterval.value);
-        }
+        // Auto-start next round after 5 seconds
+        hasTriggeredNextRound = false;
+        if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
 
-        countdownTimer.value = 10;
-        countdownInterval.value = setInterval(() => {
-          countdownTimer.value--;
-          if (countdownTimer.value <= 0) {
-            clearInterval(countdownInterval.value as NodeJS.Timeout);
-            // Reset for next round
-            winnerSelected.value = false;
-            countdownTimer.value = 10;
+        nextRoundTimeout = setTimeout(async () => {
+          if (isHost.value && !hasTriggeredNextRound) {
+            hasTriggeredNextRound = true;
+            try {
+              await startNextRound(props.lobby.$id, props.lobby.$id);
+              playSfx("nextRound");
+              // Refresh game cards for new round
+              if (props.lobby?.$id) {
+                await fetchGameCards(props.lobby.$id);
+              }
+            } catch (err) {
+              console.error("Failed to auto-start next round:", err);
+            }
           }
-        }, 1000);
-      }, 3000); // 3 second delay to show the winning card animation
+          // Reset for next round
+          winnerSelected.value = false;
+        }, 5000);
+      }, 2000); // 2s delay to show winning card highlight before celebration
     }
   },
 );
 
-// Create a local reactive variable to track the round winner
-const localRoundWinner = ref<string | null>(null);
-
-// Computed property that combines both state.roundWinner and localRoundWinner
-const effectiveRoundWinner = computed(() => {
-  return localRoundWinner.value || state.value?.roundWinner || null;
-});
+// Reset winner state when round changes
+watch(
+  () => state.value?.round,
+  () => {
+    winnerSelected.value = false;
+    localRoundWinner.value = null;
+    hasTriggeredNextRound = false;
+  },
+);
 
 function handleSelectWinner(playerId: string) {
-  // First mark the winner locally to show the animation
+  // First mark the winner locally for immediate feedback
   localRoundWinner.value = playerId;
 
-  // Update the database immediately so all players see the winning card
-  // This will trigger the watch function for state.value?.roundWinner for all players
+  // Submit to server — this triggers the watch above for all players
   selectWinner(props.lobby.$id, playerId);
 
-  // Play sound effect for the judge only (other players will hear it from the watch function)
-  playSfx("/sounds/sfx/selectWinner.wav", {
-    pitch: [0.95, 1.05],
-    volume: 0.75,
-  });
-
-  // The watch function will handle showing the winner screen after a delay
+  // Play sound effect for the judge only
+  playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
 }
 
-// Clean up interval and subscriptions when component is unmounted
-onUnmounted(() => {
-  if (countdownInterval.value) {
-    clearInterval(countdownInterval.value);
+// Reveal a card — calls server endpoint
+async function revealCard(playerId: string) {
+  if (revealedCards.value[playerId]) return;
+  try {
+    await $fetch("/api/game/reveal-card", {
+      method: "POST",
+      body: {
+        lobbyId: props.lobby.$id,
+        playerId,
+        userId: myId,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to reveal card:", err);
   }
+}
 
-  // Clean up game cards subscription
-  if (gameCardsUnsubscribe) {
-    gameCardsUnsubscribe();
-  }
+// Clean up on unmount
+onUnmounted(() => {
+  if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
+  if (gameCardsUnsubscribe) gameCardsUnsubscribe();
 });
 
 // Add function to convert spectator to player
@@ -450,7 +246,6 @@ async function convertToPlayer(playerId: string) {
   if (!isHost.value) return;
 
   try {
-    // 1. Update player type in database
     const playerDoc = props.players.find((p) => p.userId === playerId);
     if (!playerDoc) return;
 
@@ -461,15 +256,10 @@ async function convertToPlayer(playerId: string) {
       config.public.appwriteDatabaseId,
       config.public.appwritePlayerCollectionId,
       playerDoc.$id,
-      {
-        playerType: "player",
-      },
+      { playerType: "player" },
     );
 
-    // 2. Deal cards to the player
-    // Get a fresh hand from the white deck
-
-    // Get the game cards document
+    // Deal cards to the player
     const gameCardsRes = await databases.listDocuments(
       config.public.appwriteDatabaseId,
       config.public.appwriteGamecardsCollectionId,
@@ -480,19 +270,13 @@ async function convertToPlayer(playerId: string) {
 
     const gameCards = gameCardsRes.documents[0];
     const whiteDeck = gameCards.whiteDeck || [];
-
-    // Get the number of cards per player from game state
     const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 10;
-
-    // Take cards from the deck
     const newHand = whiteDeck.slice(0, cardsPerPlayer);
     const remainingDeck = whiteDeck.slice(cardsPerPlayer);
 
-    // Update player hands in the game cards document
-    const playerHands = gameCards.playerHands || [];
-    const parsedHands = playerHands.map((hand: string) => JSON.parse(hand));
+    const pHands = gameCards.playerHands || [];
+    const parsedHands = pHands.map((hand: string) => JSON.parse(hand));
 
-    // Add or update the player's hand
     const existingHandIndex = parsedHands.findIndex(
       (h: any) => h.playerId === playerId,
     );
@@ -502,7 +286,6 @@ async function convertToPlayer(playerId: string) {
       parsedHands.push({ playerId, cards: newHand });
     }
 
-    // Update the game cards document
     await databases.updateDocument(
       config.public.appwriteDatabaseId,
       config.public.appwriteGamecardsCollectionId,
@@ -522,7 +305,6 @@ async function convertToPlayer(playerId: string) {
       icon: "i-mdi-account-plus",
     });
   } catch (err) {
-    // console.error('Failed to convert player to participant:', err);
     notify({
       title: t("game.error_player_dealt_in"),
       color: "error",
@@ -532,13 +314,9 @@ async function convertToPlayer(playerId: string) {
 }
 
 function handleLeave() {
-  // Update Nuxt payload state to indicate the user is leaving
   const nuxtApp = useNuxtApp();
   nuxtApp.payload.state.selfLeaving = true;
-
-  // Call the leaveLobby function from useLobby
   leaveLobby(props.lobby.$id, myId);
-  // Emit the leave event to the parent component
   emit("leave");
 }
 </script>
@@ -561,25 +339,17 @@ function handleLeave() {
       />
 
       <main class="flex-1 p-2 md:p-6 flex flex-col overflow-hidden relative">
-        <!-- Game Board Area with Card Decks -->
-        <div
-          class="w-full max-w-6xl mx-auto mt-4 md:mt-16 mb-6 flex flex-col md:flex-row justify-center items-center md:items-start gap-6 md:gap-12"
-        >
-          <!-- Black Card Deck -->
-          <BlackCardDeck
-            :black-card="blackCard ?? undefined"
-            class="transform scale-90 md:scale-100 origin-center"
-          />
-
-          <!-- White Card Deck -->
-          <WhiteCardDeck
-            class="transform scale-90 md:scale-100 origin-center"
-          />
+        <!-- Card Decks — flanking left/right, out of document flow -->
+        <div class="card-deck card-deck--black">
+          <BlackCardDeck :black-card="blackCard ?? undefined" />
+        </div>
+        <div class="card-deck card-deck--white">
+          <WhiteCardDeck />
         </div>
 
-        <!-- Submission Phase -->
-        <SubmissionPhase
-          v-if="isSubmitting"
+        <!-- Unified Game Table (submission + judging + winner celebration) -->
+        <GameTable
+          v-if="isSubmitting || isJudging || isRoundEnd"
           :is-judge="isJudge"
           :submissions="submissions"
           :my-id="myId"
@@ -589,47 +359,64 @@ function handleLeave() {
           :is-spectator="isSpectator"
           :is-host="isHost"
           :players="props.players"
-          @select-cards="handleCardSubmit"
-          @convert-to-player="convertToPlayer"
-        />
-
-        <!-- Judging Phase -->
-        <JudgingPhase
-          v-else-if="isJudging"
-          :is-judge="isJudge"
-          :my-id="myId"
-          :other-submissions="otherSubmissions"
-          :submissions="submissions"
+          :phase="activePhase"
+          :revealed-cards="revealedCards"
           :effective-round-winner="effectiveRoundWinner"
           :winner-selected="winnerSelected"
-          :shuffled-submissions="shuffledSubmissions"
-          :players="props.players"
-          :revealed-cards="revealedCards"
+          :winning-cards="state?.winningCards || []"
+          :scores="state?.scores || {}"
+          :judge-id="judgeId"
+          @select-cards="handleCardSubmit"
+          @convert-to-player="convertToPlayer"
           @select-winner="handleSelectWinner"
+          @reveal-card="revealCard"
         />
 
         <!-- Waiting State -->
-        <div v-else class="text-center italic text-gray-500 mt-10">
+        <div
+          v-else-if="!isComplete"
+          class="text-center italic text-gray-500 mt-10"
+        >
           {{ t("game.waiting") }}
         </div>
-
-        <!-- Round End Overlay -->
-        <RoundEndOverlay
-          v-if="winnerSelected"
-          :lobby-id="props.lobby.$id"
-          :winner-name="getPlayerName(state?.roundWinner || '')"
-          :is-winner-self="state?.roundWinner === myId"
-          :countdown-duration="countdownTimer"
-          :start-time="winnerSelected ? Date.now() : null"
-          :is-host="isHost"
-          :document-id="props.lobby.$id"
-          :winning-cards="state?.winningCards || []"
-          :black-card="blackCard"
-          @round-started="handleRoundStarted"
-        />
       </main>
     </div>
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.card-deck {
+  position: absolute;
+  z-index: 10;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.card-deck--black {
+  left: 1rem;
+}
+
+.card-deck--white {
+  right: 1rem;
+}
+
+@media (min-width: 768px) {
+  .card-deck--black {
+    left: 1.5rem;
+  }
+
+  .card-deck--white {
+    right: 1.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .card-deck--black {
+    left: 2rem;
+  }
+
+  .card-deck--white {
+    right: 2rem;
+  }
+}
+</style>
