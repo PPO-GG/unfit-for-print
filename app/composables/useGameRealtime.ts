@@ -1,7 +1,6 @@
 import { onUnmounted } from "vue";
 import type { Ref, ComputedRef } from "vue";
 import type { Client, Databases } from "appwrite";
-import { ID, Permission, Role } from "appwrite";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import type { GameSettings } from "~/types/gamesettings";
@@ -14,6 +13,7 @@ import { useSfx } from "~/composables/useSfx";
 import { useUserStore } from "~/stores/userStore";
 import { useI18n } from "vue-i18n";
 import { resolveId } from "~/utils/resolveId";
+import { SFX } from "~/config/sfx.config";
 
 const LEAVE_DEBOUNCE_TIME = 5000;
 
@@ -73,30 +73,19 @@ export function useGameRealtime(options: {
     cleanupFunctions.length = 0;
   });
 
-  /** Sends a system message to the lobby chat */
+  /** Sends a system message to the lobby chat via server endpoint */
   const sendSystemMessage = async (lobbyId: string, message: string) => {
-    if (!databases || !message || !message.trim()) return;
-    const config = useRuntimeConfig();
-    const dbId = config.public.appwriteDatabaseId as string;
-    const messagesCollectionId = config.public
-      .appwriteGamechatCollectionId as string;
-    const maxLength = 255;
+    if (!message || !message.trim()) return;
 
     try {
-      const safeMessage = message.substring(0, maxLength);
-      await databases.createDocument(
-        dbId,
-        messagesCollectionId,
-        ID.unique(),
-        {
+      await $fetch("/api/chat/system", {
+        method: "POST",
+        body: {
           lobbyId,
-          senderId: "system",
-          senderName: "System",
-          text: safeMessage,
-          timeStamp: new Date().toISOString(),
+          text: message.trim(),
+          userId: userStore.user?.$id,
         },
-        [Permission.read(Role.any())],
-      );
+      });
     } catch (error) {
       console.error("Error sending system message:", error);
     }
@@ -189,7 +178,7 @@ export function useGameRealtime(options: {
     const playersTopic = `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwritePlayerCollectionId}.documents`;
 
     const debouncedJoinNotification = debounce(async (player: Player) => {
-      await playSfx("/sounds/sfx/playerJoin.wav");
+      await playSfx(SFX.playerJoin);
       notify({
         title: t("lobby.player_joined", { name: player.name }),
         color: "success",
@@ -204,7 +193,7 @@ export function useGameRealtime(options: {
     }, 2000);
 
     const debouncedLeaveNotification = debounce(async (player: Player) => {
-      await playSfx("/sounds/sfx/playerJoin.wav", { pitch: 0.8 });
+      await playSfx(SFX.playerJoin, { pitch: 0.8 });
       notify({
         title: t("lobby.player_left", { name: player.name }),
         color: "warning",

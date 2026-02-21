@@ -134,18 +134,12 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { getAppwrite } from "~/utils/appwrite";
 import { useUserStore } from "~/stores/userStore";
 import { Filter } from "bad-words";
-import {
-  ID,
-  Query,
-  Permission,
-  Role,
-  type Models,
-  type Databases,
-} from "appwrite";
+import { Query, type Models } from "appwrite";
 import { useBrowserSpeech } from "~/composables/useBrowserSpeech";
 import { useSpeech } from "~/composables/useSpeech";
 import { useUserPrefsStore } from "~/stores/userPrefsStore";
 import { resolveId } from "~/utils/resolveId";
+import { SFX } from "~/config/sfx.config";
 
 const elevenLabsVoiceId = "NuIlfu52nTXRM2NXDrjS";
 const browserSpeech = useBrowserSpeech();
@@ -200,6 +194,9 @@ const chatContainer = ref<HTMLDivElement | null>(null);
 const isAtBottom = ref(true);
 const errorMessage = ref<string | null>(null);
 
+// Track optimistically-inserted message IDs so the Realtime echo can be deduped
+const optimisticIds = new Set<string>();
+
 const isMessageEmpty = computed(() => !newMessage.value.trim());
 
 const filter = new Filter();
@@ -248,6 +245,12 @@ const loadMessages = async () => {
           const docLobbyId = resolveId(doc.lobbyId);
 
           if (props.lobbyId && docLobbyId === props.lobbyId) {
+            // Dedup: skip if this message was already optimistically inserted
+            if (optimisticIds.has(doc.$id)) {
+              optimisticIds.delete(doc.$id);
+              return;
+            }
+
             const text = Array.isArray(doc.text)
               ? doc.text.join(" ")
               : doc.text;
@@ -258,7 +261,7 @@ const loadMessages = async () => {
             };
             messages.value.push(safeDoc);
             if (safeDoc.senderId !== userStore.user?.$id) {
-              playSfx("/sounds/sfx/chatReceive.wav");
+              playSfx(SFX.chatReceive);
             }
 
             if (prefs.ttsEnabled) {
@@ -316,40 +319,65 @@ const sendMessage = async () => {
   if (!safeMessage) return;
 
   const truncatedMessage = safeMessage.substring(0, maxLength);
+  const userId = userStore.user?.$id || "anonymous";
+  const senderName =
+    userStore.user?.name || userStore.user?.prefs?.name || "Anonymous";
 
+  // ── Optimistic insert: show message immediately ────────────────
+  const optimisticId = `__optimistic_${Date.now()}_${Math.random()}`;
+  const optimisticMsg: ChatMessage = {
+    $id: optimisticId,
+    lobbyId: props.lobbyId,
+    senderId: userId,
+    senderName,
+    text: prefs.chatProfanityFilter
+      ? truncatedMessage
+      : filter.clean(truncatedMessage),
+    timeStamp: new Date().toISOString(),
+    // Satisfy Models.Document shape with stubs
+    $collectionId: "",
+    $databaseId: "",
+    $createdAt: "",
+    $updatedAt: "",
+    $permissions: [],
+    $sequence: 0,
+  };
+  messages.value.push(optimisticMsg);
+  newMessage.value = "";
+  playSfx(SFX.chatSend);
+
+  await nextTick(() => {
+    scrollToBottom();
+  });
+
+  // ── Send to server ─────────────────────────────────────────────
   try {
     errorMessage.value = null;
-    const userId = userStore.user?.$id || "anonymous";
-
-    const permissions = [
-      Permission.read(Role.any()),
-      Permission.update(Role.user(userId)),
-      Permission.delete(Role.user(userId)),
-    ];
-
-    await databases.createDocument(
-      dbId,
-      messagesCollectionId,
-      ID.unique(),
-      {
+    const result = await $fetch("/api/chat/send", {
+      method: "POST",
+      body: {
         lobbyId: props.lobbyId,
-        senderId: userId,
-        senderName:
-          userStore.user?.name || userStore.user?.prefs?.name || "Anonymous",
+        userId,
         text: truncatedMessage,
-        timeStamp: new Date().toISOString(),
       },
-      permissions,
-    );
-
-    newMessage.value = "";
-
-    await nextTick(() => {
-      scrollToBottom();
-      playSfx("/sounds/sfx/chatSend.wav");
     });
+
+    // Replace the optimistic ID with the real server ID so the
+    // Realtime echo can be deduplicated.
+    const idx = messages.value.findIndex((m) => m.$id === optimisticId);
+    const msg = messages.value[idx];
+    if (idx !== -1 && msg) {
+      msg.$id = result.messageId;
+    }
+    optimisticIds.add(result.messageId);
   } catch (error: any) {
-    if (error?.message) {
+    // Remove the optimistic message on failure
+    const idx = messages.value.findIndex((m) => m.$id === optimisticId);
+    if (idx !== -1) messages.value.splice(idx, 1);
+
+    if (error?.data?.statusMessage) {
+      errorMessage.value = `${t("chat.error_sending")}: ${error.data.statusMessage}`;
+    } else if (error?.message) {
       errorMessage.value = `${t("chat.error_sending")}: ${error.message}`;
     } else {
       errorMessage.value = t("chat.error_sending");
