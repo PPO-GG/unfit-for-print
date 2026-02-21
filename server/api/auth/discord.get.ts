@@ -5,6 +5,10 @@ import { OAuthProvider } from "node-appwrite";
  * Uses node-appwrite's createOAuth2Token to generate the redirect URL.
  * This avoids the cross-origin cookie issue with client-side createOAuth2Session.
  *
+ * IMPORTANT: The SDK builds the redirect URL locally — it does NOT make an
+ * outbound HTTP request to Appwrite. This avoids Cloudflare Bot Fight Mode
+ * challenges that block server-to-server requests to api.ppo.gg.
+ *
  * After the user authorizes on Discord, Appwrite redirects back to
  * /auth/callback?userId=...&secret=... where the CLIENT SDK exchanges
  * the token for a session.
@@ -32,56 +36,14 @@ export default defineEventHandler(async (event) => {
   const failureUrl = `${baseUrl}/?error=oauth_failed`;
 
   try {
-    const endpoint = client.config.endpoint;
-    const projectId = client.config.project;
-    const apiKey = client.config.key;
-
-    const urlObj = new URL(`${endpoint}/account/tokens/oauth2/discord`);
-    urlObj.searchParams.set("success", successUrl);
-    urlObj.searchParams.set("failure", failureUrl);
-    // Note: Appwrite may expect an array format for scopes via HTTP
-    urlObj.searchParams.set("scopes[]", "identify");
-
-    const redirectUrl = await new Promise<string>((resolve, reject) => {
-      import("https").then((https) => {
-        const req = https.request(
-          urlObj.toString(),
-          {
-            method: "GET",
-            headers: {
-              "X-Appwrite-Project": projectId,
-              "X-Appwrite-Key": apiKey,
-            },
-          },
-          (res) => {
-            if (res.statusCode === 301 || res.statusCode === 302) {
-              if (res.headers.location) {
-                resolve(res.headers.location);
-              } else {
-                reject(
-                  new Error(
-                    "No location header returned from Appwrite (301/302)",
-                  ),
-                );
-              }
-            } else {
-              let body = "";
-              res.on("data", (chunk) => (body += chunk));
-              res.on("end", () => {
-                reject(
-                  new Error(
-                    `Appwrite rejected init: [${res.statusCode}] ${body}`,
-                  ),
-                );
-              });
-            }
-          },
-        );
-
-        req.on("error", (err) => reject(err));
-        req.end();
-      });
-    });
+    // Use the SDK method which constructs the URL locally — no outbound HTTP
+    // request is made, so Cloudflare's Bot Fight Mode never intercedes.
+    const redirectUrl = await account.createOAuth2Token(
+      OAuthProvider.Discord,
+      successUrl,
+      failureUrl,
+      ["identify"],
+    );
 
     await sendRedirect(event, redirectUrl);
   } catch (error: any) {
