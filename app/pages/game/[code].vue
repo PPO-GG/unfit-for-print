@@ -172,16 +172,11 @@ useHead({
     },
     { property: "og:type", content: "website" },
     { property: "og:url", content: `${config.public.baseUrl}/game/${code}` },
-    {
-      property: "og:image",
-      content: `${config.public.baseUrl}/api/og?code=${code}`,
-    },
-    { property: "og:image:type", content: "image/png" },
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
   ],
   link: [{ rel: "canonical", href: `${config.public.baseUrl}/game/${code}` }],
 });
+
+defineOgImageComponent("GameCode", { code });
 
 // ─── Sidebar Watcher ────────────────────────────────────────────────────────
 // Desktop sidebar can be toggled. Auto-collapse when game starts, but allow user to re-open.
