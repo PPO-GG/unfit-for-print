@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.3.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.2.0...v2.3.0) (2026-02-22)
+
+
+### ✨ Features
+
+* **game:** add card play mode preferences with click, instant, and gesture submission ([6daa365](https://github.com/PPO-GG/unfit-for-print/commit/6daa365ef80d06354df467427c09741813f4d96a))
+
+
+### 🐛 Bug Fixes
+
+* **auth:** improve Discord OAuth error logging with status codes and request host ([522d97e](https://github.com/PPO-GG/unfit-for-print/commit/522d97ec4ff46332d7cb9c9ce152f09f25040c99))
+* **build:** enable wasm compatibility ([2a1f018](https://github.com/PPO-GG/unfit-for-print/commit/2a1f01884bde6e0a734fbdbb2e18ec1d16d464c7))
+* **og-image:** migrate from custom Nitro endpoint to native nuxt-og-image component ([f07ee51](https://github.com/PPO-GG/unfit-for-print/commit/f07ee510e8eb64997807a4a2eedeeaebe2a85560))
+* **web:** remove nuxt-og-image to resolve Cloudflare Pages build error ([4b25a25](https://github.com/PPO-GG/unfit-for-print/commit/4b25a25647c8f8fa8dd32f6d680e7b1c35307897))
+
 ## [2.2.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.1.2...v2.2.0) (2026-02-21)
 
 
