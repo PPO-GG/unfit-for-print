@@ -5,6 +5,7 @@ import { gsap } from "gsap";
 import confetti from "canvas-confetti";
 import { shuffle } from "lodash-es";
 import { useCardFlyCoords } from "~/composables/useCardFlyCoords";
+import { useCardPlayPreferences } from "~/composables/useCardPlayPreferences";
 import { SFX, SPRITES } from "~/config/sfx.config";
 
 interface BlackCard {
@@ -58,6 +59,7 @@ const emit = defineEmits([
 
 const { t } = useI18n();
 const { consumeCentroid } = useCardFlyCoords();
+const { playMode, cycleMode } = useCardPlayPreferences();
 
 // Sprite-based SFX for card landing sounds
 const { playSfx: playCardLandSfx } = useSfx(
@@ -926,6 +928,32 @@ function handleSelectWinner(playerId: string) {
       </div>
     </div>
 
+    <!-- Play Mode Toggle (fixed, next to My Score) -->
+    <button
+      v-if="currentPlayer && isParticipant && !isJudge && isSubmitting"
+      class="play-mode-toggle"
+      :title="t('game.play_mode')"
+      @click.stop="cycleMode()"
+    >
+      <Icon
+        :name="
+          playMode === 'click'
+            ? 'solar:cursor-bold'
+            : playMode === 'instant'
+              ? 'solar:bolt-bold'
+              : 'solar:hand-shake-bold'
+        "
+        class="play-mode-icon"
+      />
+      <span class="play-mode-label">{{
+        playMode === "click"
+          ? t("game.play_mode_click")
+          : playMode === "instant"
+            ? t("game.play_mode_instant")
+            : t("game.play_mode_gesture")
+      }}</span>
+    </button>
+
     <!-- UserHand at bottom (submission phase, not judge, not yet submitted) -->
     <Transition name="hand-exit">
       <div
@@ -1284,7 +1312,7 @@ function handleSelectWinner(playerId: string) {
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  z-index: 40;
+  z-index: 60;
   transition: all 0.3s ease;
 }
 
@@ -1350,6 +1378,53 @@ function handleSelectWinner(playerId: string) {
   color: rgba(241, 245, 249, 0.95);
   letter-spacing: 0.02em;
   line-height: 1;
+}
+
+/* ── Play Mode Toggle (fixed, next to My Score) ────────────── */
+.play-mode-toggle {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 14rem;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.85),
+    rgba(15, 23, 42, 0.92)
+  );
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  border-radius: 9999px;
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.play-mode-toggle:hover {
+  border-color: rgba(100, 116, 139, 0.35);
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.play-mode-icon {
+  font-size: 1rem;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.play-mode-label {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: rgba(148, 163, 184, 0.9);
+  text-transform: uppercase;
 }
 
 /* ── Table Center ───────────────────────────────────────────── */

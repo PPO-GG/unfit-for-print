@@ -1,7 +1,17 @@
 <script lang="ts" setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import {
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  toRef,
+} from "vue";
 import { useSfx } from "@/composables/useSfx";
 import { useCardFlyCoords } from "@/composables/useCardFlyCoords";
+import { useCardPlayPreferences } from "@/composables/useCardPlayPreferences";
+import { useCardGesture } from "@/composables/useCardGesture";
 import { SFX } from "~/config/sfx.config";
 import { gsap } from "gsap";
 
@@ -30,6 +40,10 @@ const autoSubmitProgress = ref(0); // 0-1 for countdown ring
 const AUTO_SUBMIT_DELAY = 1200; // ms
 let progressRaf: number | null = null;
 let progressStart = 0;
+
+// ── Play mode preferences ──────────────────────────────────────────────────
+const { playMode, instantSubmit, gestureEnabled, cycleMode } =
+  useCardPlayPreferences();
 
 const playHoverSfx = () => playSfx(SFX.cardHover);
 const playSelectSfx = () => playSfx(SFX.cardSelect);
@@ -158,6 +172,15 @@ watch(
 );
 
 // ── Auto-Submit ────────────────────────────────────────────────────────────
+function doSubmitNow() {
+  const selectedEls = cardRefs.value.filter(
+    (el, i) => el && selectedCards.value.includes(props.cards[i] ?? ""),
+  );
+  snapshotCards(selectedEls);
+  emit("select-cards", [...selectedCards.value]);
+  playSfx(SFX.cardThrow);
+}
+
 function startAutoSubmit() {
   cancelAutoSubmit();
   progressStart = performance.now();
@@ -175,16 +198,7 @@ function startAutoSubmit() {
 
   autoSubmitTimer.value = setTimeout(() => {
     if (allSelected.value && !props.disabled) {
-      // Snapshot selected card DOM rects BEFORE emit triggers unmount.
-      // GameTable reads these coords to animate the pile fly-in from
-      // the hand's exact screen position.
-      const selectedEls = cardRefs.value.filter(
-        (el, i) => el && selectedCards.value.includes(props.cards[i] ?? ""),
-      );
-      snapshotCards(selectedEls);
-
-      emit("select-cards", [...selectedCards.value]);
-      playSfx(SFX.cardThrow);
+      doSubmitNow();
     }
     autoSubmitTimer.value = null;
     autoSubmitProgress.value = 0;
@@ -203,38 +217,68 @@ function cancelAutoSubmit() {
   autoSubmitProgress.value = 0;
 }
 
-// Watch for all cards selected → start auto-submit
+// Watch for all cards selected → branch by play mode
 watch(allSelected, (val) => {
   if (val && !props.disabled) {
-    startAutoSubmit();
+    if (instantSubmit.value) {
+      // Instant mode: submit immediately, no timer
+      doSubmitNow();
+    } else if (gestureEnabled.value) {
+      // Gesture mode: don't auto-submit, user must drag/flick
+      // (no-op — cards stay selected, waiting for gesture)
+    } else {
+      // Default click mode: start the countdown timer
+      startAutoSubmit();
+    }
   } else {
     cancelAutoSubmit();
   }
 });
+
+// ── Card gesture composable ────────────────────────────────────────────────
+const { isDragging, onPointerDown, onPointerMove, onPointerUp } =
+  useCardGesture({
+    cardRefs,
+    selectedCards,
+    cards: toRef(props, "cards"),
+    getBaseTransform,
+    onSubmit: (cardIds: string[]) => {
+      const selectedEls = cardRefs.value.filter(
+        (el, i) => el && cardIds.includes(props.cards[i] ?? ""),
+      );
+      snapshotCards(selectedEls);
+      emit("select-cards", cardIds);
+      playSfx(SFX.cardThrow);
+    },
+    enabled: gestureEnabled,
+    disabled: toRef(props, "disabled"),
+  });
 
 // ── Interactions ────────────────────────────────────────────────────────────
 
 function handleHandMouseMove(e: MouseEvent) {
   if (isMobile.value || !handRef.value) return;
 
-  const rect = handRef.value.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const cursorOffset = e.clientX - centerX;
-
-  let closest = 0;
-  let closestDist = Infinity;
-  for (let i = 0; i < props.cards.length; i++) {
-    const base = getBaseTransform(i);
-    const dist = Math.abs(base.x - cursorOffset);
-    if (dist < closestDist) {
-      closestDist = dist;
-      closest = i;
+  // Only hover a card when the cursor is directly over its bounding box
+  let found: number | null = null;
+  for (let i = 0; i < cardRefs.value.length; i++) {
+    const el = cardRefs.value[i];
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom
+    ) {
+      found = i;
+      // Don't break — later cards have higher z-index, so last match wins
     }
   }
 
-  if (hoveredIndex.value !== closest) {
-    hoveredIndex.value = closest;
-    playHoverSfx();
+  if (hoveredIndex.value !== found) {
+    hoveredIndex.value = found;
+    if (found !== null) playHoverSfx();
   }
 }
 
@@ -348,13 +392,12 @@ onUnmounted(() => {
     class="user-hand"
     :class="{
       'user-hand--active': isHandActive || selectedCards.length > 0 || isMobile,
+      'user-hand--gesture': gestureEnabled,
     }"
-    @mouseenter="handleMouseEnter"
-    @mouseleave="handleMouseLeave"
   >
-    <!-- Auto-submit countdown indicator (shows when all cards picked) -->
+    <!-- Auto-submit countdown indicator (shows when all cards picked, click mode only) -->
     <div
-      v-if="allSelected && autoSubmitProgress > 0"
+      v-if="allSelected && autoSubmitProgress > 0 && playMode === 'click'"
       class="auto-submit-indicator"
     >
       <svg class="countdown-ring" viewBox="0 0 44 44">
@@ -369,6 +412,15 @@ onUnmounted(() => {
         />
       </svg>
       <span class="auto-submit-label">{{ t("game.submit_cards") }}</span>
+    </div>
+
+    <!-- Gesture hint (shown when gesture mode is active and cards are selected) -->
+    <div
+      v-if="gestureEnabled && allSelected && !isDragging"
+      class="gesture-hint"
+    >
+      <Icon name="solar:hand-shake-bold-duotone" class="text-sky-400" />
+      <span>{{ t("game.drag_to_play") }}</span>
     </div>
 
     <!-- Selection counter for multi-pick -->
@@ -391,6 +443,8 @@ onUnmounted(() => {
       ref="handRef"
       class="hand-zone"
       :class="{ 'hand-zone--mobile': isMobile }"
+      @mouseenter="handleMouseEnter"
+      @mouseleave="handleMouseLeave"
       @mousemove="handleHandMouseMove"
       @click="handleHandClick"
     >
@@ -405,9 +459,19 @@ onUnmounted(() => {
             'hand-card--fan': !isMobile,
             'hand-card--selected': selectedCards.includes(cardId),
             'hand-card--hovered': hoveredIndex === index && !isMobile,
-            'hand-card--locked': allSelected && selectedCards.includes(cardId),
+            'hand-card--locked':
+              allSelected &&
+              selectedCards.includes(cardId) &&
+              playMode === 'click',
+            'hand-card--draggable':
+              gestureEnabled && allSelected && selectedCards.includes(cardId),
           }"
           @click="onCardClick($event, cardId, index)"
+          @pointerdown="
+            gestureEnabled ? onPointerDown($event, cardId, index) : undefined
+          "
+          @pointermove="gestureEnabled ? onPointerMove($event) : undefined"
+          @pointerup="gestureEnabled ? onPointerUp($event) : undefined"
         >
           <!-- Selection order badge (multi-pick) -->
           <div
@@ -433,6 +497,7 @@ onUnmounted(() => {
   padding-bottom: 0.5rem;
   transform: translateY(60%);
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
 }
 
 @media (max-width: 768px) {
@@ -462,6 +527,7 @@ onUnmounted(() => {
   backdrop-filter: blur(12px);
   white-space: nowrap;
   animation: indicator-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: auto;
 }
 
 .auto-submit-label {
@@ -516,6 +582,7 @@ onUnmounted(() => {
   border-radius: 9999px;
   backdrop-filter: blur(8px);
   white-space: nowrap;
+  pointer-events: auto;
 }
 
 .pick-counter-text {
@@ -533,6 +600,7 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  pointer-events: auto;
 }
 
 .hand-zone--mobile {
@@ -664,6 +732,45 @@ onUnmounted(() => {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* ── Gesture Hint ────────────────────────────────────────────── */
+.gesture-hint {
+  position: absolute;
+  top: -13rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem 0.5rem 0.75rem;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  border-radius: 9999px;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+  animation: indicator-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: rgba(14, 165, 233, 0.9);
+  text-transform: uppercase;
+  pointer-events: auto;
+}
+
+/* ── Draggable card cursor ───────────────────────────────────── */
+.hand-card--draggable {
+  cursor: grab;
+}
+
+.hand-card--draggable:active {
+  cursor: grabbing;
+}
+
+/* ── Gesture mode: prevent scroll conflicts on touch ─────────── */
+.user-hand--gesture .hand-zone {
+  touch-action: none;
 }
 
 @media (min-width: 768px) {
