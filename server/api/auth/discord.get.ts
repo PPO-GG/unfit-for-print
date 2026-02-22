@@ -35,9 +35,19 @@ export default defineEventHandler(async (event) => {
   const successUrl = `${baseUrl}/auth/callback`;
   const failureUrl = `${baseUrl}/?error=oauth_failed`;
 
+  console.log("[Auth] Discord OAuth attempt:", {
+    baseUrl,
+    successUrl,
+    failureUrl,
+    appwriteEndpoint: config.public.appwriteEndpoint || "(not set)",
+    requestHost: requestUrl.host,
+  });
+
   try {
-    // Use the SDK method which constructs the URL locally — no outbound HTTP
-    // request is made, so Cloudflare's Bot Fight Mode never intercedes.
+    // NOTE: Despite the original comment, the SDK's redirect() method DOES make
+    // an outbound fetch() to Appwrite. It expects a 301/302 redirect response.
+    // If Appwrite rejects the redirect URLs (e.g. hostname not in platforms)
+    // or Bot Fight Mode intercedes, it will throw "Invalid redirect".
     const redirectUrl = await account.createOAuth2Token(
       OAuthProvider.Discord,
       successUrl,
@@ -50,7 +60,14 @@ export default defineEventHandler(async (event) => {
     console.error(
       "[Auth] Discord OAuth token creation failed:",
       error.message || error,
-      { successUrl, failureUrl, baseUrl },
+      {
+        statusCode: error.code || error.status || "unknown",
+        type: error.type || "unknown",
+        successUrl,
+        failureUrl,
+        baseUrl,
+        requestHost: requestUrl.host,
+      },
     );
     await sendRedirect(
       event,
