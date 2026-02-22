@@ -175,9 +175,6 @@ useHead({
   ],
   link: [{ rel: "canonical", href: `${config.public.baseUrl}/game/${code}` }],
 });
-
-defineOgImageComponent("GameCode", { code });
-
 // ─── Sidebar Watcher ────────────────────────────────────────────────────────
 // Desktop sidebar can be toggled. Auto-collapse when game starts, but allow user to re-open.
 const showDesktopSidebar = ref(true);

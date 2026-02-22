@@ -66,26 +66,11 @@ export default defineNuxtConfig({
     "@vueuse/nuxt",
     "@nuxt/ui",
     "pinia-plugin-persistedstate/nuxt",
-    "nuxt-og-image",
     "@nuxtjs/i18n",
     "@nuxtjs/device",
     "@nuxt/scripts",
     "nuxt-appwrite",
   ],
-
-  ogImage: {
-    compatibility: {
-      prerender: {
-        resvg: "wasm",
-        satori: "wasm",
-        chromium: false,
-      },
-      runtime: {
-        resvg: "wasm",
-        satori: "wasm",
-      },
-    },
-  },
 
   // ─── nuxt-appwrite module config ─────────────────────────────────
   // Reads from NUXT_PUBLIC_APPWRITE_* and NUXT_APPWRITE_* env vars automatically.
