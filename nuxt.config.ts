@@ -73,6 +73,20 @@ export default defineNuxtConfig({
     "nuxt-appwrite",
   ],
 
+  ogImage: {
+    compatibility: {
+      prerender: {
+        resvg: "wasm",
+        satori: "wasm",
+        chromium: false,
+      },
+      runtime: {
+        resvg: "wasm",
+        satori: "wasm",
+      },
+    },
+  },
+
   // ─── nuxt-appwrite module config ─────────────────────────────────
   // Reads from NUXT_PUBLIC_APPWRITE_* and NUXT_APPWRITE_* env vars automatically.
   // Explicit values here serve as fallback defaults.
