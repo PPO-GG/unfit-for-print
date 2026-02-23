@@ -34,6 +34,7 @@ const props = withDefaults(
     phase: "submitting" | "judging";
     revealedCards: Record<string, boolean>;
     effectiveRoundWinner?: string | null;
+    confirmedRoundWinner?: string | null;
     winnerSelected: boolean;
     winningCards?: string[];
     scores?: Record<string, number>;
@@ -43,6 +44,7 @@ const props = withDefaults(
     blackCard: null,
     myHand: () => [],
     effectiveRoundWinner: null,
+    confirmedRoundWinner: null,
     winnerSelected: false,
     winningCards: () => [],
     scores: () => ({}),
@@ -104,13 +106,17 @@ const hasTransitionedToRow = ref(false);
 // Track whether the FLIP animation is currently running
 const isFlipAnimating = ref(false);
 
-// Track random angles for thrown cards (stable per player)
-const cardAngles = ref<
-  Record<string, { rotate: number; tx: number; ty: number }>
->({});
+// Track random angles for thrown cards (stable per player).
+// Plain object (non-reactive) so that caching a new card's angle
+// doesn't trigger Vue re-renders on every existing pile card.
+let cardAngles: Record<string, { rotate: number; tx: number; ty: number }> = {};
 
 // Show judging UI (labels, buttons) only after FLIP animation completes
 const showJudgingUI = ref(false);
+
+// Track whether the winner slide-to-center animation is in progress.
+// While true, the template keeps all grid-cells visible so GSAP can animate them.
+const winnerAnimating = ref(false);
 
 // ── Grid cell refs for FLIP targeting ───────────────────────────
 const gridCellRefs = ref<Record<string, HTMLElement | null>>({});
@@ -161,8 +167,9 @@ const totalParticipants = computed(
 // ── Seat positioning ────────────────────────────────────────────
 function getSeatStyle(index: number, total: number) {
   const fraction = total <= 1 ? 0.5 : index / (total - 1);
-  const x = 10 + fraction * 80;
-  const arcDepth = 30;
+  const x = 20 + fraction * 60;
+  // Flatter arc for the docked top bar
+  const arcDepth = 100;
   const yOffset = Math.pow(fraction - 0.5, 2) * 4 * arcDepth;
   return {
     left: `${x}%`,
@@ -171,37 +178,28 @@ function getSeatStyle(index: number, total: number) {
   };
 }
 
-//* ── Deterministic card spread with golden-angle distribution ────
-// Uses the golden angle (≈137.5°) to place each successive card in a
-// visually distinct sector, preventing overlap even with many players.
-// A small random jitter is added on top for organic feel.
+//* ── Random card scatter for natural pile feel ────────────────────
+// Each card gets a fully random rotation, direction, and distance
+// from center, producing a messy, organic pile that looks different
+// every round. Cached per player so angles stay stable within a round.
 function getCardAngle(playerId: string) {
-  if (!cardAngles.value[playerId]) {
-    const index = Object.keys(cardAngles.value).length;
+  if (!cardAngles[playerId]) {
+    // Fully random rotation between -25° and +25°
+    const rotate = (Math.random() - 0.5) * 50;
 
-    // Golden angle ensures even angular distribution
-    const goldenAngle = 137.508;
-    const theta = index * goldenAngle * (Math.PI / 180);
+    // Random direction (any angle around the center)
+    const theta = Math.random() * Math.PI * 2;
 
-    // Radius grows with index so cards fan outward (capped at 8)
-    const baseRadius = 22 + Math.min(index, 8) * 14;
+    // Random distance from center (15–60px)
+    const radius = 15 + Math.random() * 45;
 
-    // Small random jitter for natural feel
-    const jitterX = (Math.random() - 0.5) * 10;
-    const jitterY = (Math.random() - 0.5) * 10;
-
-    // Rotation alternates direction, increases with index, capped at ±25°
-    const baseRotate =
-      (index % 2 === 0 ? 1 : -1) * Math.min(6 + index * 3.5, 25);
-    const jitterRotate = (Math.random() - 0.5) * 6;
-
-    cardAngles.value[playerId] = {
-      rotate: baseRotate + jitterRotate,
-      tx: Math.cos(theta) * baseRadius + jitterX,
-      ty: Math.sin(theta) * baseRadius + jitterY,
+    cardAngles[playerId] = {
+      rotate,
+      tx: Math.cos(theta) * radius,
+      ty: Math.sin(theta) * radius,
     };
   }
-  return cardAngles.value[playerId];
+  return cardAngles[playerId];
 }
 
 // ── Position a pile card at its scatter offset via GSAP ──────────
@@ -221,6 +219,50 @@ function setPilePosition(el: HTMLElement, pid: string) {
 // Guard: track which player IDs have already been animated this round
 // to prevent duplicate fly-ins when the deep watcher fires multiple times.
 const animatedPids = new Set<string>();
+// Track pids with in-flight ghost animations (real card stays hidden)
+const flyingGhosts = ref<Set<string>>(new Set());
+
+// Vue-controlled pile card positioning. Returns the inline style for
+// each pile card so Vue maintains positions through re-renders.
+function getPileCardStyle(pid: string) {
+  // Hide real card while ghost is flying
+  if (flyingGhosts.value.has(pid)) return { opacity: 0 };
+  const angle = cardAngles[pid];
+  if (!angle) return { opacity: 0 }; // not yet positioned
+  return {
+    transform: `translate(${angle.tx}px, ${angle.ty}px) rotate(${angle.rotate}deg)`,
+    opacity: 1,
+  };
+}
+
+// ── Round-reset: clear animation state when a new round begins ──
+// Uses the phase prop as the authoritative round-boundary signal,
+// NOT the submissions emptying (which can happen transiently during
+// Appwrite realtime state updates, causing all cards to re-animate).
+watch(
+  () => props.phase,
+  (newPhase, oldPhase) => {
+    // When phase cycles back to "submitting" from "judging",
+    // it's a new round — clear all animation trackers.
+    if (newPhase === "submitting" && oldPhase === "judging") {
+      animatedPids.clear();
+      flyingGhosts.value.clear();
+      cardAngles = {};
+      prevSubmissionKeys.value = new Set();
+      winnerAnimating.value = false;
+
+      // Clear GSAP transforms from grid cells to prevent stale state
+      const container = cardContainerRef.value;
+      if (container) {
+        const cells = container.querySelectorAll<HTMLElement>(".grid-cell");
+        cells.forEach((cell) => {
+          gsap.killTweensOf(cell);
+          gsap.set(cell, { clearProps: "all" });
+        });
+      }
+    }
+  },
+);
 
 watch(
   () => props.submissions,
@@ -229,18 +271,19 @@ watch(
     const addedKeys: string[] = [];
     for (const key of newKeys) {
       if (!prevSubmissionKeys.value.has(key) && !animatedPids.has(key)) {
+        flyingGhosts.value.add(key); // hide real card BEFORE angle is set
         getCardAngle(key);
         addedKeys.push(key);
         animatedPids.add(key);
       }
     }
+
     prevSubmissionKeys.value = newKeys;
 
-    // Reset animated set and scatter positions when submissions are cleared (new round)
-    if (newKeys.size === 0) {
-      animatedPids.clear();
-      cardAngles.value = {};
-    }
+    // NOTE: Round-reset is now handled by the phase watcher above.
+    // Do NOT clear animatedPids here when newKeys.size === 0, because
+    // transient empty states from Appwrite realtime re-parsing would
+    // cause every subsequent submission to re-animate all cards.
 
     if (addedKeys.length === 0 || !isSubmitting.value) return;
 
@@ -250,77 +293,93 @@ watch(
 
     const container = cardContainerRef.value;
     if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const containerCenterX = containerRect.width / 2;
-    const containerCenterY = containerRect.height / 2;
 
     addedKeys.forEach((pid, animIndex) => {
       const el = container.querySelector(
         `[data-player-id="${pid}"]`,
       ) as HTMLElement;
+
       if (!el) return;
 
       const finalAngle = getCardAngle(pid);
-
-      // Determine the start position (relative to the container center)
-      let startX = 0;
-      let startY = 0;
       let isLocal = pid === props.myId;
 
+      // ── Step 1: Measure the pile card's final screen position ──────
+      // Temporarily place it at the pile position to measure.
+      setPilePosition(el, pid);
+      const elRect = el.getBoundingClientRect();
+      const destX = elRect.left + elRect.width / 2;
+      const destY = elRect.top + elRect.height / 2;
+
+      // ── Step 2: Determine where the card should fly FROM ──────────
+      let fromX = destX;
+      let fromY = destY;
+
       if (isLocal) {
-        // Use snapshotted hand-card coordinates from the composable.
-        // UserHand snapshots these right before emitting select-cards,
-        // so they're still valid even though the hand has unmounted.
         const centroid = consumeCentroid();
         if (centroid) {
-          startX = centroid.x - containerRect.left - containerCenterX;
-          startY = centroid.y - containerRect.top - containerCenterY;
+          fromX = centroid.x;
+          fromY = centroid.y;
         } else {
-          // Fallback: fly from bottom of screen
-          startX = 0;
-          startY =
-            window.innerHeight - containerRect.top - containerCenterY + 200;
+          fromY = window.innerHeight + 200;
         }
       } else {
-        // Come from the player's avatar seat
         const seatEl = seatRefs.value[pid];
         if (seatEl) {
           const seatRect = seatEl.getBoundingClientRect();
-          const seatCenterX = seatRect.left + seatRect.width / 2;
-          const seatCenterY = seatRect.top + seatRect.height / 2;
-          startX = seatCenterX - containerRect.left - containerCenterX;
-          startY = seatCenterY - containerRect.top - containerCenterY;
+          fromX = seatRect.left + seatRect.width / 2;
+          fromY = seatRect.top + seatRect.height / 2;
         } else {
-          // Overflow player — come from top
-          startX = (Math.random() - 0.5) * 200;
-          startY = -400;
+          fromX = destX + (Math.random() - 0.5) * 200;
+          fromY = -200;
         }
       }
 
-      // Physics-based spin and scale. The hand card starts slightly larger.
+      // ── Step 3: Mark as flying, create a ghost clone ───────────────
+      // The ghost lives outside Vue's control so reactivity can't kill it.
+      // Mark in reactive set so Vue hides the real card via :style binding.
+      flyingGhosts.value.add(pid);
+      const ghost = el.cloneNode(true) as HTMLElement;
+      // Strip ALL classes to remove conflicting .unified-card--pile rules
+      // (inset: 0, margin: auto, opacity: 0, position: absolute)
+      ghost.className = "";
+      ghost.style.cssText = `
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: ${elRect.width}px;
+        height: ${elRect.height}px;
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 1;
+      `;
+      document.body.appendChild(ghost);
+
+      // Physics-based spin
       const spinDirection = Math.random() > 0.5 ? 1 : -1;
       const startRotation =
         finalAngle.rotate +
         spinDirection *
           (isLocal ? 60 + Math.random() * 60 : 360 + Math.random() * 180);
 
+      // ── Step 4: Animate the ghost from source → destination ────────
+      // Ghost uses position:fixed with left:0;top:0, so GSAP x/y are
+      // screen coordinates directly.
       gsap.fromTo(
-        el,
+        ghost,
         {
-          x: startX,
-          y: startY,
+          x: fromX - elRect.width / 2,
+          y: fromY - elRect.height / 2,
           rotation: startRotation,
-          scale: isLocal ? 1.05 : 0.4, // hand card is 1.05 scaled when selected
-          opacity: isLocal ? 1 : 0, // local player's card doesn't fade in, it's already there
+          scale: isLocal ? 1.05 : 0.15,
         },
         {
-          x: finalAngle.tx,
-          y: finalAngle.ty,
+          x: elRect.left,
+          y: elRect.top,
           rotation: finalAngle.rotate,
           scale: 1,
-          opacity: 1,
           duration: isLocal ? 0.6 : 0.8,
-          delay: animIndex * 0.2, // stagger when multiple cards arrive in same batch
+          delay: animIndex * 0.2,
           ease: "power3.out",
           onStart: () => {
             if (!isLocal) {
@@ -331,6 +390,10 @@ watch(
             }
           },
           onComplete: () => {
+            // Remove ghost, let Vue reveal the real pile card via :style
+            ghost.remove();
+            flyingGhosts.value.delete(pid);
+
             playCardLandSfx("", {
               volume: isLocal ? [0.7, 0.9] : [0.4, 0.6],
               pitch: [0.9, 1.1],
@@ -394,7 +457,7 @@ watch(
                 if (firstRect && lastRect) {
                   const dx = firstRect.left - lastRect.left;
                   const dy = firstRect.top - lastRect.top;
-                  const angle = cardAngles.value[pid];
+                  const angle = cardAngles[pid];
                   const rotate = angle?.rotate || 0;
 
                   gsap.fromTo(
@@ -459,21 +522,18 @@ onMounted(() => {
     showJudgingUI.value = true;
   }
 
-  // Initialize previous submission keys
-  prevSubmissionKeys.value = new Set(Object.keys(props.submissions));
+  // Initialize previous submission keys AND mark them as already animated
+  // so existing submissions (e.g. hot-reload, late join, page refresh)
+  // don't trigger fly-in animations.
+  const existingKeys = Object.keys(props.submissions);
+  prevSubmissionKeys.value = new Set(existingKeys);
+  existingKeys.forEach((pid) => animatedPids.add(pid));
 
-  // Position any existing pile cards (e.g. hot-reload or late join)
+  // Initialize card angles for any existing pile cards (e.g. hot-reload or late join)
+  // Vue's :style binding via getPileCardStyle() handles the actual positioning
   if (localPhase.value === "submitting") {
-    nextTick(() => {
-      const container = cardContainerRef.value;
-      if (!container) return;
-      Object.keys(props.submissions).forEach((pid) => {
-        getCardAngle(pid);
-        const el = container.querySelector(
-          `[data-player-id="${pid}"]`,
-        ) as HTMLElement;
-        if (el) setPilePosition(el, pid);
-      });
+    existingKeys.forEach((pid) => {
+      getCardAngle(pid);
     });
   }
 });
@@ -504,13 +564,20 @@ const allRevealed = computed(() => {
 });
 
 // ── Winner name for celebration ─────────────────────────────────
+// Use confirmedRoundWinner (snapshot at watcher time) for the overlay
+// so it stays consistent with the notification and won't shift if
+// state.roundWinner changes during the 2-second celebration delay.
 const winnerName = computed(() => {
-  if (!props.effectiveRoundWinner) return "";
-  if (props.effectiveRoundWinner === props.myId) return t("game.you");
-  return getPlayerName(props.effectiveRoundWinner);
+  const winner = props.confirmedRoundWinner || props.effectiveRoundWinner;
+  if (!winner) return "";
+  if (winner === props.myId) return t("game.you");
+  return getPlayerName(winner);
 });
 
-const isWinnerSelf = computed(() => props.effectiveRoundWinner === props.myId);
+const isWinnerSelf = computed(() => {
+  const winner = props.confirmedRoundWinner || props.effectiveRoundWinner;
+  return winner === props.myId;
+});
 
 // ── Confetti! ───────────────────────────────────────────────────
 watch(
@@ -518,6 +585,89 @@ watch(
   (selected) => {
     if (selected) {
       fireConfetti();
+    }
+  },
+);
+
+// ── Winner Slide-to-Center Animation ────────────────────────────
+// When effectiveRoundWinner changes from null → a player ID, animate:
+// 1. Losing cards fade + shrink out
+// 2. Winning card slides to horizontal center of the table
+// Note: winnerAnimating stays true until the celebration overlay appears
+// or the round resets — this prevents CSS from hiding or reflowing the card.
+watch(
+  () => props.effectiveRoundWinner,
+  async (winnerId, oldWinnerId) => {
+    if (!winnerId || oldWinnerId) return; // only on first selection
+    if (!hasTransitionedToRow.value) return; // must be in grid mode
+
+    const container = cardContainerRef.value;
+    if (!container) return;
+
+    winnerAnimating.value = true;
+
+    await nextTick();
+
+    const allCells = container.querySelectorAll<HTMLElement>(".grid-cell");
+    const winnerCell = gridCellRefs.value[winnerId];
+
+    if (!winnerCell) {
+      winnerAnimating.value = false;
+      return;
+    }
+
+    // ── Animate losing cells out ────────────────────────────────
+    allCells.forEach((cell) => {
+      const cardEl = cell.querySelector<HTMLElement>(".unified-card");
+      const pid = cardEl?.dataset.playerId;
+      if (pid === winnerId) return;
+
+      gsap.to(cell, {
+        opacity: 0,
+        scale: 0.85,
+        duration: 0.45,
+        ease: "power2.inOut",
+      });
+    });
+
+    // ── Strip cell chrome from the winner so only the card slides ──
+    gsap.set(winnerCell, {
+      borderColor: "transparent",
+      background: "transparent",
+      boxShadow: "none",
+    });
+
+    // ── Slide winning card to the horizontal center of the table ──
+    // Use the table-center parent for a visually accurate center.
+    const tableCenter = container.closest(".table-center");
+    const anchorRect = tableCenter
+      ? tableCenter.getBoundingClientRect()
+      : container.getBoundingClientRect();
+    const winnerRect = winnerCell.getBoundingClientRect();
+
+    const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+    const winnerCenterX = winnerRect.left + winnerRect.width / 2;
+    const dx = anchorCenterX - winnerCenterX;
+
+    gsap.to(winnerCell, {
+      x: dx,
+      scale: 1.05,
+      duration: 0.6,
+      ease: "power3.out",
+      // Do NOT set winnerAnimating = false here.
+      // It stays true until the celebration overlay appears or the round resets.
+      // This prevents CSS from hiding / reflowing the card.
+    });
+  },
+);
+
+// Reset winnerAnimating when the celebration overlay appears
+// (at that point the overlay covers everything, so we can clean up).
+watch(
+  () => props.winnerSelected,
+  (selected) => {
+    if (selected) {
+      winnerAnimating.value = false;
     }
   },
 );
@@ -681,46 +831,22 @@ function handleSelectWinner(playerId: string) {
 
     <!-- Table Center -->
     <div class="table-center">
-      <!-- Judge notice (submission phase) -->
-      <div v-if="isJudge && isSubmitting" class="judge-banner">
-        <Icon name="mdi:gavel" class="text-amber-400 text-2xl" />
-        <span>{{ t("game.you_are_judge") }}</span>
-      </div>
-
-      <!-- Phase header (judging phase) -->
-      <div v-if="isJudging && !winnerSelected" class="phase-header">
+      <!-- Judging info bar (compact, above cards) -->
+      <div v-if="isJudging && !winnerSelected" class="judging-info">
         <template v-if="isJudge">
-          <p class="phase-title">
-            <Icon name="mdi:gavel" class="text-amber-400 align-middle" />
-            {{
-              allRevealed ? t("game.select_winner") : t("game.click_to_reveal")
-            }}
-          </p>
-          <p class="phase-subtitle">
-            {{ t("game.submissions") }} · {{ displaySubmissions.length }}
-          </p>
+          <Icon name="mdi:gavel" class="judging-info-icon" />
+          <span>{{
+            allRevealed ? t("game.select_winner") : t("game.click_to_reveal")
+          }}</span>
         </template>
         <template v-else>
-          <p class="phase-title">{{ t("game.phase_judging") }}</p>
-          <p v-if="!allRevealed" class="phase-subtitle phase-subtitle--waiting">
-            {{ t("game.waiting") }}...
-          </p>
+          <span class="judging-info--waiting">
+            {{ t("game.phase_judging") }}
+            <template v-if="!allRevealed">
+              · {{ t("game.waiting") }}...</template
+            >
+          </span>
         </template>
-      </div>
-
-      <!-- Submission counter (submission phase) — above the pile -->
-      <p v-if="isSubmitting" class="pile-counter">
-        {{ submissionCount }} / {{ totalParticipants }}
-        <span class="pile-counter-label">{{ t("game.player_submitted") }}</span>
-      </p>
-
-      <!-- Player has submitted message -->
-      <div
-        v-if="isSubmitting && !isJudge && submissions[myId]"
-        class="submitted-message"
-      >
-        <Icon name="solar:check-circle-bold" class="text-green-400 text-xl" />
-        <span>{{ t("game.you_submitted") }}</span>
       </div>
 
       <!-- ═══ UNIFIED CARD AREA ═══ -->
@@ -744,6 +870,7 @@ function handleSelectWinner(playerId: string) {
           :key="sub.playerId"
           :data-player-id="sub.playerId"
           class="unified-card unified-card--pile"
+          :style="getPileCardStyle(sub.playerId)"
         >
           <div class="submission-group submission-group--pile-mode">
             <div class="submission-cards">
@@ -766,7 +893,6 @@ function handleSelectWinner(playerId: string) {
         v-if="isJudging && hasTransitionedToRow"
         ref="cardContainerRef"
         class="judging-grid"
-        :style="{ '--grid-cols': gridCols }"
       >
         <div
           v-for="(sub, idx) in displaySubmissions"
@@ -778,7 +904,8 @@ function handleSelectWinner(playerId: string) {
           "
           class="grid-cell"
           :class="{
-            'grid-cell--winner': effectiveRoundWinner === sub.playerId,
+            'grid-cell--winner':
+              !winnerAnimating && effectiveRoundWinner === sub.playerId,
             'grid-cell--clickable':
               isJudge && !winnerSelected && !isRevealed(sub.playerId),
             'grid-cell--selectable':
@@ -787,18 +914,24 @@ function handleSelectWinner(playerId: string) {
               isRevealed(sub.playerId) &&
               allRevealed,
             'grid-cell--hidden':
-              effectiveRoundWinner && effectiveRoundWinner !== sub.playerId,
+              !winnerAnimating &&
+              effectiveRoundWinner &&
+              effectiveRoundWinner !== sub.playerId,
           }"
         >
           <!-- Cell number label -->
-          <span class="grid-cell-number">{{ idx + 1 }}</span>
+          <span v-if="!effectiveRoundWinner" class="grid-cell-number">{{
+            idx + 1
+          }}</span>
 
           <!-- Card inside cell -->
           <div
             :data-player-id="sub.playerId"
             class="unified-card unified-card--grid"
             v-show="
-              !effectiveRoundWinner || effectiveRoundWinner === sub.playerId
+              winnerAnimating ||
+              !effectiveRoundWinner ||
+              effectiveRoundWinner === sub.playerId
             "
           >
             <div
@@ -806,7 +939,7 @@ function handleSelectWinner(playerId: string) {
               :class="{
                 'submission-group--revealed': isRevealed(sub.playerId),
                 'submission-group--winner':
-                  effectiveRoundWinner === sub.playerId,
+                  !winnerAnimating && effectiveRoundWinner === sub.playerId,
                 'submission-group--clickable':
                   isJudge && !winnerSelected && !isRevealed(sub.playerId),
                 'submission-group--selectable':
@@ -839,49 +972,7 @@ function handleSelectWinner(playerId: string) {
               </div>
 
               <!-- Judging phase UI -->
-              <template v-if="showJudgingUI">
-                <p
-                  v-if="!isRevealed(sub.playerId) && isJudge && !winnerSelected"
-                  class="reveal-hint"
-                >
-                  <Icon
-                    name="solar:hand-shake-bold-duotone"
-                    class="text-amber-400"
-                  />
-                  {{ t("game.click_to_reveal") }}
-                </p>
-                <p
-                  v-if="!isRevealed(sub.playerId) && !isJudge"
-                  class="reveal-hint reveal-hint--waiting"
-                >
-                  {{ t("game.waiting") }}...
-                </p>
-
-                <UButton
-                  v-if="
-                    isJudge &&
-                    !winnerSelected &&
-                    isRevealed(sub.playerId) &&
-                    allRevealed
-                  "
-                  class="winner-btn"
-                  color="secondary"
-                  size="lg"
-                  variant="solid"
-                  @click.stop="handleSelectWinner(sub.playerId)"
-                >
-                  <span class="winner-btn-text">
-                    {{ t("game.select_winner") }}
-                  </span>
-                </UButton>
-
-                <p
-                  v-if="effectiveRoundWinner === sub.playerId"
-                  class="winner-badge"
-                >
-                  🏆 {{ t("game.winner") }} 🏆
-                </p>
-              </template>
+              <template v-if="showJudgingUI"> </template>
             </div>
           </div>
         </div>
@@ -907,24 +998,50 @@ function handleSelectWinner(playerId: string) {
       </UButton>
     </div>
 
-    <!-- My Score Widget (bottom-left) -->
-    <div v-if="currentPlayer && isParticipant" class="my-score-widget">
-      <div class="my-score-avatar">
-        <UAvatar
-          :src="currentPlayer.avatar || undefined"
-          :alt="currentPlayer.name"
-          size="sm"
-        />
+    <!-- Bottom-left status stack (status text + score widget) -->
+    <div class="bottom-left-stack">
+      <!-- Status indicators (above score widget) -->
+      <div v-if="isSubmitting" class="status-indicators">
+        <div v-if="isJudge" class="judge-banner">
+          <Icon name="mdi:gavel" class="text-amber-400 text-lg" />
+          <span>{{ t("game.you_are_judge") }}</span>
+        </div>
+
+        <div v-if="!isJudge && submissions[myId]" class="submitted-message">
+          <Icon
+            name="solar:check-circle-bold"
+            class="text-green-400 text-base"
+          />
+          <span>{{ t("game.you_submitted") }}</span>
+        </div>
+
+        <p class="pile-counter">
+          {{ submissionCount }} / {{ totalParticipants }}
+          <span class="pile-counter-label">{{
+            t("game.player_submitted")
+          }}</span>
+        </p>
       </div>
-      <div class="my-score-info">
-        <span class="my-score-name">{{ currentPlayer.name }}</span>
-        <span class="my-score-role">
-          <Icon v-if="isJudge" name="mdi:gavel" class="text-amber-400" />
-          {{ isJudge ? t("game.role_judge") : t("game.role_player") }}
-        </span>
-      </div>
-      <div class="my-score-value-card">
-        <span class="my-score-value">{{ getPlayerScore(myId) }}</span>
+
+      <!-- My Score Widget -->
+      <div v-if="currentPlayer && isParticipant" class="my-score-widget">
+        <div class="my-score-avatar">
+          <UAvatar
+            :src="currentPlayer.avatar || undefined"
+            :alt="currentPlayer.name"
+            size="sm"
+          />
+        </div>
+        <div class="my-score-info">
+          <span class="my-score-name">{{ currentPlayer.name }}</span>
+          <span class="my-score-role">
+            <Icon v-if="isJudge" name="mdi:gavel" class="text-amber-400" />
+            {{ isJudge ? t("game.role_judge") : t("game.role_player") }}
+          </span>
+        </div>
+        <div class="my-score-value-card">
+          <span class="my-score-value">{{ getPlayerScore(myId) }}</span>
+        </div>
       </div>
     </div>
 
@@ -1035,15 +1152,19 @@ function handleSelectWinner(playerId: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding-top: 5.5rem;
   padding-bottom: 8rem;
 }
 
-/* ── Player Seats Arc ───────────────────────────────────────── */
+/* ── Player Seats Arc (docked to top) ──────────────────────── */
 .seats-arc {
-  position: relative;
+  position: fixed;
+  top: 110px;
+  left: 0;
   width: 100%;
-  height: 140px;
-  margin-bottom: 1.5rem;
+  height: 70px;
+  z-index: 40;
+  pointer-events: none;
 }
 
 .player-seat {
@@ -1051,9 +1172,10 @@ function handleSelectWinner(playerId: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.2rem;
   transition: all 0.3s ease;
   cursor: default;
+  pointer-events: auto;
 }
 
 /* ── Avatar Ring (thick dark border) ──────────────────────── */
@@ -1080,9 +1202,9 @@ function handleSelectWinner(playerId: string) {
 }
 
 .seat-avatar-img {
-  width: 72px !important;
-  height: 72px !important;
-  font-size: 2rem;
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 1.35rem;
 }
 
 /* ── Submitted ring glow ──────────────────────────────────── */
@@ -1114,13 +1236,13 @@ function handleSelectWinner(playerId: string) {
 /* ── Score Card Badge (top-right, mini playing card) ──────── */
 .score-card-badge {
   position: absolute;
-  top: -8px;
-  right: -12px;
-  width: 34px;
-  height: 44px;
+  top: -6px;
+  right: -10px;
+  width: 26px;
+  height: 34px;
   background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 2px solid rgba(100, 116, 139, 0.4);
-  border-radius: 5px;
+  border: 1.5px solid rgba(100, 116, 139, 0.4);
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1129,7 +1251,7 @@ function handleSelectWinner(playerId: string) {
   opacity: 0;
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
 
@@ -1140,7 +1262,7 @@ function handleSelectWinner(playerId: string) {
 
 .score-card-value {
   font-family: "Bebas Neue", sans-serif;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   color: rgba(241, 245, 249, 0.95);
   letter-spacing: 0.02em;
   line-height: 1;
@@ -1196,10 +1318,10 @@ function handleSelectWinner(playerId: string) {
 
 .seat-name {
   font-family: "Bebas Neue", sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.7rem;
   color: rgba(148, 163, 184, 0.9);
   letter-spacing: 0.04em;
-  max-width: 90px;
+  max-width: 70px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1217,12 +1339,16 @@ function handleSelectWinner(playerId: string) {
 
 /* ── Overflow List ──────────────────────────────────────────── */
 .overflow-list {
+  position: fixed;
+  top: 152px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
   padding: 0.5rem;
+  z-index: 40;
   background: rgba(30, 41, 59, 0.4);
   border-radius: 0.75rem;
   max-width: 90%;
@@ -1292,11 +1418,27 @@ function handleSelectWinner(playerId: string) {
   white-space: nowrap;
 }
 
-/* ── My Score Widget (bottom-left) ───────────────────────── */
-.my-score-widget {
+/* ── Bottom-left status stack ────────────────────────────── */
+.bottom-left-stack {
   position: fixed;
   bottom: 1.25rem;
   left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  z-index: 60;
+}
+
+.status-indicators {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+/* ── My Score Widget (bottom-left) ───────────────────────── */
+.my-score-widget {
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -1312,7 +1454,6 @@ function handleSelectWinner(playerId: string) {
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  z-index: 60;
   transition: all 0.3s ease;
 }
 
@@ -1432,50 +1573,47 @@ function handleSelectWinner(playerId: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
   width: 100%;
 }
 
 .judge-banner {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1.25rem;
+  gap: 0.35rem;
+  padding: 0.3rem 0.85rem;
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: 9999px;
   font-family: "Bebas Neue", sans-serif;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   letter-spacing: 0.04em;
   color: rgba(245, 158, 11, 0.9);
   text-transform: uppercase;
 }
 
-/* ── Phase Header ────────────────────────────────────────────── */
-.phase-header {
-  text-align: center;
-}
-
-.phase-title {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 2rem;
-  color: rgba(241, 245, 249, 0.95);
-  letter-spacing: 0.04em;
+/* ── Judging Info Bar ────────────────────────────────────────── */
+.judging-info {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   justify-content: center;
-}
-
-.phase-subtitle {
+  gap: 0.5rem;
+  padding: 0.35rem 1rem;
   font-family: "Bebas Neue", sans-serif;
-  font-size: 1.1rem;
-  color: rgba(148, 163, 184, 0.7);
-  letter-spacing: 0.06em;
+  font-size: 1.15rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(245, 158, 11, 0.85);
 }
 
-.phase-subtitle--waiting {
+.judging-info-icon {
+  font-size: 1.25rem;
+  color: rgba(245, 158, 11, 0.9);
+}
+
+.judging-info--waiting {
+  color: rgba(148, 163, 184, 0.7);
   animation: pulse-text 2s ease-in-out infinite;
 }
 
@@ -1506,15 +1644,15 @@ function handleSelectWinner(playerId: string) {
   margin: 0 auto;
 }
 
-/* ── Judging Grid ────────────────────────────────────────────── */
+/* ── Judging Row (blackjack-style centred) ───────────────────── */
 .judging-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
-  gap: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 1rem;
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0.5rem;
+  padding: 0.25rem;
 }
 
 .grid-cell {
@@ -1523,17 +1661,19 @@ function handleSelectWinner(playerId: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 240px;
   border: 2px dashed rgba(100, 116, 139, 0.25);
-  border-radius: 1rem;
-  background: rgba(30, 41, 59, 0.15);
-  padding: 1rem 0.5rem;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0.75rem;
+  background: rgba(30, 41, 59, 0.12);
+  padding: 0.65rem;
+  transition:
+    border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .grid-cell:hover:not(.grid-cell--hidden) {
   border-color: rgba(100, 116, 139, 0.4);
-  background: rgba(30, 41, 59, 0.25);
+  background: rgba(30, 41, 59, 0.2);
 }
 
 .grid-cell--clickable {
@@ -1570,29 +1710,32 @@ function handleSelectWinner(playerId: string) {
 
 .grid-cell-number {
   position: absolute;
-  top: 0.5rem;
-  left: 0.75rem;
+  top: 0.3rem;
+  left: 0.45rem;
   font-family: "Bebas Neue", sans-serif;
-  font-size: 0.85rem;
-  color: rgba(100, 116, 139, 0.35);
+  font-size: 0.75rem;
+  color: rgba(100, 116, 139, 0.3);
   letter-spacing: 0.04em;
   user-select: none;
   pointer-events: none;
 }
 
-/* ── Unified Card (individual card wrapper) ──────────────────── */
-.unified-card {
-  will-change: transform;
+/* Strip submission-group chrome inside judging cells — cell provides the border */
+.grid-cell .submission-group {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  min-width: auto;
+  gap: 0.5rem;
 }
 
-/* Pile mode: absolute positioned, stacked — GSAP controls transform. */
+/* Pile mode: absolute positioned, stacked — Vue :style controls transform + opacity. */
 .unified-card--pile {
   position: absolute;
   inset: 0;
   margin: auto;
   width: fit-content;
   height: fit-content;
-  opacity: 0;
 }
 
 /* Grid mode: normal flow inside cell */
@@ -1612,30 +1755,33 @@ function handleSelectWinner(playerId: string) {
 
 .pile-counter {
   font-family: "Bebas Neue", sans-serif;
-  font-size: 1.5rem;
+  font-size: 0.9rem;
   color: rgba(148, 163, 184, 0.9);
-  text-align: center;
+  text-align: left;
   letter-spacing: 0.05em;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .pile-counter-label {
-  display: block;
-  font-size: 0.8rem;
+  display: inline;
+  font-size: 0.75rem;
   color: rgba(100, 116, 139, 0.7);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  margin-left: 0.25rem;
 }
 
 .submitted-message {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.25);
   border-radius: 9999px;
   font-family: "Bebas Neue", sans-serif;
-  font-size: 1rem;
+  font-size: 0.8rem;
   color: rgba(34, 197, 94, 0.9);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1782,13 +1928,12 @@ function handleSelectWinner(playerId: string) {
   }
 
   .judging-grid {
-    gap: 1.5rem;
-    padding: 1rem;
+    gap: 1.25rem;
+    padding: 0.5rem;
   }
 
   .grid-cell {
-    min-height: 280px;
-    padding: 1.25rem 0.75rem;
+    padding: 0.85rem;
   }
 }
 

@@ -53,7 +53,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // --- Delete the bot player document ---
+  const botName = botRes.documents[0]!.name || botUserId;
   await databases.deleteDocument(DB, PLAYER, botRes.documents[0]!.$id);
+
+  // --- Send system chat message server-side ---
+  await sendSystemChatMessage(lobbyId, `${botName} left the lobby`);
 
   return { success: true };
 });

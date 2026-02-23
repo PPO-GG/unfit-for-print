@@ -13,7 +13,7 @@ defineProps({
 
 <template>
   <div
-    class="relative w-32 md:w-48 lg:w-56 aspect-[3/4] outline-2 outline-slate-400/25 md:outline-offset-6 outline-offset-2 outline-dashed rounded-xl"
+    class="relative w-[clamp(6rem,12vw,18rem)] aspect-[3/4] outline-2 outline-slate-400/25 md:outline-offset-4 outline-offset-2 outline-dashed rounded-xl"
   >
     <!-- Stack effect with multiple cards -->
     <div
@@ -45,3 +45,10 @@ defineProps({
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Override card component's fixed width so it inherits from the deck container */
+:deep(.card-scaler) {
+  width: 100% !important;
+}
+</style>

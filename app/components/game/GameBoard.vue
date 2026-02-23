@@ -130,6 +130,9 @@ function handleCardSubmit(cardIds: string[]) {
 // ── Winner Flow ─────────────────────────────────────────────────
 const winnerSelected = ref(false);
 const localRoundWinner = ref<string | null>(null);
+// Snapshot of the winner at the moment the server confirms.
+// Immune to reactive state changes during the 2-second celebration delay.
+const confirmedRoundWinner = ref<string | null>(null);
 let nextRoundTimeout: NodeJS.Timeout | null = null;
 let hasTriggeredNextRound = false;
 
@@ -152,6 +155,10 @@ watch(
       // Clear local optimistic winner since server confirmed
       localRoundWinner.value = null;
 
+      // Snapshot the winner ID so the celebration overlay is immune
+      // to reactive state changes during the 2-second delay.
+      confirmedRoundWinner.value = newWinner;
+
       // Play sound effect (skip for judge — they already heard it in handleSelectWinner)
       if (!isJudge.value) {
         playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
@@ -160,16 +167,6 @@ watch(
       // Show the celebration after a brief delay to let winning card highlight
       setTimeout(() => {
         winnerSelected.value = true;
-
-        // Notify the winner
-        if (newWinner === myId) {
-          notify({
-            title: t("game.round_won_self"),
-            color: "success",
-            icon: "i-mdi-trophy",
-            duration: 5000,
-          });
-        }
 
         // Auto-start next round after 5 seconds
         hasTriggeredNextRound = false;
@@ -203,6 +200,7 @@ watch(
   () => {
     winnerSelected.value = false;
     localRoundWinner.value = null;
+    confirmedRoundWinner.value = null;
     hasTriggeredNextRound = false;
   },
 );
@@ -340,10 +338,10 @@ function handleLeave() {
 
       <main class="flex-1 p-2 md:p-6 flex flex-col overflow-hidden relative">
         <!-- Card Decks — flanking left/right, out of document flow -->
-        <div class="card-deck card-deck--black">
+        <div class="absolute left-10 top-10 z-10">
           <BlackCardDeck :black-card="blackCard ?? undefined" />
         </div>
-        <div class="card-deck card-deck--white">
+        <div class="absolute right-10 top-10 z-10">
           <WhiteCardDeck />
         </div>
 
@@ -362,6 +360,7 @@ function handleLeave() {
           :phase="activePhase"
           :revealed-cards="revealedCards"
           :effective-round-winner="effectiveRoundWinner"
+          :confirmed-round-winner="confirmedRoundWinner"
           :winner-selected="winnerSelected"
           :winning-cards="state?.winningCards || []"
           :scores="state?.scores || {}"
@@ -388,35 +387,42 @@ function handleLeave() {
 .card-deck {
   position: absolute;
   z-index: 10;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0.5rem;
 }
 
 .card-deck--black {
-  left: 1rem;
+  left: 0.5rem;
 }
 
 .card-deck--white {
-  right: 1rem;
+  right: 0.5rem;
 }
 
 @media (min-width: 768px) {
+  .card-deck {
+    top: 0.75rem;
+  }
+
+  .card-deck--black {
+    left: 1rem;
+  }
+
+  .card-deck--white {
+    right: 1rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .card-deck {
+    top: 1rem;
+  }
+
   .card-deck--black {
     left: 1.5rem;
   }
 
   .card-deck--white {
     right: 1.5rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .card-deck--black {
-    left: 2rem;
-  }
-
-  .card-deck--white {
-    right: 2rem;
   }
 }
 </style>

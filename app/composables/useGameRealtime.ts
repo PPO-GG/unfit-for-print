@@ -177,20 +177,22 @@ export function useGameRealtime(options: {
     // 👥 Player Realtime
     const playersTopic = `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwritePlayerCollectionId}.documents`;
 
-    const debouncedJoinNotification = debounce(async (player: Player) => {
+    const handleJoinNotification = async (player: Player) => {
       await playSfx(SFX.playerJoin);
       notify({
         title: t("lobby.player_joined", { name: player.name }),
         color: "success",
         icon: "i-mdi-account-plus",
       });
-      if (isHost.value) {
+      // Bot system messages are created server-side in /api/bot/add
+      // Only send client-side system message for human players
+      if (isHost.value && player.playerType !== "bot") {
         await sendSystemMessage(
           lobbyId,
           t("lobby.player_joined", { name: player.name }),
         );
       }
-    }, 2000);
+    };
 
     const debouncedLeaveNotification = debounce(async (player: Player) => {
       await playSfx(SFX.playerJoin, { pitch: 0.8 });
@@ -199,7 +201,9 @@ export function useGameRealtime(options: {
         color: "warning",
         icon: "i-mdi-account-remove",
       });
-      if (isHost.value) {
+      // Bot system messages are created server-side in /api/bot/remove
+      // Only send client-side system message for human players
+      if (isHost.value && player.playerType !== "bot") {
         await sendSystemMessage(
           lobbyId,
           t("lobby.player_left", { name: player.name }),
@@ -254,7 +258,7 @@ export function useGameRealtime(options: {
           playerLobbyId === lobbyId &&
           player.userId !== userStore.user?.$id
         ) {
-          debouncedJoinNotification(player);
+          handleJoinNotification(player);
         }
 
         const isDelete = events.some(

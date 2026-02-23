@@ -1,6 +1,6 @@
 <template>
   <div
-    class="card-scaler select-none perspective-distant justify-center flex items-center w-32 md:w-44 lg:w-56 aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none perspective-distant justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
   >
     <div
       ref="card"
@@ -300,17 +300,9 @@ onMounted(async () => {
   height: 100%;
   background: transparent;
   border-radius: 12px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   transform-style: preserve-3d;
   position: relative;
-  transition:
-    transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    box-shadow 0.3s ease;
-  will-change: transform;
-}
-
-.card:hover {
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+  transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .card--flipped {
@@ -337,24 +329,8 @@ onMounted(async () => {
   font-size: 1.25rem;
   text-align: center;
   border-radius: 12px;
-  overflow: hidden;
-  transform-style: preserve-3d;
   /* Ensure content is positioned correctly */
   z-index: 1;
-  outline: 1px solid transparent;
-}
-
-.card__face::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 6px solid rgba(0, 0, 0, 0.25);
-  pointer-events: none;
-  z-index: 10;
-  border-radius: 12px;
-  -webkit-box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
-  -moz-box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
-  box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
 }
 
 .card__front,
@@ -364,9 +340,6 @@ onMounted(async () => {
   height: 100%;
   top: 0;
   left: 0;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transform-style: preserve-3d;
   border-radius: 12px;
 }
 
@@ -376,7 +349,6 @@ onMounted(async () => {
 
 .card__back {
   background-color: #e7e1de;
-  transform: rotateY(180deg);
 }
 
 /* Ensure shine effect is properly positioned on both sides */
@@ -390,15 +362,7 @@ onMounted(async () => {
   border-radius: 12px;
 }
 
-/* We'll use backface-visibility instead of display:none to allow 3D effects */
-.card__front {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
 .card__back {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
   transform: rotateY(180deg);
 }
 
@@ -421,10 +385,32 @@ onMounted(async () => {
   z-index: 1;
   color: black;
   border-radius: 12px;
+  /* overflow:hidden moved here from .card__face to avoid Firefox 3D compositing seam artifacts */
+  overflow: hidden;
+}
+
+/* Decorative border + vignette — on .card-content (clipped by overflow:hidden) instead of .card__face (in the 3D chain) to avoid Firefox rectangular bounding box artifacts */
+.card-content::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 6px solid rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 10;
+  border-radius: 12px;
+  box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
 }
 
 .card-scaler {
   container-type: inline-size;
+  /* Shadow lives here (outside preserve-3d chain) to avoid Firefox compositing flicker */
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.card-scaler:hover {
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
 }
 
 .card-text {

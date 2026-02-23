@@ -101,6 +101,9 @@ export default defineEventHandler(async (event) => {
     ['read("any")', 'update("any")', 'delete("any")'],
   );
 
+  // --- Send system chat message server-side (no client round-trip) ---
+  await sendSystemChatMessage(lobbyId, `${botName} joined the lobby`);
+
   return {
     success: true,
     bot: {
