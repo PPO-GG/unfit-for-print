@@ -6,6 +6,8 @@
   "chat.error_cannot_send": "Your message was not able to be sent",
   "chat.error_loading_messages": "Failed to load messages",
   "chat.error_sending": "There was an error sending your message.",
+  "chat.load_more": "Load older messages…",
+  "chat.loading": "Loading…",
   "chat.no_messages": "No messages yet...",
   "chat.placeholder": "Type a message...",
   "chat.profanity_description": "This toggles profanity filtering",

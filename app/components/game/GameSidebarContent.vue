@@ -28,6 +28,7 @@ const emit = defineEmits<{
   (e: "start-game"): void;
   (e: "convert-spectator", playerId: string): void;
   (e: "skip-player", playerId: string): void;
+  (e: "skip-judge"): void;
   (e: "update:settings", settings: GameSettings): void;
   (e: "close"): void;
 }>();
@@ -152,6 +153,7 @@ const { botPlayers, canAddBot, addingBot, botError, addBot } = useBots(
     :skipped-players="state?.skippedPlayers || []"
     @convert-spectator="emit('convert-spectator', $event)"
     @skip-player="emit('skip-player', $event)"
+    @skip-judge="emit('skip-judge')"
   />
 
   <!-- Bot Controls (host only, waiting phase) -->
@@ -175,11 +177,7 @@ const { botPlayers, canAddBot, addingBot, botError, addBot } = useBots(
   </div>
 
   <!-- Chat -->
-  <ChatBox
-    v-if="joinedLobby"
-    :current-user-id="myId"
-    :lobby-id="lobby?.$id || ''"
-  />
+  <ChatBox v-if="joinedLobby" :lobby-id="lobby?.$id || ''" />
 
   <!-- Waiting room controls -->
   <div v-if="isWaiting">

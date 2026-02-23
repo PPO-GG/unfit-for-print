@@ -17,6 +17,16 @@
         @scroll="handleScroll"
         class="flex-1 overflow-y-auto p-2 space-y-1 max-h-80 border-2 border-b-0 border-slate-500 bg-slate-800 rounded-t-lg"
       >
+        <!-- Load more button -->
+        <div v-if="hasMore" class="text-center py-1">
+          <button
+            @click="loadOlderMessages"
+            :disabled="loadingMore"
+            class="text-sm text-primary-400 hover:text-primary-300 disabled:text-gray-500 disabled:cursor-wait"
+          >
+            {{ loadingMore ? t("chat.loading") : t("chat.load_more") }}
+          </button>
+        </div>
         <div
           v-for="(msg, index) in messages"
           :key="msg.$id"
@@ -198,6 +208,9 @@ const errorMessage = ref<string | null>(null);
 const optimisticIds = new Set<string>();
 
 const isMessageEmpty = computed(() => !newMessage.value.trim());
+const hasMore = ref(false);
+const loadingMore = ref(false);
+const MESSAGES_PER_PAGE = 100;
 
 const filter = new Filter();
 
@@ -214,6 +227,15 @@ function uidToHSLColor(uid: string): string {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
+const applyFilters = (doc: any): ChatMessage => {
+  const text = Array.isArray(doc.text) ? doc.text.join(" ") : doc.text;
+  const safe = sanitize(text);
+  return {
+    ...doc,
+    text: prefs.chatProfanityFilter ? filter.clean(safe) : safe,
+  };
+};
+
 const loadMessages = async () => {
   try {
     errorMessage.value = null;
@@ -223,19 +245,15 @@ const loadMessages = async () => {
       return () => {};
     }
 
+    // Load the latest N messages (descending), then reverse for display
     const res = await databases.listDocuments(dbId, messagesCollectionId, [
       Query.equal("lobbyId", props.lobbyId),
-      Query.orderAsc("timeStamp"),
+      Query.orderDesc("timeStamp"),
+      Query.limit(MESSAGES_PER_PAGE),
     ]);
 
-    messages.value = res.documents.map((doc: any) => {
-      const text = Array.isArray(doc.text) ? doc.text.join(" ") : doc.text;
-      const safe = sanitize(text);
-      return {
-        ...doc,
-        text: prefs.chatProfanityFilter ? safe : filter.clean(safe),
-      };
-    }) as ChatMessage[];
+    hasMore.value = res.total > res.documents.length;
+    messages.value = res.documents.reverse().map(applyFilters) as ChatMessage[];
 
     return client.subscribe(
       `databases.${dbId}.collections.${messagesCollectionId}.documents`,
@@ -251,14 +269,26 @@ const loadMessages = async () => {
               return;
             }
 
-            const text = Array.isArray(doc.text)
-              ? doc.text.join(" ")
-              : doc.text;
-            const safe = sanitize(text);
-            const safeDoc = {
-              ...doc,
-              text: prefs.chatProfanityFilter ? safe : filter.clean(safe),
-            };
+            // Race-condition guard: if the realtime echo arrives before $fetch
+            // returns, optimisticIds won't have the real ID yet. Detect this by
+            // checking for a pending optimistic message from the same sender.
+            if (doc.senderId === userStore.user?.$id) {
+              const pendingIdx = messages.value.findIndex(
+                (m) =>
+                  m.$id.startsWith("__optimistic_") &&
+                  m.senderId === doc.senderId,
+              );
+              if (pendingIdx !== -1) {
+                // Replace the optimistic placeholder with the real message
+                const safeDoc = applyFilters(doc);
+                messages.value.splice(pendingIdx, 1, safeDoc);
+                // Mark as handled so the later $fetch dedup also skips it
+                optimisticIds.add(doc.$id);
+                return;
+              }
+            }
+
+            const safeDoc = applyFilters(doc);
             messages.value.push(safeDoc);
             if (safeDoc.senderId !== userStore.user?.$id) {
               playSfx(SFX.chatReceive);
@@ -276,6 +306,30 @@ const loadMessages = async () => {
   } catch (error) {
     errorMessage.value = t("chat.error_loading_messages");
     return () => {};
+  }
+};
+
+const loadOlderMessages = async () => {
+  if (loadingMore.value || !hasMore.value || !props.lobbyId) return;
+  loadingMore.value = true;
+
+  try {
+    const res = await databases.listDocuments(dbId, messagesCollectionId, [
+      Query.equal("lobbyId", props.lobbyId),
+      Query.orderDesc("timeStamp"),
+      Query.limit(MESSAGES_PER_PAGE),
+      Query.offset(messages.value.length),
+    ]);
+
+    const olderMessages = res.documents
+      .reverse()
+      .map(applyFilters) as ChatMessage[];
+    messages.value = [...olderMessages, ...messages.value];
+    hasMore.value = messages.value.length < res.total;
+  } catch (error) {
+    console.error("Failed to load older messages:", error);
+  } finally {
+    loadingMore.value = false;
   }
 };
 
@@ -331,8 +385,8 @@ const sendMessage = async () => {
     senderId: userId,
     senderName,
     text: prefs.chatProfanityFilter
-      ? truncatedMessage
-      : filter.clean(truncatedMessage),
+      ? filter.clean(truncatedMessage)
+      : truncatedMessage,
     timeStamp: new Date().toISOString(),
     // Satisfy Models.Document shape with stubs
     $collectionId: "",
