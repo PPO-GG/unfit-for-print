@@ -32,13 +32,6 @@ const botError = ref<string | null>(null);
 const botActionsInFlight = new Set<string>();
 let pendingBotTimers: ReturnType<typeof setTimeout>[] = [];
 
-// Only ONE useBots instance should run the game-state watcher that drives
-// processBotsForPhase. This counter tracks the "current orchestrator".
-// When a new instance mounts it claims orchestration; when it unmounts it
-// releases it so a surviving instance can take over on the next mount.
-let nextOrchId = 0;
-let activeOrchId: number | null = null;
-
 export function useBots(
   lobby: Ref<Lobby | null>,
   players: Ref<Player[]>,
@@ -163,6 +156,8 @@ export function useBots(
   // The host's client watches game state and fires bot actions automatically.
   // botActionsInFlight & pendingBotTimers are module-level singletons
   // shared across all useBots instances to prevent duplicate actions.
+  // Multiple component instances may call processBotsForPhase concurrently,
+  // but the botActionsInFlight set ensures each action only fires once.
 
   const processBotsForPhase = async (state: GameState) => {
     if (!isHost.value || !lobby.value) return;
@@ -270,36 +265,27 @@ export function useBots(
     }
   };
 
-  // ─── Orchestrator Guard ──────────────────────────────────────────────
-  // Claim orchestration for this instance. If another useBots() already
-  // registered a watcher, it will stop processing once our ID takes over.
-  const myOrchId = nextOrchId++;
-  activeOrchId = myOrchId;
-
-  // Watch for game state changes and trigger bot actions.
-  // Only the active orchestrator instance actually processes.
+  // ─── Game State Watcher ──────────────────────────────────────────────
+  // Every useBots instance registers a watcher, but botActionsInFlight
+  // (a module-level singleton Set) ensures each action fires only once.
+  // This is safe because action keys like `play-${botId}-${round}` are
+  // unique and checked before scheduling any work.
   const stopWatcher = watch(
     gameState,
     (newState) => {
-      if (activeOrchId !== myOrchId) return; // another instance took over
       if (!newState || !isHost.value) return;
       processBotsForPhase(newState);
     },
     { immediate: true },
   );
 
-  // Release orchestration when this component unmounts so a surviving
-  // instance (e.g. sidebar still open) can claim it on next mount.
+  // Clean up watcher when this component unmounts.
+  // We do NOT clear botActionsInFlight here — other surviving instances
+  // may still have pending timers referencing those keys. The timers
+  // themselves clean up their own keys via .finally() callbacks.
   if (getCurrentInstance()) {
     onUnmounted(() => {
       stopWatcher();
-      if (activeOrchId === myOrchId) {
-        activeOrchId = null;
-        // Cancel any pending timers from this orchestration
-        for (const t of pendingBotTimers) clearTimeout(t);
-        pendingBotTimers = [];
-        botActionsInFlight.clear();
-      }
     });
   }
 
