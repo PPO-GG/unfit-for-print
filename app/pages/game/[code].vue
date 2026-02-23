@@ -440,6 +440,30 @@ async function handleSkipPlayer(playerId: string) {
     });
   }
 }
+
+async function handleSkipJudge() {
+  if (!lobby.value) return;
+  try {
+    await $fetch("/api/game/skip-judge", {
+      method: "POST",
+      body: { lobbyId: lobby.value.$id, userId: userStore.user?.$id },
+    });
+    const judgeName = getPlayerName(state.value?.judgeId || null);
+    notify({
+      title: `Judge ${judgeName} was skipped — no winner this round`,
+      color: "warning",
+      icon: "i-mdi-gavel",
+      duration: 3000,
+    });
+  } catch (err: any) {
+    console.error("Failed to skip judge:", err);
+    notify({
+      title: "Failed to skip judge",
+      color: "error",
+      icon: "i-mdi-alert-circle",
+    });
+  }
+}
 </script>
 
 <template>
@@ -528,6 +552,7 @@ async function handleSkipPlayer(playerId: string) {
           @start-game="startGameWrapper"
           @convert-spectator="convertToPlayer"
           @skip-player="handleSkipPlayer"
+          @skip-judge="handleSkipJudge"
           @update:settings="handleSettingsUpdate"
         />
       </aside>
@@ -560,6 +585,7 @@ async function handleSkipPlayer(playerId: string) {
               @start-game="startGameWrapper"
               @convert-spectator="convertToPlayer"
               @skip-player="handleSkipPlayer"
+              @skip-judge="handleSkipJudge"
               @update:settings="handleSettingsUpdate"
               @close="isSidebarOpen = false"
             />

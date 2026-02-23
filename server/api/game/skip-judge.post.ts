@@ -1,0 +1,106 @@
+// server/api/game/skip-judge.post.ts
+// Allows the host to skip an unresponsive judge during the judging phase.
+// Discards all submitted white cards and the black card,
+// then advances to roundEnd with no winner so the next round starts.
+import { Query } from "node-appwrite";
+
+export default defineEventHandler(async (event) => {
+  const body = await readBody(event);
+  const { lobbyId, userId } = body;
+
+  if (!lobbyId)
+    throw createError({
+      statusCode: 400,
+      statusMessage: "lobbyId is required",
+    });
+
+  // Auth: Caller must be the host
+  await verifyHost(userId, lobbyId);
+
+  const { DB, LOBBY, GAMECARDS } = getCollectionIds();
+  const databases = getAdminDatabases();
+
+  return withRetry(async () => {
+    try {
+      // --- Fetch lobby and decode state ---
+      const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+      const capturedVersion = lobby.$updatedAt;
+      const state = decodeGameState(lobby.gameState);
+
+      // --- Validation ---
+      if (state.phase !== "judging") {
+        throw createError({
+          statusCode: 400,
+          statusMessage: "Can only skip the judge during judging phase",
+        });
+      }
+
+      // --- Fetch gamecards document ---
+      const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
+        Query.equal("lobbyId", lobbyId),
+      ]);
+      if (gameCardsQuery.documents.length === 0) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: `No gamecards document found for lobby ${lobbyId}`,
+        });
+      }
+      const gameCards = gameCardsQuery.documents[0]!;
+
+      // Merge discard piles from gameCards
+      state.discardWhite = gameCards.discardWhite || [];
+      state.discardBlack = gameCards.discardBlack || [];
+
+      // --- Discard all submitted white cards ---
+      if (state.submissions) {
+        Object.values(state.submissions as Record<string, string[]>)
+          .flat()
+          .forEach((id: string) => state.discardWhite.push(id));
+      }
+
+      // --- Discard the black card ---
+      if (state.blackCard?.id) {
+        state.discardBlack.push(state.blackCard.id);
+      }
+
+      // --- Clear submissions and advance to roundEnd ---
+      state.submissions = {};
+      state.phase = "roundEnd";
+      state.roundWinner = null; // No winner this round
+      state.winningCards = null;
+      state.roundEndStartTime = Date.now();
+      state.revealedCards = {};
+
+      // --- Persist ---
+      const updatedGameCards = {
+        lobbyId: gameCards.lobbyId,
+        whiteDeck: gameCards.whiteDeck,
+        blackDeck: gameCards.blackDeck,
+        discardWhite: state.discardWhite,
+        discardBlack: state.discardBlack,
+        playerHands: gameCards.playerHands,
+      };
+
+      const coreState = extractCoreState(state);
+
+      await assertVersionUnchanged(lobbyId, capturedVersion);
+      await databases.updateDocument(
+        DB,
+        GAMECARDS,
+        gameCards.$id,
+        updatedGameCards,
+      );
+      await databases.updateDocument(DB, LOBBY, lobbyId, {
+        gameState: encodeGameState(coreState),
+      });
+
+      return {
+        success: true,
+        skippedJudgeId: state.judgeId,
+      };
+    } catch (err: any) {
+      if (err.statusCode) throw err;
+      throw createError({ statusCode: 500, statusMessage: err.message });
+    }
+  });
+});

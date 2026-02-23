@@ -22,6 +22,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "convert-spectator", playerId: string): void;
   (e: "skip-player", playerId: string): void;
+  (e: "skip-judge"): void;
 }>();
 
 // Create a ref for the lobby and initialize it with basic data
@@ -138,6 +139,14 @@ const canSkipPlayer = (player: Player) => {
     player.playerType !== "spectator" &&
     !props.submissions?.[player.userId] &&
     !isPlayerSkipped(player.userId)
+  );
+};
+
+const canSkipJudge = (player: Player) => {
+  return (
+    isHost.value &&
+    props.gamePhase === "judging" &&
+    player.userId === props.judgeId
   );
 };
 
@@ -299,6 +308,16 @@ const getPlayerAvatarUrl = (player: Player) => {
             square
             :title="t('game.skip_player')"
             @click="emit('skip-player', player.userId)"
+          />
+          <UButton
+            v-if="canSkipJudge(player)"
+            icon="i-mdi-gavel"
+            color="warning"
+            variant="ghost"
+            size="xs"
+            square
+            title="Skip Judge"
+            @click="emit('skip-judge')"
           />
           <UButton
             v-if="
