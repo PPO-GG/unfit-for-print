@@ -3,7 +3,15 @@
 // Watches game state and triggers bot actions (play cards, judge) via server API.
 // Only runs logic on the host's client to avoid duplicate bot actions.
 
-import { ref, watch, computed, type Ref, type ComputedRef } from "vue";
+import {
+  ref,
+  watch,
+  computed,
+  getCurrentInstance,
+  onUnmounted,
+  type Ref,
+  type ComputedRef,
+} from "vue";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import type { GameState } from "~/types/game";
@@ -15,6 +23,21 @@ const MAX_BOTS = 5;
 // from multiple component mounts (desktop sidebar + mobile slideover)
 const addingBot = ref(false);
 const botError = ref<string | null>(null);
+
+// Shared across all useBots instances to prevent duplicate bot actions.
+// Previously these were local to each useBots() call, meaning each
+// component mount (page, sidebar, slideover) had its own independent
+// guards — causing duplicate judge/play actions that overwrote each
+// other's winner selections with different random picks.
+const botActionsInFlight = new Set<string>();
+let pendingBotTimers: ReturnType<typeof setTimeout>[] = [];
+
+// Only ONE useBots instance should run the game-state watcher that drives
+// processBotsForPhase. This counter tracks the "current orchestrator".
+// When a new instance mounts it claims orchestration; when it unmounts it
+// releases it so a surviving instance can take over on the next mount.
+let nextOrchId = 0;
+let activeOrchId: number | null = null;
 
 export function useBots(
   lobby: Ref<Lobby | null>,
@@ -138,10 +161,8 @@ export function useBots(
 
   // ─── Automated Bot Behavior (host-only) ──────────────────────────────
   // The host's client watches game state and fires bot actions automatically.
-
-  const botActionsInFlight = new Set<string>();
-  // Track pending setTimeout handles so we can cancel them on phase change
-  let pendingBotTimers: ReturnType<typeof setTimeout>[] = [];
+  // botActionsInFlight & pendingBotTimers are module-level singletons
+  // shared across all useBots instances to prevent duplicate actions.
 
   const processBotsForPhase = async (state: GameState) => {
     if (!isHost.value || !lobby.value) return;
@@ -249,15 +270,38 @@ export function useBots(
     }
   };
 
-  // Watch for game state changes and trigger bot actions
-  watch(
+  // ─── Orchestrator Guard ──────────────────────────────────────────────
+  // Claim orchestration for this instance. If another useBots() already
+  // registered a watcher, it will stop processing once our ID takes over.
+  const myOrchId = nextOrchId++;
+  activeOrchId = myOrchId;
+
+  // Watch for game state changes and trigger bot actions.
+  // Only the active orchestrator instance actually processes.
+  const stopWatcher = watch(
     gameState,
     (newState) => {
+      if (activeOrchId !== myOrchId) return; // another instance took over
       if (!newState || !isHost.value) return;
       processBotsForPhase(newState);
     },
     { immediate: true },
   );
+
+  // Release orchestration when this component unmounts so a surviving
+  // instance (e.g. sidebar still open) can claim it on next mount.
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      stopWatcher();
+      if (activeOrchId === myOrchId) {
+        activeOrchId = null;
+        // Cancel any pending timers from this orchestration
+        for (const t of pendingBotTimers) clearTimeout(t);
+        pendingBotTimers = [];
+        botActionsInFlight.clear();
+      }
+    });
+  }
 
   return {
     // State
