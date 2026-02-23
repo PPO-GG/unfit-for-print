@@ -311,6 +311,13 @@ watch(
       const destX = elRect.left + elRect.width / 2;
       const destY = elRect.top + elRect.height / 2;
 
+      const cardWidth = el.offsetWidth;
+      const cardHeight = el.offsetHeight;
+
+      // Re-hide the real card immediately after measuring so it doesn't
+      // flash at the destination while the ghost clone flies in.
+      gsap.set(el, { opacity: 0 });
+
       // ── Step 2: Determine where the card should fly FROM ──────────
       let fromX = destX;
       let fromY = destY;
@@ -347,8 +354,8 @@ watch(
         position: fixed;
         left: 0;
         top: 0;
-        width: ${elRect.width}px;
-        height: ${elRect.height}px;
+        width: ${cardWidth}px;
+        height: ${cardHeight}px;
         pointer-events: none;
         z-index: 9999;
         opacity: 1;
@@ -368,14 +375,14 @@ watch(
       gsap.fromTo(
         ghost,
         {
-          x: fromX - elRect.width / 2,
-          y: fromY - elRect.height / 2,
+          x: fromX - cardWidth / 2,
+          y: fromY - cardHeight / 2,
           rotation: startRotation,
           scale: isLocal ? 1.05 : 0.15,
         },
         {
-          x: elRect.left,
-          y: elRect.top,
+          x: destX - cardWidth / 2,
+          y: destY - cardHeight / 2,
           rotation: finalAngle.rotate,
           scale: 1,
           duration: isLocal ? 0.6 : 0.8,
