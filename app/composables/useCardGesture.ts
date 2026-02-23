@@ -35,8 +35,10 @@ export interface CardGestureOptions {
   cards: Ref<string[]>;
   /** Returns the fan-layout base transform for card at index i */
   getBaseTransform: (i: number) => { x: number; y: number; rotation: number };
-  /** Callback: snapshot selected cards and emit submission */
-  onSubmit: (cardIds: string[]) => void;
+  /** Callback: snapshot selected cards and emit submission.
+   *  Receives pre-snapshotted card elements for fly-coord capture
+   *  (elements are provided BEFORE the fling animation mutates them). */
+  onSubmit: (cardIds: string[], preSnapshotEls: HTMLElement[]) => void;
   /** Whether gestures are currently enabled */
   enabled: Ref<boolean>;
   /** Whether the component is disabled (judge, already submitted, etc.) */
@@ -231,6 +233,16 @@ export function useCardGesture(opts: CardGestureOptions) {
 
     if ((isFastEnough && isUpward) || isOverDrop) {
       // ── SUCCESS: Fling or drop ─────────────────────────────────
+
+      // CRITICAL: Snapshot the card elements NOW, while they still have
+      // correct transforms and are fully visible. The fling animation
+      // will immediately start fading/scaling them, making later
+      // getBoundingClientRect() calls return garbage coordinates.
+      const preSnapshotEls = selectedIndices
+        .map((idx) => cardRefs.value[idx])
+        .filter((el): el is HTMLElement => !!el);
+      const submittedCardIds = [...selectedCards.value];
+
       for (const idx of selectedIndices) {
         const el = cardRefs.value[idx];
         if (!el) continue;
@@ -268,9 +280,9 @@ export function useCardGesture(opts: CardGestureOptions) {
         }
       }
 
-      // Fire submission after animation
+      // Fire submission after animation (with pre-captured elements)
       setTimeout(() => {
-        onSubmit([...selectedCards.value]);
+        onSubmit(submittedCardIds, preSnapshotEls);
       }, 250);
     } else {
       // ── CANCEL: Rubber-band back ───────────────────────────────

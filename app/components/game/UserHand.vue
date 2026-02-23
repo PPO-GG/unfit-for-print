@@ -67,9 +67,10 @@ const FAN = computed(() => {
   const totalArc = Math.min(isMob ? 50 : 40, n * (isMob ? 6 : 5));
   const arcStep = n > 1 ? totalArc / (n - 1) : 0;
   const curveIntensity = isMob ? 3 : 4;
-  const spread = isMob ? 22 : Math.min(65, w / 28);
-  const hoverPush = isMob ? 20 : 35;
-  const hoverLift = isMob ? 30 : 50;
+  const spread = isMob ? 24 : Math.min(70, w / 26);
+  // Increase push and lift dramatically for better hit-detection and feel
+  const hoverPush = isMob ? 32 : 65;
+  const hoverLift = isMob ? 40 : 65;
   return { totalArc, arcStep, curveIntensity, spread, hoverPush, hoverLift };
 });
 
@@ -108,14 +109,18 @@ function animateCards() {
     if (hovered !== null) {
       if (i === hovered) {
         y -= hoverLift;
-        scale = 1.15;
-        rotation *= 0.3;
+        scale = 1.25;
+        rotation *= 0.15; // Straighten up the card significantly
         zIndex = 100;
       } else {
-        const distance = i - hovered;
-        const pushFactor = Math.max(0, 1 - Math.abs(distance) * 0.25);
-        const direction = distance > 0 ? 1 : -1;
+        const distance = Math.abs(i - hovered);
+        const direction = i > hovered ? 1 : -1;
+        // Stronger push for immediate neighbors, tapers off smoothly
+        const pushFactor = Math.max(0, 1 - (distance - 1) * 0.35);
+
         x += direction * hoverPush * pushFactor;
+        // Neighbours also get pushed slightly sideways in their angle to make room
+        rotation += direction * 4 * pushFactor;
       }
     }
 
@@ -246,11 +251,10 @@ const { isDragging, onPointerDown, onPointerMove, onPointerUp } =
     selectedCards,
     cards: toRef(props, "cards"),
     getBaseTransform,
-    onSubmit: (cardIds: string[]) => {
-      const selectedEls = cardRefs.value.filter(
-        (el, i) => el && cardIds.includes(props.cards[i] ?? ""),
-      );
-      snapshotCards(selectedEls);
+    onSubmit: (cardIds: string[], preSnapshotEls: HTMLElement[]) => {
+      // Use the pre-snapshotted elements captured BEFORE the fling
+      // animation — by this point the actual card DOM nodes are faded out.
+      snapshotCards(preSnapshotEls);
       emit("select-cards", cardIds);
       playSfx(SFX.cardThrow);
     },
@@ -275,26 +279,43 @@ function handlePointerMove(e: MouseEvent | TouchEvent) {
     clientY = e.clientY;
   }
 
-  // Only hover a card when the cursor is directly over its bounding box
-  let found: number | null = null;
-  for (let i = 0; i < cardRefs.value.length; i++) {
-    const el = cardRefs.value[i];
-    if (!el) continue;
-    const rect = el.getBoundingClientRect();
-    if (
-      clientX >= rect.left &&
-      clientX <= rect.right &&
-      clientY >= rect.top &&
-      clientY <= rect.bottom
-    ) {
-      found = i;
-      // Don't break — later cards have higher z-index, so last match wins
+  // 1. Verify we are physically touching the card fan pixels so we don't hover on empty space
+  const target = document.elementFromPoint(clientX, clientY);
+  const cardEl = target?.closest(".hand-card");
+
+  if (!cardEl) {
+    if (hoveredIndex.value !== null) {
+      hoveredIndex.value = null;
+    }
+    return;
+  }
+
+  // 2. Mathematically map the pointer's X coordinate to the closest static baseline card.
+  // This completely eliminates z-index stacking bias (which made left-to-right sweeping fail)
+  // because the hover target transitions exactly at the midpoint between two cards' origins!
+  const rect = handRef.value.getBoundingClientRect();
+  const containerCenterX = rect.left + rect.width / 2;
+  const cursorX = clientX - containerCenterX;
+
+  const n = cardRefs.value.length;
+  const center = (n - 1) / 2;
+  const { spread } = FAN.value;
+
+  let closestIndex: number | null = null;
+  let minDistance = Infinity;
+
+  for (let i = 0; i < n; i++) {
+    const baseX = (i - center) * spread;
+    const distance = Math.abs(cursorX - baseX);
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestIndex = i;
     }
   }
 
-  if (hoveredIndex.value !== found) {
-    hoveredIndex.value = found;
-    if (found !== null) playHoverSfx();
+  if (hoveredIndex.value !== closestIndex) {
+    hoveredIndex.value = closestIndex;
+    if (closestIndex !== null) playHoverSfx();
   }
 }
 
