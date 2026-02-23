@@ -140,6 +140,8 @@ export function useBots(
   // The host's client watches game state and fires bot actions automatically.
 
   const botActionsInFlight = new Set<string>();
+  // Track pending setTimeout handles so we can cancel them on phase change
+  let pendingBotTimers: ReturnType<typeof setTimeout>[] = [];
 
   const processBotsForPhase = async (state: GameState) => {
     if (!isHost.value || !lobby.value) return;
@@ -147,31 +149,97 @@ export function useBots(
     const phase = state.phase;
 
     if (phase === "submitting") {
-      // Make each bot that hasn't submitted yet play cards
+      // Make each bot that hasn't submitted yet play cards.
+      // Bots submit SEQUENTIALLY with a stagger delay so that each
+      // card fly-in animation has time to play before the next bot submits.
+      // Without this, all bots fire concurrently and the client receives
+      // a single coalesced state update with ALL submissions, causing
+      // every card to animate simultaneously.
+      const BOT_STAGGER_MS = 1200; // enough for the 0.8s fly-in + buffer
+      let staggerIndex = 0;
+
       for (const bot of botPlayers.value) {
         const actionKey = `play-${bot.userId}-${state.round}`;
         if (botActionsInFlight.has(actionKey)) continue;
         if (state.submissions?.[bot.userId]) continue; // Already submitted
         if (state.judgeId === bot.userId) continue; // Judge doesn't play
 
+        const delay = staggerIndex * BOT_STAGGER_MS;
+        staggerIndex++;
+
         botActionsInFlight.add(actionKey);
-        triggerBotAction(bot.userId, "play").finally(() => {
-          botActionsInFlight.delete(actionKey);
-        });
+        const timer = setTimeout(() => {
+          triggerBotAction(bot.userId, "play").finally(() => {
+            botActionsInFlight.delete(actionKey);
+          });
+        }, delay);
+        pendingBotTimers.push(timer);
       }
+    } else if (phase !== "judging") {
+      // Phase changed away from submitting/judging — cancel any pending bot timers
+      // to prevent stale actions from a previous round/phase.
+      // We must NOT clear during judging because each reveal updates gameState,
+      // re-triggering this function, and we need the remaining reveal + judge timers.
+      for (const t of pendingBotTimers) clearTimeout(t);
+      pendingBotTimers = [];
     }
 
     if (phase === "judging") {
-      // If the judge is a bot, pick a winner
+      // If the judge is a bot, reveal cards one-by-one then pick a winner.
+      // This mirrors the human judge experience: flip each card, pause to
+      // "think", then select a winner. Without this, the bot would skip
+      // the reveal phase entirely and judge instantly.
       const judgeBot = botPlayers.value.find((b) => b.userId === state.judgeId);
       if (judgeBot) {
         const actionKey = `judge-${judgeBot.userId}-${state.round}`;
         if (botActionsInFlight.has(actionKey)) return;
 
         botActionsInFlight.add(actionKey);
-        triggerBotAction(judgeBot.userId, "judge").finally(() => {
-          botActionsInFlight.delete(actionKey);
-        });
+
+        const REVEAL_STAGGER_MS = 1200; // time between each card reveal
+        const THINKING_DELAY_MS = 2000; // pause after all reveals before picking winner
+        const INITIAL_DELAY_MS = 1500; // pause before starting reveals
+
+        // Gather submitter IDs that haven't been revealed yet
+        const submitterIds = Object.keys(state.submissions || {}).filter(
+          (id) => !state.revealedCards?.[id],
+        );
+
+        let totalDelay = INITIAL_DELAY_MS;
+
+        // Schedule staggered reveal calls
+        for (let i = 0; i < submitterIds.length; i++) {
+          const playerId = submitterIds[i]!;
+          const revealTimer = setTimeout(async () => {
+            if (!lobby.value) return;
+            try {
+              await $fetch("/api/game/reveal-card", {
+                method: "POST",
+                body: {
+                  lobbyId: lobby.value.$id,
+                  playerId,
+                  userId: judgeBot.userId,
+                },
+              });
+            } catch (err: any) {
+              console.error(
+                `Bot judge failed to reveal card for ${playerId}:`,
+                err,
+              );
+            }
+          }, totalDelay);
+          pendingBotTimers.push(revealTimer);
+          totalDelay += REVEAL_STAGGER_MS;
+        }
+
+        // After all reveals + thinking delay, pick a winner
+        totalDelay += THINKING_DELAY_MS;
+        const judgeTimer = setTimeout(() => {
+          triggerBotAction(judgeBot.userId, "judge").finally(() => {
+            botActionsInFlight.delete(actionKey);
+          });
+        }, totalDelay);
+        pendingBotTimers.push(judgeTimer);
       }
     }
 
