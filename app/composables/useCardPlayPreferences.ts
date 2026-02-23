@@ -15,7 +15,16 @@ export type CardPlayMode = "click" | "instant" | "gesture";
 const STORAGE_KEY = "unfit-card-play-mode";
 
 export function useCardPlayPreferences() {
-  const playMode = useLocalStorage<CardPlayMode>(STORAGE_KEY, "click");
+  const isMobileOS =
+    typeof navigator !== "undefined"
+      ? /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent,
+        )
+      : false;
+  const playMode = useLocalStorage<CardPlayMode>(
+    STORAGE_KEY,
+    isMobileOS ? "gesture" : "click",
+  );
 
   const instantSubmit = computed(() => playMode.value === "instant");
   const gestureEnabled = computed(() => playMode.value === "gesture");

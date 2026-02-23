@@ -63,12 +63,13 @@ const isMobile = computed(() => windowWidth.value < 768);
 const FAN = computed(() => {
   const n = props.cards.length;
   const w = windowWidth.value;
-  const totalArc = Math.min(40, n * 5);
+  const isMob = w < 768;
+  const totalArc = Math.min(isMob ? 50 : 40, n * (isMob ? 6 : 5));
   const arcStep = n > 1 ? totalArc / (n - 1) : 0;
-  const curveIntensity = w < 768 ? 2 : 4;
-  const spread = w < 768 ? 28 : Math.min(65, w / 28);
-  const hoverPush = w < 768 ? 15 : 35;
-  const hoverLift = w < 768 ? 20 : 50;
+  const curveIntensity = isMob ? 3 : 4;
+  const spread = isMob ? 22 : Math.min(65, w / 28);
+  const hoverPush = isMob ? 20 : 35;
+  const hoverLift = isMob ? 30 : 50;
   return { totalArc, arcStep, curveIntensity, spread, hoverPush, hoverLift };
 });
 
@@ -87,7 +88,7 @@ function getBaseTransform(i: number) {
 }
 
 function animateCards() {
-  if (!cardRefs.value.length || isMobile.value) return;
+  if (!cardRefs.value.length) return;
 
   const hovered = hoveredIndex.value;
   const { hoverPush, hoverLift } = FAN.value;
@@ -143,7 +144,10 @@ watch(selectedCards, () => animateCards(), { deep: true });
 // Staggered entrance when cards change
 watch(
   () => props.cards,
-  () => {
+  (newCards, oldCards) => {
+    // Only re-animate if the actual cards changed, not just the array reference
+    if (oldCards && newCards.join(",") === oldCards.join(",")) return;
+
     // Cancel any pending auto-submit from previous round
     cancelAutoSubmit();
     selectedCards.value = [];
@@ -256,8 +260,20 @@ const { isDragging, onPointerDown, onPointerMove, onPointerUp } =
 
 // ── Interactions ────────────────────────────────────────────────────────────
 
-function handleHandMouseMove(e: MouseEvent) {
-  if (isMobile.value || !handRef.value) return;
+function handlePointerMove(e: MouseEvent | TouchEvent) {
+  if (!handRef.value || isDragging.value) return;
+
+  let clientX: number, clientY: number;
+  if ("touches" in e) {
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    clientX = touch.clientX;
+    clientY = touch.clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
 
   // Only hover a card when the cursor is directly over its bounding box
   let found: number | null = null;
@@ -266,10 +282,10 @@ function handleHandMouseMove(e: MouseEvent) {
     if (!el) continue;
     const rect = el.getBoundingClientRect();
     if (
-      e.clientX >= rect.left &&
-      e.clientX <= rect.right &&
-      e.clientY >= rect.top &&
-      e.clientY <= rect.bottom
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
     ) {
       found = i;
       // Don't break — later cards have higher z-index, so last match wins
@@ -282,23 +298,30 @@ function handleHandMouseMove(e: MouseEvent) {
   }
 }
 
+function handleTouchStart(e: TouchEvent) {
+  if (isDragging.value) return;
+  isHandActive.value = true;
+  handlePointerMove(e);
+}
+
 const isHandActive = ref(false);
 
 function handleMouseEnter() {
-  if (!isMobile.value) {
-    isHandActive.value = true;
-  }
+  isHandActive.value = true;
 }
 
 function handleMouseLeave() {
-  if (!isMobile.value) {
-    isHandActive.value = false;
-    hoveredIndex.value = null;
-  }
+  isHandActive.value = false;
+  hoveredIndex.value = null;
 }
 
 function handleHandClick() {
-  if (props.disabled || isMobile.value) return;
+  // Clear hover on empty space click for mobile
+  if (isMobile.value && !props.disabled) {
+    hoveredIndex.value = null;
+    return;
+  }
+  if (props.disabled) return;
   const index = hoveredIndex.value;
   if (index === null) return;
   const cardId = props.cards[index];
@@ -306,11 +329,9 @@ function handleHandClick() {
   toggleCardSelection(cardId, index);
 }
 
-function onCardClick(e: MouseEvent, cardId: string, index: number) {
-  if (isMobile.value) {
-    e.stopPropagation();
-    if (!props.disabled) toggleCardSelection(cardId, index);
-  }
+function onCardClick(e: MouseEvent | Event, cardId: string, index: number) {
+  e.stopPropagation();
+  if (!props.disabled) toggleCardSelection(cardId, index);
 }
 
 function toggleCardSelection(cardId: string, index: number) {
@@ -438,25 +459,24 @@ onUnmounted(() => {
       </span>
     </div>
 
-    <!-- Card fan (desktop) / scroll (mobile) -->
+    <!-- Card fan -->
     <div
       ref="handRef"
       class="hand-zone"
-      :class="{ 'hand-zone--mobile': isMobile }"
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
-      @mousemove="handleHandMouseMove"
+      @mousemove="handlePointerMove"
+      @touchmove.prevent="handlePointerMove"
+      @touchstart="handleTouchStart"
       @click="handleHandClick"
     >
-      <div :class="isMobile ? 'hand-scroll' : 'hand-arc'">
+      <div class="hand-arc">
         <div
           v-for="(cardId, index) in props.cards"
           :key="cardId"
           ref="cardRefs"
-          class="hand-card"
+          class="hand-card hand-card--fan"
           :class="{
-            'hand-card--mobile': isMobile,
-            'hand-card--fan': !isMobile,
             'hand-card--selected': selectedCards.includes(cardId),
             'hand-card--hovered': hoveredIndex === index && !isMobile,
             'hand-card--locked':
@@ -603,12 +623,6 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 
-.hand-zone--mobile {
-  overflow-x: auto;
-  padding: 0.5rem 1rem;
-  -webkit-overflow-scrolling: touch;
-}
-
 .hand-arc {
   position: relative;
   width: 100%;
@@ -618,13 +632,10 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.hand-scroll {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
-  min-width: min-content;
-  margin: 0 auto;
-  padding-bottom: 0.25rem;
+@media (max-width: 767px) {
+  .hand-arc {
+    height: 140px;
+  }
 }
 
 /* ── Individual Card ──────────────────────────────────────────── */
@@ -634,44 +645,21 @@ onUnmounted(() => {
   position: relative;
 }
 
-.hand-card--mobile {
-  position: relative;
-  flex-shrink: 0;
-  width: 8rem;
-}
-
 .hand-card--fan {
   position: absolute;
   bottom: 0;
-  width: 8rem;
-  will-change: transform;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-  transition: filter 0.2s ease;
-}
-
-.hand-card--hovered {
-  filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.5)) brightness(1.05);
-}
-
-.hand-card--selected {
-  filter: drop-shadow(0 0 16px rgba(34, 197, 94, 0.6))
-    drop-shadow(0 8px 16px rgba(0, 0, 0, 0.4));
+  width: clamp(6rem, 12vw, 18rem);
+  aspect-ratio: 3 / 4;
 }
 
 .hand-card--selected::after {
   content: "";
   position: absolute;
-  inset: -3px;
-  border-radius: 15px;
-  border: 3px solid rgba(34, 197, 94, 0.8);
+  inset: -2px;
+  border-radius: 14px;
+  border: 2px solid rgba(34, 197, 94, 0.8);
   pointer-events: none;
   animation: selection-pulse 2s ease-in-out infinite;
-}
-
-/* When auto-submit is active, locked cards get a brighter glow */
-.hand-card--locked {
-  filter: drop-shadow(0 0 24px rgba(34, 197, 94, 0.8))
-    drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
 }
 
 .hand-card--locked::after {
@@ -771,20 +759,5 @@ onUnmounted(() => {
 /* ── Gesture mode: prevent scroll conflicts on touch ─────────── */
 .user-hand--gesture .hand-zone {
   touch-action: none;
-}
-
-@media (min-width: 768px) {
-  .hand-card--fan {
-    width: 11rem;
-  }
-  .hand-card--mobile {
-    width: 11rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .hand-card--fan {
-    width: 14rem;
-  }
 }
 </style>

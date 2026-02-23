@@ -51,6 +51,8 @@ const FLICK_SPEED_THRESHOLD = 0.6;
 const MAX_SAMPLES = 5;
 /** CSS selector for the drop zone (submission pile on the game table) */
 const DROP_ZONE_SELECTOR = ".unified-card-container--pile";
+/** Minimum distance in px before a pointer-down becomes a drag */
+const DRAG_THRESHOLD = 10;
 
 /* ── Composable ────────────────────────────────────────────────────── */
 
@@ -67,6 +69,8 @@ export function useCardGesture(opts: CardGestureOptions) {
 
   /* Drag state */
   const isDragging = ref(false);
+  let isPending = false; // pointerdown received but threshold not crossed
+  let dragPointerId = -1;
   let dragIndex = -1;
   let dragCardId = "";
   let dragStartX = 0;
@@ -124,11 +128,32 @@ export function useCardGesture(opts: CardGestureOptions) {
     // Only allow gesture on selected cards (or if this is the only card needed)
     if (!selectedCards.value.includes(cardId)) return;
 
-    isDragging.value = true;
+    // Enter pending state — don't commit to dragging yet
+    isPending = true;
+    isDragging.value = false;
     dragIndex = index;
     dragCardId = cardId;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
+    dragPointerId = e.pointerId;
+
+    // Reset pointer history
+    pointerHistory.length = 0;
+    pointerHistory.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+
+    // Capture pointer for reliable tracking (works even outside the element)
+    const el = cardRefs.value[index];
+    if (el) {
+      el.setPointerCapture(e.pointerId);
+    }
+
+    // Don't preventDefault here — allow click to fire if threshold isn't crossed
+  }
+
+  /** Promote from pending → real drag (called once threshold is crossed) */
+  function commitDrag() {
+    isPending = false;
+    isDragging.value = true;
 
     // Capture base transforms for all selected cards
     dragBaseTransforms.clear();
@@ -143,25 +168,19 @@ export function useCardGesture(opts: CardGestureOptions) {
         rotation: gsap.getProperty(el, "rotation") as number,
       });
     }
-
-    // Reset pointer history
-    pointerHistory.length = 0;
-    pointerHistory.push({ x: e.clientX, y: e.clientY, t: performance.now() });
-
-    // Capture pointer for reliable tracking (works even outside the element)
-    const el = cardRefs.value[index];
-    if (el) {
-      el.setPointerCapture(e.pointerId);
-    }
-
-    e.preventDefault();
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (!isDragging.value) return;
+    if (!isPending && !isDragging.value) return;
 
     const dx = e.clientX - dragStartX;
     const dy = e.clientY - dragStartY;
+
+    // Check threshold before committing to drag
+    if (isPending) {
+      if (Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
+      commitDrag();
+    }
 
     // Track pointer samples for velocity
     pointerHistory.push({ x: e.clientX, y: e.clientY, t: performance.now() });
@@ -184,6 +203,22 @@ export function useCardGesture(opts: CardGestureOptions) {
   }
 
   function onPointerUp(e: PointerEvent) {
+    // If still pending (no drag committed), release and let click fire
+    if (isPending) {
+      isPending = false;
+      const el = cardRefs.value[dragIndex];
+      if (el) {
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ok */
+        }
+      }
+      dragIndex = -1;
+      dragCardId = "";
+      pointerHistory.length = 0;
+      return;
+    }
     if (!isDragging.value) return;
     isDragging.value = false;
 
@@ -276,6 +311,7 @@ export function useCardGesture(opts: CardGestureOptions) {
   /* ── Cleanup ────────────────────────────────────────────────────── */
 
   function cancelDrag() {
+    isPending = false;
     if (!isDragging.value) return;
     isDragging.value = false;
 
