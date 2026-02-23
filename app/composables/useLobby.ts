@@ -401,6 +401,20 @@ export const useLobby = () => {
       lobbyId,
     );
 
+    // Delegate game state cleanup to server BEFORE deleting the player doc,
+    // so the verifyPlayerInLobby check passes on the server side.
+    if (lobby.status === "playing") {
+      try {
+        await $fetch("/api/game/player-leave", {
+          method: "POST",
+          body: { lobbyId, leavingUserId: userId, userId },
+        });
+      } catch (err) {
+        console.error("Failed to process player leave game state:", err);
+      }
+    }
+
+    // Delete the leaving player's document
     const res = await databases.listDocuments(
       config.public.appwriteDatabaseId,
       config.public.appwritePlayerCollectionId,
@@ -422,72 +436,79 @@ export const useLobby = () => {
     // Fetch all remaining players
     await fetchPlayers(lobbyId);
 
-    if (lobby.hostUserId === userId) {
-      if (
-        players.value.length === 0 ||
-        players.value.every((p) => p.provider === "anonymous")
-      ) {
-        for (const player of players.value) {
-          await databases.deleteDocument(
-            config.public.appwriteDatabaseId,
-            config.public.appwritePlayerCollectionId,
-            player.$id,
-          );
-        }
+    // Check if any human players remain (not bots, not spectators)
+    const remainingHumans = players.value.filter(
+      (p) => p.playerType !== "bot" && p.playerType !== "spectator",
+    );
 
-        // Delete gamecards document associated with this lobby
-        const gamecards = await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGamecardsCollectionId,
-          [Query.equal("lobbyId", lobbyId)],
-        );
-
-        for (const gamecard of gamecards.documents) {
-          await databases.deleteDocument(
-            config.public.appwriteDatabaseId,
-            config.public.appwriteGamecardsCollectionId,
-            gamecard.$id,
-          );
-        }
-
-        // Delete chat messages associated with this lobby
-        const chatMessages = await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGamechatCollectionId,
-          [Query.equal("lobbyId", lobbyId)],
-        );
-
-        for (const message of chatMessages.documents) {
-          await databases.deleteDocument(
-            config.public.appwriteDatabaseId,
-            config.public.appwriteGamechatCollectionId,
-            message.$id,
-          );
-        }
-
-        // Delete game settings associated with this lobby
-        const gameSettings = await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGameSettingsCollectionId,
-          [Query.equal("lobbyId", lobbyId)],
-        );
-
-        for (const setting of gameSettings.documents) {
-          await databases.deleteDocument(
-            config.public.appwriteDatabaseId,
-            config.public.appwriteGameSettingsCollectionId,
-            setting.$id,
-          );
-        }
-
+    // If no human players remain, tear down the entire lobby
+    if (remainingHumans.length === 0) {
+      // Delete all remaining player docs (bots, spectators)
+      for (const player of players.value) {
         await databases.deleteDocument(
           config.public.appwriteDatabaseId,
-          config.public.appwriteLobbyCollectionId,
-          lobbyId,
+          config.public.appwritePlayerCollectionId,
+          player.$id,
         );
-        return;
       }
-      const newHost = players.value.find((p) => p.provider !== "anonymous");
+
+      // Delete gamecards document associated with this lobby
+      const gamecards = await databases.listDocuments(
+        config.public.appwriteDatabaseId,
+        config.public.appwriteGamecardsCollectionId,
+        [Query.equal("lobbyId", lobbyId)],
+      );
+
+      for (const gamecard of gamecards.documents) {
+        await databases.deleteDocument(
+          config.public.appwriteDatabaseId,
+          config.public.appwriteGamecardsCollectionId,
+          gamecard.$id,
+        );
+      }
+
+      // Delete chat messages associated with this lobby
+      const chatMessages = await databases.listDocuments(
+        config.public.appwriteDatabaseId,
+        config.public.appwriteGamechatCollectionId,
+        [Query.equal("lobbyId", lobbyId)],
+      );
+
+      for (const message of chatMessages.documents) {
+        await databases.deleteDocument(
+          config.public.appwriteDatabaseId,
+          config.public.appwriteGamechatCollectionId,
+          message.$id,
+        );
+      }
+
+      // Delete game settings associated with this lobby
+      const gameSettings = await databases.listDocuments(
+        config.public.appwriteDatabaseId,
+        config.public.appwriteGameSettingsCollectionId,
+        [Query.equal("lobbyId", lobbyId)],
+      );
+
+      for (const setting of gameSettings.documents) {
+        await databases.deleteDocument(
+          config.public.appwriteDatabaseId,
+          config.public.appwriteGameSettingsCollectionId,
+          setting.$id,
+        );
+      }
+
+      // Delete the lobby itself
+      await databases.deleteDocument(
+        config.public.appwriteDatabaseId,
+        config.public.appwriteLobbyCollectionId,
+        lobbyId,
+      );
+      return;
+    }
+
+    // Humans remain — if the host left, promote a new one
+    if (lobby.hostUserId === userId) {
+      const newHost = remainingHumans[0];
       if (newHost) {
         await databases.updateDocument(
           config.public.appwriteDatabaseId,
@@ -505,19 +526,6 @@ export const useLobby = () => {
             isHost: true,
           },
         );
-      }
-    }
-
-    // Delegate game state cleanup to server (handles judge leaving,
-    // submission advancement, and < 3 players revert — all atomically)
-    if (lobby.status === "playing") {
-      try {
-        await $fetch("/api/game/player-leave", {
-          method: "POST",
-          body: { lobbyId, leavingUserId: userId, userId },
-        });
-      } catch (err) {
-        console.error("Failed to process player leave game state:", err);
       }
     }
   };
