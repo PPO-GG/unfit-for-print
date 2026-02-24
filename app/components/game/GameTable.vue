@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import type { Player } from "~/types/player";
+import type { CardTexts } from "~/types/gamecards";
 import { gsap } from "gsap";
 import confetti from "canvas-confetti";
 import { shuffle } from "lodash-es";
@@ -39,6 +40,8 @@ const props = withDefaults(
     winningCards?: string[];
     scores?: Record<string, number>;
     judgeId?: string | null;
+    /** Resolved card texts keyed by card ID — eliminates per-card Appwrite fetches. */
+    cardTexts?: CardTexts;
   }>(),
   {
     blackCard: null,
@@ -49,6 +52,7 @@ const props = withDefaults(
     winningCards: () => [],
     scores: () => ({}),
     judgeId: null,
+    cardTexts: () => ({}),
   },
 );
 
@@ -71,6 +75,12 @@ const { playSfx: playCardLandSfx } = useSfx(
 // General SFX (individual files)
 const { playSfx } = useSfx();
 
+// ── Child component refs ────────────────────────────────────────
+const seatsRef = ref<InstanceType<typeof GameTableSeats> | null>(null);
+
+// Accessor for seat element refs from the child component
+const seatRefs = computed(() => seatsRef.value?.seatRefs ?? {});
+
 // ── State ───────────────────────────────────────────────────────
 // We delay the transition to "judging" locally so the final submission
 // animation has time to physically land in the pile before the FLIP layout change.
@@ -89,10 +99,10 @@ watch(
   { immediate: true },
 );
 
-const seatRefs = ref<Record<string, HTMLElement | null>>({});
 const tableRef = ref<HTMLElement | null>(null);
 const pileAreaRef = ref<HTMLElement | null>(null);
 const cardContainerRef = ref<HTMLElement | null>(null);
+const ghostTemplateRef = ref<HTMLElement | null>(null);
 
 // Track previous submissions for fly-in animations
 const prevSubmissionKeys = ref<Set<string>>(new Set());
@@ -132,22 +142,7 @@ const gridCols = computed(() => {
   return 4;
 });
 
-// ── Participants (excluding self) ───────────────────────────────
-const participants = computed(() =>
-  props.players.filter(
-    (p) => p.playerType !== "spectator" && p.userId !== props.myId,
-  ),
-);
-
-const MAX_SEATS = 6;
-const seatedPlayers = computed(() => participants.value.slice(0, MAX_SEATS));
-const overflowPlayers = computed(() => participants.value.slice(MAX_SEATS));
-
 // ── Submission helpers ──────────────────────────────────────────
-function hasSubmitted(playerId: string): boolean {
-  return !!props.submissions[playerId];
-}
-
 function getPlayerName(playerId: string): string {
   const p = props.players.find(
     (pl) => pl.userId === playerId || pl.$id === playerId,
@@ -163,20 +158,6 @@ const submissionCount = computed(() => Object.keys(props.submissions).length);
 const totalParticipants = computed(
   () => props.players.filter((p) => p.playerType !== "spectator").length - 1,
 );
-
-// ── Seat positioning ────────────────────────────────────────────
-function getSeatStyle(index: number, total: number) {
-  const fraction = total <= 1 ? 0.5 : index / (total - 1);
-  const x = 20 + fraction * 60;
-  // Flatter arc for the docked top bar
-  const arcDepth = 100;
-  const yOffset = Math.pow(fraction - 0.5, 2) * 4 * arcDepth;
-  return {
-    left: `${x}%`,
-    top: `${yOffset}px`,
-    transform: "translateX(-50%)",
-  };
-}
 
 //* ── Random card scatter for natural pile feel ────────────────────
 // Each card gets a fully random rotation, direction, and distance
@@ -221,6 +202,8 @@ function setPilePosition(el: HTMLElement, pid: string) {
 const animatedPids = new Set<string>();
 // Track pids with in-flight ghost animations (real card stays hidden)
 const flyingGhosts = ref<Set<string>>(new Set());
+// Optimistic ghosts that must persist until the real pile card arrives
+const pendingOptimisticGhosts = new Map<string, HTMLElement>();
 
 // Vue-controlled pile card positioning. Returns the inline style for
 // each pile card so Vue maintains positions through re-renders.
@@ -247,6 +230,9 @@ watch(
     if (newPhase === "submitting" && oldPhase === "judging") {
       animatedPids.clear();
       flyingGhosts.value.clear();
+      // Clean up any lingering optimistic ghosts
+      for (const ghost of pendingOptimisticGhosts.values()) ghost.remove();
+      pendingOptimisticGhosts.clear();
       cardAngles = {};
       prevSubmissionKeys.value = new Set();
       winnerAnimating.value = false;
@@ -275,6 +261,13 @@ watch(
         getCardAngle(key);
         addedKeys.push(key);
         animatedPids.add(key);
+      }
+      // Clean up optimistic ghost now that the real pile card exists
+      const ghost = pendingOptimisticGhosts.get(key);
+      if (ghost) {
+        ghost.remove();
+        pendingOptimisticGhosts.delete(key);
+        flyingGhosts.value.delete(key);
       }
     }
 
@@ -570,22 +563,6 @@ const allRevealed = computed(() => {
   );
 });
 
-// ── Winner name for celebration ─────────────────────────────────
-// Use confirmedRoundWinner (snapshot at watcher time) for the overlay
-// so it stays consistent with the notification and won't shift if
-// state.roundWinner changes during the 2-second celebration delay.
-const winnerName = computed(() => {
-  const winner = props.confirmedRoundWinner || props.effectiveRoundWinner;
-  if (!winner) return "";
-  if (winner === props.myId) return t("game.you");
-  return getPlayerName(winner);
-});
-
-const isWinnerSelf = computed(() => {
-  const winner = props.confirmedRoundWinner || props.effectiveRoundWinner;
-  return winner === props.myId;
-});
-
 // ── Confetti! ───────────────────────────────────────────────────
 watch(
   () => props.winnerSelected,
@@ -722,12 +699,123 @@ function fireConfetti() {
 }
 
 // ── Handlers ────────────────────────────────────────────────────
-// ── Current player info (for My Score widget) ──────────────────
-const currentPlayer = computed(() =>
-  props.players.find((p) => p.userId === props.myId),
-);
-
 function handleCardSubmit(cardIds: string[]) {
+  const pid = props.myId;
+  const cardCount = cardIds.length;
+
+  // ── Optimistic fly-in ─────────────────────────────────────────
+  // Start the ghost animation IMMEDIATELY so the card visually leaves
+  // the hand the instant the player clicks — before the server round-trip.
+  // The submissions watcher will skip this pid because animatedPids
+  // already contains it, preventing a duplicate animation.
+  animatedPids.add(pid);
+  getCardAngle(pid);
+  flyingGhosts.value.add(pid);
+
+  // Source: centroid snapshot set by UserHand.snapshotCards() just before emit
+  const centroid = consumeCentroid();
+  const fromX = centroid?.x ?? window.innerWidth / 2;
+  const fromY = centroid?.y ?? window.innerHeight + 200;
+
+  // Destination: center of the pile area
+  const pileEl = pileAreaRef.value || cardContainerRef.value;
+  let destX = window.innerWidth / 2;
+  let destY = window.innerHeight / 3;
+  if (pileEl) {
+    const pileRect = pileEl.getBoundingClientRect();
+    destX = pileRect.left + pileRect.width / 2;
+    destY = pileRect.top + pileRect.height / 2;
+  }
+
+  // Measure card dimensions from the hidden template
+  const tpl =
+    ghostTemplateRef.value?.querySelector<HTMLElement>(".card-scaler");
+  let cardWidth: number;
+  let cardHeight: number;
+
+  if (tpl) {
+    const rect = tpl.getBoundingClientRect();
+    cardWidth = rect.width;
+    cardHeight = rect.height;
+  } else {
+    const vw12 = window.innerWidth * 0.12;
+    cardWidth = Math.max(96, Math.min(288, vw12));
+    cardHeight = cardWidth * (4 / 3);
+  }
+
+  const finalAngle = getCardAngle(pid);
+
+  // Create one ghost per card for multi-pick visual feedback
+  const ghosts: HTMLElement[] = [];
+  for (let i = 0; i < cardCount; i++) {
+    let ghost: HTMLElement;
+    if (tpl) {
+      ghost = tpl.cloneNode(true) as HTMLElement;
+      ghost.className = "";
+      ghost.style.cssText = `
+        position: fixed; left: 0; top: 0;
+        width: ${cardWidth}px; height: ${cardHeight}px;
+        pointer-events: none; z-index: ${9999 - i}; opacity: 1;
+      `;
+    } else {
+      ghost = document.createElement("div");
+      ghost.style.cssText = `
+        position: fixed; left: 0; top: 0; box-sizing: border-box;
+        width: ${cardWidth}px; height: ${cardHeight}px;
+        background: #e7e1de; border-radius: 12px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        pointer-events: none; z-index: ${9999 - i}; opacity: 1;
+        border: 6px solid rgba(0,0,0,0.25);
+      `;
+    }
+    document.body.appendChild(ghost);
+    ghosts.push(ghost);
+
+    // Each card gets a unique spin and a visibly fanned landing position
+    const cardRotOffset = cardCount > 1 ? (i - (cardCount - 1) / 2) * 8 : 0;
+    const cardTxOffset = cardCount > 1 ? (i - (cardCount - 1) / 2) * 30 : 0;
+    const cardTyOffset = cardCount > 1 ? i * 6 : 0;
+    const spinDir = Math.random() > 0.5 ? 1 : -1;
+    const startRot =
+      finalAngle.rotate + cardRotOffset + spinDir * (60 + Math.random() * 60);
+
+    gsap.fromTo(
+      ghost,
+      {
+        x: fromX - cardWidth / 2 + (i - (cardCount - 1) / 2) * 20,
+        y: fromY - cardHeight / 2,
+        rotation: startRot,
+        scale: 1.05,
+      },
+      {
+        x: destX - cardWidth / 2 + finalAngle.tx + cardTxOffset,
+        y: destY - cardHeight / 2 + finalAngle.ty + cardTyOffset,
+        rotation: finalAngle.rotate + cardRotOffset,
+        scale: 1,
+        duration: 0.6,
+        delay: i * 0.12,
+        ease: "power3.out",
+        onComplete: () => {
+          // Only the last ghost manages lifecycle — remove all ghosts
+          // when the real pile card arrives via the submissions watcher.
+          if (i === cardCount - 1) {
+            // Wrap all ghosts in a container so a single Map entry cleans them all up
+            const wrapper = document.createElement("div");
+            wrapper.style.cssText =
+              "position:fixed;top:0;left:0;pointer-events:none;z-index:9998;";
+            ghosts.forEach((g) => wrapper.appendChild(g));
+            document.body.appendChild(wrapper);
+            pendingOptimisticGhosts.set(pid, wrapper);
+            playCardLandSfx("", {
+              volume: [0.7, 0.9],
+              pitch: [0.9, 1.1],
+            });
+          }
+        },
+      },
+    );
+  }
+
   emit("select-cards", cardIds);
 }
 
@@ -750,91 +838,26 @@ function handleSelectWinner(playerId: string) {
 
 <template>
   <div ref="tableRef" class="game-table">
-    <!-- Player Seats Arc -->
-    <div class="seats-arc">
-      <div
-        v-for="(player, idx) in seatedPlayers"
-        :key="player.userId"
-        :ref="
-          (el) => {
-            if (el) seatRefs[player.userId] = el as HTMLElement;
-          }
-        "
-        class="player-seat"
-        :class="{
-          'player-seat--submitted': hasSubmitted(player.userId),
-          'player-seat--judge': player.userId === props.judgeId,
-        }"
-        :style="getSeatStyle(idx, seatedPlayers.length)"
-      >
-        <div class="seat-avatar-ring">
-          <!-- Score card badge (top-right, appears on hover) -->
-          <div class="score-card-badge">
-            <span class="score-card-value">{{
-              getPlayerScore(player.userId)
-            }}</span>
-          </div>
-
-          <!-- Judge gavel badge -->
-          <div v-if="player.userId === props.judgeId" class="judge-badge">
-            <Icon name="mdi:gavel" />
-          </div>
-
-          <!-- Submitted checkmark badge -->
-          <div v-if="hasSubmitted(player.userId)" class="seat-check">
-            <Icon name="solar:check-circle-bold" />
-          </div>
-
-          <UAvatar
-            :src="player.avatar || undefined"
-            :alt="player.name"
-            size="xl"
-            class="seat-avatar-img"
-          />
-        </div>
-        <span class="seat-name">{{ player.name }}</span>
-      </div>
+    <!-- Hidden template card for cloning optimistic fly-in ghosts.
+         Always rendered off-screen so we can clone a pixel-perfect
+         face-down WhiteCard that matches the badge fly-in ghosts. -->
+    <div ref="ghostTemplateRef" class="ghost-template" aria-hidden="true">
+      <WhiteCard
+        :flipped="true"
+        :disable-hover="true"
+        back-logo-url="/img/ufp.svg"
+      />
     </div>
 
-    <!-- Overflow Player List (7+) -->
-    <div v-if="overflowPlayers.length > 0" class="overflow-list">
-      <div
-        v-for="player in overflowPlayers"
-        :key="player.userId"
-        :ref="
-          (el) => {
-            if (el) seatRefs[player.userId] = el as HTMLElement;
-          }
-        "
-        class="overflow-player"
-        :class="{
-          'overflow-player--submitted': hasSubmitted(player.userId),
-          'overflow-player--judge': player.userId === props.judgeId,
-        }"
-      >
-        <div class="overflow-avatar-wrap">
-          <UAvatar
-            :src="player.avatar || undefined"
-            :alt="player.name"
-            size="sm"
-          />
-          <div class="overflow-score-badge">
-            <span>{{ getPlayerScore(player.userId) }}</span>
-          </div>
-        </div>
-        <span class="overflow-name">{{ player.name }}</span>
-        <Icon
-          v-if="hasSubmitted(player.userId)"
-          name="solar:check-circle-bold"
-          class="text-green-400 text-sm"
-        />
-        <Icon
-          v-if="player.userId === props.judgeId"
-          name="mdi:gavel"
-          class="text-amber-400 text-sm"
-        />
-      </div>
-    </div>
+    <!-- Player Seats Arc + Overflow List -->
+    <GameTableSeats
+      ref="seatsRef"
+      :players="players"
+      :my-id="myId"
+      :submissions="submissions"
+      :judge-id="judgeId"
+      :scores="scores"
+    />
 
     <!-- Table Center -->
     <div class="table-center">
@@ -885,6 +908,7 @@ function handleSelectWinner(playerId: string) {
                 v-for="cardId in sub.cards"
                 :key="cardId"
                 :cardId="cardId"
+                :text="props.cardTexts?.[cardId]?.text"
                 :flipped="true"
                 :is-winner="false"
                 :disable-hover="true"
@@ -971,6 +995,7 @@ function handleSelectWinner(playerId: string) {
                   v-for="cardId in sub.cards"
                   :key="cardId"
                   :cardId="cardId"
+                  :text="props.cardTexts?.[cardId]?.text"
                   :flipped="!isRevealed(sub.playerId)"
                   :is-winner="effectiveRoundWinner === sub.playerId"
                   :disable-hover="!isRevealed(sub.playerId)"
@@ -1005,78 +1030,18 @@ function handleSelectWinner(playerId: string) {
       </UButton>
     </div>
 
-    <!-- Bottom-left status stack (status text + score widget) -->
-    <div class="bottom-left-stack">
-      <!-- Status indicators (above score widget) -->
-      <div v-if="isSubmitting" class="status-indicators">
-        <div v-if="isJudge" class="judge-banner">
-          <Icon name="mdi:gavel" class="text-amber-400 text-lg" />
-          <span>{{ t("game.you_are_judge") }}</span>
-        </div>
-
-        <div v-if="!isJudge && submissions[myId]" class="submitted-message">
-          <Icon
-            name="solar:check-circle-bold"
-            class="text-green-400 text-base"
-          />
-          <span>{{ t("game.you_submitted") }}</span>
-        </div>
-
-        <p class="pile-counter">
-          {{ submissionCount }} / {{ totalParticipants }}
-          <span class="pile-counter-label">{{
-            t("game.player_submitted")
-          }}</span>
-        </p>
-      </div>
-
-      <!-- My Score Widget -->
-      <div v-if="currentPlayer && isParticipant" class="my-score-widget">
-        <div class="my-score-avatar">
-          <UAvatar
-            :src="currentPlayer.avatar || undefined"
-            :alt="currentPlayer.name"
-            size="sm"
-          />
-        </div>
-        <div class="my-score-info">
-          <span class="my-score-name">{{ currentPlayer.name }}</span>
-          <span class="my-score-role">
-            <Icon v-if="isJudge" name="mdi:gavel" class="text-amber-400" />
-            {{ isJudge ? t("game.role_judge") : t("game.role_player") }}
-          </span>
-        </div>
-        <div class="my-score-value-card">
-          <span class="my-score-value">{{ getPlayerScore(myId) }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Play Mode Toggle (fixed, next to My Score) -->
-    <button
-      v-if="currentPlayer && isParticipant && !isJudge && isSubmitting"
-      class="play-mode-toggle"
-      :title="t('game.play_mode')"
-      @click.stop="cycleMode()"
-    >
-      <Icon
-        :name="
-          playMode === 'click'
-            ? 'solar:cursor-bold'
-            : playMode === 'instant'
-              ? 'solar:bolt-bold'
-              : 'solar:hand-shake-bold'
-        "
-        class="play-mode-icon"
-      />
-      <span class="play-mode-label">{{
-        playMode === "click"
-          ? t("game.play_mode_click")
-          : playMode === "instant"
-            ? t("game.play_mode_instant")
-            : t("game.play_mode_gesture")
-      }}</span>
-    </button>
+    <!-- HUD: score widget, status indicators, play mode toggle -->
+    <GameTableHUD
+      :players="players"
+      :my-id="myId"
+      :submissions="submissions"
+      :is-judge="isJudge"
+      :is-submitting="isSubmitting"
+      :is-participant="isParticipant"
+      :scores="scores"
+      :play-mode="playMode"
+      @cycle-mode="cycleMode"
+    />
 
     <!-- UserHand at bottom (submission phase, not judge, not yet submitted) -->
     <Transition name="hand-exit">
@@ -1094,58 +1059,23 @@ function handleSelectWinner(playerId: string) {
           :cards="myHand"
           :cardsToSelect="blackCard?.pick || 1"
           :disabled="isJudge || false"
+          :card-texts="props.cardTexts"
           @select-cards="handleCardSubmit"
         />
       </div>
     </Transition>
 
-    <!-- ═══ WINNER CELEBRATION OVERLAY ═══ -->
-    <Transition name="celebration">
-      <div v-if="winnerSelected" class="winner-overlay">
-        <div class="winner-overlay-content">
-          <h2 class="winner-headline">
-            <template v-if="isWinnerSelf">
-              {{ t("game.round_won_self") }}
-            </template>
-            <template v-else>
-              {{ t("game.round_won_other", { name: winnerName }) }}
-            </template>
-          </h2>
-
-          <!-- Winning cards display -->
-          <div
-            v-if="winningCards && winningCards.length > 0"
-            class="winner-cards-display"
-          >
-            <div v-if="blackCard" class="winner-prompt">
-              <BlackCard
-                :card-id="blackCard.id"
-                :text="blackCard.text"
-                :num-pick="blackCard.pick"
-                :flipped="false"
-              />
-            </div>
-            <div class="winner-answers">
-              <WhiteCard
-                v-for="cardId in winningCards"
-                :key="cardId"
-                :cardId="cardId"
-                :is-winner="true"
-                :flipped="false"
-                back-logo-url="/img/ufp.svg"
-              />
-            </div>
-          </div>
-
-          <p class="winner-subtitle">
-            {{ t("game.next_round_starting_soon") }}
-          </p>
-          <div class="winner-progress">
-            <UProgress indeterminate color="warning" />
-          </div>
-        </div>
-      </div>
-    </Transition>
+    <!-- Winner Celebration Overlay -->
+    <WinnerCelebration
+      :winner-selected="winnerSelected"
+      :effective-round-winner="effectiveRoundWinner"
+      :confirmed-round-winner="confirmedRoundWinner"
+      :winning-cards="winningCards"
+      :black-card="blackCard"
+      :players="players"
+      :my-id="myId"
+      :card-texts="cardTexts"
+    />
   </div>
 </template>
 
@@ -1163,416 +1093,12 @@ function handleSelectWinner(playerId: string) {
   padding-bottom: 8rem;
 }
 
-/* ── Player Seats Arc (docked to top) ──────────────────────── */
-.seats-arc {
-  position: fixed;
-  top: 110px;
-  left: 0;
-  width: 100%;
-  height: 70px;
-  z-index: 40;
+/* Off-screen template card for cloning optimistic fly-in ghosts */
+.ghost-template {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
   pointer-events: none;
-}
-
-.player-seat {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  transition: all 0.3s ease;
-  cursor: default;
-  pointer-events: auto;
-}
-
-/* ── Avatar Ring (thick dark border) ──────────────────────── */
-.seat-avatar-ring {
-  position: relative;
-  border-radius: 50%;
-  padding: 4px;
-  background: linear-gradient(
-    135deg,
-    rgba(71, 85, 105, 0.6),
-    rgba(30, 41, 59, 0.9)
-  );
-  box-shadow:
-    0 0 0 3px rgba(30, 41, 59, 0.95),
-    0 4px 16px rgba(0, 0, 0, 0.3);
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.player-seat:hover .seat-avatar-ring {
-  box-shadow:
-    0 0 0 3px rgba(51, 65, 85, 0.95),
-    0 6px 24px rgba(0, 0, 0, 0.4);
-  transform: scale(1.05);
-}
-
-.seat-avatar-img {
-  width: 48px !important;
-  height: 48px !important;
-  font-size: 1.35rem;
-}
-
-/* ── Submitted ring glow ──────────────────────────────────── */
-.player-seat--submitted .seat-avatar-ring {
-  background: linear-gradient(
-    135deg,
-    rgba(34, 197, 94, 0.4),
-    rgba(22, 163, 74, 0.25)
-  );
-  box-shadow:
-    0 0 0 3px rgba(34, 197, 94, 0.3),
-    0 0 20px rgba(34, 197, 94, 0.15),
-    0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
-/* ── Judge ring glow ──────────────────────────────────────── */
-.player-seat--judge .seat-avatar-ring {
-  background: linear-gradient(
-    135deg,
-    rgba(245, 158, 11, 0.35),
-    rgba(217, 119, 6, 0.2)
-  );
-  box-shadow:
-    0 0 0 3px rgba(245, 158, 11, 0.25),
-    0 0 18px rgba(245, 158, 11, 0.12),
-    0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
-/* ── Score Card Badge (top-right, mini playing card) ──────── */
-.score-card-badge {
-  position: absolute;
-  top: -6px;
-  right: -10px;
-  width: 26px;
-  height: 34px;
-  background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 1.5px solid rgba(100, 116, 139, 0.4);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: rotate(12deg) scale(0);
-  transform-origin: bottom left;
-  opacity: 0;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  z-index: 10;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
-.player-seat:hover .score-card-badge {
-  transform: rotate(12deg) scale(1);
-  opacity: 1;
-}
-
-.score-card-value {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.85rem;
-  color: rgba(241, 245, 249, 0.95);
-  letter-spacing: 0.02em;
-  line-height: 1;
-}
-
-/* ── Judge Badge (bottom-left gavel) ──────────────────────── */
-.judge-badge {
-  position: absolute;
-  bottom: -4px;
-  left: -6px;
-  width: 28px;
-  height: 28px;
-  background: rgba(245, 158, 11, 0.25);
-  border: 2px solid rgba(245, 158, 11, 0.6);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  color: #f59e0b;
-  z-index: 10;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
-  animation: check-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-/* ── Submitted Check Badge (bottom-right) ─────────────────── */
-.seat-check {
-  position: absolute;
-  bottom: -2px;
-  right: -4px;
-  width: 24px;
-  height: 24px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 2px solid rgba(34, 197, 94, 0.5);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  color: #22c55e;
-  z-index: 10;
-  animation: check-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes check-pop {
-  from {
-    transform: scale(0);
-  }
-  to {
-    transform: scale(1);
-  }
-}
-
-.seat-name {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.7rem;
-  color: rgba(148, 163, 184, 0.9);
-  letter-spacing: 0.04em;
-  max-width: 70px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-  transition: color 0.3s ease;
-}
-
-.player-seat--submitted .seat-name {
-  color: rgba(34, 197, 94, 0.9);
-}
-
-.player-seat--judge .seat-name {
-  color: rgba(245, 158, 11, 0.9);
-}
-
-/* ── Overflow List ──────────────────────────────────────────── */
-.overflow-list {
-  position: fixed;
-  top: 152px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  z-index: 40;
-  background: rgba(30, 41, 59, 0.4);
-  border-radius: 0.75rem;
-  max-width: 90%;
-}
-
-.overflow-player {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 9999px;
-  background: rgba(51, 65, 85, 0.5);
-  transition: all 0.3s ease;
-  cursor: default;
-}
-
-.overflow-player:hover {
-  background: rgba(51, 65, 85, 0.7);
-}
-
-.overflow-player--submitted {
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.overflow-player--judge {
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.overflow-avatar-wrap {
-  position: relative;
-}
-
-.overflow-score-badge {
-  position: absolute;
-  top: -6px;
-  right: -8px;
-  min-width: 18px;
-  height: 18px;
-  background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 1.5px solid rgba(100, 116, 139, 0.4);
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 3px;
-  transform: rotate(10deg) scale(0);
-  opacity: 0;
-  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  pointer-events: none;
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.65rem;
-  color: rgba(241, 245, 249, 0.9);
-  z-index: 5;
-}
-
-.overflow-player:hover .overflow-score-badge {
-  transform: rotate(10deg) scale(1);
-  opacity: 1;
-}
-
-.overflow-name {
-  font-size: 0.75rem;
-  color: rgba(148, 163, 184, 0.8);
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── Bottom-left status stack ────────────────────────────── */
-.bottom-left-stack {
-  position: fixed;
-  bottom: 1.25rem;
-  left: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  z-index: 60;
-}
-
-.status-indicators {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
-}
-
-/* ── My Score Widget (bottom-left) ───────────────────────── */
-.my-score-widget {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.5rem 0.75rem;
-  background: linear-gradient(
-    135deg,
-    rgba(30, 41, 59, 0.85),
-    rgba(15, 23, 42, 0.92)
-  );
-  border: 1px solid rgba(100, 116, 139, 0.2);
-  border-radius: 14px;
-  backdrop-filter: blur(12px);
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  transition: all 0.3s ease;
-}
-
-.my-score-widget:hover {
-  border-color: rgba(100, 116, 139, 0.35);
-  box-shadow:
-    0 6px 28px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transform: translateY(-2px);
-}
-
-.my-score-avatar {
-  flex-shrink: 0;
-}
-
-.my-score-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-
-.my-score-name {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.95rem;
-  color: rgba(241, 245, 249, 0.95);
-  letter-spacing: 0.03em;
-  line-height: 1.1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100px;
-}
-
-.my-score-role {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.7rem;
-  color: rgba(148, 163, 184, 0.7);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.my-score-value-card {
-  width: 38px;
-  height: 50px;
-  background: linear-gradient(145deg, #1e293b, #0f172a);
-  border: 2px solid rgba(100, 116, 139, 0.4);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
-  flex-shrink: 0;
-  transform: rotate(6deg);
-}
-
-.my-score-value {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 1.3rem;
-  color: rgba(241, 245, 249, 0.95);
-  letter-spacing: 0.02em;
-  line-height: 1;
-}
-
-/* ── Play Mode Toggle (fixed, next to My Score) ────────────── */
-.play-mode-toggle {
-  position: fixed;
-  bottom: 1.25rem;
-  left: 14rem;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.85rem;
-  background: linear-gradient(
-    135deg,
-    rgba(30, 41, 59, 0.85),
-    rgba(15, 23, 42, 0.92)
-  );
-  border: 1px solid rgba(100, 116, 139, 0.2);
-  border-radius: 9999px;
-  backdrop-filter: blur(12px);
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  transition: all 0.25s ease;
-  white-space: nowrap;
-}
-
-.play-mode-toggle:hover {
-  border-color: rgba(100, 116, 139, 0.35);
-  box-shadow:
-    0 6px 28px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transform: translateY(-1px);
-}
-
-.play-mode-icon {
-  font-size: 1rem;
-  color: rgba(148, 163, 184, 0.9);
-}
-
-.play-mode-label {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  color: rgba(148, 163, 184, 0.9);
-  text-transform: uppercase;
 }
 
 /* ── Table Center ───────────────────────────────────────────── */
@@ -1585,21 +1111,6 @@ function handleSelectWinner(playerId: string) {
   width: 100%;
 }
 
-.judge-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.85rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: 9999px;
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  color: rgba(245, 158, 11, 0.9);
-  text-transform: uppercase;
-}
-
 /* ── Judging Info Bar ────────────────────────────────────────── */
 .judging-info {
   display: flex;
@@ -1607,7 +1118,7 @@ function handleSelectWinner(playerId: string) {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.35rem 1rem;
-  font-family: "Bebas Neue", sans-serif;
+
   font-size: 1.15rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -1719,7 +1230,7 @@ function handleSelectWinner(playerId: string) {
   position: absolute;
   top: 0.3rem;
   left: 0.45rem;
-  font-family: "Bebas Neue", sans-serif;
+
   font-size: 0.75rem;
   color: rgba(100, 116, 139, 0.3);
   letter-spacing: 0.04em;
@@ -1761,7 +1272,6 @@ function handleSelectWinner(playerId: string) {
 }
 
 .pile-counter {
-  font-family: "Bebas Neue", sans-serif;
   font-size: 0.9rem;
   color: rgba(148, 163, 184, 0.9);
   text-align: left;
@@ -1787,14 +1297,12 @@ function handleSelectWinner(playerId: string) {
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.25);
   border-radius: 9999px;
-  font-family: "Bebas Neue", sans-serif;
+
   font-size: 0.8rem;
   color: rgba(34, 197, 94, 0.9);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-
-/* ── Submissions Grid (legacy — kept for compatibility) ──────── */
 
 /* ── Submission Group ────────────────────────────────────────── */
 .submission-group {
@@ -1862,7 +1370,6 @@ function handleSelectWinner(playerId: string) {
 }
 
 .label-you {
-  font-family: "Bebas Neue", sans-serif;
   font-size: 1.1rem;
   color: rgba(34, 197, 94, 0.8);
   letter-spacing: 0.04em;
@@ -1912,15 +1419,15 @@ function handleSelectWinner(playerId: string) {
   margin-right: 0.5rem;
 }
 
-/* Pile mode: fan combo cards slightly so you can see multiple cards */
+/* Pile mode: fan combo cards so you can clearly see multiple cards */
 .submission-group--pile-mode .submission-cards > *:not(:last-child) {
-  margin-right: -6.5rem;
+  margin-right: -4rem;
 }
 .submission-group--pile-mode .submission-cards > *:nth-child(2) {
-  transform: rotate(4deg) translateY(3px);
+  transform: rotate(8deg) translateY(4px);
 }
 .submission-group--pile-mode .submission-cards > *:nth-child(3) {
-  transform: rotate(-3deg) translateY(-2px);
+  transform: rotate(-6deg) translateY(-3px);
 }
 
 @media (min-width: 768px) {
@@ -1931,7 +1438,7 @@ function handleSelectWinner(playerId: string) {
     margin-right: -9.5rem;
   }
   .submission-group--pile-mode .submission-cards > *:not(:last-child) {
-    margin-right: -9.5rem;
+    margin-right: -7rem;
   }
 
   .judging-grid {
@@ -1946,7 +1453,6 @@ function handleSelectWinner(playerId: string) {
 
 /* ── Reveal Hint ─────────────────────────────────────────────── */
 .reveal-hint {
-  font-family: "Bebas Neue", sans-serif;
   font-size: 0.9rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1969,7 +1475,6 @@ function handleSelectWinner(playerId: string) {
 }
 
 .winner-btn-text {
-  font-family: "Bebas Neue", sans-serif;
   font-size: 1.1rem;
   letter-spacing: 0.04em;
   color: white;
@@ -1978,7 +1483,6 @@ function handleSelectWinner(playerId: string) {
 }
 
 .winner-badge {
-  font-family: "Bebas Neue", sans-serif;
   font-size: 1.1rem;
   color: rgba(34, 197, 94, 0.9);
   letter-spacing: 0.04em;
@@ -2014,113 +1518,6 @@ function handleSelectWinner(playerId: string) {
   background: rgba(30, 41, 59, 0.6);
   border-radius: 1rem;
   text-align: center;
-}
-
-/* ═══ WINNER CELEBRATION OVERLAY ═══ */
-.winner-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(2, 6, 23, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.winner-overlay-content {
-  text-align: center;
-  max-width: 700px;
-  width: 100%;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.winner-headline {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(2.5rem, 8vw, 5rem);
-  color: #f59e0b;
-  letter-spacing: 0.04em;
-  text-shadow:
-    0 0 30px rgba(245, 158, 11, 0.4),
-    0 0 60px rgba(245, 158, 11, 0.2);
-  animation: headline-entrance 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes headline-entrance {
-  from {
-    opacity: 0;
-    transform: scale(0.5) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.winner-cards-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-@media (min-width: 640px) {
-  .winner-cards-display {
-    flex-direction: row;
-    justify-content: center;
-    gap: 1.5rem;
-  }
-}
-
-.winner-prompt {
-  flex-shrink: 0;
-}
-
-.winner-answers {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-}
-
-.winner-subtitle {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 1.2rem;
-  color: rgba(148, 163, 184, 0.8);
-  letter-spacing: 0.06em;
-}
-
-.winner-progress {
-  width: 200px;
-}
-
-/* ── Celebration Transition ──────────────────────────────────── */
-.celebration-enter-active {
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.celebration-leave-active {
-  transition: all 0.3s ease;
-}
-
-.celebration-enter-from {
-  opacity: 0;
-  backdrop-filter: blur(0);
-}
-
-.celebration-enter-from .winner-headline {
-  transform: scale(0.5) translateY(20px);
-  opacity: 0;
-}
-
-.celebration-leave-to {
-  opacity: 0;
 }
 
 /* ── UserHand Fade Out ───────────────────────────────────────── */
