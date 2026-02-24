@@ -14,13 +14,21 @@ export default defineEventHandler(async (event) => {
   const dbId = config.public.appwriteDatabaseId as string;
   const collectionId = config.public.appwriteLobbyCollectionId as string;
 
-  const res = await tables.listRows({
-    databaseId: dbId,
-    tableId: collectionId,
-    queries: [Query.equal("code", code)],
-  });
+  let res;
+  try {
+    res = await tables.listRows({
+      databaseId: dbId,
+      tableId: collectionId,
+      queries: [Query.equal("code", code)],
+    });
+  } catch (err: any) {
+    return createError({
+      statusCode: 500,
+      statusMessage: "Failed to fetch from Appwrite database: " + err.message,
+    });
+  }
 
-  if (!res.total) {
+  if (!res || !res.total || res.rows.length === 0) {
     return { error: "Lobby not found" };
   }
 

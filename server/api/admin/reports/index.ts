@@ -1,5 +1,5 @@
 // server/api/admin/reports/index.ts
-import { Query } from "appwrite";
+import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   await assertAdmin(event);
