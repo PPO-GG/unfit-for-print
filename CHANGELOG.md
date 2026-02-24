@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.4.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.3.0...v2.4.0) (2026-02-24)
+
+
+### ✨ Features
+
+* **admin:** enrich reports with card text and add dismiss/card-action endpoints ([ade5420](https://github.com/PPO-GG/unfit-for-print/commit/ade54203ee01c7cf76b4617f3ef515d8c6f0ff71))
+* **admin:** move setup page into admin section with access guard ([de09acd](https://github.com/PPO-GG/unfit-for-print/commit/de09acd58a8d74a2c937da44cc3572569b008c57))
+* **auth:** add Discord avatar persistence and streamline login flow ([f587eec](https://github.com/PPO-GG/unfit-for-print/commit/f587eec37ff15c65cc36528f306a8d2b7407616c))
+* **bot:** add staggered card play and simulated thinking delays ([f616961](https://github.com/PPO-GG/unfit-for-print/commit/f6169610b1bb40bb3ca602aa02f4cd52db42b5d0))
+* **chat:** implement message pagination and server-side system events ([06a4d39](https://github.com/PPO-GG/unfit-for-print/commit/06a4d39e02271cbe3f19ff42df383e2fcf76697c))
+* **game:** add win-round and win-game sound effects ([54d9dc8](https://github.com/PPO-GG/unfit-for-print/commit/54d9dc8fa0bbf950db39090aeb115a8880d0b3e7))
+* **game:** allow host to skip unresponsive judges ([be227ee](https://github.com/PPO-GG/unfit-for-print/commit/be227eed13bcd894df8ed9b6781bb0b5c26d7dfa))
+* **game:** decompose GameTable into focused sub-components ([0c7392e](https://github.com/PPO-GG/unfit-for-print/commit/0c7392e8b2d9f953891eb434fc8f851661082fd4))
+* **game:** improve user hand card interaction with earlier snapshotting ([fcf460e](https://github.com/PPO-GG/unfit-for-print/commit/fcf460ec4fb9765f02b456b61acc6deb6f4820bd))
+* **game:** redesign game UI — lobby, waiting room, player list, sidebar, and cards ([b61497e](https://github.com/PPO-GG/unfit-for-print/commit/b61497e2c0ac6989015730d5052588501665302e))
+* **hand:** enhance mobile hand interactions and drag threshold gestures ([8a0dd5c](https://github.com/PPO-GG/unfit-for-print/commit/8a0dd5c2d0d51e6914417c8afcf26f4b17677a93))
+* **i18n:** add lobby players-needed short label across all locales ([3f64717](https://github.com/PPO-GG/unfit-for-print/commit/3f647178ba6a8b5b34867e82ed81ca441b3d565b))
+* **labs:** add Labs page with card submission browsing and submission form ([d19a7dc](https://github.com/PPO-GG/unfit-for-print/commit/d19a7dc83b1ee1cfd1f77c3f2fbb1971f7ec5a32))
+* **table:** overhaul card animations and layout with GSAP physics ([515b3a0](https://github.com/PPO-GG/unfit-for-print/commit/515b3a0be79bc758283998f13f10d734f29c490a))
+* **ui:** overhaul global UI — header, footer, homepage, profile, and error pages ([192cbe6](https://github.com/PPO-GG/unfit-for-print/commit/192cbe6d1ed857ae3ca2da85b6064812a55937c1))
+
+
+### 🐛 Bug Fixes
+
+* **api:** harden api endpoints and improve team fetching using labels ([5a6196b](https://github.com/PPO-GG/unfit-for-print/commit/5a6196b897a2e857dd7461c82e3ea2a5f4728edd))
+* **bot:** bot orchestrator ([40abb5a](https://github.com/PPO-GG/unfit-for-print/commit/40abb5a35ad7ff4704232a79d1b97e666445b45e))
+* **bots:** resolve bots not playing cards after watcher refactor ([342c936](https://github.com/PPO-GG/unfit-for-print/commit/342c936c1d9faa5c8a78532c853cac08d33608f6))
+* **game:** delay game-over screen to allow winning card celebration to complete ([5a7dc5d](https://github.com/PPO-GG/unfit-for-print/commit/5a7dc5d36dc675d861bd3bf4931a4a819432ca57))
+* **game:** hide placeholder card animation snap to correct drop coordinates ([eec86d6](https://github.com/PPO-GG/unfit-for-print/commit/eec86d61ed9ac82598863cc0dd2db65d471301ff))
+* **lobby:** auto-delete lobby when last human player leaves ([a380a0e](https://github.com/PPO-GG/unfit-for-print/commit/a380a0e71c2ce2a8cded31172d135a2a3da03248))
+* **security:** migrate bot & reveal-card auth from body-based to session-based ([69934bb](https://github.com/PPO-GG/unfit-for-print/commit/69934bbdaaa582bb7ebf4f0e14c1c68003270175))
+
+
+### ♻️ Refactors
+
+* **client:** migrate client-side composables and utils to TablesDB SDK ([809e609](https://github.com/PPO-GG/unfit-for-print/commit/809e609d34966ad0f4047e14b1dd49ee6f513e1f))
+* **server:** migrate all server-side API calls to Appwrite TablesDB SDK ([3f507f5](https://github.com/PPO-GG/unfit-for-print/commit/3f507f50451808702bc170ea559754418e3da70d))
+
 ## [2.3.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.2.0...v2.3.0) (2026-02-22)
 
 
