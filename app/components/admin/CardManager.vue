@@ -9,7 +9,7 @@ import stringSimilarity from "string-similarity";
 import type { RadioGroupItem, RadioGroupValue } from "@nuxt/ui";
 import { useCardSearch } from "~/composables/useCardSearch";
 
-const { databases } = getAppwrite();
+const { databases, tables } = getAppwrite();
 const config = useRuntimeConfig();
 const { notify } = useNotifications();
 
@@ -106,11 +106,7 @@ onMounted(async () => {
   if (!databases) return;
   try {
     // First get total count of cards
-    const countResult = await databases.listDocuments(
-      DB_ID,
-      CARD_COLLECTION.value,
-      [Query.limit(1)],
-    );
+    const countResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(1)] });
     const totalCards = countResult.total;
 
     // Fetch all cards to extract packs (using a reasonable chunk size)
@@ -119,19 +115,15 @@ onMounted(async () => {
 
     // Fetch cards in chunks to get all packs
     for (let offset = 0; offset < totalCards; offset += chunkSize) {
-      const result = await databases.listDocuments(
-        DB_ID,
-        CARD_COLLECTION.value,
-        [Query.limit(chunkSize), Query.offset(offset)],
-      );
+      const result = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(chunkSize), Query.offset(offset)] });
 
       // Extract packs from this chunk
-      result.documents.forEach((doc) => {
+      result.rows.forEach((doc) => {
         if (doc.pack) allPacks.add(doc.pack);
       });
 
       // If we got fewer documents than requested, we've reached the end
-      if (result.documents.length < chunkSize) break;
+      if (result.rows.length < chunkSize) break;
     }
 
     availablePacks.value = Array.from(allPacks).sort();
@@ -149,11 +141,7 @@ watch(cardType, async () => {
   if (!databases) return;
   try {
     // First get total count of cards
-    const countResult = await databases.listDocuments(
-      DB_ID,
-      CARD_COLLECTION.value,
-      [Query.limit(1)],
-    );
+    const countResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(1)] });
     const totalCards = countResult.total;
 
     // Fetch all cards to extract packs (using a reasonable chunk size)
@@ -162,19 +150,15 @@ watch(cardType, async () => {
 
     // Fetch cards in chunks to get all packs
     for (let offset = 0; offset < totalCards; offset += chunkSize) {
-      const result = await databases.listDocuments(
-        DB_ID,
-        CARD_COLLECTION.value,
-        [Query.limit(chunkSize), Query.offset(offset)],
-      );
+      const result = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(chunkSize), Query.offset(offset)] });
 
       // Extract packs from this chunk
-      result.documents.forEach((doc) => {
+      result.rows.forEach((doc) => {
         if (doc.pack) allPacks.add(doc.pack);
       });
 
       // If we got fewer documents than requested, we've reached the end
-      if (result.documents.length < chunkSize) break;
+      if (result.rows.length < chunkSize) break;
     }
 
     availablePacks.value = Array.from(allPacks).sort();
@@ -230,10 +214,10 @@ const fetchCards = async () => {
         useServerSideSearch = true;
 
         // Test the query to see if it works
-        await databases.listDocuments(DB_ID, CARD_COLLECTION.value, [
-          ...queries,
-          Query.limit(1),
-        ]);
+        await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [
+                      ...queries,
+                      Query.limit(1),
+                    ] });
       } catch (searchErr) {
         // If server-side search fails, remove the search query and note that we'll need client-side filtering
         // This is expected behavior if fulltext indexes are still being created or propagated
@@ -247,11 +231,7 @@ const fetchCards = async () => {
     }
 
     // First get count of matching cards (without search if we're doing client-side filtering)
-    const countResult = await databases.listDocuments(
-      DB_ID,
-      CARD_COLLECTION.value,
-      [...queries, Query.limit(1)],
-    );
+    const countResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [...queries, Query.limit(1)] });
     let totalMatchingCards = countResult.total;
 
     // If no cards match the filters, return early
@@ -268,16 +248,12 @@ const fetchCards = async () => {
 
     // Fetch cards in chunks
     for (let offset = 0; offset < totalMatchingCards; offset += chunkSize) {
-      const result = await databases.listDocuments(
-        DB_ID,
-        CARD_COLLECTION.value,
-        [...queries, Query.limit(chunkSize), Query.offset(offset)],
-      );
+      const result = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [...queries, Query.limit(chunkSize), Query.offset(offset)] });
 
-      allCards.push(...result.documents);
+      allCards.push(...result.rows);
 
       // If we got fewer documents than requested, we've reached the end
-      if (result.documents.length < chunkSize) break;
+      if (result.rows.length < chunkSize) break;
     }
 
     // Apply client-side text filtering if needed
@@ -359,14 +335,9 @@ watch(currentPage, (newPage) => {
 
 const toggleCardActive = async (card: any) => {
   try {
-    const updated = await databases.updateDocument(
-      DB_ID,
-      CARD_COLLECTION.value,
-      card.$id,
-      {
-        active: !card.active,
-      },
-    );
+    const updated = await tables.updateRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: card.$id, data: {
+                active: !card.active,
+              } });
     card.active = updated.active;
     notify({
       title: `Card ${updated.active ? "Activated" : "Deactivated"}`,
@@ -394,9 +365,9 @@ const togglePackActive = async (pack: string, setActive: boolean) => {
 
     // Update each card in the pack
     const updatePromises = packCards.map((card) =>
-      databases.updateDocument(DB_ID, CARD_COLLECTION.value, card.$id, {
-        active: setActive,
-      }),
+      tables.updateRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: card.$id, data: {
+                    active: setActive,
+                  } }),
     );
 
     await Promise.all(updatePromises);
@@ -431,7 +402,7 @@ const deleteCard = async (card: any) => {
   }
 
   try {
-    await databases.deleteDocument(DB_ID, CARD_COLLECTION.value, card.$id);
+    await tables.deleteRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: card.$id });
     // Remove from local list
     cards.value = cards.value.filter((c) => c.$id !== card.$id);
     totalCards.value--;
@@ -480,12 +451,7 @@ const saveCardEdit = async () => {
       updateData.pick = parseInt(editingCardPicks.value.toString()) || 1;
     }
 
-    const updated = await databases.updateDocument(
-      DB_ID,
-      CARD_COLLECTION.value,
-      editingCard.value.$id,
-      updateData,
-    );
+    const updated = await tables.updateRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: editingCard.value.$id, data: updateData });
 
     // Update in local list
     const index = cards.value.findIndex((c) => c.$id === updated.$id);
@@ -543,12 +509,7 @@ const addSingleCard = async () => {
     }
 
     // Create the new card document
-    const newCard = await databases.createDocument(
-      DB_ID,
-      collectionId,
-      "unique()",
-      cardData,
-    );
+    const newCard = await tables.createRow({ databaseId: DB_ID, tableId: collectionId, rowId: "unique()", data: cardData });
 
     // Add to local list if the current view includes this pack and type
     if (
@@ -764,11 +725,7 @@ const handleSimilarCardAction = async (similarCard: any) => {
       cardToKeep.value === "original" ? similarCard : selectedCard.value;
 
     // Delete the card
-    await databases.deleteDocument(
-      DB_ID,
-      CARD_COLLECTION.value,
-      cardToDelete.$id,
-    );
+    await tables.deleteRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: cardToDelete.$id });
 
     // Remove from local list
     cards.value = cards.value.filter((c) => c.$id !== cardToDelete.$id);
@@ -872,11 +829,7 @@ const handleAllSimilarCardAction = async () => {
     }
 
     // Delete the card
-    await databases.deleteDocument(
-      DB_ID,
-      CARD_COLLECTION.value,
-      cardToDelete.$id,
-    );
+    await tables.deleteRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: cardToDelete.$id });
 
     // Remove from local list
     cards.value = cards.value.filter((c) => c.$id !== cardToDelete.$id);
@@ -1466,7 +1419,7 @@ const resumeUpload = () => {
 
     <UCard>
       <template #header>
-        <h3 class="text-2xl font-bold font-['Bebas_Neue']">Upload Pack JSON</h3>
+        <h3 class="text-2xl font-bold">Upload Pack JSON</h3>
       </template>
 
       <UForm :state="uploadState">
@@ -1477,10 +1430,10 @@ const resumeUpload = () => {
             type="file"
             accept=".json"
             @change="handleFileChange"
-            class="font-['Bebas_Neue'] block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-slate-500 dark:file:bg-slate-700 dark:file:text-slate-200"
+            class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-slate-500 dark:file:bg-slate-700 dark:file:text-slate-200"
           />
         </div>
-        <p class="text-lg text-slate-500 mt-1 font-['Bebas_Neue']">
+        <p class="text-lg text-slate-500 mt-1">
           Upload a JSON file with card packs
         </p>
 
@@ -1658,7 +1611,7 @@ const resumeUpload = () => {
           :disabled="!uploadState.file || !uploadState.fileContent"
           @click="uploadJsonFile"
           color="primary"
-          class="mt-4 font-['Bebas_Neue']"
+          class="mt-4"
           variant="subtle"
         >
           Upload & Seed

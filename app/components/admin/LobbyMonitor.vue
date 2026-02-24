@@ -13,7 +13,7 @@ type LobbyWithName = Lobby & {
   lobbyName?: string | null;
 };
 
-const { databases } = getAppwrite();
+const { databases, tables } = getAppwrite();
 
 function getDb(): Databases {
   if (!databases) throw new Error("Databases not initialized");
@@ -75,24 +75,24 @@ const checkActiveLobbies = async () => {
   loading.value = true;
   try {
     // 1. Fetch all lobbies, ordered by creation date
-    const lobbyRes = await databases.listDocuments(DB_ID, LOBBY_COL, [
-      Query.orderDesc("$createdAt"),
-      Query.limit(100),
-    ]);
+    const lobbyRes = await tables.listRows({ databaseId: DB_ID, tableId: LOBBY_COL, queries: [
+              Query.orderDesc("$createdAt"),
+              Query.limit(100),
+            ] });
 
     // Store the raw lobbies temporarily
-    const rawLobbies = lobbyRes.documents;
+    const rawLobbies = lobbyRes.rows;
     totalLobbies.value = lobbyRes.total;
 
     // 2. Fetch game settings for all lobbies
     const GAMESETTINGS_COL = config.public.appwriteGameSettingsCollectionId;
-    const settingsRes = await databases.listDocuments(DB_ID, GAMESETTINGS_COL, [
-      Query.limit(1000), // or adjust as needed
-    ]);
+    const settingsRes = await tables.listRows({ databaseId: DB_ID, tableId: GAMESETTINGS_COL, queries: [
+              Query.limit(1000), // or adjust as needed
+            ] });
 
     // Create a map of lobbyId to settings
     const settingsMap: Record<string, GameSettings> = {};
-    for (const setting of settingsRes.documents) {
+    for (const setting of settingsRes.rows) {
       // Handle case where lobbyId is a relationship object
       const lobbyIdKey = resolveId(setting.lobbyId);
       settingsMap[lobbyIdKey] = setting as unknown as GameSettings;
@@ -105,7 +105,7 @@ const checkActiveLobbies = async () => {
 
       // If settings not found by exact match, try to find by string comparison
       if (!settings) {
-        const matchingSettings = settingsRes.documents.find(
+        const matchingSettings = settingsRes.rows.find(
           (s: any) => String(s.lobbyId) === String(lobby.$id),
         );
         if (matchingSettings) {
@@ -120,12 +120,12 @@ const checkActiveLobbies = async () => {
     });
 
     // 4. For each lobby, fetch players
-    const allPlayersRes = await databases.listDocuments(DB_ID, PLAYER_COL, [
-      Query.limit(1000), // or page through if more
-    ]);
+    const allPlayersRes = await tables.listRows({ databaseId: DB_ID, tableId: PLAYER_COL, queries: [
+              Query.limit(1000), // or page through if more
+            ] });
 
     const playersMap: Record<string, any[]> = {};
-    for (const player of allPlayersRes.documents) {
+    for (const player of allPlayersRes.rows) {
       const lobbyIdKey = player.lobbyId as string;
       if (!lobbyIdKey) continue;
       if (!playersMap[lobbyIdKey]) playersMap[lobbyIdKey] = [];
@@ -199,7 +199,7 @@ const deleteLobby = async (lobby: LobbyWithName) => {
     const chatMessages = await getDb().listDocuments(DB_ID, GAMECHAT_COL, [
       Query.equal("lobbyId", lobby.$id),
     ]);
-    for (const message of chatMessages.documents) {
+    for (const message of chatMessages.rows) {
       await getDb().deleteDocument(DB_ID, GAMECHAT_COL, message.$id);
     }
 
@@ -209,7 +209,7 @@ const deleteLobby = async (lobby: LobbyWithName) => {
     const gameSettings = await getDb().listDocuments(DB_ID, GAMESETTINGS_COL, [
       Query.equal("lobbyId", lobby.$id),
     ]);
-    for (const setting of gameSettings.documents) {
+    for (const setting of gameSettings.rows) {
       await getDb().deleteDocument(DB_ID, GAMESETTINGS_COL, setting.$id);
     }
 
@@ -353,11 +353,11 @@ watch([searchTerm, statusFilter], () => {
         <div class="flex justify-between items-start">
           <div>
             <div class="flex items-center gap-2">
-              <h3 class="text-2xl font-semibold font-['Bebas_Neue']">
+              <h3 class="text-2xl font-semibold">
                 {{ lobby.lobbyName || "Unnamed Lobby" }}
               </h3>
               <UBadge
-                class="text-sm text-white font-light font-['Bebas_Neue']"
+                class="text-sm text-white font-light"
                 :color="
                   lobby.status === 'complete'
                     ? 'success'

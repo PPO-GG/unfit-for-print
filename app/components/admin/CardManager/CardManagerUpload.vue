@@ -27,7 +27,7 @@ const {
 <template>
   <UCard>
     <template #header>
-      <h3 class="text-2xl font-bold font-['Bebas_Neue']">Upload Pack JSON</h3>
+      <h3 class="text-2xl font-bold">Upload Pack JSON</h3>
     </template>
 
     <UForm :state="uploadState">
@@ -38,10 +38,10 @@ const {
           type="file"
           accept=".json"
           @change="handleFileChange"
-          class="font-['Bebas_Neue'] block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-slate-500 dark:file:bg-slate-700 dark:file:text-slate-200"
+          class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-slate-500 dark:file:bg-slate-700 dark:file:text-slate-200"
         />
       </div>
-      <p class="text-lg text-slate-500 mt-1 font-['Bebas_Neue']">
+      <p class="text-lg text-slate-500 mt-1">
         Upload a JSON file with card packs
       </p>
 
@@ -203,7 +203,7 @@ const {
         :disabled="!uploadState.file || !uploadState.fileContent"
         @click="uploadJsonFile()"
         color="primary"
-        class="mt-4 font-['Bebas_Neue']"
+        class="mt-4"
         variant="subtle"
       >
         Upload & Seed

@@ -159,7 +159,7 @@ onMounted(async () => {
 				<div class="flex justify-between items-center">
 					<div class="flex gap-4 items-center flex-wrap">
 						<div class="flex items-center gap-2">
-							<span class="text-xl font-['Bebas_Neue']">{{ user.name || 'Unnamed User' }}</span>
+							<span class="text-xl">{{ user.name || 'Unnamed User' }}</span>
 							<UBadge v-if="user.emailVerification" color="primary">Verified</UBadge>
 						</div>
 						<div class="flex gap-2">
