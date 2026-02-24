@@ -37,12 +37,8 @@ export default defineNuxtConfig({
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes("node_modules")) {
-              if (id.includes("mespeak")) return "vendor-mespeak";
-              if (id.includes("appwrite")) return "vendor-appwrite";
-
-              // Split each dependency into its own chunk
-              return id.split("node_modules/")[1]?.split("/")[0];
+            if (id.includes("node_modules") && id.includes("appwrite")) {
+              return "vendor-appwrite";
             }
           },
         },
