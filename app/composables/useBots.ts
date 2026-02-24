@@ -42,8 +42,6 @@ export function useBots(
 
   // ─── Derived state ────────────────────────────────────────────────────
 
-  const hostUserId = computed(() => userStore.user?.$id || "");
-
   const botPlayers = computed(() =>
     players.value.filter((p) => p.playerType === "bot"),
   );
@@ -76,7 +74,6 @@ export function useBots(
         method: "POST",
         body: {
           lobbyId: lobby.value.$id,
-          hostUserId: hostUserId.value,
         },
       });
     } catch (err: any) {
@@ -97,7 +94,6 @@ export function useBots(
         body: {
           lobbyId: lobby.value.$id,
           botUserId,
-          hostUserId: hostUserId.value,
         },
       });
     } catch (err: any) {
@@ -144,7 +140,6 @@ export function useBots(
           lobbyId: lobby.value.$id,
           botUserId,
           action,
-          hostUserId: hostUserId.value,
         },
       });
     } catch (err: any) {
@@ -243,7 +238,6 @@ export function useBots(
                 body: {
                   lobbyId: lobby.value.$id,
                   playerId,
-                  userId: judgeBot.userId,
                 },
               });
             } catch (err: any) {

@@ -231,7 +231,6 @@ async function revealCard(playerId: string) {
       body: {
         lobbyId: props.lobby.$id,
         playerId,
-        userId: myId,
       },
     });
   } catch (err) {

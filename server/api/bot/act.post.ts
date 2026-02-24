@@ -4,12 +4,13 @@
 //   - 'play': pick random cards from the bot's hand and submit them
 //   - 'judge': pick a random winner from the submissions
 //
-// Auth: verified via body-based host check (lobby.hostUserId === body.hostUserId).
+// Auth: Session-based — the caller's identity is verified via Appwrite session cookie,
+// then requireHost confirms they are the lobby host.
 import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, botUserId, action, hostUserId } = body;
+  const { lobbyId, botUserId, action } = body;
 
   if (!lobbyId) {
     throw createError({
@@ -29,33 +30,25 @@ export default defineEventHandler(async (event) => {
       statusMessage: "action must be 'play' or 'judge'",
     });
   }
-  if (!hostUserId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "hostUserId is required",
-    });
-  }
+
+  // Session-based auth: verify the caller is the authenticated host
+  await requireHost(event, lobbyId);
 
   const { DB, LOBBY, GAMECARDS, PLAYER } = getCollectionIds();
   const databases = getAdminDatabases();
   const tables = getAdminTables();
 
-  // --- Verify caller is the host ---
-  const lobbyDoc = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
-  if (lobbyDoc.hostUserId !== hostUserId) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: "Only the host can trigger bot actions",
-    });
-  }
-
   // --- Verify the bot exists in this lobby ---
-  const botRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
-          Query.equal("userId", botUserId),
-          Query.equal("lobbyId", lobbyId),
-          Query.equal("playerType", "bot"),
-          Query.limit(1),
-        ] });
+  const botRes = await tables.listRows({
+    databaseId: DB,
+    tableId: PLAYER,
+    queries: [
+      Query.equal("userId", botUserId),
+      Query.equal("lobbyId", lobbyId),
+      Query.equal("playerType", "bot"),
+      Query.limit(1),
+    ],
+  });
 
   if (botRes.total === 0) {
     throw createError({
@@ -99,7 +92,11 @@ async function handleBotPlay(
 ) {
   const tables = getAdminTables();
   return withRetry(async () => {
-    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
+    const lobby = await tables.getRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+    });
     const capturedVersion = lobby.$updatedAt;
     const state = decodeGameState(lobby.gameState);
 
@@ -115,9 +112,11 @@ async function handleBotPlay(
     }
 
     // Fetch gamecards
-    const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
-              Query.equal("lobbyId", lobbyId),
-            ] });
+    const gameCardsQuery = await tables.listRows({
+      databaseId: DB,
+      tableId: GAMECARDS,
+      queries: [Query.equal("lobbyId", lobbyId)],
+    });
     if (gameCardsQuery.rows.length === 0) {
       return { success: false, reason: "No gamecards found" };
     }
@@ -169,10 +168,20 @@ async function handleBotPlay(
     const coreState = extractCoreState(state);
 
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
-    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
-              gameState: encodeGameState(coreState),
-            } });
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: GAMECARDS,
+      rowId: gameCards.$id,
+      data: updatedGameCards,
+    });
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+      data: {
+        gameState: encodeGameState(coreState),
+      },
+    });
 
     return { success: true, cardsPlayed: cardsToPlay };
   });
@@ -190,7 +199,11 @@ async function handleBotJudge(
 ) {
   const tables = getAdminTables();
   return withRetry(async () => {
-    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
+    const lobby = await tables.getRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+    });
     const capturedVersion = lobby.$updatedAt;
     const state = decodeGameState(lobby.gameState);
 
@@ -212,9 +225,11 @@ async function handleBotJudge(
     const winnerId = submitterIds[randomIndex]!;
 
     // Fetch gamecards for discard management
-    const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
-              Query.equal("lobbyId", lobbyId),
-            ] });
+    const gameCardsQuery = await tables.listRows({
+      databaseId: DB,
+      tableId: GAMECARDS,
+      queries: [Query.equal("lobbyId", lobbyId)],
+    });
     if (gameCardsQuery.rows.length === 0) {
       return { success: false, reason: "No gamecards found" };
     }
@@ -274,11 +289,21 @@ async function handleBotJudge(
     const coreState = extractCoreState(state);
 
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
-    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
-              status: state.phase === "complete" ? "complete" : "playing",
-              gameState: encodeGameState(coreState),
-            } });
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: GAMECARDS,
+      rowId: gameCards.$id,
+      data: updatedGameCards,
+    });
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+      data: {
+        status: state.phase === "complete" ? "complete" : "playing",
+        gameState: encodeGameState(coreState),
+      },
+    });
 
     return { success: true, winnerId, phase: state.phase };
   });

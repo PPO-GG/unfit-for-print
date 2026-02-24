@@ -60,13 +60,11 @@ const isHost = computed(() => props.hostUserId === currentUserId.value);
 const kick = async (player: Player) => {
   try {
     if (player.playerType === "bot") {
-      const userStore = useUserStore();
       await $fetch("/api/bot/remove", {
         method: "POST",
         body: {
           lobbyId: props.lobbyId,
           botUserId: player.userId,
-          hostUserId: userStore.user?.$id,
         },
       });
     } else {

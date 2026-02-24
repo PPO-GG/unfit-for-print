@@ -1,10 +1,14 @@
 // server/api/game/reveal-card.post.ts
 // Reveals a submission card during the judging phase.
 // Persists the reveal in gameState so all players see the flip via realtime.
+//
+// Auth: Session-based. The caller must be:
+//   - The judge (human judge revealing cards), OR
+//   - The host acting on behalf of a bot judge (host triggers bot reveals)
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, playerId, userId } = body;
+  const { lobbyId, playerId } = body;
 
   if (!lobbyId)
     throw createError({
@@ -17,15 +21,18 @@ export default defineEventHandler(async (event) => {
       statusMessage: "playerId is required",
     });
 
-  // Auth: Caller must be a player in this lobby
-  await verifyPlayerInLobby(userId, lobbyId);
+  // Session-based auth: get the authenticated caller's userId
+  const callerId = await requireAuth(event);
 
   const { DB, LOBBY } = getCollectionIds();
-  const databases = getAdminDatabases();
   const tables = getAdminTables();
 
   return withRetry(async () => {
-    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
+    const lobby = await tables.getRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+    });
     const capturedVersion = lobby.$updatedAt;
     const state = decodeGameState(lobby.gameState);
 
@@ -37,8 +44,12 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Only the judge can reveal cards
-    if (state.judgeId !== userId) {
+    // Authorization: caller must be the judge, or the host acting for a bot judge
+    const isJudge = state.judgeId === callerId;
+    const isHostForBotJudge =
+      lobby.hostUserId === callerId && state.judgeId?.startsWith("bot_");
+
+    if (!isJudge && !isHostForBotJudge) {
       throw createError({
         statusCode: 403,
         statusMessage: "Only the judge can reveal cards",
@@ -60,9 +71,14 @@ export default defineEventHandler(async (event) => {
 
     // Concurrency check + persist
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
-              gameState: encodeGameState(coreState),
-            } });
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+      data: {
+        gameState: encodeGameState(coreState),
+      },
+    });
 
     return { success: true };
   });

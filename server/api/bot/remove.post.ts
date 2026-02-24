@@ -1,10 +1,13 @@
 // server/api/bot/remove.post.ts
 // Allows the lobby host to remove a specific bot from the lobby.
+//
+// Auth: Session-based — the caller's identity is verified via Appwrite session cookie,
+// then requireHost confirms they are the lobby host.
 import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, botUserId, hostUserId } = body;
+  const { lobbyId, botUserId } = body;
 
   if (!lobbyId) {
     throw createError({
@@ -18,33 +21,24 @@ export default defineEventHandler(async (event) => {
       statusMessage: "botUserId is required",
     });
   }
-  if (!hostUserId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "hostUserId is required",
-    });
-  }
 
-  const { DB, PLAYER, LOBBY } = getCollectionIds();
-  const databases = getAdminDatabases();
+  // Session-based auth: verify the caller is the authenticated host
+  await requireHost(event, lobbyId);
+
+  const { DB, PLAYER } = getCollectionIds();
   const tables = getAdminTables();
 
-  // --- Verify caller is the host ---
-  const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
-  if (lobby.hostUserId !== hostUserId) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: "Only the host can remove bots",
-    });
-  }
-
   // --- Find the bot player document ---
-  const botRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
-          Query.equal("userId", botUserId),
-          Query.equal("lobbyId", lobbyId),
-          Query.equal("playerType", "bot"),
-          Query.limit(1),
-        ] });
+  const botRes = await tables.listRows({
+    databaseId: DB,
+    tableId: PLAYER,
+    queries: [
+      Query.equal("userId", botUserId),
+      Query.equal("lobbyId", lobbyId),
+      Query.equal("playerType", "bot"),
+      Query.limit(1),
+    ],
+  });
 
   if (botRes.total === 0) {
     throw createError({
@@ -55,7 +49,11 @@ export default defineEventHandler(async (event) => {
 
   // --- Delete the bot player document ---
   const botName = botRes.rows[0]!.name || botUserId;
-  await tables.deleteRow({ databaseId: DB, tableId: PLAYER, rowId: botRes.rows[0]!.$id });
+  await tables.deleteRow({
+    databaseId: DB,
+    tableId: PLAYER,
+    rowId: botRes.rows[0]!.$id,
+  });
 
   // --- Send system chat message server-side ---
   await sendSystemChatMessage(lobbyId, `${botName} left the lobby`);
