@@ -35,7 +35,7 @@
                     <Icon class="z-10 cursor-pointer" name="mdi:cards" />
                   </span>
                   <template #content class="">
-                    <div class="flex-1 p-4 font-[Bebas_Neue]">
+                    <div class="flex-1 p-4">
                       <p class="text-md p-1">
                         <span class="text-yellow-500">Card ID: </span
                         >{{ cardId ?? "" }}
@@ -57,7 +57,7 @@
               </div>
             </div>
             <span
-              class="hidden md:flex items-center absolute bottom-0 right-0 m-2 p-1 text-lg bg-slate-900/50 rounded-lg text-slate-400 font-[Bebas_Neue]"
+              class="hidden md:flex items-center absolute bottom-0 right-0 m-2 p-1 text-lg bg-slate-900/50 rounded-lg text-slate-400"
             >
               <Icon class="align-middle" name="mdi:cards" />
               {{ computedNumPick }}
@@ -286,11 +286,7 @@ onMounted(async () => {
     }
     try {
       // `Fetching full card data for ID: ${props.cardId}`);
-      const doc = await databases.getDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteBlackCardCollectionId,
-        props.cardId,
-      );
+      const doc = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteBlackCardCollectionId, rowId: props.cardId });
       if (!props.text) {
         fallbackText.value = (doc as any).text;
       }
@@ -347,7 +343,6 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: "Bebas Neue", sans-serif;
   font-size: 1.25rem;
   text-align: center;
   border-radius: 12px;

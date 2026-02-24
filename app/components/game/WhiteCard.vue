@@ -34,7 +34,7 @@
                     <Icon class="z-10 cursor-pointer" name="mdi:cards" />
                   </span>
                   <template #content>
-                    <div class="flex-1 p-4 font-[Bebas_Neue]">
+                    <div class="flex-1 p-4">
                       <p class="text-md p-1">
                         <span class="text-yellow-500">Card ID: </span
                         >{{ cardId ?? "" }}
@@ -251,11 +251,7 @@ onMounted(async () => {
       }
 
       try {
-        const doc = await databases.getDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteWhiteCardCollectionId,
-          props.cardId,
-        );
+        const doc = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteWhiteCardCollectionId, rowId: props.cardId });
 
         if (doc && (doc as any).text) {
           fallbackText.value = (doc as any).text;
@@ -325,7 +321,7 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: "Bebas Neue", sans-serif;
+
   font-size: 1.25rem;
   text-align: center;
   border-radius: 12px;

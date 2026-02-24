@@ -1,139 +1,141 @@
 <template>
-  <div
-    class="font-['Bebas_Neue'] bg-slate-600 rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto border-2 border-slate-500"
-  >
-    <!-- Error message display -->
-    <div
-      v-if="errorMessage"
-      class="bg-red-500 text-white p-2 mb-2 rounded text-sm"
-    >
-      {{ errorMessage }}
-    </div>
-
-    <!-- Chat messages -->
-    <div class="relative">
-      <div
-        ref="chatContainer"
-        @scroll="handleScroll"
-        class="flex-1 overflow-y-auto p-2 space-y-1 max-h-80 border-2 border-b-0 border-slate-500 bg-slate-800 rounded-t-lg"
-      >
-        <!-- Load more button -->
-        <div v-if="hasMore" class="text-center py-1">
-          <button
-            @click="loadOlderMessages"
-            :disabled="loadingMore"
-            class="text-sm text-primary-400 hover:text-primary-300 disabled:text-gray-500 disabled:cursor-wait"
-          >
-            {{ loadingMore ? t("chat.loading") : t("chat.load_more") }}
-          </button>
-        </div>
-        <div
-          v-for="(msg, index) in messages"
-          :key="msg.$id"
-          class="break-words whitespace-pre-wrap px-2"
-        >
-          <!-- System messages -->
-          <template v-if="msg.senderId === 'system'">
-            <span class="text-yellow-300 xl:text-xl md:text-lg">{{
-              safeText(msg.text)
-            }}</span>
-          </template>
-          <!-- User messages -->
-          <template v-else>
-            <span
-              class="font-light mr-1 xl:text-xl md:text-lg"
-              :style="{ color: uidToHSLColor(msg.senderId) }"
-              >{{ msg.senderName }}:</span
-            >
-            <span class="text-slate-300 xl:text-xl md:text-lg">{{
-              safeText(msg.text)
-            }}</span>
-          </template>
-          <USeparator
-            v-if="index !== messages.length - 1"
-            color="secondary"
-            type="solid"
-            class="h-2 opacity-50"
-          />
-        </div>
-        <div
-          v-if="messages.length === 0"
-          class="text-gray-400 text-center italic"
-        >
-          {{ t("chat.no_messages") }}
-        </div>
+  <div class="chat-panel">
+    <!-- ─── Header ──────────────────────────────── -->
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <span class="chat-live-dot" />
+        <Icon name="solar:chat-round-bold-duotone" class="chat-header-icon" />
+        <span class="chat-header-title">CHAT</span>
       </div>
-
-      <!-- Scroll to bottom button - only visible when not at bottom -->
       <button
-        v-if="!isAtBottom"
-        @click="scrollToBottom"
-        class="absolute bottom-2 right-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full p-2 shadow-lg"
-        title="Scroll to bottom"
+        class="chat-gear-btn"
+        :class="{ 'chat-gear-btn--active': showSettings }"
+        :title="t('chat.settings') ?? 'Settings'"
+        @click="showSettings = !showSettings"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"
-            clip-rule="evenodd"
-            transform="rotate(180 10 10)"
-          />
-        </svg>
+        <Icon name="solar:settings-minimalistic-bold-duotone" />
       </button>
     </div>
 
-    <!-- Chat input -->
-    <div class="flex p-2 border-2 border-slate-500 bg-slate-800">
+    <!-- ─── Settings drawer ────────────────────────── -->
+    <Transition name="settings-slide">
+      <div v-if="showSettings" class="chat-settings">
+        <USwitch
+          v-model="prefs.ttsEnabled"
+          label="TTS"
+          :description="t('chat.tts_description')"
+          size="xs"
+        />
+        <USwitch
+          v-model="prefs.chatProfanityFilter"
+          label="Profanity Filter"
+          :description="t('chat.profanity_description')"
+          size="xs"
+        />
+      </div>
+    </Transition>
+
+    <!-- ─── Error banner ──────────────────────────── -->
+    <div v-if="errorMessage" class="chat-error">
+      <Icon name="solar:danger-triangle-bold-duotone" />
+      {{ errorMessage }}
+    </div>
+
+    <!-- ─── Messages feed ─────────────────────────── -->
+    <div class="chat-feed-wrap">
+      <div ref="chatContainer" class="chat-feed" @scroll="handleScroll">
+        <!-- Load older -->
+        <button
+          v-if="hasMore"
+          class="load-older-btn"
+          :disabled="loadingMore"
+          @click="loadOlderMessages"
+        >
+          {{ loadingMore ? t("chat.loading") : t("chat.load_more") }}
+        </button>
+
+        <!-- Empty state -->
+        <div v-if="messages.length === 0" class="chat-empty">
+          <Icon name="solar:chat-round-bold-duotone" class="chat-empty-icon" />
+          <span>{{ t("chat.no_messages") }}</span>
+        </div>
+
+        <!-- Message rows -->
+        <TransitionGroup name="chat-msg" tag="div" class="chat-messages">
+          <div
+            v-for="msg in messages"
+            :key="msg.$id"
+            class="chat-row"
+            :class="{
+              'chat-row--system': msg.senderId === 'system',
+              'chat-row--mine': msg.senderId === currentUserId,
+            }"
+          >
+            <!-- System message -->
+            <template v-if="msg.senderId === 'system'">
+              <span class="sys-pill">
+                <Icon
+                  name="solar:server-square-bold-duotone"
+                  class="sys-icon"
+                />
+                SERVER
+              </span>
+              <span class="sys-text">{{ safeText(msg.text) }}</span>
+            </template>
+
+            <!-- User message -->
+            <template v-else>
+              <span
+                class="name-pill"
+                :style="{ '--name-color': uidToHSLColor(msg.senderId) }"
+              >
+                {{ msg.senderName }}
+              </span>
+              <span class="msg-text">{{ safeText(msg.text) }}</span>
+            </template>
+          </div>
+        </TransitionGroup>
+      </div>
+
+      <!-- New messages indicator -->
+      <Transition name="new-msg-fade">
+        <button v-if="!isAtBottom" class="new-msg-btn" @click="scrollToBottom">
+          <Icon name="solar:arrow-down-bold" />
+          New messages
+        </button>
+      </Transition>
+    </div>
+
+    <!-- ─── Input bar ────────────────────────────── -->
+    <div class="chat-input-bar">
       <textarea
         ref="chatInput"
         v-model="newMessage"
-        @keydown.enter.exact.prevent="!isMessageEmpty && sendMessage()"
+        class="chat-textarea"
         :placeholder="t('chat.placeholder')"
         rows="1"
-        class="flex-1 resize-none bg-transparent outline-none text-white placeholder-gray-400 overflow-hidden px-2"
-        @input="autoResize"
         :maxlength="maxLength"
         aria-describedby="character-count"
+        @keydown.enter.exact.prevent="!isMessageEmpty && sendMessage()"
+        @input="autoResize"
       />
-      <UButton
-        @click="sendMessage"
-        :disabled="isMessageEmpty"
-        variant="subtle"
-        color="secondary"
-        class="disabled:bg-gray-500 disabled:cursor-not-allowed disabled:text-gray-400 p-2"
-        icon="i-solar-plain-bold-duotone"
-      >
-        {{ t("chat.send") }}
-      </UButton>
-    </div>
-    <div
-      class="bottom-0 relative bg-slate-900 border-2 border-t-0 border-slate-500 w-full rounded-b-lg p-4"
-    >
-      <USwitch
-        label="TTS"
-        :description="t('chat.tts_description')"
-        size="xs"
-        v-model="prefs.ttsEnabled"
-      />
-      <USwitch
-        label="Profanity"
-        :description="t('chat.profanity_description')"
-        size="xs"
-        v-model="prefs.chatProfanityFilter"
-      />
-
-      <div
-        id="character-count"
-        class="text-xs text-muted tabular-nums absolute bottom-2 right-2"
-        aria-live="polite"
-        role="status"
-      >
-        {{ newMessage?.length }}/{{ maxLength }}
+      <div class="chat-input-actions">
+        <span
+          id="character-count"
+          class="char-count"
+          aria-live="polite"
+          role="status"
+        >
+          {{ newMessage?.length ?? 0 }}/{{ maxLength }}
+        </span>
+        <button
+          class="send-btn"
+          :class="{ 'send-btn--ready': !isMessageEmpty }"
+          :disabled="isMessageEmpty"
+          @click="sendMessage"
+        >
+          <Icon name="solar:plain-bold-duotone" />
+        </button>
       </div>
     </div>
   </div>
@@ -191,7 +193,7 @@ const props = withDefaults(
   },
 );
 const { sanitize } = useSanitize();
-const { databases, client } = getAppwrite();
+const { databases, tables, client } = getAppwrite();
 const userStore = useUserStore();
 const config = useRuntimeConfig();
 const dbId = config.public.appwriteDatabaseId;
@@ -203,6 +205,8 @@ const safeText = (text: string) => sanitize(text);
 const chatContainer = ref<HTMLDivElement | null>(null);
 const isAtBottom = ref(true);
 const errorMessage = ref<string | null>(null);
+const showSettings = ref(false);
+const currentUserId = computed(() => userStore.user?.$id);
 
 // Track optimistically-inserted message IDs so the Realtime echo can be deduped
 const optimisticIds = new Set<string>();
@@ -246,19 +250,19 @@ const loadMessages = async () => {
     }
 
     // Load the latest N messages (descending), then reverse for display
-    const res = await databases.listDocuments(dbId, messagesCollectionId, [
-      Query.equal("lobbyId", props.lobbyId),
-      Query.orderDesc("timeStamp"),
-      Query.limit(MESSAGES_PER_PAGE),
-    ]);
+    const res = await tables.listRows({ databaseId: dbId, tableId: messagesCollectionId, queries: [
+              Query.equal("lobbyId", props.lobbyId),
+              Query.orderDesc("timeStamp"),
+              Query.limit(MESSAGES_PER_PAGE),
+            ] });
 
-    hasMore.value = res.total > res.documents.length;
-    messages.value = res.documents.reverse().map(applyFilters) as ChatMessage[];
+    hasMore.value = res.total > res.rows.length;
+    messages.value = res.rows.reverse().map(applyFilters) as ChatMessage[];
 
     return client.subscribe(
-      `databases.${dbId}.collections.${messagesCollectionId}.documents`,
+      `databases.${dbId}.collections.${messagesCollectionId}.rows`,
       (e: any) => {
-        if (e.events.includes("databases.*.collections.*.documents.*.create")) {
+        if (e.events.includes("databases.*.collections.*.rows.*.create")) {
           const doc = e.payload as ChatMessage;
           const docLobbyId = resolveId(doc.lobbyId);
 
@@ -314,14 +318,14 @@ const loadOlderMessages = async () => {
   loadingMore.value = true;
 
   try {
-    const res = await databases.listDocuments(dbId, messagesCollectionId, [
-      Query.equal("lobbyId", props.lobbyId),
-      Query.orderDesc("timeStamp"),
-      Query.limit(MESSAGES_PER_PAGE),
-      Query.offset(messages.value.length),
-    ]);
+    const res = await tables.listRows({ databaseId: dbId, tableId: messagesCollectionId, queries: [
+              Query.equal("lobbyId", props.lobbyId),
+              Query.orderDesc("timeStamp"),
+              Query.limit(MESSAGES_PER_PAGE),
+              Query.offset(messages.value.length),
+            ] });
 
-    const olderMessages = res.documents
+    const olderMessages = res.rows
       .reverse()
       .map(applyFilters) as ChatMessage[];
     messages.value = [...olderMessages, ...messages.value];
@@ -455,3 +459,386 @@ onUnmounted(() => {
   if (unsubscribe) unsubscribe();
 });
 </script>
+
+<style scoped>
+/* ─── Panel shell ────────────────────────────────────────────── */
+.chat-panel {
+  background: rgba(10, 10, 24, 0.85);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 0.875rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Header ─────────────────────────────────────────────────── */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.12);
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.chat-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow:
+    0 0 6px #22c55e,
+    0 0 12px #22c55e66;
+  animation: live-pulse 2.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.chat-header-icon {
+  font-size: 0.95rem;
+  color: #8b5cf6;
+}
+
+.chat-header-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: #64748b;
+}
+
+.chat-gear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 1rem;
+}
+
+.chat-gear-btn:hover {
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.chat-gear-btn--active {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+/* ─── Settings drawer ────────────────────────────────────────── */
+.chat-settings {
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow: hidden;
+}
+
+.settings-slide-enter-active,
+.settings-slide-leave-active {
+  transition:
+    max-height 0.2s ease,
+    opacity 0.2s ease;
+  max-height: 120px;
+}
+
+.settings-slide-enter-from,
+.settings-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* ─── Error banner ───────────────────────────────────────────── */
+.chat-error {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(239, 68, 68, 0.12);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  font-size: 0.78rem;
+}
+
+/* ─── Feed wrapper ───────────────────────────────────────────── */
+.chat-feed-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.chat-feed {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.2) transparent;
+}
+
+.chat-feed::-webkit-scrollbar {
+  width: 3px;
+}
+
+.chat-feed::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 99px;
+}
+
+/* ─── Empty state ────────────────────────────────────────────── */
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem;
+  color: #334155;
+  font-size: 0.8rem;
+  font-style: italic;
+  text-align: center;
+}
+
+.chat-empty-icon {
+  font-size: 1.8rem;
+  opacity: 0.3;
+}
+
+/* ─── Load older ─────────────────────────────────────────────── */
+.load-older-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 0.3rem;
+  font-size: 0.72rem;
+  color: #8b5cf6;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  transition: color 0.15s ease;
+  letter-spacing: 0.05em;
+}
+
+.load-older-btn:hover {
+  color: #a78bfa;
+}
+.load-older-btn:disabled {
+  color: #475569;
+  cursor: not-allowed;
+}
+
+/* ─── Messages ───────────────────────────────────────────────── */
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.chat-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  line-height: 1.4;
+}
+
+/* Slide-in animation for new messages */
+.chat-msg-enter-active {
+  transition: all 0.2s ease;
+}
+.chat-msg-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+/* Name pill */
+.name-pill {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--name-color, #a78bfa);
+  background: color-mix(in srgb, var(--name-color, #8b5cf6) 12%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--name-color, #8b5cf6) 25%, transparent);
+  border-radius: 4px;
+  padding: 1px 0.35rem;
+  flex-shrink: 0;
+  line-height: 1.6;
+}
+
+/* Message text */
+.msg-text {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  word-break: break-word;
+}
+
+/* System messages */
+.chat-row--system {
+  align-items: center;
+}
+
+.sys-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 4px;
+  padding: 1px 0.4rem;
+  flex-shrink: 0;
+}
+
+.sys-icon {
+  font-size: 0.6rem;
+}
+
+.sys-text {
+  font-size: 0.78rem;
+  color: #fde68a;
+  font-style: italic;
+}
+
+/* ─── New message btn ────────────────────────────────────────── */
+.new-msg-btn {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  background: rgba(139, 92, 246, 0.9);
+  color: white;
+  border: none;
+  border-radius: 99px;
+  font-size: 0.7rem;
+
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.new-msg-btn:hover {
+  background: rgba(139, 92, 246, 1);
+}
+
+.new-msg-fade-enter-active,
+.new-msg-fade-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.new-msg-fade-enter-from,
+.new-msg-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
+}
+
+/* ─── Input bar ──────────────────────────────────────────────── */
+.chat-input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid rgba(100, 116, 139, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.chat-textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
+  padding: 0.2rem 0;
+  max-height: 80px;
+}
+
+.chat-textarea::placeholder {
+  color: #475569;
+}
+
+.chat-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding-left: 0.5rem;
+}
+
+.char-count {
+  font-size: 0.65rem;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  background: rgba(51, 65, 85, 0.5);
+  color: #475569;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.send-btn--ready {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+}
+
+.send-btn--ready:hover {
+  background: rgba(139, 92, 246, 0.25);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.35);
+}
+
+.send-btn:disabled:not(.send-btn--ready) {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+</style>

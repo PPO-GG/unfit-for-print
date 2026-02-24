@@ -1,80 +1,175 @@
 <template>
-  <div
-    class="p-6 space-y-6 text-white flex justify-center items-center text-center flex-col align-middle"
-  >
+  <div class="flex flex-col items-center justify-start text-white">
+    <!-- ── Hero Section ─────────────────────────────────────────── -->
     <div
-      class="backdrop-blur-2xl bg-slate-800/25 p-16 rounded-xl shadow-xl flex flex-col items-center space-y-4"
+      class="w-full flex flex-col items-center justify-center pt-6 pb-10 px-6 text-center z-10"
     >
-      <h1 class="text-4xl font-bold font-['Bebas_Neue']">
+      <!-- Logo / Icon -->
+      <h1
+        class="text-5xl sm:text-6xl font-black uppercase tracking-tight leading-tight drop-shadow-xl"
+      >
         {{ t("game.available") }}
       </h1>
 
-      <ul v-if="lobbies.length" class="space-y-4">
-        <li
-          v-for="lobby in lobbies"
-          :key="lobby.$id"
-          class="bg-slate-800 p-4 rounded shadow"
-        >
-          <div class="flex justify-between items-center">
-            <div>
-              <h2 class="text-xl font-semibold uppercase">
-                {{ lobby.lobbyName || t("lobby.no_name") }}
-              </h2>
-              <p class="text-gray-400 text-sm">
-                {{ t("lobby.lobby_code") }}: {{ lobby.code }}
-              </p>
-              <p class="text-gray-400 text-sm">
-                {{ t("game.status") }}: {{ lobby.status }}
-              </p>
-              <p class="text-gray-400 text-sm">
-                {{ t("game.host") }}: {{ getHostName(lobby) }}
-              </p>
-            </div>
-            <UButton color="primary" @click="handleJoined(lobby.code)">{{
-              t("game.joingame")
-            }}</UButton>
-          </div>
-        </li>
-      </ul>
-
-      <p v-else class="text-gray-400 text-center">
-        {{ t("game.nogamesavailable") }}
-      </p>
-      <div class="space-x-4 uppercase font-['Bebas_Neue']">
+      <!-- Primary CTAs -->
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
         <UButton
           size="xl"
-          @click="showJoin = true"
-          class="text-white text-2xl"
           variant="subtle"
-          color="success"
-          >{{ t("modal.join_lobby") }}</UButton
+          color="primary"
+          icon="i-solar-hand-shake-line-duotone"
+          class="text-base font-bold uppercase tracking-wider text-xl"
+          @click="showJoin = true"
         >
+          {{ t("modal.join_lobby") }}
+        </UButton>
+
         <ClientOnly>
           <UButton
             v-if="showIfAuthenticated"
             size="xl"
-            @click="showCreate = true"
-            class="text-white text-2xl"
             variant="subtle"
             color="warning"
-            >{{ t("modal.create_lobby") }}</UButton
+            icon="i-solar-add-square-bold-duotone"
+            class="text-base font-bold uppercase tracking-wider text-xl"
+            @click="showCreate = true"
           >
+            {{ t("modal.create_lobby") }}
+          </UButton>
         </ClientOnly>
       </div>
-
-      <!-- Modals -->
-      <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
-        <template #body>
-          <JoinLobbyForm @joined="handleJoined" />
-        </template>
-      </UModal>
-
-      <UModal v-model:open="showCreate" :title="t('modal.create_lobby')">
-        <template #body>
-          <CreateLobbyDialog @created="handleJoined" />
-        </template>
-      </UModal>
     </div>
+
+    <!-- ── Lobby Browser ─────────────────────────────────────────── -->
+    <div class="w-full max-w-3xl px-4 pb-20 z-10">
+      <!-- Section header -->
+      <div class="flex items-center justify-between mb-4 px-1">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">
+          {{ t("game.available") }}
+        </h2>
+        <span
+          class="text-xs font-bold uppercase tracking-widest text-slate-400 tabular-nums"
+        >
+          {{ lobbies.length }} {{ lobbies.length === 1 ? "lobby" : "lobbies" }}
+        </span>
+      </div>
+
+      <!-- Lobby List -->
+      <ul v-if="lobbies.length" class="space-y-3">
+        <li
+          v-for="lobby in lobbies"
+          :key="lobby.$id"
+          class="group relative flex items-center justify-between gap-4 rounded-xl border border-white/8 bg-slate-800/50 backdrop-blur-md px-5 py-4 shadow-lg transition-all duration-200 hover:border-violet-500/40 hover:bg-slate-800/70 hover:shadow-violet-900/30"
+        >
+          <!-- Subtle glow on hover -->
+          <div
+            class="pointer-events-none absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-violet-500/5 to-transparent"
+          />
+
+          <!-- Left: Info -->
+          <div class="flex items-center gap-4 min-w-0">
+            <!-- Avatar placeholder -->
+            <div
+              class="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-violet-900/40 border border-violet-500/20 text-violet-300"
+            >
+              <span class="i-solar-users-group-rounded-bold-duotone text-xl" />
+            </div>
+
+            <div class="min-w-0">
+              <h3 class="text-sm font-bold truncate text-white leading-tight">
+                {{ lobby.lobbyName || t("lobby.no_name") }}
+              </h3>
+              <div class="flex items-center gap-2 mt-1 flex-wrap">
+                <!-- Lobby code badge -->
+                <span
+                  class="inline-flex items-center gap-1 text-xs font-mono text-slate-400"
+                >
+                  <span
+                    class="i-solar-key-minimalistic-2-bold-duotone text-slate-500"
+                  />
+                  {{ lobby.code }}
+                </span>
+                <!-- Host name -->
+                <span
+                  class="inline-flex items-center gap-1 text-xs text-slate-500"
+                >
+                  <span
+                    class="i-solar-crown-minimalistic-bold-duotone text-amber-500/70"
+                  />
+                  {{ getHostName(lobby) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Status + Join -->
+          <div class="flex items-center gap-3 shrink-0">
+            <!-- Status badge -->
+            <span
+              class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide border"
+              :class="
+                lobby.status === 'waiting'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+              "
+            >
+              <span
+                class="inline-block w-1.5 h-1.5 rounded-full"
+                :class="
+                  lobby.status === 'waiting' ? 'bg-emerald-400' : 'bg-amber-400'
+                "
+              />
+              {{ lobby.status }}
+            </span>
+
+            <UButton
+              size="sm"
+              variant="soft"
+              color="primary"
+              icon="i-solar-arrow-right-bold-duotone"
+              trailing
+              class="font-semibold uppercase tracking-wide text-xs"
+              @click="handleJoined(lobby.code)"
+            >
+              {{ t("game.joingame") }}
+            </UButton>
+          </div>
+        </li>
+      </ul>
+
+      <!-- Empty State -->
+      <div
+        v-else
+        class="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-white/10 bg-slate-900/50 backdrop-blur-md py-16 px-6 text-center"
+      >
+        <div
+          class="flex items-center justify-center w-24 h-24 rounded-2xl bg-slate-700/40 border border-white/5 text-slate-500"
+        >
+          <Icon name="solar:ghost-bold-duotone" class="text-6xl" />
+        </div>
+        <div>
+          <p class="text-xl font-semibold text-slate-300">
+            {{ t("game.nogamesavailable") }}
+          </p>
+          <p class="text-md text-slate-500 mt-1">
+            Create a lobby or join one directly with a code.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Modals ─────────────────────────────────────────────────── -->
+    <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
+      <template #body>
+        <JoinLobbyForm @joined="handleJoined" />
+      </template>
+    </UModal>
+
+    <UModal v-model:open="showCreate" :title="t('modal.create_lobby')">
+      <template #body>
+        <CreateLobbyDialog @created="handleJoined" />
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -86,7 +181,7 @@ import { useLobby } from "~/composables/useLobby";
 import { useUserAccess } from "~/composables/useUserUtils";
 import { getAppwrite } from "~/utils/appwrite";
 import { Query } from "appwrite";
-import type { Databases } from "appwrite";
+import type { TablesDB } from "appwrite";
 import { useGetPlayerName } from "~/composables/useGetPlayerName";
 import type { GameSettings } from "~/types/gamesettings";
 import type { Lobby } from "~/types/lobby";
@@ -94,9 +189,9 @@ import { resolveId } from "~/utils/resolveId";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 
-let databases: Databases | undefined;
+let tables: TablesDB | undefined;
 if (import.meta.client) {
-  ({ databases } = getAppwrite());
+  ({ tables } = getAppwrite());
 }
 const config = useRuntimeConfig();
 const showJoin = ref(false);
@@ -120,29 +215,33 @@ const { showIfAuthenticated } = useUserAccess();
 const hostNames = ref<Record<string, string>>({});
 
 const fetchPublicLobbies = async () => {
-  if (!databases) return;
+  if (!tables) return;
   try {
-    const lobbyRes = await databases.listDocuments<Lobby>(DB_ID, LOBBY_COL, [
-      Query.equal("status", "waiting"),
-      Query.orderDesc("$createdAt"),
-      Query.limit(100),
-    ]);
+    const lobbyRes = await tables.listRows<Lobby>({
+      databaseId: DB_ID,
+      tableId: LOBBY_COL,
+      queries: [
+        Query.equal("status", "waiting"),
+        Query.orderDesc("$createdAt"),
+        Query.limit(100),
+      ],
+    });
 
-    const settingsRes = await databases.listDocuments<GameSettings>(
-      DB_ID,
-      GAMESETTINGS_COL,
-      [Query.limit(1000)],
-    );
+    const settingsRes = await tables.listRows<GameSettings>({
+      databaseId: DB_ID,
+      tableId: GAMESETTINGS_COL,
+      queries: [Query.limit(1000)],
+    });
 
     const settingsMap: Record<string, GameSettings> = {};
-    for (const setting of settingsRes.documents) {
+    for (const setting of settingsRes.rows) {
       const lobbyId = resolveId(setting.lobbyId);
       settingsMap[lobbyId] = setting;
     }
 
     const publicLobbies: LobbyWithName[] = [];
 
-    for (const lobby of lobbyRes.documents) {
+    for (const lobby of lobbyRes.rows) {
       const settings = settingsMap[lobby.$id];
       if (!settings || settings.isPrivate) continue;
 
@@ -175,7 +274,10 @@ const getHostName = (lobby: LobbyWithName): string => {
 };
 
 onMounted(async () => {
-  await userStore.fetchUserSession();
+  // Only fetch if session isn't already established
+  if (!userStore.isLoggedIn) {
+    await userStore.fetchUserSession();
+  }
   await fetchPublicLobbies();
   const userId = userStore.user?.$id;
   if (userId) {

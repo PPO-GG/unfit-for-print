@@ -12,8 +12,22 @@ import { useSfx } from "@/composables/useSfx";
 import { useCardFlyCoords } from "@/composables/useCardFlyCoords";
 import { useCardPlayPreferences } from "@/composables/useCardPlayPreferences";
 import { useCardGesture } from "@/composables/useCardGesture";
+import { useWhiteDeckPosition } from "@/composables/useWhiteDeckPosition";
 import { SFX } from "~/config/sfx.config";
 import { gsap } from "gsap";
+import type { CardTexts } from "~/types/gamecards";
+
+// Module-level: survives component destroy/recreate (v-if toggle between rounds)
+// Stored on window to also survive HMR module re-evaluation during development.
+const previousHandIds: Set<string> =
+  typeof window !== "undefined" && (window as any).__ufpPreviousHandIds
+    ? (window as any).__ufpPreviousHandIds
+    : (() => {
+        const s = new Set<string>();
+        if (typeof window !== "undefined")
+          (window as any).__ufpPreviousHandIds = s;
+        return s;
+      })();
 
 const { t } = useI18n();
 
@@ -21,6 +35,8 @@ const props = defineProps<{
   cards: string[];
   disabled?: boolean;
   cardsToSelect?: number;
+  /** Resolved card texts from the server — eliminates per-card Appwrite fetches. */
+  cardTexts?: CardTexts;
 }>();
 
 const emit = defineEmits<{
@@ -33,6 +49,10 @@ const handRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<HTMLElement[]>([]);
 const { playSfx } = useSfx();
 const { snapshotCards } = useCardFlyCoords();
+const { getDeckCenter, triggerDeal } = useWhiteDeckPosition();
+
+// Guard: skip re-entrance animation when server confirms card removal after submit
+const justSubmitted = ref(false);
 
 // Auto-submit state
 const autoSubmitTimer = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -153,28 +173,98 @@ watch(
     // Only re-animate if the actual cards changed, not just the array reference
     if (oldCards && newCards.join(",") === oldCards.join(",")) return;
 
+    // Skip re-entrance if we just submitted (server removed cards from hand)
+    if (justSubmitted.value) {
+      justSubmitted.value = false;
+      selectedCards.value = [];
+      // Update previous hand for next mount cycle
+      previousHandIds.clear();
+      newCards.forEach((id) => previousHandIds.add(id));
+      return;
+    }
+
     // Cancel any pending auto-submit from previous round
     cancelAutoSubmit();
     selectedCards.value = [];
+
+    // Detect which cards are genuinely new (drawn from deck)
+    // Only compare if we have a previous hand; otherwise treat as normal entrance
+    const hasPrevious = previousHandIds.size > 0;
+    const newCardIds = hasPrevious
+      ? newCards.filter((id) => !previousHandIds.has(id))
+      : [];
+
+    // Phase 2: Only animate new cards from the white deck
+    const deckCenter = newCardIds.length > 0 ? getDeckCenter() : null;
+    if (newCardIds.length > 0) {
+      triggerDeal(newCardIds.length * 70 + 500);
+    }
+
     nextTick(() => {
-      cardRefs.value.forEach((el) => {
+      // Calculate deck offset for new cards
+      let fromX = 0;
+      let fromY = 80;
+
+      if (deckCenter) {
+        const firstEl = cardRefs.value.find((el) => el);
+        if (firstEl) {
+          gsap.set(firstEl, { clearProps: "all" });
+          const elRect = firstEl.getBoundingClientRect();
+          const elCenterX = elRect.left + elRect.width / 2;
+          const elCenterY = elRect.top + elRect.height / 2;
+          fromX = deckCenter.x - elCenterX;
+          fromY = deckCenter.y - elCenterY;
+        }
+      }
+
+      cardRefs.value.forEach((el, i) => {
         if (!el) return;
-        gsap.set(el, { x: 0, y: 80, rotation: 0, scale: 0.8, opacity: 0 });
+        const cardId = newCards[i];
+        const isNew = cardId && newCardIds.includes(cardId);
+
+        if (isNew) {
+          // New card: start from deck, animate to fan position
+          gsap.set(el, {
+            x: fromX,
+            y: fromY,
+            rotation: 0,
+            scale: 0.4,
+            opacity: 0,
+          });
+        } else {
+          // Existing card: just set initial hidden state for re-fan
+          gsap.set(el, { opacity: 0 });
+        }
       });
+
+      let newCardAnimIndex = 0;
       cardRefs.value.forEach((el, i) => {
         if (!el) return;
         const base = getBaseTransform(i);
+        const cardId = newCards[i];
+        const isNew = cardId && newCardIds.includes(cardId);
+
+        if (isNew) {
+          // Play a flip SFX staggered to match each card's animation
+          const sfxDelay = newCardAnimIndex * 100;
+          setTimeout(() => playSfx(SFX.cardFlip), sfxDelay);
+        }
+
         gsap.to(el, {
           x: base.x,
           y: base.y,
           rotation: base.rotation,
           scale: 1,
           opacity: 1,
-          duration: 0.6,
-          delay: i * 0.05,
-          ease: "back.out(1.4)",
+          duration: isNew ? 0.55 : 0.3,
+          delay: isNew ? newCardAnimIndex++ * 0.1 : 0,
+          ease: isNew ? "power3.out" : "power2.out",
         });
       });
+
+      // Update previous hand
+      previousHandIds.clear();
+      newCards.forEach((id) => previousHandIds.add(id));
     });
   },
   { flush: "post" },
@@ -186,6 +276,21 @@ function doSubmitNow() {
     (el, i) => el && selectedCards.value.includes(props.cards[i] ?? ""),
   );
   snapshotCards(selectedEls);
+
+  // Phase 1: Animate selected cards out of the fan immediately
+  selectedEls.forEach((el, i) => {
+    gsap.to(el, {
+      y: "-=130",
+      scale: 0.3,
+      opacity: 0,
+      rotation: `+=${(Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 20)}`,
+      duration: 0.4,
+      delay: i * 0.06,
+      ease: "power2.in",
+    });
+  });
+
+  justSubmitted.value = true;
   emit("select-cards", [...selectedCards.value]);
   playSfx(SFX.cardThrow);
 }
@@ -260,6 +365,7 @@ const { isDragging, onPointerDown, onPointerMove, onPointerUp } =
     },
     enabled: gestureEnabled,
     disabled: toRef(props, "disabled"),
+    allSelected,
   });
 
 // ── Interactions ────────────────────────────────────────────────────────────
@@ -402,20 +508,98 @@ onMounted(() => {
   if (typeof window !== "undefined") {
     window.addEventListener("resize", handleResize);
   }
+
+  // Detect which cards are genuinely new (not in previous hand)
+  const hasReturnedCards = previousHandIds.size > 0;
+  const newCardIds = hasReturnedCards
+    ? props.cards.filter((id) => !previousHandIds.has(id))
+    : [];
+
+  // Always update previousHandIds, even if cards aren't rendered yet.
+  // This ensures the state persists across component destroy/recreate.
+  if (props.cards.length > 0) {
+    previousHandIds.clear();
+    props.cards.forEach((id) => previousHandIds.add(id));
+  }
+
+  // Phase 2: Only animate genuinely new cards from the deck
+  const deckCenter = newCardIds.length > 0 ? getDeckCenter() : null;
+  if (newCardIds.length > 0) {
+    triggerDeal(newCardIds.length * 70 + 500);
+  }
+
   nextTick(() => {
+    if (!cardRefs.value.length) return;
+
+    // Calculate deck offset for new cards
+    let fromX = 0;
+    let fromY = 80;
+
+    if (deckCenter) {
+      const firstEl = cardRefs.value.find((el) => el);
+      if (firstEl) {
+        gsap.set(firstEl, { clearProps: "all" });
+        const elRect = firstEl.getBoundingClientRect();
+        const elCenterX = elRect.left + elRect.width / 2;
+        const elCenterY = elRect.top + elRect.height / 2;
+        fromX = deckCenter.x - elCenterX;
+        fromY = deckCenter.y - elCenterY;
+      }
+    }
+
+    cardRefs.value.forEach((el, i) => {
+      if (!el) return;
+      const cardId = props.cards[i];
+      const isNew = cardId && newCardIds.includes(cardId);
+
+      if (isNew) {
+        // New card from deck: start from deck position
+        gsap.set(el, {
+          x: fromX,
+          y: fromY,
+          rotation: 0,
+          scale: 0.4,
+          opacity: 0,
+        });
+      } else if (hasReturnedCards) {
+        // Existing card: briefly hidden for re-fan
+        gsap.set(el, { opacity: 0 });
+      } else {
+        // First mount (no previous hand): classic entrance from below
+        gsap.set(el, { x: 0, y: 80, rotation: 0, scale: 0.8, opacity: 0 });
+      }
+    });
+
+    let newCardAnimIndex = 0;
     cardRefs.value.forEach((el, i) => {
       if (!el) return;
       const base = getBaseTransform(i);
-      gsap.set(el, { x: 0, y: 80, rotation: 0, scale: 0.8, opacity: 0 });
+      const cardId = props.cards[i];
+      const isNew = cardId && newCardIds.includes(cardId);
+
+      if (isNew) {
+        // Play a flip SFX staggered to match each card's animation
+        const sfxDelay = newCardAnimIndex * 100 + 150;
+        setTimeout(() => playSfx(SFX.cardFlip), sfxDelay);
+      }
+
       gsap.to(el, {
         x: base.x,
         y: base.y,
         rotation: base.rotation,
         scale: 1,
         opacity: 1,
-        duration: 0.6,
-        delay: i * 0.06,
-        ease: "back.out(1.4)",
+        duration: isNew ? 0.55 : hasReturnedCards ? 0.3 : 0.6,
+        delay: isNew
+          ? newCardAnimIndex++ * 0.1 + 0.15
+          : hasReturnedCards
+            ? 0
+            : i * 0.06,
+        ease: isNew
+          ? "power3.out"
+          : hasReturnedCards
+            ? "power2.out"
+            : "back.out(1.4)",
       });
     });
   });
@@ -509,7 +693,9 @@ onUnmounted(() => {
           }"
           @click="onCardClick($event, cardId, index)"
           @pointerdown="
-            gestureEnabled ? onPointerDown($event, cardId, index) : undefined
+            gestureEnabled && allSelected
+              ? onPointerDown($event, cardId, index)
+              : undefined
           "
           @pointermove="gestureEnabled ? onPointerMove($event) : undefined"
           @pointerup="gestureEnabled ? onPointerUp($event) : undefined"
@@ -521,7 +707,11 @@ onUnmounted(() => {
           >
             {{ selectionOrder(cardId) }}
           </div>
-          <WhiteCard :cardId="cardId" :disableHover="true" />
+          <WhiteCard
+            :cardId="cardId"
+            :text="props.cardTexts?.[cardId]?.text"
+            :disableHover="true"
+          />
         </div>
       </div>
     </div>
@@ -572,7 +762,6 @@ onUnmounted(() => {
 }
 
 .auto-submit-label {
-  font-family: "Bebas Neue", sans-serif;
   font-size: 1rem;
   letter-spacing: 0.06em;
   color: rgba(34, 197, 94, 1);
@@ -627,7 +816,6 @@ onUnmounted(() => {
 }
 
 .pick-counter-text {
-  font-family: "Bebas Neue", sans-serif;
   font-size: 0.9rem;
   letter-spacing: 0.04em;
   color: rgba(148, 163, 184, 1);
@@ -723,7 +911,7 @@ onUnmounted(() => {
   justify-content: center;
   background: rgba(34, 197, 94, 1);
   color: white;
-  font-family: "Bebas Neue", sans-serif;
+
   font-size: 0.85rem;
   font-weight: bold;
   border-radius: 50%;
@@ -760,7 +948,7 @@ onUnmounted(() => {
   backdrop-filter: blur(12px);
   white-space: nowrap;
   animation: indicator-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  font-family: "Bebas Neue", sans-serif;
+
   font-size: 0.95rem;
   letter-spacing: 0.05em;
   color: rgba(14, 165, 233, 0.9);
