@@ -38,6 +38,9 @@ const cardPackSchema = {
 };
 
 export default defineEventHandler(async (event) => {
+  // Only authenticated admins may seed card data.
+  await assertAdmin(event);
+
   const config = useRuntimeConfig();
   const { databases } = createAppwriteClient();
   const method = event.node.req.method || "GET";

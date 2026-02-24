@@ -2,13 +2,27 @@ import { Client, Databases, Permission, Role } from "node-appwrite";
 import appwriteConfig from "../../appwrite.json";
 
 export default defineEventHandler(async (event) => {
+  // Only authenticated admins may run database setup.
+  await assertAdmin(event);
+
   const body = await readBody(event);
   const { endpoint, projectId, apiKey } = body;
+  const config = useRuntimeConfig();
 
   if (!endpoint || !projectId || !apiKey) {
     throw createError({
       statusCode: 400,
       statusMessage: "Missing required configuration",
+    });
+  }
+
+  // Prevent this endpoint from being used as a proxy to arbitrary Appwrite instances.
+  // Only allow setup against the configured Appwrite endpoint.
+  const allowedEndpoint = config.public.appwriteEndpoint as string;
+  if (allowedEndpoint && endpoint !== allowedEndpoint) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "endpoint does not match the configured Appwrite instance",
     });
   }
 

@@ -7,6 +7,9 @@ const client = new ElevenLabsClient({
 });
 
 export default defineEventHandler(async (event) => {
+  // Require an authenticated session to prevent free-riders burning TTS credits.
+  await requireAuth(event);
+
   const body = await readBody(event);
   const { text, voiceId, modelId } = body as {
     text: string;

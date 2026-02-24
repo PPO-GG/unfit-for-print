@@ -9,13 +9,28 @@ import { Query } from "node-appwrite";
  *   3. Return { discordUserId, avatar } so the client can persist to prefs
  *
  * Body: { userId: string }
+ *
+ * Security: requireAuth ensures a valid Appwrite session exists. We then
+ * assert that the requested userId matches the authenticated caller so
+ * a user cannot fetch another user's Discord provider token (IDOR).
  */
 export default defineEventHandler(async (event) => {
+  // Verify the caller has a valid Appwrite session.
+  const authenticatedUserId = await requireAuth(event);
+
   const body = await readBody(event);
   const userId = body?.userId;
 
   if (!userId) {
     throw createError({ statusCode: 400, statusMessage: "userId is required" });
+  }
+
+  // Prevent IDOR: users may only fetch their own Discord identity.
+  if (userId !== authenticatedUserId) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Forbidden: you may only fetch your own Discord avatar",
+    });
   }
 
   const { client } = useAppwriteAdmin();

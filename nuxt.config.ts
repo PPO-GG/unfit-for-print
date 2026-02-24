@@ -107,13 +107,12 @@ export default defineNuxtConfig({
     skipSettingLocaleOnNavigate: false,
   },
   runtimeConfig: {
-    // Server-only
+    // Server-only secrets
     elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
 
     // Client-side (game-specific collection IDs)
     public: {
       appwriteDatabaseId: process.env.NUXT_PUBLIC_APPWRITE_DATABASE_ID,
-      appwriteAdminTeamId: process.env.NUXT_PUBLIC_APPWRITE_ADMIN_TEAM_ID,
       appwriteWhiteCardCollectionId:
         process.env.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID,
       appwriteBlackCardCollectionId:

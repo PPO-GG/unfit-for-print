@@ -1,64 +1,43 @@
 // composables/useAdminCheck.ts
-import { getAppwrite } from "~/utils/appwrite";
 import { useUserStore } from "~/stores/userStore";
-import { ref, onMounted, watch } from "vue";
+import { ref, watch } from "vue";
 
 /**
- * Checks if the current user is an admin by verifying team membership.
+ * Checks if the current user is an admin by checking their Appwrite labels.
+ *
+ * Admin access is granted by assigning the "admin" label to a user in
+ * the Appwrite console (Users → select user → Labels).
+ * No team membership or env var required — the label is part of the user
+ * object already loaded in the store.
+ *
  * Safe for anonymous users — will return false.
  */
-export const useAdminCheck = async (): Promise<boolean> => {
-  // console.log('[useAdminCheck] Checking if user is admin')
+export const useAdminCheck = (): boolean => {
   const userStore = useUserStore();
-  const userId = userStore.user?.$id;
+  const user = userStore.user;
 
-  // console.log('[useAdminCheck] User ID:', userId)
-  // console.log('[useAdminCheck] Session exists:', !!userStore.session)
+  if (!user) return false;
 
-  if (!userId) {
-    // console.log('[useAdminCheck] No user ID, returning false')
-    return false; // not logged in = not admin
-  }
-
-  try {
-    const { teams } = getAppwrite();
-    if (!teams) return false;
-    const config = useRuntimeConfig();
-    const ADMIN_TEAM_ID = config.public.appwriteAdminTeamId as string;
-    // console.log('[useAdminCheck] Admin team ID:', ADMIN_TEAM_ID)
-
-    // console.log('[useAdminCheck] Listing team memberships')
-    const memberships = await teams.listMemberships({ teamId: ADMIN_TEAM_ID });
-    // console.log('[useAdminCheck] Team memberships:', memberships.memberships)
-    // console.log('[useAdminCheck] Is admin:', isAdmin)
-
-    return memberships.memberships.some(
-      (m: { userId: string; confirm: boolean }) =>
-        m.userId === userId && m.confirm,
-    );
-  } catch (err) {
-    console.error("[useAdminCheck] error:", err);
-    return false;
-  }
+  // Labels come back as a string[] on the Appwrite user object
+  return (
+    Array.isArray((user as any).labels) &&
+    (user as any).labels.includes("admin")
+  );
 };
 
 /**
- * Returns a reactive ref for admin state — for use in templates
+ * Returns a reactive ref for admin state — for use in templates.
+ * Re-evaluates whenever the user session changes.
  */
 export const useIsAdmin = () => {
-  const isAdmin = ref(false);
   const userStore = useUserStore();
+  const isAdmin = ref(useAdminCheck());
 
-  // Check admin status on mount
-  onMounted(async () => {
-    isAdmin.value = await useAdminCheck();
-  });
-
-  // Watch for changes in user session
+  // Re-check whenever the user object changes (login/logout/label change)
   watch(
-    () => [userStore.user, userStore.session],
-    async () => {
-      isAdmin.value = await useAdminCheck();
+    () => userStore.user,
+    () => {
+      isAdmin.value = useAdminCheck();
     },
     { immediate: true },
   );
