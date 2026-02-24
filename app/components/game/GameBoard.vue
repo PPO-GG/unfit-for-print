@@ -33,7 +33,8 @@ watch(
 );
 
 // Initialize useGameCards to get player hands
-const { playerHands, fetchGameCards, subscribeToGameCards } = useGameCards();
+const { playerHands, cardTexts, fetchGameCards, subscribeToGameCards } =
+  useGameCards();
 
 // Variable to store the unsubscribe function
 let gameCardsUnsubscribe: (() => void) | null = null;
@@ -143,7 +144,7 @@ const effectiveRoundWinner = computed(() => {
 // The active game phase for the GameTable component
 // During roundEnd, keep showing as "judging" so the cards/celebration stay visible
 const activePhase = computed<"submitting" | "judging">(() => {
-  if (isJudging.value || isRoundEnd.value) return "judging";
+  if (isJudging.value || isRoundEnd.value || isComplete.value) return "judging";
   return "submitting";
 });
 
@@ -168,12 +169,15 @@ watch(
       setTimeout(() => {
         winnerSelected.value = true;
 
+        // Play round-win fanfare when the celebration overlay appears
+        playSfx(SFX.winRound, { volume: 0.25 });
+
         // Auto-start next round after 5 seconds
         hasTriggeredNextRound = false;
         if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
 
         nextRoundTimeout = setTimeout(async () => {
-          if (isHost.value && !hasTriggeredNextRound) {
+          if (isHost.value && !hasTriggeredNextRound && !isComplete.value) {
             hasTriggeredNextRound = true;
             try {
               await startNextRound(props.lobby.$id, props.lobby.$id);
@@ -186,8 +190,10 @@ watch(
               console.error("Failed to auto-start next round:", err);
             }
           }
-          // Reset for next round
-          winnerSelected.value = false;
+          // Reset for next round (skip if game is over — keep celebration visible)
+          if (!isComplete.value) {
+            winnerSelected.value = false;
+          }
         }, 5000);
       }, 2000); // 2s delay to show winning card highlight before celebration
     }
@@ -247,26 +253,25 @@ async function convertToPlayer(playerId: string) {
     const playerDoc = props.players.find((p) => p.userId === playerId);
     if (!playerDoc) return;
 
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = useRuntimeConfig();
 
-    await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      playerDoc.$id,
-      { playerType: "player" },
-    );
+    await tables.updateRow({
+      databaseId: config.public.appwriteDatabaseId,
+      tableId: config.public.appwritePlayerCollectionId,
+      rowId: playerDoc.$id,
+      data: { playerType: "player" },
+    });
 
     // Deal cards to the player
-    const gameCardsRes = await databases.listDocuments(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteGamecardsCollectionId,
-      [Query.equal("lobbyId", props.lobby.$id)],
-    );
+    const gameCardsRes = await tables.listRows({
+      databaseId: config.public.appwriteDatabaseId,
+      tableId: config.public.appwriteGamecardsCollectionId,
+      queries: [Query.equal("lobbyId", props.lobby.$id)],
+    });
 
-    if (gameCardsRes.total === 0) return;
-
-    const gameCards = gameCardsRes.documents[0];
+    const gameCards = gameCardsRes.rows[0];
+    if (!gameCards) return;
     const whiteDeck = gameCards.whiteDeck || [];
     const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 10;
     const newHand = whiteDeck.slice(0, cardsPerPlayer);
@@ -284,15 +289,15 @@ async function convertToPlayer(playerId: string) {
       parsedHands.push({ playerId, cards: newHand });
     }
 
-    await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteGamecardsCollectionId,
-      gameCards.$id,
-      {
+    await tables.updateRow({
+      databaseId: config.public.appwriteDatabaseId,
+      tableId: config.public.appwriteGamecardsCollectionId,
+      rowId: gameCards.$id,
+      data: {
         whiteDeck: remainingDeck,
         playerHands: parsedHands.map((hand: any) => JSON.stringify(hand)),
       },
-    );
+    });
 
     notify({
       title: t("game.player_dealt_in"),
@@ -323,7 +328,7 @@ function handleLeave() {
     class="w-full bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen flex flex-col"
   >
     <div
-      class="absolute w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none"
+      class="fixed w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none"
     ></div>
 
     <!-- Main Content -->
@@ -347,7 +352,7 @@ function handleLeave() {
 
         <!-- Unified Game Table (submission + judging + winner celebration) -->
         <GameTable
-          v-if="isSubmitting || isJudging || isRoundEnd"
+          v-if="isSubmitting || isJudging || isRoundEnd || isComplete"
           :is-judge="isJudge"
           :submissions="submissions"
           :my-id="myId"
@@ -365,6 +370,7 @@ function handleLeave() {
           :winning-cards="state?.winningCards || []"
           :scores="state?.scores || {}"
           :judge-id="judgeId"
+          :card-texts="cardTexts"
           @select-cards="handleCardSubmit"
           @convert-to-player="convertToPlayer"
           @select-winner="handleSelectWinner"

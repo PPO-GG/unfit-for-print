@@ -97,6 +97,27 @@ const { hasReturnedToLobby, autoReturnTimeRemaining, handleContinue } =
     lobbyRef: lobby,
   });
 
+// ─── Delayed Complete Gate ──────────────────────────────────────────────────
+// When someone wins the final round, the server sets phase="complete" instantly.
+// Delay the GameOver screen so the winning card celebration plays out first
+// (2s card highlight + 5s celebration overlay = 7s total).
+const delayedComplete = ref(false);
+let delayedCompleteTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(isComplete, (complete) => {
+  if (complete) {
+    delayedCompleteTimeout = setTimeout(() => {
+      delayedComplete.value = true;
+    }, 7000);
+  } else {
+    delayedComplete.value = false;
+    if (delayedCompleteTimeout) {
+      clearTimeout(delayedCompleteTimeout);
+      delayedCompleteTimeout = null;
+    }
+  }
+});
+
 const { convertToPlayer } = useSpectatorConversion({
   isHost,
   players,
@@ -525,36 +546,38 @@ async function handleSkipJudge() {
         class="desktop-sidebar hidden xl:flex"
         :class="{ 'desktop-sidebar--open': showDesktopSidebar }"
       >
-        <!-- Close button when in gameplay mode -->
-        <UButton
-          v-if="isPlaying"
-          icon="i-solar-close-square-bold-duotone"
-          color="neutral"
-          variant="ghost"
-          size="lg"
-          class="self-end -mt-1 -mr-1"
-          aria-label="Close sidebar"
-          @click="showDesktopSidebar = false"
-        />
-        <GameSidebarContent
-          :lobby="lobby"
-          :players="players"
-          :state="state"
-          :game-settings="gameSettings"
-          :is-host="isHost"
-          :is-starting="isStarting"
-          :is-waiting="isWaiting"
-          :joined-lobby="joinedLobby"
-          :my-id="myId"
-          :copied="copied"
-          @copy-link="copyLobbyLink"
-          @leave="handleLeave"
-          @start-game="startGameWrapper"
-          @convert-spectator="convertToPlayer"
-          @skip-player="handleSkipPlayer"
-          @skip-judge="handleSkipJudge"
-          @update:settings="handleSettingsUpdate"
-        />
+        <div class="sidebar-content-scroll">
+          <!-- Close button when playing -->
+          <div v-if="isPlaying" class="sidebar-close-row">
+            <UButton
+              icon="i-solar-close-square-bold-duotone"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              aria-label="Close sidebar"
+              @click="showDesktopSidebar = false"
+            />
+          </div>
+          <GameSidebarContent
+            :lobby="lobby"
+            :players="players"
+            :state="state"
+            :game-settings="gameSettings"
+            :is-host="isHost"
+            :is-starting="isStarting"
+            :is-waiting="isWaiting"
+            :joined-lobby="joinedLobby"
+            :my-id="myId"
+            :copied="copied"
+            @copy-link="copyLobbyLink"
+            @leave="handleLeave"
+            @start-game="startGameWrapper"
+            @convert-spectator="convertToPlayer"
+            @skip-player="handleSkipPlayer"
+            @skip-judge="handleSkipJudge"
+            @update:settings="handleSettingsUpdate"
+          />
+        </div>
       </aside>
 
       <!-- Mobile slideover -->
@@ -609,8 +632,8 @@ async function handleSkipJudge() {
         <!-- In-game -->
         <ClientOnly
           v-if="
-            (isPlaying || isJudging || isRoundEnd) &&
-            !isComplete &&
+            (isPlaying || isJudging || isRoundEnd || isComplete) &&
+            !delayedComplete &&
             lobby &&
             players
           "
@@ -624,7 +647,7 @@ async function handleSkipJudge() {
 
         <!-- Game Over -->
         <ClientOnly
-          v-if="isComplete && !hasReturnedToLobby && lobby && players"
+          v-if="delayedComplete && !hasReturnedToLobby && lobby && players"
         >
           <GameOver
             :leaderboard="leaderboard"
@@ -637,7 +660,7 @@ async function handleSkipJudge() {
 
     <!-- Post-game waiting room -->
     <div
-      v-if="isComplete && hasReturnedToLobby && lobby && players"
+      v-if="delayedComplete && hasReturnedToLobby && lobby && players"
       class="flex-1"
     >
       <ClientOnly>
@@ -669,19 +692,76 @@ async function handleSkipJudge() {
   height: 100vh;
   width: 340px;
   max-width: 90vw;
-  padding: 1rem;
+  padding: 0;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
   overflow-y: auto;
-  background: rgba(15, 23, 42, 0.97);
-  border-right: 1px solid rgba(100, 116, 139, 0.25);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+  overflow-x: hidden;
+  /* Deep dark background — slightly lighter than the board */
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 24, 0.99) 0%,
+    rgba(15, 15, 35, 0.98) 100%
+  );
+  /* Noise texture via pseudo — we'll use box-shadow trick instead */
+  border-right: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow:
+    4px 0 40px rgba(0, 0, 0, 0.6),
+    1px 0 0 rgba(139, 92, 246, 0.15),
+    inset -1px 0 0 rgba(139, 92, 246, 0.08);
   transform: translateX(-100%);
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Subtle scanline texture */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.04) 2px,
+      rgba(0, 0, 0, 0.04) 4px
+    ),
+    linear-gradient(
+      180deg,
+      rgba(10, 10, 24, 0.99) 0%,
+      rgba(15, 15, 35, 0.98) 100%
+    );
+}
+
+/* Scrollable inner content area */
+.sidebar-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.85rem 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+}
+
+.sidebar-content-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 99px;
 }
 
 .desktop-sidebar--open {
   transform: translateX(0);
+}
+
+/* ─── Close row (inside scroll, when playing) ───────────────── */
+.sidebar-close-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -0.25rem;
 }
 
 /* ─── Sidebar backdrop fade ───────────────────────────────── */
@@ -697,14 +777,16 @@ async function handleSkipJudge() {
 /* ─── Toggle button ───────────────────────────────────────── */
 .sidebar-toggle-btn {
   backdrop-filter: blur(8px);
-  background: rgba(30, 41, 59, 0.7) !important;
-  border: 1px solid rgba(100, 116, 139, 0.3);
+  background: rgba(10, 10, 24, 0.85) !important;
+  border: 1px solid rgba(139, 92, 246, 0.35) !important;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
   transition: all 0.2s ease;
 }
 
 .sidebar-toggle-btn:hover {
-  background: rgba(51, 65, 85, 0.9) !important;
-  border-color: rgba(148, 163, 184, 0.4);
+  background: rgba(139, 92, 246, 0.15) !important;
+  border-color: rgba(139, 92, 246, 0.6) !important;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
 }
 
 .sidebar-toggle-enter-active,

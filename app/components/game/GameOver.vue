@@ -3,6 +3,8 @@ import type { Player } from "~/types/player";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import { useNotifications } from "~/composables/useNotifications";
+import { useSfx } from "~/composables/useSfx";
+import { SFX } from "~/config/sfx.config";
 
 interface LeaderboardEntry {
   playerId: string;
@@ -22,6 +24,7 @@ const { notify } = useNotifications();
 
 // Get the current user ID
 const myId = computed(() => userStore.user?.$id || "");
+const { playSfx } = useSfx();
 
 // Auto-return timer
 const autoReturnTimeRemaining = ref(60); // 60 seconds countdown
@@ -29,6 +32,7 @@ const autoReturnInterval = ref<number | null>(null);
 
 // Start the auto-return timer when the component is mounted
 onMounted(() => {
+  playSfx(SFX.winGame, { volume: 0.8 });
   startAutoReturnTimer();
 });
 
