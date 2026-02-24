@@ -2,8 +2,8 @@
 // Allows the lobby host to add a bot player to the lobby.
 // Bots are stored as regular player documents with playerType='bot' and provider='bot'.
 //
-// Auth: Session-based — the caller's identity is verified via Appwrite session cookie,
-// then requireHost confirms they are the lobby host.
+// Auth: Admin-SDK verified session via requireHost.
+// Client must send Authorization + x-appwrite-user-id headers.
 import { ID, Query } from "node-appwrite";
 
 const MAX_BOTS_PER_LOBBY = 5;

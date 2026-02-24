@@ -4,8 +4,8 @@
 //   - 'play': pick random cards from the bot's hand and submit them
 //   - 'judge': pick a random winner from the submissions
 //
-// Auth: Session-based — the caller's identity is verified via Appwrite session cookie,
-// then requireHost confirms they are the lobby host.
+// Auth: Admin-SDK verified session via requireHost.
+// Client must send Authorization + x-appwrite-user-id headers.
 import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
