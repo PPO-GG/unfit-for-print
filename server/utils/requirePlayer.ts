@@ -2,78 +2,117 @@
 // Validates that the caller has a valid Appwrite session and is a player in the given lobby.
 // Returns the authenticated userId or throws a 401/403 error.
 //
-// Session discovery strategy:
-//  1. Try the `x-appwrite-session` header (explicit, used by admin tools)
-//  2. Fall back to the Appwrite session cookie (a_session_*)
-//  3. Fall back to `Authorization: Bearer <jwt>` header
+// Session discovery strategy (matches nuxt-appwrite's useAppwriteSession):
+//  1. Try `Authorization: Bearer <sessionId>` header
+//  2. Try the `x-appwrite-session` header (explicit)
+//  3. Fall back to the Appwrite session cookie (a_session_*)
+//
+// Verification:
+//  Uses the admin SDK (Users.get + Users.listSessions) to verify the session
+//  server-side. This avoids cross-domain cookie issues since the client
+//  explicitly sends sessionId + userId in headers.
 
 import { H3Event, createError, getHeader, parseCookies } from "h3";
-import { Client, Account, Query } from "node-appwrite";
+import { Query } from "node-appwrite";
 
 /**
- * Extracts the Appwrite session token from the request.
- * Looks in headers first, then falls back to cookies.
+ * Extracts the Appwrite session ID and user ID from the request.
+ * Mirrors nuxt-appwrite's _extractSessionCredentials logic.
  */
-function extractSession(event: H3Event): string | null {
-  // 1. Explicit header
-  const headerSession = getHeader(event, "x-appwrite-session");
-  if (headerSession) return headerSession;
+function extractSessionCredentials(event: H3Event): {
+  sessionId: string | null;
+  userId: string | null;
+} {
+  let sessionId: string | null = null;
 
-  // 2. Authorization bearer
+  // 1. Authorization bearer header
   const authHeader = getHeader(event, "Authorization");
   if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
+    sessionId = authHeader.slice(7);
+  }
+
+  // 2. Explicit x-appwrite-session header
+  if (!sessionId) {
+    sessionId = getHeader(event, "x-appwrite-session") ?? null;
   }
 
   // 3. Appwrite session cookie (format: a_session_<projectId>)
-  const cookies = parseCookies(event);
-  const config = useRuntimeConfig();
-  const projectId = config.public.appwriteProjectId as string;
+  if (!sessionId) {
+    const cookies = parseCookies(event);
+    const config = useRuntimeConfig();
+    const projectId = config.public.appwriteProjectId as string;
 
-  // Try the exact cookie name Appwrite uses
-  const cookieName = `a_session_${projectId}`;
-  if (cookies[cookieName]) return cookies[cookieName];
+    const cookieName = `a_session_${projectId}`;
+    sessionId = cookies[cookieName] ?? null;
 
-  // Try legacy format
-  const legacyCookieName = `a_session_${projectId}_legacy`;
-  if (cookies[legacyCookieName]) return cookies[legacyCookieName];
+    if (!sessionId) {
+      const legacyCookieName = `a_session_${projectId}_legacy`;
+      sessionId = cookies[legacyCookieName] ?? null;
+    }
+  }
 
-  return null;
+  // User ID from explicit header
+  const userId = getHeader(event, "x-appwrite-user-id") ?? null;
+
+  return { sessionId, userId };
 }
 
 /**
- * Validates the caller's identity via Appwrite session.
+ * Validates the caller's identity via admin SDK session lookup.
+ *
+ * Uses the same verification pattern as nuxt-appwrite's useAppwriteSession:
+ *  1. Extract sessionId + userId from headers/cookies
+ *  2. Verify user exists via admin Users API
+ *  3. Verify session exists, belongs to user, and hasn't expired
  *
  * @returns The authenticated user's ID
- * @throws 401 if no token or invalid session
+ * @throws 401 if no credentials or invalid/expired session
  */
 export async function requireAuth(event: H3Event): Promise<string> {
-  const session = extractSession(event);
+  const { sessionId, userId } = extractSessionCredentials(event);
 
-  if (!session) {
+  if (!sessionId || !userId) {
     throw createError({
       statusCode: 401,
-      statusMessage: "Authentication required — no session found",
+      statusMessage:
+        "Authentication required — no session found. Send Authorization and x-appwrite-user-id headers.",
     });
   }
 
-  const config = useRuntimeConfig();
-  const client = new Client()
-    .setEndpoint(config.public.appwriteEndpoint as string)
-    .setProject(config.public.appwriteProjectId as string)
-    .setSession(session);
+  // Verify via admin SDK (same as useAppwriteSession)
+  const { users } = useAppwriteAdmin();
 
-  const account = new Account(client);
-
+  // 1. Verify user exists
   try {
-    const user = await account.get();
-    return user.$id;
+    await users.get({ userId });
+  } catch {
+    throw createError({
+      statusCode: 401,
+      statusMessage: "Invalid user",
+    });
+  }
+
+  // 2. Verify session exists and is not expired
+  try {
+    const sessions = await users.listSessions({ userId });
+    const validSession = sessions.sessions.find(
+      (s: any) => s.$id === sessionId,
+    );
+    if (!validSession) {
+      throw new Error("Session not found");
+    }
+    const expiry = new Date(validSession.expire).getTime();
+    if (expiry < Date.now()) {
+      throw new Error("Session expired");
+    }
   } catch {
     throw createError({
       statusCode: 401,
       statusMessage: "Invalid or expired session",
     });
   }
+
+  return userId;
 }
 
 /**
@@ -89,7 +128,6 @@ export async function requirePlayerInLobby(
   const userId = await requireAuth(event);
 
   const { DB, PLAYER } = getCollectionIds();
-  const databases = getAdminDatabases();
   const tables = getAdminTables();
 
   const playersRes = await tables.listRows({
