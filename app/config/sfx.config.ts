@@ -56,6 +56,8 @@ export const SFX = {
   /** Incoming chat message */
   chatReceive: `${BASE}/chatReceive.wav`,
 
+  winRound: `${BASE}/winRound.wav`,
+  winGame: `${BASE}/winGame.mp3`,
   // ── Placeholder slots for future individual SFX ────────────
   // Uncomment and point to files once you have them:
   //
