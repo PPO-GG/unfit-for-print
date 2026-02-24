@@ -49,7 +49,7 @@ export const useUserStore = defineStore("user", {
         try {
           const current = await account.getSession("current");
           if (current.provider === "anonymous") {
-            await account.deleteSession("current");
+            await account.deleteSession({ sessionId: "current" });
           }
         } catch {
           // No existing session to clear
@@ -63,35 +63,76 @@ export const useUserStore = defineStore("user", {
     async fetchUserSession() {
       if (import.meta.server) return;
 
+      // Already verified this page load — skip redundant SDK calls
+      if (
+        typeof window !== "undefined" &&
+        (window as any).__auth_verified &&
+        this.isLoggedIn
+      ) {
+        return;
+      }
+
+      // Deduplication: if a fetch is already in flight, piggyback on it
+      if ((this as any)._sessionFetchPromise) {
+        return (this as any)._sessionFetchPromise;
+      }
+
       const account = this.getAccount();
       if (!account) {
         console.error("No account instance available");
         return;
       }
 
-      try {
-        const session = await account.getSession("current");
-        this.session = JSON.parse(JSON.stringify(session));
-        this.accessToken = session.providerAccessToken ?? null;
-        this.isLoggedIn = isAuthenticatedSession(session);
-        const rawUser = await account.get();
-        this.user = {
-          ...JSON.parse(JSON.stringify(rawUser)),
-          provider: session.provider,
-        };
-        if (this.accessToken) {
-          if (session.provider === "discord") {
-            const discord = await this.fetchDiscordUserData(this.accessToken);
-            this.user!.prefs.avatar = discord.avatar;
-            this.user!.prefs.discordUserId = discord.id;
+      (this as any)._sessionFetchPromise = (async () => {
+        try {
+          const [session, rawUser] = await Promise.all([
+            account.getSession("current"),
+            account.get(),
+          ]);
+
+          this.session = JSON.parse(JSON.stringify(session));
+          this.accessToken = session.providerAccessToken ?? null;
+          this.isLoggedIn = isAuthenticatedSession(session);
+          this.user = {
+            ...JSON.parse(JSON.stringify(rawUser)),
+            provider: session.provider,
+          };
+
+          // Discord avatar data is persisted to Appwrite prefs during the
+          // OAuth callback (/auth/callback). Read from prefs first — they
+          // survive across sessions. Fall back to a live Discord API call
+          // only if prefs are empty AND we have an access token.
+          const prefs = this.user!.prefs;
+          if (!prefs.discordUserId || !prefs.avatar) {
+            if (this.accessToken && session.provider === "discord") {
+              try {
+                const discord = await this.fetchDiscordUserData(
+                  this.accessToken,
+                );
+                this.user!.prefs.avatar = discord.avatar;
+                this.user!.prefs.discordUserId = discord.id;
+              } catch {
+                // Non-fatal — avatar just won't be available
+                console.warn("[userStore] Discord API fallback failed");
+              }
+            }
           }
+
+          // Mark as verified so subsequent callers skip the SDK round-trip
+          if (typeof window !== "undefined") {
+            (window as any).__auth_verified = true;
+          }
+        } catch (error) {
+          console.error("Error fetching session:", error);
+          this.isLoggedIn = false;
+          this.user = null;
+          this.session = null;
+        } finally {
+          (this as any)._sessionFetchPromise = null;
         }
-      } catch (error) {
-        console.error("Error fetching session:", error);
-        this.isLoggedIn = false;
-        this.user = null;
-        this.session = null;
-      }
+      })();
+
+      return (this as any)._sessionFetchPromise;
     },
 
     async fetchDiscordUserData(accessToken: string) {

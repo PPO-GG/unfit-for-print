@@ -31,12 +31,43 @@ onMounted(async () => {
       // Exchange the one-time token for a session using the CLIENT SDK.
       // This lets the SDK manage its own session cookies/storage.
       const { account } = useAppwrite();
-      await account.createSession(userId, secret);
+      await account.createSession({ userId: userId, secret: secret });
       statusText.value = "Session created, loading profile...";
+
+      // Fetch Discord avatar via server-side admin SDK
+      // (client SDK can't access providerAccessToken)
+      try {
+        const avatarData = await $fetch("/api/auth/discord-avatar", {
+          method: "POST",
+          body: { userId },
+        });
+
+        if (avatarData?.discordUserId && avatarData?.avatar) {
+          // Persist to Appwrite prefs so it survives across sessions
+          const currentPrefs = await account.getPrefs();
+          await account.updatePrefs({
+            ...currentPrefs,
+            discordUserId: avatarData.discordUserId,
+            avatar: avatarData.avatar,
+          });
+          console.log(
+            "[Auth Callback] Discord avatar persisted to prefs:",
+            avatarData.avatarUrl,
+          );
+        }
+      } catch (avatarErr) {
+        // Non-fatal — user can still log in without an avatar
+        console.warn(
+          "[Auth Callback] Failed to fetch Discord avatar:",
+          avatarErr,
+        );
+      }
     }
 
     // Hydrate the store from the now-active session
     await userStore.fetchUserSession();
+    // Mark verified so downstream pages skip redundant SDK calls
+    (window as any).__auth_verified = true;
 
     if (userStore.isLoggedIn) {
       statusText.value = "Welcome back!";
