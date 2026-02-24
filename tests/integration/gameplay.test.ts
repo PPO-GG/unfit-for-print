@@ -59,7 +59,9 @@ function setupAdmin() {
     .setEndpoint(APPWRITE_ENDPOINT)
     .setProject(APPWRITE_PROJECT)
     .setKey(APPWRITE_API_KEY);
-  databases = new Databases(client);
+  databases = new TablesDB(client);
+  const databases = new Databases(client);
+  const tables = new (await import("node-appwrite")).TablesDB(client);
 }
 
 async function callApi(path: string, body: Record<string, any>) {
@@ -78,7 +80,7 @@ async function callApi(path: string, body: Record<string, any>) {
 }
 
 async function getLobbyState(lobbyId: string) {
-  const lobby = await databases.getDocument(DB, LOBBY_COL, lobbyId);
+  const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY_COL, rowId: lobbyId });
   return {
     status: lobby.status,
     gameState: lobby.gameState ? JSON.parse(lobby.gameState as string) : null,
@@ -86,11 +88,11 @@ async function getLobbyState(lobbyId: string) {
 }
 
 async function getGameCards(lobbyId: string) {
-  const res = await databases.listDocuments(DB, GAMECARDS_COL, [
-    Query.equal("lobbyId", lobbyId),
-  ]);
-  if (res.documents.length === 0) return null;
-  const doc = res.documents[0]!;
+  const res = await tables.listRows({ databaseId: DB, tableId: GAMECARDS_COL, queries: [
+          Query.equal("lobbyId", lobbyId),
+        ] });
+  if (res.rows.length === 0) return null;
+  const doc = res.rows[0]!;
 
   // Parse player hands
   const hands: Record<string, string[]> = {};
@@ -124,44 +126,39 @@ describe("Gameplay Integration Test", () => {
 
     // --- Create test lobby ---
     const lobbyCode = `TST${Date.now().toString(36).slice(-3).toUpperCase()}`;
-    const lobby = await databases.createDocument(DB, LOBBY_COL, ID.unique(), {
-      code: lobbyCode,
-      hostUserId: TEST_PLAYERS[0]!.userId,
-      status: "waiting",
-      round: 0,
-      gameState: JSON.stringify({
-        phase: "waiting",
-        round: 0,
-        scores: {},
-        hands: {},
-        playedCards: {},
-        submissions: {},
-        blackCard: null,
-        judgeId: null,
-        roundWinner: null,
-        roundEndStartTime: null,
-        returnedToLobby: {},
-        gameEndTime: null,
-      }),
-    });
+    const lobby = await tables.createRow({ databaseId: DB, tableId: LOBBY_COL, rowId: ID.unique(), data: {
+              code: lobbyCode,
+              hostUserId: TEST_PLAYERS[0]!.userId,
+              status: "waiting",
+              round: 0,
+              gameState: JSON.stringify({
+                phase: "waiting",
+                round: 0,
+                scores: {},
+                hands: {},
+                playedCards: {},
+                submissions: {},
+                blackCard: null,
+                judgeId: null,
+                roundWinner: null,
+                roundEndStartTime: null,
+                returnedToLobby: {},
+                gameEndTime: null,
+              }),
+            } });
     lobbyId = lobby.$id;
     track(LOBBY_COL, lobbyId);
     console.log(`  ✓ Created test lobby: ${lobbyCode} (${lobbyId})`);
 
     // --- Create game settings ---
-    const settings = await databases.createDocument(
-      DB,
-      GAMESETTINGS_COL,
-      ID.unique(),
-      {
-        lobbyId,
-        maxPoints: 3,
-        numPlayerCards: 5,
-        cardPacks: [],
-        isPrivate: false,
-        lobbyName: "Integration Test Game",
-      },
-    );
+    const settings = await tables.createRow({ databaseId: DB, tableId: GAMESETTINGS_COL, rowId: ID.unique(), data: {
+                lobbyId,
+                maxPoints: 3,
+                numPlayerCards: 5,
+                cardPacks: [],
+                isPrivate: false,
+                lobbyName: "Integration Test Game",
+              } });
     settingsId = settings.$id;
     track(GAMESETTINGS_COL, settingsId);
     console.log(`  ✓ Created game settings: ${settingsId}`);
@@ -169,16 +166,16 @@ describe("Gameplay Integration Test", () => {
     // --- Create 3 test players ---
     for (let i = 0; i < TEST_PLAYERS.length; i++) {
       const player = TEST_PLAYERS[i]!;
-      const doc = await databases.createDocument(DB, PLAYER_COL, ID.unique(), {
-        lobbyId,
-        userId: player.userId,
-        name: player.name,
-        avatar: "",
-        isHost: i === 0,
-        joinedAt: new Date().toISOString(),
-        provider: "test",
-        playerType: "player",
-      });
+      const doc = await tables.createRow({ databaseId: DB, tableId: PLAYER_COL, rowId: ID.unique(), data: {
+                  lobbyId,
+                  userId: player.userId,
+                  name: player.name,
+                  avatar: "",
+                  isHost: i === 0,
+                  joinedAt: new Date().toISOString(),
+                  provider: "test",
+                  playerType: "player",
+                } });
       track(PLAYER_COL, doc.$id);
       console.log(`  ✓ Created player: ${player.name} (${doc.$id})`);
     }
@@ -189,11 +186,11 @@ describe("Gameplay Integration Test", () => {
 
     // Also clean up gamecards created during the game
     try {
-      const gameCards = await databases.listDocuments(DB, GAMECARDS_COL, [
-        Query.equal("lobbyId", lobbyId),
-      ]);
-      for (const doc of gameCards.documents) {
-        await databases.deleteDocument(DB, GAMECARDS_COL, doc.$id);
+      const gameCards = await tables.listRows({ databaseId: DB, tableId: GAMECARDS_COL, queries: [
+                  Query.equal("lobbyId", lobbyId),
+                ] });
+      for (const doc of gameCards.rows) {
+        await tables.deleteRow({ databaseId: DB, tableId: GAMECARDS_COL, rowId: doc.$id });
         console.log(`  ✓ Deleted gamecards: ${doc.$id}`);
       }
     } catch {
@@ -203,7 +200,7 @@ describe("Gameplay Integration Test", () => {
     // Delete tracked documents in reverse order
     for (const { collection, id } of createdDocs.reverse()) {
       try {
-        await databases.deleteDocument(DB, collection, id);
+        await tables.deleteRow({ databaseId: DB, tableId: collection, rowId: id });
         console.log(`  ✓ Deleted ${collection}: ${id}`);
       } catch {
         console.log(
