@@ -16,28 +16,27 @@
   </UApp>
 </template>
 <script lang="ts" setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import { useHead, useRuntimeConfig, useNuxtApp } from "#imports";
 const isDev = import.meta.env.DEV;
 const isPageLoading = ref(true);
 
-// Handle page loading state
+// Clear initial loading as soon as the app mounts
 onMounted(() => {
-  // Set loading to false after the page is mounted
-  setTimeout(() => {
+  nextTick(() => {
     isPageLoading.value = false;
-  }, 250); // Small delay to ensure components are rendered
+  });
 });
 
-// Show loading overlay during page transitions
+// Show loading overlay during page transitions (brief flash guard)
 const nuxtApp = useNuxtApp();
 nuxtApp.hook("page:start", () => {
   isPageLoading.value = true;
 });
 nuxtApp.hook("page:finish", () => {
-  setTimeout(() => {
+  nextTick(() => {
     isPageLoading.value = false;
-  }, 200); // Small delay to ensure smooth transition
+  });
 });
 const config = useRuntimeConfig();
 

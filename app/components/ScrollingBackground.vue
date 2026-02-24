@@ -4,7 +4,7 @@
   >
     <ClientOnly>
       <div
-        class="absolute w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none -z-10"
+        class="fixed w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none -z-10"
       />
     </ClientOnly>
     <div

@@ -20,7 +20,7 @@ const { t } = useI18n();
   <footer>
     <!-- Updated classes: hidden by default, flex container on sm and up -->
     <div
-      class="hidden w-screen items-center p-4 backdrop-blur-sm dark:bg-slate-900/50 dark:text-white text-slate-700 shadow-md font-['Bebas_Neue'] text-2xl font-medium border-t-2 border-slate-700/50 gap-10 sm:flex"
+      class="hidden w-screen items-center p-4 backdrop-blur-sm dark:bg-slate-900/50 dark:text-white text-slate-700 shadow-md text-2xl font-medium border-t-2 border-slate-700/50 gap-10 sm:flex"
     >
       <div class="flex-1 flex justify-start">
         <p class="text-sm dark:text-white text-slate-700">

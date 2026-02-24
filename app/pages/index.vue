@@ -1,6 +1,5 @@
 <template>
   <div class="flex flex-col items-center justify-center">
-    <LoadingOverlay :is-loading="isLoading" />
     <div
       class="px-4 py-8 flex flex-col items-center text-center select-none pointer-events-none"
     >
@@ -29,15 +28,11 @@
         />
         <div
           v-else
-          class="flex items-center p-2 text-white mt-4 w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] bg-[#1c2342] rounded-xl border-6 border-slate-800"
+          class="flex items-center p-2 text-white w-[clamp(6rem,12vw,18rem)] aspect-[3/4] bg-[#1c2342] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.slate.800)]"
         >
-          <div class="grid gap-2">
-            <USkeleton
-              class="h-4 w-30 md:w-44 lg:w-48 xl:w-56 2xl:w-60 bg-slate-600/50"
-            />
-            <USkeleton
-              class="h-4 w-26 md:w-40 lg:w-44 xl:w-52 2xl:w-56 bg-slate-600/50"
-            />
+          <div class="grid gap-2 w-full px-2">
+            <USkeleton class="h-4 w-[85%] bg-slate-600/50" />
+            <USkeleton class="h-4 w-[70%] bg-slate-600/50" />
           </div>
         </div>
       </div>
@@ -59,15 +54,11 @@
         />
         <div
           v-else
-          class="flex items-center p-2 text-white mt-4 w-40 md:w-56 lg:w-60 xl:w-68 2xl:w-72 aspect-[3/4] bg-[#e7e1de] rounded-xl border-6 border-stone-400/50"
+          class="flex items-center p-2 text-white w-[clamp(6rem,12vw,18rem)] aspect-[3/4] bg-[#e7e1de] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.stone.400/50)]"
         >
-          <div class="grid gap-2">
-            <USkeleton
-              class="h-4 w-30 md:w-44 lg:w-48 xl:w-56 2xl:w-60 bg-stone-400/50"
-            />
-            <USkeleton
-              class="h-4 w-26 md:w-40 lg:w-44 xl:w-52 2xl:w-56 bg-stone-400/50"
-            />
+          <div class="grid gap-2 w-full px-2">
+            <USkeleton class="h-4 w-[85%] bg-stone-400/50" />
+            <USkeleton class="h-4 w-[70%] bg-stone-400/50" />
           </div>
         </div>
       </div>
@@ -77,7 +68,7 @@
         <UFieldGroup>
           <UButton
             :loading="isFetching"
-            class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
+            class="text-xl py-2 px-4 cursor-pointer"
             color="secondary"
             icon="i-solar-layers-minimalistic-bold-duotone"
             variant="subtle"
@@ -88,7 +79,7 @@
           <UButton
             :disabled="isSpeaking"
             :loading="isSpeaking"
-            class="text-xl py-2 px-4 cursor-pointer font-['Bebas_Neue']"
+            class="text-xl py-2 px-4 cursor-pointer"
             color="primary"
             icon="i-solar-user-speak-bold-duotone"
             variant="subtle"
@@ -131,7 +122,7 @@ type TTSProvider = "browser" | "elevenlabs" | "openai";
 const {
   proxy: { event },
 } = useScriptRybbitAnalytics();
-const isLoading = ref(true);
+
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
 const openAIConfig = TTS_PROVIDERS.OPENAI;
@@ -245,10 +236,5 @@ const fetchNewCards = async () => {
 
 onMounted(() => {
   fetchNewCards();
-
-  // Hide loading overlay after a short delay
-  setTimeout(() => {
-    isLoading.value = false;
-  }, 500);
 });
 </script>

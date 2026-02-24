@@ -25,8 +25,7 @@ export default defineAppConfig({
         header: "flex items-center gap-1.5 p-4 sm:px-6 min-h-16",
         body: "flex-1 p-4 sm:p-6",
         footer: "flex items-center gap-1.5 p-4 sm:px-6",
-        title:
-          "text-slate-100 font-semibold font-[Bebas_Neue] text-2xl tracking-wide",
+        title: "text-slate-100 font-semibold text-2xl tracking-wide",
         description: "mt-1 text-slate-400 text-sm",
         close:
           "absolute top-4 end-4 text-slate-400 hover:text-slate-200 transition-colors",
@@ -69,8 +68,7 @@ export default defineAppConfig({
         ].join(" "),
         header: "flex items-center gap-1.5 p-4 sm:px-6 min-h-16",
         body: "flex-1 p-4 sm:p-6 overflow-y-auto",
-        title:
-          "text-slate-100 font-semibold font-[Bebas_Neue] text-2xl tracking-wide",
+        title: "text-slate-100 font-semibold text-2xl tracking-wide",
         description: "mt-1 text-slate-400 text-sm",
         close:
           "absolute top-4 end-4 text-slate-400 hover:text-slate-200 transition-colors",
@@ -116,14 +114,14 @@ export default defineAppConfig({
     avatar: {
       slots: {
         root: "ring-2 ring-slate-700/50",
-        fallback: "bg-slate-700 text-slate-300 font-[Bebas_Neue]",
+        fallback: "bg-slate-700 text-slate-300",
       },
     },
 
     // ── Badge ─────────────────────────────────────────────────────────────────
     badge: {
       slots: {
-        base: "font-[Bebas_Neue] tracking-wide",
+        base: "tracking-wide",
       },
     },
 

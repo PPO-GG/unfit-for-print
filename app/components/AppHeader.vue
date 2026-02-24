@@ -35,11 +35,11 @@ let touchStartX = 0;
 let touchEndX = 0;
 
 function handleTouchStart(e: TouchEvent) {
-  touchStartX = e.changedTouches[0].screenX;
+  touchStartX = e.changedTouches[0]?.screenX ?? touchStartX;
 }
 
 function handleTouchEnd(e: TouchEvent) {
-  touchEndX = e.changedTouches[0].screenX;
+  touchEndX = e.changedTouches[0]?.screenX ?? touchEndX;
   handleGesture();
 }
 
@@ -200,7 +200,7 @@ const isAdmin = useIsAdmin();
         <UButton
           :loading="isJoining"
           aria-label="Join Game"
-          class="text-xl p-2 outline-1 dark:outline-none font-['Bebas_Neue']"
+          class="text-xl p-2 outline-1 dark:outline-none"
           color="success"
           icon="i-solar-hand-shake-line-duotone"
           label="Join Game"
@@ -217,7 +217,7 @@ const isAdmin = useIsAdmin();
           "
           :loading="isCreating"
           aria-label="Create Game"
-          class="text-xl p-2 outline-1 dark:outline-none font-['Bebas_Neue']"
+          class="text-xl p-2 outline-1 dark:outline-none"
           color="warning"
           icon="i-solar-magic-stick-3-bold-duotone"
           size="lg"
@@ -229,7 +229,7 @@ const isAdmin = useIsAdmin();
 
     <div class="flex-1 flex">
       <ClientOnly>
-        <NuxtLink class="font-['Bebas_Neue'] cursor-pointer" to="/">
+        <NuxtLink class="cursor-pointer" to="/">
           <img
             alt="Unfit For Print Logo"
             class="mx-auto w-10 h-auto"
@@ -240,7 +240,7 @@ const isAdmin = useIsAdmin();
     </div>
     <ClientOnly>
       <nav
-        class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto align-middle"
+        class="flex items-center gap-2 justify-end not-lg:hidden ml-auto align-middle"
       >
         <ClientOnly>
           <UButton
@@ -299,14 +299,14 @@ const isAdmin = useIsAdmin();
             class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
             color="primary"
             icon="i-solar-card-bold-duotone"
-            to="/submissions"
+            to="/labs"
             variant="subtle"
             >{{ t("nav.labs") }}
           </UButton>
         </ClientOnly>
         <div
           v-if="isAuthenticatedUser(userStore.user)"
-          class="flex items-center gap-2 justify-end not-lg:hidden font-['Bebas_Neue'] ml-auto align-middle"
+          class="flex items-center gap-2 justify-end not-lg:hidden ml-auto align-middle"
         >
           <ClientOnly>
             <UButton
@@ -359,7 +359,7 @@ const isAdmin = useIsAdmin();
     >
       <template #content>
         <div
-          class="flex flex-col h-full font-['Bebas_Neue']"
+          class="flex flex-col h-full"
           @touchend="handleTouchEnd"
           @touchstart="handleTouchStart"
         >
@@ -491,7 +491,7 @@ const isAdmin = useIsAdmin();
                   class="mb-2 text-xl py-3 border-2 dark:border-none"
                   color="primary"
                   icon="i-solar-card-bold-duotone"
-                  to="/submissions"
+                  to="/labs"
                   variant="soft"
                   >{{ t("nav.labs") }}
                 </UButton>

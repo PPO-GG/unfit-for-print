@@ -80,12 +80,7 @@ const handleSubmit = async () => {
 		};
 
 		// Submit the report to the Appwrite database
-		await databases.createDocument(
-			config.public.appwriteDatabaseId,
-			config.public.appwriteReportsCollectionId,
-			'unique()',
-			report
-		);
+		await tables.createRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteReportsCollectionId, rowId: 'unique()', data: report });
 
 		successMessage.value = 'Report submitted successfully';
 		setTimeout(() => {

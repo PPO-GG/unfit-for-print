@@ -43,14 +43,14 @@ withDefaults(
 		<!-- Main content -->
 		<div class="flex flex-col h-full justify-center">
 			<h1
-					class="text-[80px] font-extrabold leading-tight drop-shadow-xl font-['Bebas_Neue']"
+					class="text-[80px] font-extrabold leading-tight drop-shadow-xl"
 					:style="{ color: textColor }"
 			>
 				{{ title }}
 			</h1>
 			<p
 					v-if="subtitle"
-					class="text-[36px] font-semibold mt-4 font-['Bebas_Neue']"
+					class="text-[36px] font-semibold mt-4"
 					:style="{ color: textColor }"
 			>
 				{{ subtitle }}
@@ -58,7 +58,7 @@ withDefaults(
 		</div>
 
 		<!-- Footer domain -->
-		<p class="text-[28px] font-bold font-['Bebas_Neue']" :style="{ color: textColor }">
+		<p class="text-[28px] font-bold" :style="{ color: textColor }">
 			unfit.cards
 		</p>
 	</div>
