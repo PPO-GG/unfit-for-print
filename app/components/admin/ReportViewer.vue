@@ -20,6 +20,7 @@ const deletingCardId = ref<string | null>(null);
 // Auth header helper
 const authHeaders = () => ({
   Authorization: `Bearer ${userStore.session?.$id}`,
+  "x-appwrite-user-id": userStore.user?.$id ?? "",
 });
 
 // Fetch reports from the API

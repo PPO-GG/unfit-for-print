@@ -114,7 +114,7 @@ importers:
         version: 4.3.1(@netlify/blobs@9.1.2)(@parcel/watcher@2.5.1)(@types/node@24.3.0)(@vue/compiler-sfc@3.5.28)(better-sqlite3@11.10.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@11.10.0))(eslint@9.28.0(jiti@2.6.1))(ioredis@5.9.3)(lightningcss@1.31.1)(magicast@0.5.2)(meow@13.2.0)(optionator@0.9.4)(rollup@4.57.1)(terser@5.44.0)(tsx@4.21.0)(typescript@5.9.2)(vite@7.3.1(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.44.0)(tsx@4.21.0)(yaml@2.8.2))(vue-tsc@3.2.5(typescript@5.9.2))(yaml@2.8.2)
       nuxt-appwrite:
         specifier: github:Stagepoint-Systems/nuxt-appwrite
-        version: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/53a36236b4552e978bac23fdd333e95324ad2020(appwrite@22.4.1)(magicast@0.5.2)(node-appwrite@22.1.2)
+        version: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/0c6a2243ae5f803851f1d33a53e8132b9c61bb91(appwrite@22.4.1)(magicast@0.5.2)(node-appwrite@22.1.2)
       openai:
         specifier: ^5.19.1
         version: 5.19.1(ws@8.19.0)(zod@3.25.46)
@@ -6019,12 +6019,12 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
-  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/53a36236b4552e978bac23fdd333e95324ad2020:
-    resolution: {tarball: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/53a36236b4552e978bac23fdd333e95324ad2020}
-    version: 1.0.0
+  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/0c6a2243ae5f803851f1d33a53e8132b9c61bb91:
+    resolution: {tarball: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/0c6a2243ae5f803851f1d33a53e8132b9c61bb91}
+    version: 1.1.0
     peerDependencies:
       appwrite: '>=16.0.0'
-      node-appwrite: '>=14.0.0'
+      node-appwrite: '>=22.0.0'
     peerDependenciesMeta:
       node-appwrite:
         optional: true
@@ -14482,7 +14482,7 @@ snapshots:
     dependencies:
       boolbase: 1.0.0
 
-  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/53a36236b4552e978bac23fdd333e95324ad2020(appwrite@22.4.1)(magicast@0.5.2)(node-appwrite@22.1.2):
+  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/0c6a2243ae5f803851f1d33a53e8132b9c61bb91(appwrite@22.4.1)(magicast@0.5.2)(node-appwrite@22.1.2):
     dependencies:
       '@nuxt/kit': 3.19.0(magicast@0.5.2)
       appwrite: 22.4.1

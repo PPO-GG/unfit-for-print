@@ -112,6 +112,8 @@ export default defineNuxtConfig({
 
     // Client-side (game-specific collection IDs)
     public: {
+      appwriteEndpoint: process.env.NUXT_PUBLIC_APPWRITE_ENDPOINT,
+      appwriteProjectId: process.env.NUXT_PUBLIC_APPWRITE_PROJECT_ID,
       appwriteDatabaseId: process.env.NUXT_PUBLIC_APPWRITE_DATABASE_ID,
       appwriteWhiteCardCollectionId:
         process.env.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID,

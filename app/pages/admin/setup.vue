@@ -4,7 +4,9 @@ definePageMeta({
 });
 
 import { ref } from "vue";
+import { useUserStore } from "~/stores/userStore";
 
+const userStore = useUserStore();
 const config = useRuntimeConfig();
 const endpoint = ref("https://cloud.appwrite.io/v1");
 const projectId = ref((config.public as any).appwriteProjectId || "");
@@ -27,6 +29,10 @@ async function runSetup() {
   try {
     const response = await $fetch("/api/setup", {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${userStore.session?.$id}`,
+        "x-appwrite-user-id": userStore.user?.$id ?? "",
+      },
       body: {
         endpoint: endpoint.value,
         projectId: projectId.value,
