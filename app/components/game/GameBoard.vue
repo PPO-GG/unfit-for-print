@@ -228,6 +228,10 @@ async function revealCard(playerId: string) {
   try {
     await $fetch("/api/game/reveal-card", {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${userStore.session?.$id}`,
+        "x-appwrite-user-id": userStore.user?.$id ?? "",
+      },
       body: {
         lobbyId: props.lobby.$id,
         playerId,

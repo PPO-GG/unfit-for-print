@@ -40,6 +40,14 @@ export function useBots(
   const { decodeGameState } = useGameState();
   const userStore = useUserStore();
 
+  // ─── Auth Headers ──────────────────────────────────────────────────
+  // Sends session ID + user ID in headers for secure admin-SDK verification
+  // server-side. Mirrors the pattern used by admin components.
+  const authHeaders = () => ({
+    Authorization: `Bearer ${userStore.session?.$id}`,
+    "x-appwrite-user-id": userStore.user?.$id ?? "",
+  });
+
   // ─── Derived state ────────────────────────────────────────────────────
 
   const botPlayers = computed(() =>
@@ -72,6 +80,7 @@ export function useBots(
     try {
       await $fetch("/api/bot/add", {
         method: "POST",
+        headers: authHeaders(),
         body: {
           lobbyId: lobby.value.$id,
         },
@@ -91,6 +100,7 @@ export function useBots(
     try {
       await $fetch("/api/bot/remove", {
         method: "POST",
+        headers: authHeaders(),
         body: {
           lobbyId: lobby.value.$id,
           botUserId,
@@ -136,6 +146,7 @@ export function useBots(
     try {
       await $fetch("/api/bot/act", {
         method: "POST",
+        headers: authHeaders(),
         body: {
           lobbyId: lobby.value.$id,
           botUserId,
@@ -235,6 +246,7 @@ export function useBots(
             try {
               await $fetch("/api/game/reveal-card", {
                 method: "POST",
+                headers: authHeaders(),
                 body: {
                   lobbyId: lobby.value.$id,
                   playerId,
