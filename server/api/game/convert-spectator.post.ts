@@ -23,15 +23,16 @@ export default defineEventHandler(async (event) => {
 
   const { DB, LOBBY, PLAYER, GAMECARDS } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   return withRetry(async () => {
     try {
       // --- Fetch the spectator's player document ---
-      const playersRes = await databases.listDocuments(DB, PLAYER, [
-        Query.equal("userId", playerId),
-        Query.equal("lobbyId", lobbyId),
-        Query.limit(1),
-      ]);
+      const playersRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+                  Query.equal("userId", playerId),
+                  Query.equal("lobbyId", lobbyId),
+                  Query.limit(1),
+                ] });
 
       if (playersRes.total === 0) {
         throw createError({
@@ -40,7 +41,7 @@ export default defineEventHandler(async (event) => {
         });
       }
 
-      const playerDoc = playersRes.documents[0]!;
+      const playerDoc = playersRes.rows[0]!;
 
       if (playerDoc.playerType !== "spectator") {
         throw createError({
@@ -50,7 +51,7 @@ export default defineEventHandler(async (event) => {
       }
 
       // --- Fetch lobby and validate game is in progress ---
-      const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+      const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
       const capturedVersion = lobby.$updatedAt;
       if (lobby.status !== "playing") {
         throw createError({
@@ -63,18 +64,18 @@ export default defineEventHandler(async (event) => {
       const cardsPerPlayer = state.config?.cardsPerPlayer || 7;
 
       // --- Fetch gamecards document ---
-      const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
-        Query.equal("lobbyId", lobbyId),
-      ]);
+      const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
+                  Query.equal("lobbyId", lobbyId),
+                ] });
 
-      if (gameCardsQuery.documents.length === 0) {
+      if (gameCardsQuery.rows.length === 0) {
         throw createError({
           statusCode: 404,
           statusMessage: `No gamecards document found for lobby ${lobbyId}`,
         });
       }
 
-      const gameCards = gameCardsQuery.documents[0]!;
+      const gameCards = gameCardsQuery.rows[0]!;
       const whiteDeck: string[] = gameCards.whiteDeck || [];
 
       if (whiteDeck.length < cardsPerPlayer) {
@@ -99,18 +100,18 @@ export default defineEventHandler(async (event) => {
 
       // --- Concurrency check + Persist ---
       // Player type update is safe (no conflict risk)
-      await databases.updateDocument(DB, PLAYER, playerDoc.$id, {
-        playerType: "player",
-      });
+      await tables.updateRow({ databaseId: DB, tableId: PLAYER, rowId: playerDoc.$id, data: {
+                  playerType: "player",
+                } });
       // Assert before lobby/gamecards writes
       await assertVersionUnchanged(lobbyId, capturedVersion);
-      await databases.updateDocument(DB, GAMECARDS, gameCards.$id, {
-        whiteDeck: remainingDeck,
-        playerHands: serializePlayerHands(hands),
-      });
-      await databases.updateDocument(DB, LOBBY, lobbyId, {
-        gameState: encodeGameState(extractCoreState(state)),
-      });
+      await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: {
+                  whiteDeck: remainingDeck,
+                  playerHands: serializePlayerHands(hands),
+                } });
+      await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+                  gameState: encodeGameState(extractCoreState(state)),
+                } });
 
       return {
         success: true,

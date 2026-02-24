@@ -8,19 +8,11 @@ export default defineEventHandler(async (event) => {
   const { teams } = createAppwriteClient();
 
   if (action === "remove") {
-    return await teams.deleteMembership(teamId, membershipId);
+    return await teams.deleteMembership({ teamId: teamId, membershipId: membershipId });
   }
 
   if (action === "add") {
-    return await teams.createMembership(
-      teamId,
-      ["admin"],
-      undefined,
-      userId,
-      undefined,
-      "https://unfit.cards/auth/callback",
-      undefined,
-    );
+    return await teams.createMembership({ teamId: teamId, roles: ["admin"], email: undefined, userId: userId, phone: undefined, url: "https://unfit.cards/auth/callback", name: undefined });
   }
 
   return { error: "Invalid action" };

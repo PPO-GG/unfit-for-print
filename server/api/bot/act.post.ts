@@ -38,9 +38,10 @@ export default defineEventHandler(async (event) => {
 
   const { DB, LOBBY, GAMECARDS, PLAYER } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   // --- Verify caller is the host ---
-  const lobbyDoc = await databases.getDocument(DB, LOBBY, lobbyId);
+  const lobbyDoc = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
   if (lobbyDoc.hostUserId !== hostUserId) {
     throw createError({
       statusCode: 403,
@@ -49,12 +50,12 @@ export default defineEventHandler(async (event) => {
   }
 
   // --- Verify the bot exists in this lobby ---
-  const botRes = await databases.listDocuments(DB, PLAYER, [
-    Query.equal("userId", botUserId),
-    Query.equal("lobbyId", lobbyId),
-    Query.equal("playerType", "bot"),
-    Query.limit(1),
-  ]);
+  const botRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+          Query.equal("userId", botUserId),
+          Query.equal("lobbyId", lobbyId),
+          Query.equal("playerType", "bot"),
+          Query.limit(1),
+        ] });
 
   if (botRes.total === 0) {
     throw createError({
@@ -96,8 +97,9 @@ async function handleBotPlay(
   lobbyId: string,
   botUserId: string,
 ) {
+  const tables = getAdminTables();
   return withRetry(async () => {
-    const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
     const capturedVersion = lobby.$updatedAt;
     const state = decodeGameState(lobby.gameState);
 
@@ -113,13 +115,13 @@ async function handleBotPlay(
     }
 
     // Fetch gamecards
-    const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
-      Query.equal("lobbyId", lobbyId),
-    ]);
-    if (gameCardsQuery.documents.length === 0) {
+    const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
+              Query.equal("lobbyId", lobbyId),
+            ] });
+    if (gameCardsQuery.rows.length === 0) {
       return { success: false, reason: "No gamecards found" };
     }
-    const gameCards = gameCardsQuery.documents[0]!;
+    const gameCards = gameCardsQuery.rows[0]!;
 
     // Merge hands
     state.hands = parsePlayerHands(gameCards.playerHands);
@@ -167,15 +169,10 @@ async function handleBotPlay(
     const coreState = extractCoreState(state);
 
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await databases.updateDocument(
-      DB,
-      GAMECARDS,
-      gameCards.$id,
-      updatedGameCards,
-    );
-    await databases.updateDocument(DB, LOBBY, lobbyId, {
-      gameState: encodeGameState(coreState),
-    });
+    await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+              gameState: encodeGameState(coreState),
+            } });
 
     return { success: true, cardsPlayed: cardsToPlay };
   });
@@ -191,8 +188,9 @@ async function handleBotJudge(
   lobbyId: string,
   botUserId: string,
 ) {
+  const tables = getAdminTables();
   return withRetry(async () => {
-    const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
     const capturedVersion = lobby.$updatedAt;
     const state = decodeGameState(lobby.gameState);
 
@@ -214,13 +212,13 @@ async function handleBotJudge(
     const winnerId = submitterIds[randomIndex]!;
 
     // Fetch gamecards for discard management
-    const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
-      Query.equal("lobbyId", lobbyId),
-    ]);
-    if (gameCardsQuery.documents.length === 0) {
+    const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
+              Query.equal("lobbyId", lobbyId),
+            ] });
+    if (gameCardsQuery.rows.length === 0) {
       return { success: false, reason: "No gamecards found" };
     }
-    const gameCards = gameCardsQuery.documents[0]!;
+    const gameCards = gameCardsQuery.rows[0]!;
 
     // Merge discard piles from gameCards
     state.discardWhite = gameCards.discardWhite || [];
@@ -276,16 +274,11 @@ async function handleBotJudge(
     const coreState = extractCoreState(state);
 
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await databases.updateDocument(
-      DB,
-      GAMECARDS,
-      gameCards.$id,
-      updatedGameCards,
-    );
-    await databases.updateDocument(DB, LOBBY, lobbyId, {
-      status: state.phase === "complete" ? "complete" : "playing",
-      gameState: encodeGameState(coreState),
-    });
+    await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+              status: state.phase === "complete" ? "complete" : "playing",
+              gameState: encodeGameState(coreState),
+            } });
 
     return { success: true, winnerId, phase: state.phase };
   });

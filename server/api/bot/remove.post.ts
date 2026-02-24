@@ -27,9 +27,10 @@ export default defineEventHandler(async (event) => {
 
   const { DB, PLAYER, LOBBY } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   // --- Verify caller is the host ---
-  const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+  const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
   if (lobby.hostUserId !== hostUserId) {
     throw createError({
       statusCode: 403,
@@ -38,12 +39,12 @@ export default defineEventHandler(async (event) => {
   }
 
   // --- Find the bot player document ---
-  const botRes = await databases.listDocuments(DB, PLAYER, [
-    Query.equal("userId", botUserId),
-    Query.equal("lobbyId", lobbyId),
-    Query.equal("playerType", "bot"),
-    Query.limit(1),
-  ]);
+  const botRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+          Query.equal("userId", botUserId),
+          Query.equal("lobbyId", lobbyId),
+          Query.equal("playerType", "bot"),
+          Query.limit(1),
+        ] });
 
   if (botRes.total === 0) {
     throw createError({
@@ -53,8 +54,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // --- Delete the bot player document ---
-  const botName = botRes.documents[0]!.name || botUserId;
-  await databases.deleteDocument(DB, PLAYER, botRes.documents[0]!.$id);
+  const botName = botRes.rows[0]!.name || botUserId;
+  await tables.deleteRow({ databaseId: DB, tableId: PLAYER, rowId: botRes.rows[0]!.$id });
 
   // --- Send system chat message server-side ---
   await sendSystemChatMessage(lobbyId, `${botName} left the lobby`);

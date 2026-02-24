@@ -26,17 +26,14 @@ export default defineEventHandler(async (event) => {
     GAMESETTINGS,
   } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   try {
     // --- Fetch Game Settings if documentId is provided ---
     let gameSettings = settings || null;
     if (documentId && !gameSettings) {
       try {
-        gameSettings = await databases.getDocument(
-          DB,
-          GAMESETTINGS,
-          documentId,
-        );
+        gameSettings = await tables.getRow({ databaseId: DB, tableId: GAMESETTINGS, rowId: documentId });
       } catch (err: any) {
         console.error("[startGame] Failed to fetch settings:", err.message);
         throw createError({
@@ -47,13 +44,13 @@ export default defineEventHandler(async (event) => {
     }
 
     // --- Load lobby + players (filtered to this lobby only) ---
-    const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
-    const playersRes = await databases.listDocuments(DB, PLAYER, [
-      Query.equal("lobbyId", lobbyId),
-      Query.notEqual("playerType", "spectator"),
-      Query.limit(100),
-    ]);
-    const playerIds = playersRes.documents.map((d) => d.userId);
+    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
+    const playersRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+              Query.equal("lobbyId", lobbyId),
+              Query.notEqual("playerType", "spectator"),
+              Query.limit(100),
+            ] });
+    const playerIds = playersRes.rows.map((d) => d.userId);
     const playerCount = playerIds.length;
 
     if (playerCount < 2) {
@@ -98,11 +95,7 @@ export default defineEventHandler(async (event) => {
 
     const INITIAL_BLACK_CARDS = 5;
     const firstBlackId = allBlackIds[0] as string;
-    const firstBlack = await databases.getDocument(
-      DB,
-      BLACK_CARDS,
-      firstBlackId,
-    );
+    const firstBlack = await tables.getRow({ databaseId: DB, tableId: BLACK_CARDS, rowId: firstBlackId });
     const blackDeck = allBlackIds.slice(1, INITIAL_BLACK_CARDS);
 
     // --- Assemble game state (no card data — stored separately) ---
@@ -145,13 +138,13 @@ export default defineEventHandler(async (event) => {
       playerHands: handsArray,
     };
 
-    await databases.createDocument(DB, GAMECARDS, "unique()", gameCards);
+    await tables.createRow({ databaseId: DB, tableId: GAMECARDS, rowId: "unique()", data: gameCards });
 
     // --- Update lobby status ---
-    await databases.updateDocument(DB, LOBBY, lobbyId, {
-      status: "playing",
-      gameState: encodeGameState(gameState),
-    });
+    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+              status: "playing",
+              gameState: encodeGameState(gameState),
+            } });
 
     return { success: true };
   } catch (err: any) {

@@ -38,6 +38,7 @@ export const seedCardsFromJson = async ({
   } | null;
 }) => {
   let data;
+  const tables = getAdminTables();
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -249,16 +250,11 @@ export const seedCardsFromJson = async ({
           }
 
           try {
-            const newCard = await databases.createDocument(
-              databaseId,
-              whiteCollection,
-              "unique()",
-              {
+            const newCard = await tables.createRow({ databaseId: databaseId, tableId: whiteCollection, rowId: "unique()", data: {
                 text: card.text,
                 pack: packName,
                 active: true,
-              },
-            );
+              } });
 
             // Add to our local cache of existing cards
             existingWhiteCards.push(newCard);
@@ -391,17 +387,12 @@ export const seedCardsFromJson = async ({
           }
 
           try {
-            const newCard = await databases.createDocument(
-              databaseId,
-              blackCollection,
-              "unique()",
-              {
+            const newCard = await tables.createRow({ databaseId: databaseId, tableId: blackCollection, rowId: "unique()", data: {
                 text: card.text,
                 pick: card.pick || 1,
                 pack: packName,
                 active: true,
-              },
-            );
+              } });
 
             // Add to our local cache of existing cards
             existingBlackCards.push(newCard);
@@ -488,19 +479,20 @@ async function fetchAllCards(
 ) {
   const limit = 100;
   let offset = 0;
+  const tables = getAdminTables();
   let allCards: any[] = [];
   let hasMore = true;
 
   while (hasMore) {
-    const response = await databases.listDocuments(databaseId, collectionId, [
+    const response = await tables.listRows({ databaseId: databaseId, tableId: collectionId, queries: [
       // Appwrite uses Query.limit and Query.offset for pagination
       Query.limit(limit),
       Query.offset(offset),
-    ]);
+    ] });
 
-    allCards = [...allCards, ...response.documents];
+    allCards = [...allCards, ...response.rows];
 
-    if (response.documents.length < limit) {
+    if (response.rows.length < limit) {
       hasMore = false;
     } else {
       offset += limit;

@@ -31,22 +31,17 @@ export default defineEventHandler(async (event) => {
   // ── Write system message ───────────────────────────────────────────
   const { DB, GAMECHAT } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   const safeText = text.substring(0, MAX_LENGTH);
 
-  const doc = await databases.createDocument(
-    DB,
-    GAMECHAT,
-    ID.unique(),
-    {
-      lobbyId,
-      senderId: "system",
-      senderName: "System",
-      text: safeText,
-      timeStamp: new Date().toISOString(),
-    },
-    [Permission.read(Role.any())],
-  );
+  const doc = await tables.createRow({ databaseId: DB, tableId: GAMECHAT, rowId: ID.unique(), data: {
+            lobbyId,
+            senderId: "system",
+            senderName: "System",
+            text: safeText,
+            timeStamp: new Date().toISOString(),
+          }, permissions: [Permission.read(Role.any())] });
 
   return { success: true, messageId: doc.$id };
 });

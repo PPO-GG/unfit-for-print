@@ -2,7 +2,7 @@
 // Shared game engine utilities for all gameplay server API routes.
 // Replaces duplicated code that was copy-pasted across 4 Appwrite Functions.
 
-import { Query, type Databases } from "node-appwrite";
+import { Query, type Databases, TablesDB } from "node-appwrite";
 
 // ─── Game State Encoding ────────────────────────────────────────────
 
@@ -57,21 +57,23 @@ export async function fetchAllIds(
   };
 
   const packFilter = buildPackFilter();
+  const tables = getAdminTables();
 
   // Get total count
-  const { total } = await databases.listDocuments(dbId, collectionId, [
-    Query.limit(1),
-    ...packFilter,
-  ]);
+  const { total } = await tables.listRows({
+    databaseId: dbId,
+    tableId: collectionId,
+    queries: [Query.limit(1), ...packFilter],
+  });
 
   const ids: string[] = [];
   for (let offset = 0; offset < total; offset += BATCH) {
-    const res = await databases.listDocuments(dbId, collectionId, [
-      Query.limit(BATCH),
-      Query.offset(offset),
-      ...packFilter,
-    ]);
-    ids.push(...res.documents.map((d) => d.$id));
+    const res = await tables.listRows({
+      databaseId: dbId,
+      tableId: collectionId,
+      queries: [Query.limit(BATCH), Query.offset(offset), ...packFilter],
+    });
+    ids.push(...res.rows.map((d) => d.$id));
   }
 
   return ids;
@@ -172,6 +174,10 @@ export function getCollectionIds() {
 // ─── Admin Database Accessor ────────────────────────────────────────
 // Returns the admin Databases instance from the nuxt-appwrite module.
 
+export function getAdminTables(): TablesDB {
+  const { client } = useAppwriteAdmin();
+  return new TablesDB(client);
+}
 export function getAdminDatabases(): Databases {
   const { databases } = useAppwriteAdmin();
   return databases as unknown as Databases;
@@ -193,9 +199,14 @@ export async function assertVersionUnchanged(
   capturedUpdatedAt: string,
 ): Promise<void> {
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
   const { DB, LOBBY } = getCollectionIds();
 
-  const fresh = await databases.getDocument(DB, LOBBY, lobbyId);
+  const fresh = await tables.getRow({
+    databaseId: DB,
+    tableId: LOBBY,
+    rowId: lobbyId,
+  });
   if (fresh.$updatedAt !== capturedUpdatedAt) {
     throw createError({
       statusCode: 409,

@@ -24,11 +24,12 @@ export default defineEventHandler(async (event) => {
 
   const { DB, LOBBY, GAMECARDS } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   return withRetry(async () => {
     try {
       // --- Fetch lobby and decode state ---
-      const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+      const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
       const capturedVersion = lobby.$updatedAt;
       const state = decodeGameState(lobby.gameState);
 
@@ -55,16 +56,16 @@ export default defineEventHandler(async (event) => {
       }
 
       // --- Fetch gamecards for hands info ---
-      const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
-        Query.equal("lobbyId", lobbyId),
-      ]);
-      if (gameCardsQuery.documents.length === 0) {
+      const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
+                  Query.equal("lobbyId", lobbyId),
+                ] });
+      if (gameCardsQuery.rows.length === 0) {
         throw createError({
           statusCode: 404,
           statusMessage: `No gamecards document found for lobby ${lobbyId}`,
         });
       }
-      const gameCards = gameCardsQuery.documents[0]!;
+      const gameCards = gameCardsQuery.rows[0]!;
       state.hands = parsePlayerHands(gameCards.playerHands);
 
       // --- Add player to skippedPlayers ---
@@ -88,9 +89,9 @@ export default defineEventHandler(async (event) => {
       // --- Concurrency check + Persist ---
       const coreState = extractCoreState(state);
       await assertVersionUnchanged(lobbyId, capturedVersion);
-      await databases.updateDocument(DB, LOBBY, lobbyId, {
-        gameState: encodeGameState(coreState),
-      });
+      await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+                  gameState: encodeGameState(coreState),
+                } });
 
       return {
         success: true,

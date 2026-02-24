@@ -41,12 +41,17 @@ export async function verifyPlayerInLobby(
 
   const { DB, PLAYER } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
-  const playersRes = await databases.listDocuments(DB, PLAYER, [
-    Query.equal("userId", userId),
-    Query.equal("lobbyId", lobbyId),
-    Query.limit(1),
-  ]);
+  const playersRes = await tables.listRows({
+    databaseId: DB,
+    tableId: PLAYER,
+    queries: [
+      Query.equal("userId", userId),
+      Query.equal("lobbyId", lobbyId),
+      Query.limit(1),
+    ],
+  });
 
   if (playersRes.total === 0) {
     throw createError({
@@ -74,9 +79,13 @@ export async function verifyHost(
   await verifyPlayerInLobby(userId, lobbyId);
 
   const { DB, LOBBY } = getCollectionIds();
-  const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
-  const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+  const lobby = await tables.getRow({
+    databaseId: DB,
+    tableId: LOBBY,
+    rowId: lobbyId,
+  });
 
   if (lobby.hostUserId !== userId) {
     throw createError({

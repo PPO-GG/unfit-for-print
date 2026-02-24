@@ -22,9 +22,10 @@ export default defineEventHandler(async (event) => {
 
   const { DB, LOBBY } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   return withRetry(async () => {
-    const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
     const capturedVersion = lobby.$updatedAt;
     const state = decodeGameState(lobby.gameState);
 
@@ -59,9 +60,9 @@ export default defineEventHandler(async (event) => {
 
     // Concurrency check + persist
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await databases.updateDocument(DB, LOBBY, lobbyId, {
-      gameState: encodeGameState(coreState),
-    });
+    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+              gameState: encodeGameState(coreState),
+            } });
 
     return { success: true };
   });

@@ -8,21 +8,23 @@ export default defineEventHandler(async (event) => {
     return { error: "Missing lobby code" };
   }
 
-  const { databases } = useAppwriteAdmin();
+  const tables = getAdminTables();
   const config = useRuntimeConfig();
 
   const dbId = config.public.appwriteDatabaseId as string;
   const collectionId = config.public.appwriteLobbyCollectionId as string;
 
-  const res = await databases.listDocuments(dbId, collectionId, [
-    Query.equal("code", code),
-  ]);
+  const res = await tables.listRows({
+    databaseId: dbId,
+    tableId: collectionId,
+    queries: [Query.equal("code", code)],
+  });
 
   if (!res.total) {
     return { error: "Lobby not found" };
   }
 
-  const lobby = res.documents[0];
+  const lobby = res.rows[0]!;
 
   // Only return safe data to the frontend
   return {

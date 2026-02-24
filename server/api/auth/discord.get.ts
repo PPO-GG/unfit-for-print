@@ -48,12 +48,7 @@ export default defineEventHandler(async (event) => {
     // an outbound fetch() to Appwrite. It expects a 301/302 redirect response.
     // If Appwrite rejects the redirect URLs (e.g. hostname not in platforms)
     // or Bot Fight Mode intercedes, it will throw "Invalid redirect".
-    const redirectUrl = await account.createOAuth2Token(
-      OAuthProvider.Discord,
-      successUrl,
-      failureUrl,
-      ["identify"],
-    );
+    const redirectUrl = await account.createOAuth2Token({ provider: OAuthProvider.Discord, success: successUrl, failure: failureUrl, scopes: ["identify"] });
 
     await sendRedirect(event, redirectUrl);
   } catch (error: any) {

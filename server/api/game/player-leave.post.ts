@@ -24,11 +24,12 @@ export default defineEventHandler(async (event) => {
 
   const { DB, LOBBY, PLAYER, GAMECARDS, BLACK_CARDS } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   return withRetry(async () => {
     try {
       // --- Fetch lobby and decode state ---
-      const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+      const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
       const capturedVersion = lobby.$updatedAt;
 
       // Only process if game is actively being played
@@ -43,28 +44,28 @@ export default defineEventHandler(async (event) => {
       const state = decodeGameState(lobby.gameState);
 
       // --- Fetch gamecards document ---
-      const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
-        Query.equal("lobbyId", lobbyId),
-      ]);
-      if (gameCardsQuery.documents.length === 0) {
+      const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
+                  Query.equal("lobbyId", lobbyId),
+                ] });
+      if (gameCardsQuery.rows.length === 0) {
         return {
           success: true,
           action: "none",
           reason: "No gamecards document",
         };
       }
-      const gameCards = gameCardsQuery.documents[0]!;
+      const gameCards = gameCardsQuery.rows[0]!;
 
       // Merge hands from gamecards
       state.hands = parsePlayerHands(gameCards.playerHands);
 
       // --- Fetch remaining players (excluding the one leaving) ---
-      const playersRes = await databases.listDocuments(DB, PLAYER, [
-        Query.equal("lobbyId", lobbyId),
-        Query.notEqual("playerType", "spectator"),
-        Query.limit(100),
-      ]);
-      const remainingPlayerIds = playersRes.documents
+      const playersRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+                  Query.equal("lobbyId", lobbyId),
+                  Query.notEqual("playerType", "spectator"),
+                  Query.limit(100),
+                ] });
+      const remainingPlayerIds = playersRes.rows
         .map((d) => d.userId)
         .filter((id) => id !== leavingUserId);
 
@@ -93,16 +94,11 @@ export default defineEventHandler(async (event) => {
         };
 
         await assertVersionUnchanged(lobbyId, capturedVersion);
-        await databases.updateDocument(
-          DB,
-          GAMECARDS,
-          gameCards.$id,
-          updatedGameCards,
-        );
-        await databases.updateDocument(DB, LOBBY, lobbyId, {
-          status: "waiting",
-          gameState: encodeGameState(extractCoreState(state)),
-        });
+        await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+        await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+                      status: "waiting",
+                      gameState: encodeGameState(extractCoreState(state)),
+                    } });
 
         return {
           success: true,
@@ -155,15 +151,10 @@ export default defineEventHandler(async (event) => {
         };
 
         await assertVersionUnchanged(lobbyId, capturedVersion);
-        await databases.updateDocument(
-          DB,
-          GAMECARDS,
-          gameCards.$id,
-          updatedGameCards,
-        );
-        await databases.updateDocument(DB, LOBBY, lobbyId, {
-          gameState: encodeGameState(extractCoreState(state)),
-        });
+        await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+        await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+                      gameState: encodeGameState(extractCoreState(state)),
+                    } });
 
         return {
           success: true,
@@ -183,15 +174,10 @@ export default defineEventHandler(async (event) => {
       };
 
       await assertVersionUnchanged(lobbyId, capturedVersion);
-      await databases.updateDocument(
-        DB,
-        GAMECARDS,
-        gameCards.$id,
-        updatedGameCards,
-      );
-      await databases.updateDocument(DB, LOBBY, lobbyId, {
-        gameState: encodeGameState(extractCoreState(state)),
-      });
+      await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+      await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+                  gameState: encodeGameState(extractCoreState(state)),
+                } });
 
       return { success: true, action: "cleaned_up" };
     } catch (err: any) {
@@ -223,6 +209,7 @@ async function handleJudgeLeft(
   leavingJudgeId: string,
   capturedVersion: string,
 ) {
+  const tables = getAdminTables();
   // Merge card data from gameCards into state for manipulation
   state.whiteDeck = gameCards.whiteDeck || [];
   state.blackDeck = gameCards.blackDeck || [];
@@ -284,11 +271,7 @@ async function handleJudgeLeft(
   if (state.blackDeck.length > 0) {
     const nextBlackId = state.blackDeck.shift();
     try {
-      const blackDoc = await databases.getDocument(
-        DB,
-        BLACK_CARDS,
-        nextBlackId,
-      );
+      const blackDoc = await tables.getRow({ databaseId: DB, tableId: BLACK_CARDS, rowId: nextBlackId });
       state.blackCard = {
         id: nextBlackId,
         text: blackDoc.text,
@@ -320,15 +303,10 @@ async function handleJudgeLeft(
 
   // --- Concurrency check + Persist ---
   await assertVersionUnchanged(lobbyId, capturedVersion);
-  await databases.updateDocument(
-    DB,
-    GAMECARDS,
-    gameCards.$id,
-    updatedGameCards,
-  );
-  await databases.updateDocument(DB, LOBBY, lobbyId, {
-    gameState: encodeGameState(coreState),
-  });
+  await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+  await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+          gameState: encodeGameState(coreState),
+        } });
 
   return {
     success: true,
@@ -352,6 +330,7 @@ async function handleSubmitterLeft(
   state: Record<string, any>,
   capturedVersion: string,
 ) {
+  const tables = getAdminTables();
   // Count players who still need to submit (non-judge, non-skipped players)
   const skippedPlayers: string[] = state.skippedPlayers || [];
   const playersWhoMustSubmit = Object.keys(state.hands).filter(
@@ -384,15 +363,10 @@ async function handleSubmitterLeft(
 
   // --- Concurrency check + Persist ---
   await assertVersionUnchanged(lobbyId, capturedVersion);
-  await databases.updateDocument(
-    DB,
-    GAMECARDS,
-    gameCards.$id,
-    updatedGameCards,
-  );
-  await databases.updateDocument(DB, LOBBY, lobbyId, {
-    gameState: encodeGameState(extractCoreState(state)),
-  });
+  await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+  await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+          gameState: encodeGameState(extractCoreState(state)),
+        } });
 
   return { success: true, action, reason };
 }

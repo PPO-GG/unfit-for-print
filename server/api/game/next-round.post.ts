@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
   const { DB, LOBBY, WHITE_CARDS, BLACK_CARDS, GAMECARDS, GAMESETTINGS } =
     getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   return withRetry(async () => {
     try {
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
       let settings: Record<string, any> | null = null;
       if (documentId) {
         try {
-          settings = await databases.getDocument(DB, GAMESETTINGS, documentId);
+          settings = await tables.getRow({ databaseId: DB, tableId: GAMESETTINGS, rowId: documentId });
         } catch {
           console.warn(
             "[nextRound] Could not fetch settings by documentId, continuing without",
@@ -34,23 +35,23 @@ export default defineEventHandler(async (event) => {
       }
 
       // --- Fetch Lobby and Decode State ---
-      const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+      const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
       const capturedVersion = lobby.$updatedAt;
       const state = decodeGameState(lobby.gameState);
       const countdownDuration =
         ((lobby as any).roundEndCountdownDuration || 5) * 1000;
 
       // --- Fetch GameCards document ---
-      const gameCardsQuery = await databases.listDocuments(DB, GAMECARDS, [
-        Query.equal("lobbyId", lobbyId),
-      ]);
-      if (gameCardsQuery.documents.length === 0) {
+      const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
+                  Query.equal("lobbyId", lobbyId),
+                ] });
+      if (gameCardsQuery.rows.length === 0) {
         throw createError({
           statusCode: 404,
           statusMessage: `No gamecards document found for lobby ${lobbyId}`,
         });
       }
-      const gameCards = gameCardsQuery.documents[0]!;
+      const gameCards = gameCardsQuery.rows[0]!;
 
       // --- Merge card data from gameCards into state ---
       state.whiteDeck = gameCards.whiteDeck || [];
@@ -153,11 +154,7 @@ export default defineEventHandler(async (event) => {
       if (state.blackDeck && state.blackDeck.length > 0) {
         const nextBlackId = state.blackDeck.shift();
         try {
-          const blackDoc = await databases.getDocument(
-            DB,
-            BLACK_CARDS,
-            nextBlackId,
-          );
+          const blackDoc = await tables.getRow({ databaseId: DB, tableId: BLACK_CARDS, rowId: nextBlackId });
           state.blackCard = {
             id: nextBlackId,
             text: blackDoc.text,
@@ -260,15 +257,10 @@ export default defineEventHandler(async (event) => {
 
       // --- Concurrency check + Persist ---
       await assertVersionUnchanged(lobbyId, capturedVersion);
-      await databases.updateDocument(
-        DB,
-        GAMECARDS,
-        gameCards.$id,
-        updatedGameCards,
-      );
-      await databases.updateDocument(DB, LOBBY, lobbyId, {
-        gameState: encodeGameState(coreState),
-      });
+      await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
+      await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
+                  gameState: encodeGameState(coreState),
+                } });
 
       return { success: true };
     } catch (err: any) {

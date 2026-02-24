@@ -28,9 +28,10 @@ export default defineEventHandler(async (event) => {
 
   const { DB, PLAYER, LOBBY } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
   // --- Verify caller is the host ---
-  const lobby = await databases.getDocument(DB, LOBBY, lobbyId);
+  const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
   if (lobby.hostUserId !== hostUserId) {
     throw createError({
       statusCode: 403,
@@ -39,11 +40,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify the host actually has a player document in the lobby
-  const hostPlayer = await databases.listDocuments(DB, PLAYER, [
-    Query.equal("userId", hostUserId),
-    Query.equal("lobbyId", lobbyId),
-    Query.limit(1),
-  ]);
+  const hostPlayer = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+          Query.equal("userId", hostUserId),
+          Query.equal("lobbyId", lobbyId),
+          Query.limit(1),
+        ] });
   if (hostPlayer.total === 0) {
     throw createError({
       statusCode: 403,
@@ -52,11 +53,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // --- Check bot count cap ---
-  const existingBots = await databases.listDocuments(DB, PLAYER, [
-    Query.equal("lobbyId", lobbyId),
-    Query.equal("playerType", "bot"),
-    Query.limit(MAX_BOTS_PER_LOBBY + 1),
-  ]);
+  const existingBots = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+          Query.equal("lobbyId", lobbyId),
+          Query.equal("playerType", "bot"),
+          Query.limit(MAX_BOTS_PER_LOBBY + 1),
+        ] });
 
   if (existingBots.total >= MAX_BOTS_PER_LOBBY) {
     throw createError({
@@ -83,23 +84,16 @@ export default defineEventHandler(async (event) => {
   const botName = `BOT-${botSuffix}`;
 
   // --- Create player document ---
-  const playerDoc = await databases.createDocument(
-    DB,
-    PLAYER,
-    ID.unique(),
-    {
-      userId: botUserId,
-      lobbyId,
-      name: botName,
-      avatar: "",
-      isHost: false,
-      joinedAt: new Date().toISOString(),
-      provider: "bot",
-      playerType: "bot",
-    },
-    // Bots are controlled by the host, so open permissions (like anonymous users)
-    ['read("any")', 'update("any")', 'delete("any")'],
-  );
+  const playerDoc = await tables.createRow({ databaseId: DB, tableId: PLAYER, rowId: ID.unique(), data: {
+            userId: botUserId,
+            lobbyId,
+            name: botName,
+            avatar: "",
+            isHost: false,
+            joinedAt: new Date().toISOString(),
+            provider: "bot",
+            playerType: "bot",
+          }, permissions: ['read("any")', 'update("any")', 'delete("any")'] });
 
   // --- Send system chat message server-side (no client round-trip) ---
   await sendSystemChatMessage(lobbyId, `${botName} joined the lobby`);

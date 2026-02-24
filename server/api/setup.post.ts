@@ -198,14 +198,14 @@ export default defineEventHandler(async (event) => {
           } catch (e: any) {
             if (e.code === 404) {
               log(`Creating index ${idx.key} in ${colConfig.name}...`);
-              await databases.createIndex(
-                dbId,
-                colConfig.$id,
-                idx.key,
-                (idx as any).type,
-                idx.attributes,
-                idx.orders,
-              );
+              await databases.createIndex({
+                databaseId: dbId,
+                collectionId: colConfig.$id,
+                key: idx.key,
+                type: (idx as any).type,
+                attributes: idx.attributes,
+                orders: (idx as any).orders,
+              });
             }
           }
         }

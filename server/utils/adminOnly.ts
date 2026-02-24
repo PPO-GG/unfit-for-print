@@ -20,7 +20,7 @@ export async function assertAdmin(event: H3Event) {
   client.setSession(session);
 
   const ADMIN_TEAM_ID = config.public.appwriteAdminTeamId;
-  const memberships = await teams.listMemberships(ADMIN_TEAM_ID);
+  const memberships = await teams.listMemberships({ teamId: ADMIN_TEAM_ID });
   const isAdmin = memberships.memberships.some(
     (m: any) => m.userId && m.confirm,
   );

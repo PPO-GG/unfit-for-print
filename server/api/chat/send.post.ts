@@ -79,33 +79,28 @@ export default defineEventHandler(async (event) => {
   // ── Resolve sender name ────────────────────────────────────────────
   const { DB, PLAYER, GAMECHAT } = getCollectionIds();
   const databases = getAdminDatabases();
+  const tables = getAdminTables();
 
-  const playerRes = await databases.listDocuments(DB, PLAYER, [
-    Query.equal("userId", userId),
-    Query.equal("lobbyId", lobbyId),
-    Query.limit(1),
-  ]);
-  const senderName = playerRes.documents[0]?.name || "Anonymous";
+  const playerRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
+          Query.equal("userId", userId),
+          Query.equal("lobbyId", lobbyId),
+          Query.limit(1),
+        ] });
+  const senderName = playerRes.rows[0]?.name || "Anonymous";
 
   // ── Write message ──────────────────────────────────────────────────
   const docId = ID.unique();
-  const doc = await databases.createDocument(
-    DB,
-    GAMECHAT,
-    docId,
-    {
-      lobbyId,
-      senderId: userId,
-      senderName,
-      text: safeText,
-      timeStamp: new Date().toISOString(),
-    },
-    [
-      Permission.read(Role.any()),
-      Permission.update(Role.user(userId)),
-      Permission.delete(Role.user(userId)),
-    ],
-  );
+  const doc = await tables.createRow({ databaseId: DB, tableId: GAMECHAT, rowId: docId, data: {
+            lobbyId,
+            senderId: userId,
+            senderName,
+            text: safeText,
+            timeStamp: new Date().toISOString(),
+          }, permissions: [
+            Permission.read(Role.any()),
+            Permission.update(Role.user(userId)),
+            Permission.delete(Role.user(userId)),
+          ] });
 
   return {
     success: true,
