@@ -250,19 +250,23 @@ const loadMessages = async () => {
     }
 
     // Load the latest N messages (descending), then reverse for display
-    const res = await tables.listRows({ databaseId: dbId, tableId: messagesCollectionId, queries: [
-              Query.equal("lobbyId", props.lobbyId),
-              Query.orderDesc("timeStamp"),
-              Query.limit(MESSAGES_PER_PAGE),
-            ] });
+    const res = await tables.listRows({
+      databaseId: dbId,
+      tableId: messagesCollectionId,
+      queries: [
+        Query.equal("lobbyId", props.lobbyId),
+        Query.orderDesc("timeStamp"),
+        Query.limit(MESSAGES_PER_PAGE),
+      ],
+    });
 
     hasMore.value = res.total > res.rows.length;
     messages.value = res.rows.reverse().map(applyFilters) as ChatMessage[];
 
     return client.subscribe(
-      `databases.${dbId}.collections.${messagesCollectionId}.rows`,
+      `databases.${dbId}.collections.${messagesCollectionId}.documents`,
       (e: any) => {
-        if (e.events.includes("databases.*.collections.*.rows.*.create")) {
+        if (e.events.includes("databases.*.collections.*.documents.*.create")) {
           const doc = e.payload as ChatMessage;
           const docLobbyId = resolveId(doc.lobbyId);
 
@@ -318,16 +322,18 @@ const loadOlderMessages = async () => {
   loadingMore.value = true;
 
   try {
-    const res = await tables.listRows({ databaseId: dbId, tableId: messagesCollectionId, queries: [
-              Query.equal("lobbyId", props.lobbyId),
-              Query.orderDesc("timeStamp"),
-              Query.limit(MESSAGES_PER_PAGE),
-              Query.offset(messages.value.length),
-            ] });
+    const res = await tables.listRows({
+      databaseId: dbId,
+      tableId: messagesCollectionId,
+      queries: [
+        Query.equal("lobbyId", props.lobbyId),
+        Query.orderDesc("timeStamp"),
+        Query.limit(MESSAGES_PER_PAGE),
+        Query.offset(messages.value.length),
+      ],
+    });
 
-    const olderMessages = res.rows
-      .reverse()
-      .map(applyFilters) as ChatMessage[];
+    const olderMessages = res.rows.reverse().map(applyFilters) as ChatMessage[];
     messages.value = [...olderMessages, ...messages.value];
     hasMore.value = messages.value.length < res.total;
   } catch (error) {

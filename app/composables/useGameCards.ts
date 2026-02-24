@@ -145,7 +145,7 @@ export const useGameCards = () => {
     const collectionId = config.public.appwriteGamecardsCollectionId as string;
 
     const unsubscribe = client.subscribe(
-      [`databases.${dbId}.collections.${collectionId}.rows`],
+      [`databases.${dbId}.collections.${collectionId}.documents`],
       ({ events, payload }: { events: string[]; payload: unknown }) => {
         const doc = payload as GameCards & { lobbyId: any };
         const docLobbyId = resolveId(doc.lobbyId);

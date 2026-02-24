@@ -98,7 +98,7 @@ export function useGameRealtime(options: {
 
     return client.subscribe(
       [
-        `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.rows`,
+        `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`,
       ],
       async ({ payload }: { events: string[]; payload: unknown }) => {
         const settings = payload as GameSettings;
@@ -155,7 +155,7 @@ export function useGameRealtime(options: {
     // 🧠 Lobby Realtime
     const unsubscribeLobby = client.subscribe(
       [
-        `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteLobbyCollectionId}.rows.${lobbyData.$id}`,
+        `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteLobbyCollectionId}.documents.${lobbyData.$id}`,
       ],
       async ({ events, payload }: { events: string[]; payload: unknown }) => {
         if (events.some((e: string) => e.endsWith(".delete"))) {
@@ -175,7 +175,7 @@ export function useGameRealtime(options: {
     cleanupFunctions.push(unsubscribeLobby);
 
     // 👥 Player Realtime
-    const playersTopic = `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwritePlayerCollectionId}.rows`;
+    const playersTopic = `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwritePlayerCollectionId}.documents`;
 
     const handleJoinNotification = async (player: Player) => {
       await playSfx(SFX.playerJoin);

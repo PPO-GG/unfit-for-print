@@ -560,7 +560,7 @@ function subscribeToSubmissions() {
   const collectionId = config.public.appwriteSubmissionCollectionId;
 
   return client.subscribe(
-    [`databases.${dbId}.collections.${collectionId}.rows`],
+    [`databases.${dbId}.collections.${collectionId}.documents`],
     (response: any) => {
       const { events, payload } = response;
 
