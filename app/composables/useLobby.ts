@@ -21,14 +21,10 @@ export const useLobby = () => {
   const { encodeGameState, decodeGameState } = useGameState();
 
   const fetchPlayers = async (lobbyId: string) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
-    const res = await databases.listDocuments(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      [Query.equal("lobbyId", lobbyId)],
-    );
-    players.value = res.documents.map((doc: Record<string, any>) => ({
+    const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
+    players.value = res.rows.map((doc: Record<string, any>) => ({
       $id: doc.$id,
       userId: doc.userId,
       lobbyId: doc.lobbyId,
@@ -42,16 +38,12 @@ export const useLobby = () => {
   };
 
   const getLobbyByCode = async (code: string): Promise<Lobby | null> => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
     try {
-      const result = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        [Query.equal("code", code), Query.limit(1)],
-      );
-      return result.documents[0]
-        ? (result.documents[0] as unknown as Lobby)
+      const result = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, queries: [Query.equal("code", code), Query.limit(1)] });
+      return result.rows[0]
+        ? (result.rows[0] as unknown as Lobby)
         : null;
     } catch (error: unknown) {
       if (
@@ -75,7 +67,7 @@ export const useLobby = () => {
     isPrivate?: boolean,
     password?: string,
   ) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
     // Check if the user already has an active lobby
@@ -93,11 +85,7 @@ export const useLobby = () => {
     try {
       // First, verify if collections exist by doing a test query
       try {
-        await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteLobbyCollectionId,
-          [Query.limit(1)],
-        );
+        await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, queries: [Query.limit(1)] });
       } catch (error: unknown) {
         if (error instanceof Error && "code" in error && error.code === 404) {
           console.error(
@@ -141,13 +129,7 @@ export const useLobby = () => {
         Permission.delete(Role.user(hostUserId)),
       ];
 
-      const lobby = await databases.createDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        ID.unique(),
-        lobbyData,
-        permissions,
-      );
+      const lobby = await tables.createRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: ID.unique(), data: lobbyData, permissions: permissions });
 
       // Create default game settings for the lobby
       try {
@@ -160,11 +142,7 @@ export const useLobby = () => {
         });
       } catch (error: unknown) {
         // Clean up the created lobby if we can't create game settings
-        await databases.deleteDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteLobbyCollectionId,
-          lobby.$id,
-        );
+        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobby.$id });
         console.error("Failed to create game settings:", error);
         throw new Error(
           "Unable to create lobby: Failed to create game settings",
@@ -173,19 +151,11 @@ export const useLobby = () => {
 
       // Also verify players collection before joining
       try {
-        await databases.listDocuments(
-          config.public.appwriteDatabaseId,
-          config.public.appwritePlayerCollectionId,
-          [Query.limit(1)],
-        );
+        await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.limit(1)] });
       } catch (error: unknown) {
         if (error instanceof Error && "code" in error && error.code === 404) {
           // Clean up the created lobby since we can't create players
-          await databases.deleteDocument(
-            config.public.appwriteDatabaseId,
-            config.public.appwriteLobbyCollectionId,
-            lobby.$id,
-          );
+          await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobby.$id });
           console.error(
             "Players collection not found:",
             config.public.appwritePlayerCollectionId,
@@ -218,17 +188,13 @@ export const useLobby = () => {
   };
 
   const isInLobby = async (userId: string, lobbyId: string) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
-    const res = await databases.listDocuments(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      [
-        Query.equal("userId", userId),
-        Query.equal("lobbyId", lobbyId),
-        Query.limit(1),
-      ],
-    );
+    const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [
+                Query.equal("userId", userId),
+                Query.equal("lobbyId", lobbyId),
+                Query.limit(1),
+              ] });
     return res.total > 0;
   };
 
@@ -236,21 +202,38 @@ export const useLobby = () => {
     code: string,
     options?: { username?: string; isHost?: boolean; skipSession?: boolean },
   ) => {
-    const { databases, account } = getAppwrite();
+    const { databases, tables, account } = getAppwrite();
     const config = getConfig();
     if (!userStore.session && !options?.skipSession) {
       await account.createAnonymousSession();
     }
-    const user = await account.get();
+
+    // Fetch the session first so we know the provider
     const session = await account.getSession("current");
-    const username = options?.username ?? user.prefs?.name ?? "Unknown";
+
+    // Now enrich the store with Discord/Google prefs (avatar hash, discordUserId, etc.)
+    await userStore.fetchUserSession();
+
+    // Use the ENRICHED user from the store — not the pre-enrichment account.get() result
+    const enrichedUser = userStore.user;
+    if (!enrichedUser) throw new Error("User session could not be loaded");
+
+    // Also fetch the raw Appwrite user for API calls that need Models.User shape
+    const rawUser = await account.get();
+    // Copy enriched prefs onto rawUser so getUserAvatarUrl sees avatar + discordUserId
+    rawUser.prefs = { ...rawUser.prefs, ...enrichedUser.prefs };
+
+    const username =
+      options?.username ??
+      enrichedUser.name ??
+      rawUser.prefs?.name ??
+      "Unknown";
     const lobby = await getLobbyByCode(code);
     if (!lobby) throw new Error("Lobby not found");
 
     await account.updatePrefs({ name: username });
-    await userStore.fetchUserSession();
     await createPlayerIfNeeded(
-      user,
+      rawUser,
       session,
       lobby.$id,
       username,
@@ -260,15 +243,10 @@ export const useLobby = () => {
     if (session.provider !== "anonymous") {
       const state = decodeGameState(lobby.gameState);
       state.players ??= {};
-      state.players[user.$id] = username;
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobby.$id,
-        {
-          gameState: encodeGameState(state),
-        },
-      );
+      state.players[rawUser.$id] = username;
+      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobby.$id, data: {
+                    gameState: encodeGameState(state),
+                  } });
     }
 
     return { ...lobby };
@@ -277,24 +255,16 @@ export const useLobby = () => {
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
     try {
-      const playerRes = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwritePlayerCollectionId,
-        [Query.equal("userId", userId), Query.limit(1)],
-      );
+      const playerRes = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.equal("userId", userId), Query.limit(1)] });
 
       if (playerRes.total === 0) return null;
 
-      const playerDoc = playerRes.documents[0];
-      const lobby = await databases.getDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        playerDoc.lobbyId,
-      );
+      const playerDoc = playerRes.rows[0];
+      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: playerDoc.lobbyId });
 
       if (lobby.status === "complete") return null;
       return lobby as unknown as Lobby;
@@ -321,43 +291,30 @@ export const useLobby = () => {
     username: string,
     isHost: boolean,
   ) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
     const avatarUrl = getUserAvatarUrl(user, session.provider);
 
     // Check if player already exists
-    const existing = await databases.listDocuments(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      [
-        Query.equal("userId", user.$id),
-        Query.equal("lobbyId", lobbyId),
-        Query.limit(1),
-      ],
-    );
+    const existing = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [
+                Query.equal("userId", user.$id),
+                Query.equal("lobbyId", lobbyId),
+                Query.limit(1),
+              ] });
 
     // If player exists, update their avatar if needed
     if (existing.total > 0) {
-      const existingPlayer = existing.documents[0];
+      const existingPlayer = existing.rows[0];
       if (avatarUrl && existingPlayer.avatar !== avatarUrl) {
-        await databases.updateDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwritePlayerCollectionId,
-          existingPlayer.$id,
-          {
-            avatar: avatarUrl,
-          },
-        );
+        await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: existingPlayer.$id, data: {
+                        avatar: avatarUrl,
+                      } });
       }
       return;
     }
 
     // Check game state to determine if player should be a spectator
-    const lobby = await databases.getDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteLobbyCollectionId,
-      lobbyId,
-    );
+    const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
 
     // Determine player type based on game state
     let playerType = "player";
@@ -374,32 +331,22 @@ export const useLobby = () => {
           `delete("user:${user.$id}")`,
         ];
 
-    const newPlayer = await databases.createDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      ID.unique(),
-      {
-        userId: user.$id,
-        lobbyId,
-        name: username,
-        avatar: avatarUrl || (user.prefs as Record<string, any>)?.avatar || "",
-        isHost,
-        joinedAt: new Date().toISOString(),
-        provider: session.provider,
-        playerType, // Set the player type
-      },
-      permissions,
-    );
+    const newPlayer = await tables.createRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: ID.unique(), data: {
+                userId: user.$id,
+                lobbyId,
+                name: username,
+                avatar: avatarUrl || (user.prefs as Record<string, any>)?.avatar || "",
+                isHost,
+                joinedAt: new Date().toISOString(),
+                provider: session.provider,
+                playerType, // Set the player type
+              }, permissions: permissions });
   };
 
   const leaveLobby = async (lobbyId: string, userId: string) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
-    const lobby = await databases.getDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteLobbyCollectionId,
-      lobbyId,
-    );
+    const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
 
     // Delegate game state cleanup to server BEFORE deleting the player doc,
     // so the verifyPlayerInLobby check passes on the server side.
@@ -415,22 +362,14 @@ export const useLobby = () => {
     }
 
     // Delete the leaving player's document
-    const res = await databases.listDocuments(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      [
-        Query.equal("userId", userId),
-        Query.equal("lobbyId", lobbyId),
-        Query.limit(1),
-      ],
-    );
+    const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [
+                Query.equal("userId", userId),
+                Query.equal("lobbyId", lobbyId),
+                Query.limit(1),
+              ] });
 
     if (res.total > 0) {
-      await databases.deleteDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwritePlayerCollectionId,
-        res.documents[0].$id,
-      );
+      await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: res.rows[0].$id });
     }
 
     // Fetch all remaining players
@@ -445,64 +384,32 @@ export const useLobby = () => {
     if (remainingHumans.length === 0) {
       // Delete all remaining player docs (bots, spectators)
       for (const player of players.value) {
-        await databases.deleteDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwritePlayerCollectionId,
-          player.$id,
-        );
+        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: player.$id });
       }
 
       // Delete gamecards document associated with this lobby
-      const gamecards = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteGamecardsCollectionId,
-        [Query.equal("lobbyId", lobbyId)],
-      );
+      const gamecards = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
 
-      for (const gamecard of gamecards.documents) {
-        await databases.deleteDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGamecardsCollectionId,
-          gamecard.$id,
-        );
+      for (const gamecard of gamecards.rows) {
+        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, rowId: gamecard.$id });
       }
 
       // Delete chat messages associated with this lobby
-      const chatMessages = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteGamechatCollectionId,
-        [Query.equal("lobbyId", lobbyId)],
-      );
+      const chatMessages = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamechatCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
 
-      for (const message of chatMessages.documents) {
-        await databases.deleteDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGamechatCollectionId,
-          message.$id,
-        );
+      for (const message of chatMessages.rows) {
+        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamechatCollectionId, rowId: message.$id });
       }
 
       // Delete game settings associated with this lobby
-      const gameSettings = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteGameSettingsCollectionId,
-        [Query.equal("lobbyId", lobbyId)],
-      );
+      const gameSettings = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGameSettingsCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
 
-      for (const setting of gameSettings.documents) {
-        await databases.deleteDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGameSettingsCollectionId,
-          setting.$id,
-        );
+      for (const setting of gameSettings.rows) {
+        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGameSettingsCollectionId, rowId: setting.$id });
       }
 
       // Delete the lobby itself
-      await databases.deleteDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-      );
+      await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
       return;
     }
 
@@ -510,22 +417,12 @@ export const useLobby = () => {
     if (lobby.hostUserId === userId) {
       const newHost = remainingHumans[0];
       if (newHost) {
-        await databases.updateDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteLobbyCollectionId,
-          lobbyId,
-          {
-            hostUserId: newHost.userId,
-          },
-        );
-        await databases.updateDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwritePlayerCollectionId,
-          newHost.$id,
-          {
-            isHost: true,
-          },
-        );
+        await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
+                        hostUserId: newHost.userId,
+                      } });
+        await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: newHost.$id, data: {
+                        isHost: true,
+                      } });
       }
     }
   };
@@ -541,19 +438,14 @@ export const useLobby = () => {
     if (validPlayers.length < 3) throw new Error("Not enough players to start");
 
     // Update all non-bot players to be participants (bots keep their 'bot' type)
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
     for (const player of players.value) {
       if (player.playerType === "bot") continue; // Bots keep their type
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwritePlayerCollectionId,
-        player.$id,
-        {
-          playerType: "player",
-        },
-      );
+      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: player.$id, data: {
+                    playerType: "player",
+                  } });
     }
 
     // Fetch game settings if not provided
@@ -602,49 +494,31 @@ export const useLobby = () => {
   };
 
   const kickPlayer = async (playerId: string) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
-    await databases.deleteDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      playerId,
-    );
+    await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: playerId });
   };
 
   const promoteToHost = async (lobbyId: string, newHostPlayer: Player) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
-    await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwriteLobbyCollectionId,
-      lobbyId,
-      {
-        hostUserId: newHostPlayer.userId,
-      },
-    );
+    await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
+                hostUserId: newHostPlayer.userId,
+              } });
 
-    await databases.updateDocument(
-      config.public.appwriteDatabaseId,
-      config.public.appwritePlayerCollectionId,
-      newHostPlayer.$id,
-      {
-        isHost: true,
-      },
-    );
+    await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: newHostPlayer.$id, data: {
+                isHost: true,
+              } });
   };
 
   const resetGameState = async (lobbyId: string) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
     try {
       // Get the current lobby
-      const lobby = await databases.getDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-      );
+      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
 
       // Decode the current game state
       const state = decodeGameState(lobby.gameState);
@@ -653,15 +527,10 @@ export const useLobby = () => {
       state.phase = "waiting";
 
       // Update the lobby status and game state
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-        {
-          status: "waiting",
-          gameState: encodeGameState(state),
-        },
-      );
+      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
+                    status: "waiting",
+                    gameState: encodeGameState(state),
+                  } });
 
       return true;
     } catch (error) {
@@ -671,32 +540,24 @@ export const useLobby = () => {
   };
 
   const reshufflePlayerCards = async (lobbyId: string) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
     try {
       // Get the current lobby
-      const lobby = await databases.getDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-      );
+      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
 
       // Decode the current game state
       const state = decodeGameState(lobby.gameState) as GameState;
 
       // Fetch the gamecards document
-      const gameCardsQuery = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteGamecardsCollectionId,
-        [Query.equal("lobbyId", lobbyId)],
-      );
+      const gameCardsQuery = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
 
-      if (gameCardsQuery.documents.length === 0) {
+      if (gameCardsQuery.rows.length === 0) {
         throw new Error(`No gamecards document found for lobby ${lobbyId}`);
       }
 
-      const gameCards = gameCardsQuery.documents[0];
+      const gameCards = gameCardsQuery.rows[0];
 
       // Use card data from gameCards
       // Convert playerHands array to hands object
@@ -815,22 +676,12 @@ export const useLobby = () => {
       delete coreState.discardBlack;
 
       // Update both documents
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteGamecardsCollectionId,
-        gameCards.$id,
-        updatedGameCards,
-      );
+      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, rowId: gameCards.$id, data: updatedGameCards });
 
       // Update the game state
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-        {
-          gameState: encodeGameState(coreState),
-        },
-      );
+      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
+                    gameState: encodeGameState(coreState),
+                  } });
 
       return true;
     } catch (error) {
@@ -844,16 +695,12 @@ export const useLobby = () => {
     lobbyId: string,
     playerId: string,
   ) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
     try {
       // Get the current lobby
-      const lobby = await databases.getDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-      );
+      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
 
       // Decode the current game state
       const state = decodeGameState(lobby.gameState);
@@ -869,14 +716,9 @@ export const useLobby = () => {
       // Note: gameEndTime is now set server-side by select-winner when phase === "complete"
 
       // Update the game state in the database
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-        {
-          gameState: encodeGameState(state),
-        },
-      );
+      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
+                    gameState: encodeGameState(state),
+                  } });
 
       return true;
     } catch (error) {
@@ -888,16 +730,12 @@ export const useLobby = () => {
   // Check if all players have returned to the lobby or if the auto-return timer has expired
   // This function no longer resets the game state for everyone
   const checkAllPlayersReturned = async (lobbyId: string) => {
-    const { databases } = getAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = getConfig();
 
     try {
       // Get the current lobby
-      const lobby = await databases.getDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteLobbyCollectionId,
-        lobbyId,
-      );
+      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
 
       // Decode the current game state
       const state = decodeGameState(lobby.gameState);

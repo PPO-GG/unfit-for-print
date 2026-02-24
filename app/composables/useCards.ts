@@ -21,7 +21,7 @@ export const useCards = () => {
 
     try {
       const config = useRuntimeConfig();
-      const { databases } = getAppwrite();
+      const { databases, tables } = getAppwrite();
       const collectionId = type === 'white'
           ? config.public.appwriteWhiteCardCollectionId as string
           : config.public.appwriteBlackCardCollectionId as string;
@@ -46,11 +46,7 @@ export const useCards = () => {
       // Bypass caching for black cards; white cards still use cache.
       if ((type === 'white' && (!cached || Date.now() - cached.lastFetched > CACHE_TTL)) ||
           type === 'black') {
-        const totalRes = await databases.listDocuments(
-            config.public.appwriteDatabaseId as string,
-            collectionId,
-            queries
-        );
+        const totalRes = await tables.listRows({ databaseId: config.public.appwriteDatabaseId as string, tableId: collectionId, queries: queries });
         if (type === 'white') {
           totalsStore.setWhiteTotal(packKey, totalRes.total);
           cached = totalsStore.getWhiteTotal(packKey);
@@ -73,13 +69,9 @@ export const useCards = () => {
         queries.push(packConditions.length > 1 ? Query.or(packConditions) : packConditions[0]);
       }
 
-      const res = await databases.listDocuments(
-          config.public.appwriteDatabaseId as string,
-          collectionId,
-          queries
-      );
+      const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId as string, tableId: collectionId, queries: queries });
 
-      return res.documents[0] ?? null;
+      return res.rows[0] ?? null;
     } catch (err: any) {
       if (type === 'black' && err.message && err.message.includes('Attribute not found')) {
         console.error(`Failed to fetch black card: Make sure the 'pick' attribute exists. Error: ${err}`);

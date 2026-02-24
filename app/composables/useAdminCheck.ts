@@ -28,7 +28,7 @@ export const useAdminCheck = async (): Promise<boolean> => {
     // console.log('[useAdminCheck] Admin team ID:', ADMIN_TEAM_ID)
 
     // console.log('[useAdminCheck] Listing team memberships')
-    const memberships = await teams.listMemberships(ADMIN_TEAM_ID);
+    const memberships = await teams.listMemberships({ teamId: ADMIN_TEAM_ID });
     // console.log('[useAdminCheck] Team memberships:', memberships.memberships)
     // console.log('[useAdminCheck] Is admin:', isAdmin)
 

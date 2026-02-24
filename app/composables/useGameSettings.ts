@@ -5,7 +5,7 @@ import { getAppwrite } from "~/utils/appwrite";
 import type { GameSettings } from "~/types/gamesettings";
 
 export function useGameSettings() {
-  const { databases } = getAppwrite();
+  const { databases, tables } = getAppwrite();
   const settings = ref<GameSettings | null>(null);
   const loading = ref(false);
   const error = ref<Error | null>(null);
@@ -24,14 +24,14 @@ export function useGameSettings() {
       // console.log('Fetching game settings for lobbyId:', lobbyId, 'type:', typeof lobbyId);
 
       // Query for settings with the given lobbyId
-      const response = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwriteGameSettingsCollectionId,
-        [Query.equal("lobbyId", lobbyId), Query.limit(1)],
-      );
+      const response = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwriteGameSettingsCollectionId,
+        queries: [Query.equal("lobbyId", lobbyId), Query.limit(1)],
+      });
 
-      if (response.documents.length > 0) {
-        const rawSettings = response.documents[0];
+      if (response.rows.length > 0) {
+        const rawSettings = response.rows[0];
 
         // Normalize relationship object into a flat string ID, matching #60 handling
         if (
@@ -90,7 +90,7 @@ export function useGameSettings() {
     // The server will convert it to a relationship object
     const defaultSettings: Omit<
       GameSettings,
-      "$id" | "$createdAt" | "$updatedAt"
+      keyof import("appwrite").Models.Document
     > = {
       maxPoints: 10,
       numPlayerCards: 10,
@@ -122,13 +122,13 @@ export function useGameSettings() {
       const documentId = `settings-${lobbyId}`;
 
       try {
-        const response = await databases.createDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGameSettingsCollectionId,
-          documentId,
-          defaultSettings,
-          permissions,
-        );
+        const response = await tables.createRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteGameSettingsCollectionId,
+          rowId: documentId,
+          data: defaultSettings,
+          permissions: permissions,
+        });
 
         settings.value = response as unknown as GameSettings;
         return settings.value;
@@ -164,11 +164,11 @@ export function useGameSettings() {
       if (newSettings.$id) {
         // Note: We don't update the lobbyId field here because it's a relationship
         // and we don't want to change the relationship between settings and lobby
-        const response = await databases.updateDocument(
-          config.public.appwriteDatabaseId,
-          config.public.appwriteGameSettingsCollectionId,
-          newSettings.$id,
-          {
+        const response = await tables.updateRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteGameSettingsCollectionId,
+          rowId: newSettings.$id,
+          data: {
             maxPoints: newSettings.maxPoints,
             numPlayerCards: newSettings.numPlayerCards,
             cardPacks: newSettings.cardPacks,
@@ -176,7 +176,7 @@ export function useGameSettings() {
             password: newSettings.password,
             lobbyName: newSettings.lobbyName,
           },
-        );
+        });
 
         settings.value = response as unknown as GameSettings;
         return settings.value;

@@ -1,11 +1,11 @@
 import { computed, ref } from "vue";
 import { getAppwrite } from "~/utils/appwrite";
-import type { GameCards, PlayerHand } from "~/types/gamecards";
+import type { GameCards, PlayerHand, CardTexts } from "~/types/gamecards";
 import type { CardId, PlayerId } from "~/types/game";
 import { resolveId } from "~/utils/resolveId";
 
 export const useGameCards = () => {
-  const { databases, client } = getAppwrite();
+  const { client } = getAppwrite();
   const config = useRuntimeConfig();
 
   // Reactive state
@@ -13,13 +13,55 @@ export const useGameCards = () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Computed properties
-  const playerHands = computed(() => {
-    if (!gameCards.value) {
-      return {};
-    }
+  /**
+   * Map of cardId → { text, pack } resolved server-side.
+   * Updated incrementally: new card IDs trigger a /api/cards/resolve call;
+   * already-known IDs are never re-fetched within the same game session.
+   */
+  const cardTexts = ref<CardTexts>({});
 
-    // Convert the array of stringified player hands to an object
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  /** Extract all white card IDs referenced in the current playerHands. */
+  function extractHandCardIds(rawHands: string[]): CardId[] {
+    const ids: CardId[] = [];
+    for (const handString of rawHands) {
+      try {
+        const hand = JSON.parse(handString) as PlayerHand;
+        if (Array.isArray(hand.cards)) ids.push(...hand.cards);
+      } catch {
+        // malformed entry — skip
+      }
+    }
+    return ids;
+  }
+
+  /**
+   * Resolve texts for any card IDs not yet in cardTexts.
+   * Fires a single POST to /api/cards/resolve with only the unknown IDs,
+   * then merges the result into cardTexts.
+   */
+  async function resolveNewCardTexts(ids: CardId[]): Promise<void> {
+    const unknown = ids.filter((id) => !cardTexts.value[id]);
+    if (unknown.length === 0) return;
+
+    try {
+      const resolved = await $fetch<CardTexts>("/api/cards/resolve", {
+        method: "POST",
+        body: { cardIds: unknown },
+      });
+      // Merge — never overwrite already-cached entries
+      cardTexts.value = { ...resolved, ...cardTexts.value };
+    } catch (err) {
+      console.error("[useGameCards] Failed to resolve card texts:", err);
+    }
+  }
+
+  // ── Computed ─────────────────────────────────────────────────────────────
+
+  const playerHands = computed(() => {
+    if (!gameCards.value) return {};
+
     const handsMap: Record<PlayerId, CardId[]> = {};
 
     if (
@@ -60,13 +102,14 @@ export const useGameCards = () => {
     return handsMap;
   });
 
-  // Fetch game cards for a specific lobby
+  // ── Fetch ────────────────────────────────────────────────────────────────
+
+  /** Fetch game cards from server and immediately resolve any unknown card texts. */
   const fetchGameCards = async (lobbyId: string) => {
     loading.value = true;
     error.value = null;
 
     try {
-      // Use the server-side API endpoint instead of direct Appwrite access
       const response = await $fetch<any>(`/api/gamecards/${lobbyId}`);
 
       if (response.error) {
@@ -74,6 +117,9 @@ export const useGameCards = () => {
         gameCards.value = null;
       } else {
         gameCards.value = response as unknown as GameCards;
+        // Kick off text resolution (non-blocking — don't await)
+        const ids = extractHandCardIds(gameCards.value.playerHands ?? []);
+        resolveNewCardTexts(ids);
       }
     } catch (err) {
       console.error("Failed to fetch game cards:", err);
@@ -84,21 +130,22 @@ export const useGameCards = () => {
     }
   };
 
-  // Subscribe to real-time updates for game cards
+  // ── Realtime ─────────────────────────────────────────────────────────────
+
+  /** Subscribe to real-time updates for game cards. */
   const subscribeToGameCards = (
     lobbyId: string,
     onUpdate?: (cards: GameCards) => void,
   ) => {
     if (!client) return () => {};
-    // First fetch the initial data
+    // Fetch + resolve texts for the initial state
     fetchGameCards(lobbyId);
 
     const dbId = config.public.appwriteDatabaseId as string;
     const collectionId = config.public.appwriteGamecardsCollectionId as string;
 
-    // Subscribe to changes in the gamecards collection
     const unsubscribe = client.subscribe(
-      [`databases.${dbId}.collections.${collectionId}.documents`],
+      [`databases.${dbId}.collections.${collectionId}.rows`],
       ({ events, payload }: { events: string[]; payload: unknown }) => {
         const doc = payload as GameCards & { lobbyId: any };
         const docLobbyId = resolveId(doc.lobbyId);
@@ -115,12 +162,14 @@ export const useGameCards = () => {
           events.some((e) => e.endsWith(".update"))
         ) {
           gameCards.value = doc as unknown as GameCards;
+          // Resolve texts for any new card IDs delivered in this update
+          const ids = extractHandCardIds(doc.playerHands ?? []);
+          resolveNewCardTexts(ids);
           if (onUpdate) onUpdate(gameCards.value);
         }
       },
     );
 
-    // Return a function to clean up the subscription
     return () => {
       unsubscribe();
     };
@@ -129,6 +178,7 @@ export const useGameCards = () => {
   return {
     gameCards,
     playerHands,
+    cardTexts,
     loading,
     error,
     fetchGameCards,

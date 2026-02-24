@@ -8,15 +8,11 @@ export const usePlayers = () => {
   const getConfig = () => useRuntimeConfig();
   const getPlayersForLobby = async (lobbyId: string): Promise<Player[]> => {
     try {
-      const { databases } = getAppwrite();
+      const { databases, tables } = getAppwrite();
       const config = getConfig();
-      const res = await databases.listDocuments(
-        config.public.appwriteDatabaseId,
-        config.public.appwritePlayerCollectionId,
-        [Query.equal("lobbyId", lobbyId)],
-      );
+      const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
 
-      return res.documents.map((doc: any) => ({
+      return res.rows.map((doc: any) => ({
         $id: doc.$id,
         userId: doc.userId,
         lobbyId: doc.lobbyId,
@@ -41,19 +37,18 @@ export const usePlayers = () => {
   ): string | null => {
     if (!user || !user.prefs) return null;
 
-    const provider = sessionProvider ?? user.labels?.[0] ?? user.labels?.[1];
-    if (!provider) return null;
-
-    if (provider === "discord") {
-      const discordUserId = user.prefs.discordUserId;
-      const avatar = user.prefs.avatar;
-      if (discordUserId && avatar) {
-        return `https://cdn.discordapp.com/avatars/${discordUserId}/${avatar}.png`;
-      }
+    // Check for Discord avatar data in prefs (persisted during OAuth callback).
+    // We check prefs unconditionally because Appwrite's createOAuth2Token
+    // reports provider as "oauth2", not "discord".
+    const discordUserId = user.prefs.discordUserId;
+    const avatar = user.prefs.avatar;
+    if (discordUserId && avatar) {
+      return `https://cdn.discordapp.com/avatars/${discordUserId}/${avatar}.png`;
     }
 
-    if (provider === "google" && user.prefs.avatar) {
-      return user.prefs.avatar;
+    // Google avatar is stored as a full URL in prefs
+    if (avatar && avatar.startsWith("http")) {
+      return avatar;
     }
 
     return null;
@@ -64,14 +59,9 @@ export const usePlayers = () => {
     avatarUrl: string | null,
   ) => {
     try {
-      const { databases } = getAppwrite();
+      const { databases, tables } = getAppwrite();
       const config = getConfig();
-      await databases.updateDocument(
-        config.public.appwriteDatabaseId,
-        config.public.appwritePlayerCollectionId,
-        playerId,
-        { avatar: avatarUrl },
-      );
+      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: playerId, data: { avatar: avatarUrl } });
     } catch (err) {
       console.error("Failed to update player avatar:", err);
     }

@@ -171,7 +171,7 @@ export function useBots(
       // Without this, all bots fire concurrently and the client receives
       // a single coalesced state update with ALL submissions, causing
       // every card to animate simultaneously.
-      const BOT_STAGGER_MS = 1200; // enough for the 0.8s fly-in + buffer
+      const BOT_STAGGER_MS = 600; // snappy overlap — fly-in is 0.8s but ghosts are independent
       let staggerIndex = 0;
 
       for (const bot of botPlayers.value) {
@@ -216,10 +216,19 @@ export function useBots(
         const THINKING_DELAY_MS = 2000; // pause after all reveals before picking winner
         const INITIAL_DELAY_MS = 1500; // pause before starting reveals
 
-        // Gather submitter IDs that haven't been revealed yet
+        // Gather submitter IDs that haven't been revealed yet, shuffled
+        // so the reveal order doesn't leak who submitted first/last.
         const submitterIds = Object.keys(state.submissions || {}).filter(
           (id) => !state.revealedCards?.[id],
         );
+        // Fisher-Yates shuffle
+        for (let i = submitterIds.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [submitterIds[i], submitterIds[j]] = [
+            submitterIds[j]!,
+            submitterIds[i]!,
+          ];
+        }
 
         let totalDelay = INITIAL_DELAY_MS;
 

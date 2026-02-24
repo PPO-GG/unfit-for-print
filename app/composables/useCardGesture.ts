@@ -43,6 +43,8 @@ export interface CardGestureOptions {
   enabled: Ref<boolean>;
   /** Whether the component is disabled (judge, already submitted, etc.) */
   disabled: Ref<boolean>;
+  /** Whether all required cards have been selected (must be true to begin drag) */
+  allSelected: Ref<boolean>;
 }
 
 /* ── Constants ─────────────────────────────────────────────────────── */
@@ -67,6 +69,7 @@ export function useCardGesture(opts: CardGestureOptions) {
     onSubmit,
     enabled,
     disabled,
+    allSelected,
   } = opts;
 
   /* Drag state */
@@ -127,7 +130,9 @@ export function useCardGesture(opts: CardGestureOptions) {
 
   function onPointerDown(e: PointerEvent, cardId: string, index: number) {
     if (!enabled.value || disabled.value) return;
-    // Only allow gesture on selected cards (or if this is the only card needed)
+    // Block drag until ALL required cards are selected (prevents early submit on multi-pick)
+    if (!allSelected.value) return;
+    // Only allow gesture on selected cards
     if (!selectedCards.value.includes(cardId)) return;
 
     // Enter pending state — don't commit to dragging yet
