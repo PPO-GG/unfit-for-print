@@ -29,6 +29,9 @@ export default defineNuxtConfig({
     "/": { prerender: true },
   },
   vite: {
+    optimizeDeps: {
+      include: ["json-bigint"],
+    },
     build: {
       sourcemap: false,
       rollupOptions: {
