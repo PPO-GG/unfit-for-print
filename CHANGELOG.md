@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.4.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.4.0...v2.4.1) (2026-02-24)
+
+
+### 🐛 Bug Fixes
+
+* **admin:** update function to properly fetch admin session ([f141dad](https://github.com/PPO-GG/unfit-for-print/commit/f141dad1c03b59c1b4f7aaadcd18a23fdbb9e0e0))
+* **api:** restore secure session auth on bot endpoints ([7075a21](https://github.com/PPO-GG/unfit-for-print/commit/7075a21114d57b0d7e35d6ed6d6315e6aa566b5e))
+* **api:** rewrite requireAuth to use admin-SDK session verification ([f0a053c](https://github.com/PPO-GG/unfit-for-print/commit/f0a053ce52989f8242cdfe89320d2ad1bce7fe62))
+* **api:** use node-appwrite import and add error handling ([f14b2bf](https://github.com/PPO-GG/unfit-for-print/commit/f14b2bfc315038ba6b516e515c1b4729855bd8be))
+* **build:** externalize node-appwrite from Nitro bundle ([085c39a](https://github.com/PPO-GG/unfit-for-print/commit/085c39a2fda8a007f745ba646baaa9ae7480c0f5))
+* **build:** removed redundant packages for build succession ([3e29493](https://github.com/PPO-GG/unfit-for-print/commit/3e29493c429a3c1aba928ef156aa676c69ee44ef))
+* **client:** send auth headers on all authenticated API calls ([8192af9](https://github.com/PPO-GG/unfit-for-print/commit/8192af9fdcdb0295dceb4a39059041710ddbb393))
+* **game:** restore bot UI updates and Discord avatar after auth migration ([fa85459](https://github.com/PPO-GG/unfit-for-print/commit/fa854597a0cf5180244b087389ff392890fb107c))
+* **realtime:** replace TablesDB .rows channels with standard .documents format ([492d18b](https://github.com/PPO-GG/unfit-for-print/commit/492d18b47aead29c7493ba9dfef8aeb0ee28dd02))
+
 ## [2.4.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.3.0...v2.4.0) (2026-02-24)
 
 
