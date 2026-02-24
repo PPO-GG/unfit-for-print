@@ -94,6 +94,7 @@
   "lobby.player_joined": "{name} がロビーに参加しました",
   "lobby.player_left": "{name} がロビーを去りました。",
   "lobby.players_needed": "ゲームを開始するには少なくとも 3 人のプレイヤーが必要です。",
+  "lobby.players_needed_short": "プレイヤー",
   "lobby.return_active_game": "アクティブなゲームにリダイレクトしています",
   "lobby.return_to_lobby": "ロビーに戻る",
   "lobby.returning_in": "{seconds}のロビーに戻ります",

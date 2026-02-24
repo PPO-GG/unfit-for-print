@@ -94,6 +94,7 @@
   "lobby.player_joined": "{name} ist der Lobby beigetreten",
   "lobby.player_left": "{name} hat die Lobby verlassen.",
   "lobby.players_needed": "Wir brauchen mindestens 3 Spieler, um das Spiel zu starten!",
+  "lobby.players_needed_short": "SPIELER",
   "lobby.return_active_game": "Weiterleitung zu Ihrem aktiven Spiel",
   "lobby.return_to_lobby": "Zurück zur Lobby",
   "lobby.returning_in": "Rückkehr zur Lobby in {seconds}",

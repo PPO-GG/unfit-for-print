@@ -94,6 +94,7 @@
   "lobby.player_joined": "{name} 加入了大厅",
   "lobby.player_left": "{name} 离开了大厅。",
   "lobby.players_needed": "我们需要至少 3 名玩家才能开始游戏！",
+  "lobby.players_needed_short": "玩家",
   "lobby.return_active_game": "重定向至您正在进行的游戏",
   "lobby.return_to_lobby": "返回大厅",
   "lobby.returning_in": "返回{seconds}大厅",

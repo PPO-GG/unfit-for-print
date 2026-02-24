@@ -94,6 +94,7 @@
   "lobby.player_joined": "{name}님이 로비에 참여했습니다.",
   "lobby.player_left": "{name}이(가) 로비에서 나갔습니다.",
   "lobby.players_needed": "게임을 시작하려면 최소 3명의 플레이어가 필요합니다!",
+  "lobby.players_needed_short": "플레이어",
   "lobby.return_active_game": "활성 게임으로 리디렉션 중",
   "lobby.return_to_lobby": "로비로 돌아왔습니다",
   "lobby.returning_in": "{seconds}에 로비로 돌아갑니다.",

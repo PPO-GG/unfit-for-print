@@ -94,6 +94,7 @@
   "lobby.player_joined": "{name} присоединился к лобби",
   "lobby.player_left": "{name} покинул вестибюль.",
   "lobby.players_needed": "Для начала игры нам нужно как минимум 3 игрока!",
+  "lobby.players_needed_short": "ИГРОКИ",
   "lobby.return_active_game": "Перенаправление на вашу активную игру",
   "lobby.return_to_lobby": "Возвращено в Лобби",
   "lobby.returning_in": "Возвращаюсь в вестибюль через {seconds}",

@@ -94,6 +94,7 @@
   "lobby.player_joined": "{name} a rejoint le lobby",
   "lobby.player_left": "{name} a quitté le hall.",
   "lobby.players_needed": "Nous avons besoin d'au moins 3 joueurs pour commencer la partie !",
+  "lobby.players_needed_short": "JOUEURS",
   "lobby.return_active_game": "Redirection vers votre jeu actif",
   "lobby.return_to_lobby": "Retourné au hall",
   "lobby.returning_in": "Retour au hall d'entrée dans {seconds}",
