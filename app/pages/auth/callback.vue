@@ -31,14 +31,23 @@ onMounted(async () => {
       // Exchange the one-time token for a session using the CLIENT SDK.
       // This lets the SDK manage its own session cookies/storage.
       const { account } = useAppwrite();
-      await account.createSession({ userId: userId, secret: secret });
+      const session = await account.createSession({
+        userId: userId,
+        secret: secret,
+      });
       statusText.value = "Session created, loading profile...";
 
       // Fetch Discord avatar via server-side admin SDK
       // (client SDK can't access providerAccessToken)
+      // Must send explicit auth headers — requireAuth demands both
+      // Authorization (session ID) and x-appwrite-user-id.
       try {
         const avatarData = await $fetch("/api/auth/discord-avatar", {
           method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.$id}`,
+            "x-appwrite-user-id": userId,
+          },
           body: { userId },
         });
 

@@ -78,13 +78,33 @@ export function useBots(
     botError.value = null;
 
     try {
-      await $fetch("/api/bot/add", {
+      const result = await $fetch<{
+        success: boolean;
+        bot: { $id: string; userId: string; name: string; playerType: string };
+      }>("/api/bot/add", {
         method: "POST",
         headers: authHeaders(),
         body: {
           lobbyId: lobby.value.$id,
         },
       });
+
+      // Optimistic UI update — push the new bot into the local players list
+      // so the UI reflects it immediately without waiting for realtime.
+      if (result?.bot && lobby.value) {
+        const newBotPlayer: Player = {
+          $id: result.bot.$id,
+          userId: result.bot.userId,
+          lobbyId: lobby.value.$id,
+          name: result.bot.name,
+          avatar: "",
+          isHost: false,
+          joinedAt: new Date().toISOString(),
+          provider: "bot",
+          playerType: "bot",
+        };
+        players.value = [...players.value, newBotPlayer];
+      }
     } catch (err: any) {
       botError.value =
         err?.data?.statusMessage || err.message || "Failed to add bot";

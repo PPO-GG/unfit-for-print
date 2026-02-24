@@ -62,6 +62,10 @@ const kick = async (player: Player) => {
     if (player.playerType === "bot") {
       await $fetch("/api/bot/remove", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${userStore.session?.$id}`,
+          "x-appwrite-user-id": userStore.user?.$id ?? "",
+        },
         body: {
           lobbyId: props.lobbyId,
           botUserId: player.userId,
