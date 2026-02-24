@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  middleware: "admin",
+});
+
 import { ref } from "vue";
 
 const config = useRuntimeConfig();
