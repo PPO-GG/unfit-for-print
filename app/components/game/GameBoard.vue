@@ -181,7 +181,7 @@ watch(
             hasTriggeredNextRound = true;
             try {
               await startNextRound(props.lobby.$id, props.lobby.$id);
-              playSfx("nextRound");
+              playSfx(SFX.cardShuffle, { volume: 0.4 });
               // Refresh game cards for new round
               if (props.lobby?.$id) {
                 await fetchGameCards(props.lobby.$id);

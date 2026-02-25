@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { Player } from "~/types/player";
 import type { GameState } from "~/types/game";
+import { gsap } from "gsap";
 
 const props = defineProps<{
   state: GameState;
@@ -11,6 +12,50 @@ const props = defineProps<{
 }>();
 
 const { t } = useI18n();
+
+// ── Round counter flip animation ────────────────────────────────
+const roundRef = ref<HTMLElement | null>(null);
+const phaseRef = ref<HTMLElement | null>(null);
+
+watch(
+  () => props.state?.round,
+  (newRound, oldRound) => {
+    if (!roundRef.value || !newRound || newRound === oldRound) return;
+
+    // Mechanical counter flip effect
+    gsap.fromTo(
+      roundRef.value,
+      { y: -20, opacity: 0, scale: 1.3 },
+      {
+        y: 0,
+        opacity: 1,
+        scale: 1,
+        duration: 0.5,
+        ease: "back.out(2)",
+        clearProps: "all",
+      },
+    );
+  },
+);
+
+// Phase transition animation
+watch(
+  () => props.isSubmitting,
+  () => {
+    if (!phaseRef.value) return;
+    gsap.fromTo(
+      phaseRef.value,
+      { opacity: 0, y: 8 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.35,
+        ease: "power2.out",
+        clearProps: "all",
+      },
+    );
+  },
+);
 
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string) => {
@@ -48,11 +93,13 @@ const getPlayerName = (playerId: string) => {
         <!-- Round counter -->
         <h2 class="font-display text-3xl leading-none">
           {{ t("game.round") }}
-          <span class="text-violet-400">{{ state?.round || 1 }}</span>
+          <span ref="roundRef" class="text-violet-400 round-number">{{
+            state?.round || 1
+          }}</span>
         </h2>
 
         <!-- Phase label -->
-        <p class="font-display text-xl leading-none mt-0.5">
+        <p ref="phaseRef" class="font-display text-xl leading-none mt-0.5">
           <span
             :class="[
               isSubmitting
@@ -84,3 +131,10 @@ const getPlayerName = (playerId: string) => {
     </div>
   </header>
 </template>
+
+<style scoped>
+.round-number {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+</style>
