@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-import { computed } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { gsap } from "gsap";
+import confetti from "canvas-confetti";
 import type { Player } from "~/types/player";
 import type { CardTexts } from "~/types/gamecards";
 
@@ -23,6 +25,13 @@ const props = defineProps<{
 
 const { t } = useI18n();
 
+// ── Refs for GSAP targets ──────────────────────────────────────
+const overlayRef = ref<HTMLElement | null>(null);
+const headlineRef = ref<HTMLElement | null>(null);
+const cardsRef = ref<HTMLElement | null>(null);
+const subtitleRef = ref<HTMLElement | null>(null);
+const progressRef = ref<HTMLElement | null>(null);
+
 function getPlayerName(playerId: string): string {
   const p = props.players.find(
     (pl) => pl.userId === playerId || pl.$id === playerId,
@@ -41,13 +50,136 @@ const isWinnerSelf = computed(() => {
   const winner = props.confirmedRoundWinner || props.effectiveRoundWinner;
   return winner === props.myId;
 });
+
+// ── Confetti burst ──────────────────────────────────────────────
+function fireConfetti() {
+  const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
+  const duration = 2500;
+  const end = Date.now() + duration;
+
+  const frame = () => {
+    confetti({
+      particleCount: 3,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0, y: 0.6 },
+      colors,
+    });
+    confetti({
+      particleCount: 3,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1, y: 0.6 },
+      colors,
+    });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  };
+  frame();
+
+  // Big center burst
+  setTimeout(() => {
+    confetti({
+      particleCount: 80,
+      spread: 100,
+      origin: { x: 0.5, y: 0.4 },
+      colors,
+      startVelocity: 35,
+      gravity: 0.8,
+    });
+  }, 300);
+}
+
+// ── GSAP Timeline Entrance ──────────────────────────────────────
+watch(
+  () => props.winnerSelected,
+  (selected) => {
+    if (!selected) return;
+
+    // Allow one tick for the DOM to render
+    nextTick(() => {
+      fireConfetti();
+
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+      // Overlay backdrop fade
+      if (overlayRef.value) {
+        tl.fromTo(
+          overlayRef.value,
+          { opacity: 0, backdropFilter: "blur(0px)" },
+          { opacity: 1, backdropFilter: "blur(12px)", duration: 0.4 },
+          0,
+        );
+      }
+
+      // Headline drops in with elastic bounce
+      if (headlineRef.value) {
+        tl.fromTo(
+          headlineRef.value,
+          { opacity: 0, y: 40, scale: 0.5, rotationX: -15 },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            rotationX: 0,
+            duration: 0.7,
+            ease: "back.out(1.7)",
+          },
+          0.15,
+        );
+      }
+
+      // Cards fan out with stagger
+      if (cardsRef.value) {
+        const cardEls = cardsRef.value.querySelectorAll(
+          ".winner-prompt, .winner-answer-card",
+        );
+        if (cardEls.length) {
+          tl.fromTo(
+            cardEls,
+            { opacity: 0, y: 30, scale: 0.85, rotation: -5 },
+            {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              rotation: 0,
+              duration: 0.6,
+              stagger: 0.12,
+              ease: "back.out(1.4)",
+            },
+            0.4,
+          );
+        }
+      }
+
+      // Subtitle fades in
+      if (subtitleRef.value) {
+        tl.fromTo(
+          subtitleRef.value,
+          { opacity: 0, y: 15 },
+          { opacity: 1, y: 0, duration: 0.5 },
+          0.7,
+        );
+      }
+
+      // Progress bar slides in
+      if (progressRef.value) {
+        tl.fromTo(
+          progressRef.value,
+          { opacity: 0, scaleX: 0 },
+          { opacity: 1, scaleX: 1, duration: 0.4, ease: "power2.out" },
+          0.9,
+        );
+      }
+    });
+  },
+);
 </script>
 
 <template>
   <Transition name="celebration">
-    <div v-if="winnerSelected" class="winner-overlay">
+    <div v-if="winnerSelected" ref="overlayRef" class="winner-overlay">
       <div class="winner-overlay-content">
-        <h2 class="winner-headline">
+        <h2 ref="headlineRef" class="winner-headline">
           <template v-if="isWinnerSelf">
             {{ t("game.round_won_self") }}
           </template>
@@ -59,6 +191,7 @@ const isWinnerSelf = computed(() => {
         <!-- Winning cards display -->
         <div
           v-if="winningCards && winningCards.length > 0"
+          ref="cardsRef"
           class="winner-cards-display"
         >
           <div v-if="blackCard" class="winner-prompt">
@@ -73,6 +206,7 @@ const isWinnerSelf = computed(() => {
             <WhiteCard
               v-for="cardId in winningCards"
               :key="cardId"
+              class="winner-answer-card"
               :cardId="cardId"
               :text="props.cardTexts?.[cardId]?.text"
               :is-winner="true"
@@ -82,10 +216,10 @@ const isWinnerSelf = computed(() => {
           </div>
         </div>
 
-        <p class="winner-subtitle">
+        <p ref="subtitleRef" class="winner-subtitle">
           {{ t("game.next_round_starting_soon") }}
         </p>
-        <div class="winner-progress">
+        <div ref="progressRef" class="winner-progress">
           <UProgress indeterminate color="warning" />
         </div>
       </div>
@@ -125,18 +259,7 @@ const isWinnerSelf = computed(() => {
   text-shadow:
     0 0 30px rgba(245, 158, 11, 0.4),
     0 0 60px rgba(245, 158, 11, 0.2);
-  animation: headline-entrance 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes headline-entrance {
-  from {
-    opacity: 0;
-    transform: scale(0.5) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  /* Let GSAP handle the entrance — no CSS animation */
 }
 
 .winner-cards-display {
@@ -174,11 +297,15 @@ const isWinnerSelf = computed(() => {
 
 .winner-progress {
   width: 200px;
+  transform-origin: center;
 }
 
-/* ── Celebration Transition ──────────────────────────────────── */
+/* ── Celebration Transition (Vue) ─────────────────────────── */
+/* Keep these minimal — GSAP handles the entrance animation.
+   These are only used for the container mount/unmount. */
 .celebration-enter-active {
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  /* GSAP takes over via the watcher */
+  transition: none;
 }
 
 .celebration-leave-active {
@@ -186,12 +313,6 @@ const isWinnerSelf = computed(() => {
 }
 
 .celebration-enter-from {
-  opacity: 0;
-  backdrop-filter: blur(0);
-}
-
-.celebration-enter-from .winner-headline {
-  transform: scale(0.5) translateY(20px);
   opacity: 0;
 }
 
