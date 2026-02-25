@@ -1,7 +1,9 @@
 <template>
   <UApp>
+    <NuxtPwaManifest />
     <ClientOnly>
       <CustomCursor />
+      <InstallPwaBanner />
     </ClientOnly>
     <NuxtLayout>
       <div

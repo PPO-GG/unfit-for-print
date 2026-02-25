@@ -81,12 +81,57 @@ export default defineNuxtConfig({
     "@nuxtjs/device",
     "@nuxt/scripts",
     "nuxt-appwrite",
+    "@vite-pwa/nuxt",
   ],
 
   // ─── nuxt-appwrite module config ─────────────────────────────────
   // Reads from NUXT_PUBLIC_APPWRITE_* and NUXT_APPWRITE_* env vars automatically.
   // Explicit values here serve as fallback defaults.
   appwrite: {},
+
+  // ─── PWA ──────────────────────────────────────────────────────────────
+  pwa: {
+    registerType: "autoUpdate",
+    manifest: {
+      name: "Unfit for Print",
+      short_name: "Unfit",
+      description:
+        "A Cards Against Humanity-inspired party game. Create lobbies, play with friends, and cause chaos.",
+      theme_color: "#0f172a",
+      background_color: "#0f172a",
+      display: "standalone",
+      orientation: "any",
+      categories: ["games", "entertainment"],
+      icons: [
+        {
+          src: "/pwa-192x192.png",
+          sizes: "192x192",
+          type: "image/png",
+        },
+        {
+          src: "/pwa-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+        },
+        {
+          src: "/pwa-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
+      ],
+    },
+    workbox: {
+      // App shell caching only — no API caching since the game needs
+      // a live connection for real-time multiplayer state.
+      globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2,webp}"],
+      navigateFallback: "/",
+      navigateFallbackDenylist: [/^\/api\//],
+    },
+    client: {
+      installPrompt: true,
+    },
+  },
 
   sound: {
     sounds: {
