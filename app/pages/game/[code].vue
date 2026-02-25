@@ -94,6 +94,7 @@ const { hasReturnedToLobby, autoReturnTimeRemaining, handleContinue } =
     state,
     myId,
     isComplete,
+    isHost,
     lobbyRef: lobby,
   });
 

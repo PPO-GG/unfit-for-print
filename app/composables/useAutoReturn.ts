@@ -16,10 +16,11 @@ export function useAutoReturn(options: {
   state: ComputedRef<GameState | null>;
   myId: ComputedRef<string>;
   isComplete: ComputedRef<boolean>;
+  isHost: ComputedRef<boolean>;
   lobbyRef: Ref<Lobby | null>;
 }) {
-  const { state, myId, isComplete, lobbyRef } = options;
-  const { markPlayerReturnedToLobby } = useLobby();
+  const { state, myId, isComplete, isHost, lobbyRef } = options;
+  const { markPlayerReturnedToLobby, resetGameState } = useLobby();
   const { notify } = useNotifications();
   const { t } = useI18n();
 
@@ -68,6 +69,10 @@ export function useAutoReturn(options: {
           myId.value
         ) {
           await markPlayerReturnedToLobby(lobbyRef.value.$id, myId.value);
+          // Host resets the lobby so everyone transitions back to the waiting room
+          if (isHost.value) {
+            await resetGameState(lobbyRef.value.$id);
+          }
           notify({
             title: t("lobby.return_to_lobby"),
             description: t("lobby.timer_expired_return_description"),
@@ -104,6 +109,13 @@ export function useAutoReturn(options: {
 
     try {
       await markPlayerReturnedToLobby(lobbyRef.value.$id, myId.value);
+
+      // Host resets the lobby so everyone transitions back to the waiting room.
+      // Non-host players will see the change via realtime subscription.
+      if (isHost.value) {
+        await resetGameState(lobbyRef.value.$id);
+      }
+
       notify({
         title: t("lobby.return_to_lobby"),
         description: t("lobby.scoreboard_return_description"),
