@@ -84,8 +84,8 @@ export async function requireAuth(event: H3Event): Promise<string> {
 
   // 1. Verify user exists
   try {
-    await users.get({ userId });
-  } catch {
+    await users.get(userId);
+  } catch (error) {
     throw createError({
       statusCode: 401,
       statusMessage: "Invalid user",
@@ -94,7 +94,7 @@ export async function requireAuth(event: H3Event): Promise<string> {
 
   // 2. Verify session exists and is not expired
   try {
-    const sessions = await users.listSessions({ userId });
+    const sessions = await users.listSessions(userId);
     const validSession = sessions.sessions.find(
       (s: any) => s.$id === sessionId,
     );
@@ -105,7 +105,7 @@ export async function requireAuth(event: H3Event): Promise<string> {
     if (expiry < Date.now()) {
       throw new Error("Session expired");
     }
-  } catch {
+  } catch (error) {
     throw createError({
       statusCode: 401,
       statusMessage: "Invalid or expired session",
@@ -125,6 +125,13 @@ export async function requirePlayerInLobby(
   event: H3Event,
   lobbyId: string,
 ): Promise<string> {
+  if (typeof lobbyId !== "string") {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid lobbyId format",
+    });
+  }
+
   const userId = await requireAuth(event);
 
   const { DB, PLAYER } = getCollectionIds();
