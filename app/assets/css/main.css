@@ -102,34 +102,36 @@
 ───────────────────────────────────────────────────────────────────────────── */
 
 @layer base {
-  /* Custom cursors — inherited by all children */
-  html,
-  body,
-  * {
+  /* Custom cursors — inherited by all children.
+     Gated behind :not(.gsap-cursor-active) so the GSAP smooth cursor
+     can take over on desktop. On touch/mobile the class is never added. */
+  html:not(.gsap-cursor-active),
+  html:not(.gsap-cursor-active) body,
+  html:not(.gsap-cursor-active) * {
     cursor: url("/img/cursor/default.cur"), default;
   }
 
   /* Pointer cursor on interactive elements AND all their children */
-  button,
-  button *,
-  a[href],
-  a[href] *,
-  [role="button"],
-  [role="button"] *,
-  input[type="button"],
-  input[type="button"] *,
-  input[type="submit"],
-  input[type="submit"] *,
-  summary,
-  summary *,
-  select,
-  select *,
-  label,
-  label *,
-  .nuxt-link,
-  .nuxt-link *,
-  [tabindex]:not([tabindex="-1"]),
-  [tabindex]:not([tabindex="-1"]) * {
+  html:not(.gsap-cursor-active) button,
+  html:not(.gsap-cursor-active) button *,
+  html:not(.gsap-cursor-active) a[href],
+  html:not(.gsap-cursor-active) a[href] *,
+  html:not(.gsap-cursor-active) [role="button"],
+  html:not(.gsap-cursor-active) [role="button"] *,
+  html:not(.gsap-cursor-active) input[type="button"],
+  html:not(.gsap-cursor-active) input[type="button"] *,
+  html:not(.gsap-cursor-active) input[type="submit"],
+  html:not(.gsap-cursor-active) input[type="submit"] *,
+  html:not(.gsap-cursor-active) summary,
+  html:not(.gsap-cursor-active) summary *,
+  html:not(.gsap-cursor-active) select,
+  html:not(.gsap-cursor-active) select *,
+  html:not(.gsap-cursor-active) label,
+  html:not(.gsap-cursor-active) label *,
+  html:not(.gsap-cursor-active) .nuxt-link,
+  html:not(.gsap-cursor-active) .nuxt-link *,
+  html:not(.gsap-cursor-active) [tabindex]:not([tabindex="-1"]),
+  html:not(.gsap-cursor-active) [tabindex]:not([tabindex="-1"]) * {
     cursor: url("/img/cursor/pointer.cur"), pointer !important;
   }
 
@@ -149,11 +151,11 @@
 ───────────────────────────────────────────────────────────────────────────── */
 
 @layer utilities {
-  /* Cursor helpers */
-  .cursor-pointer {
+  /* Cursor helpers (gated like base layer rules) */
+  html:not(.gsap-cursor-active) .cursor-pointer {
     cursor: url("/img/cursor/pointer.cur"), pointer !important;
   }
-  .cursor-default {
+  html:not(.gsap-cursor-active) .cursor-default {
     cursor: url("/img/cursor/default.cur"), default !important;
   }
 

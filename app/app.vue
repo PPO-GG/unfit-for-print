@@ -1,5 +1,8 @@
 <template>
   <UApp>
+    <ClientOnly>
+      <CustomCursor />
+    </ClientOnly>
     <NuxtLayout>
       <div
         v-if="isDev"
