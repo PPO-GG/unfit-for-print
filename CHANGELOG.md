@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.5.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.4.1...v2.5.0) (2026-02-25)
+
+
+### ✨ Features
+
+* **game:** add GSAP animations to round counter, phase label, and seat interactions ([891f2a3](https://github.com/PPO-GG/unfit-for-print/commit/891f2a3bc942aaf395c3671863ab653e39dd8afd))
+* **game:** add GSAP entrance animations to winner celebration with confetti ([127e023](https://github.com/PPO-GG/unfit-for-print/commit/127e02309659f9373d2770213d97df13c3f9b703))
+* **game:** add GSAP smooth custom cursor with SVG images ([9ee84b7](https://github.com/PPO-GG/unfit-for-print/commit/9ee84b70ee91f93c1f009df5b8a55f8e802ca0c3))
+* **game:** add judge indicator banner and dynamic table padding ([a2f8fee](https://github.com/PPO-GG/unfit-for-print/commit/a2f8feedce26df9d2f6e9382dc03866d87e17512))
+* **game:** give bots unique names and DiceBear avatars ([6e2c13f](https://github.com/PPO-GG/unfit-for-print/commit/6e2c13fbc1e123aa378565545e62faab90e519c2))
+* **game:** redesign GameOver screen with full leaderboard and stats ([18bf9d6](https://github.com/PPO-GG/unfit-for-print/commit/18bf9d6a2a8cdb6e50b3a7bfdf20fb123dabf87a))
+* **pwa:** add install banner to install as pwa ([c6334a4](https://github.com/PPO-GG/unfit-for-print/commit/c6334a4f5bcf578f9790aecf20eb62f51999fef7))
+
+
+### 🐛 Bug Fixes
+
+* **game:** defer bot cleanup until lobby resets to waiting phase ([9eb9b29](https://github.com/PPO-GG/unfit-for-print/commit/9eb9b29cae2004914e612289cf5f87b8c414dcb3))
+* **game:** harden audio loader with content-type checks and error resilience ([baeb6eb](https://github.com/PPO-GG/unfit-for-print/commit/baeb6ebe1610a14583b85f366ba0b4c807c63bd6))
+* **game:** host resets lobby on auto-return and manual continue ([a0c3fed](https://github.com/PPO-GG/unfit-for-print/commit/a0c3fede4d02c931a2d37217b8edaf29a293a2d3))
+* **game:** improve WhiteCard error handling for catch clause typing ([d6d8351](https://github.com/PPO-GG/unfit-for-print/commit/d6d8351cfa7cfaace28b366bff0cebba1d45c18d))
+* **server:** correct Appwrite SDK method signatures and add lobbyId validation ([8db9802](https://github.com/PPO-GG/unfit-for-print/commit/8db9802b09a66f1138f4a56e7352a92ad012ba3e))
+
 ## [2.4.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.4.0...v2.4.1) (2026-02-24)
 
 
