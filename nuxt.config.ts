@@ -126,7 +126,7 @@ export default defineNuxtConfig({
       // a live connection for real-time multiplayer state.
       globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2,webp}"],
       navigateFallback: "/",
-      navigateFallbackDenylist: [/^\/api\//],
+      navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
     },
     client: {
       installPrompt: true,

@@ -139,6 +139,22 @@ const { playSfx } = useSfx();
 const { notify } = useNotifications();
 const isFetching = ref(false);
 const userStore = useUserStore();
+const router = useRouter();
+const route = useRoute();
+
+// Safety net: if OAuth redirect (with secret & userId) accidentally lands
+// on the root page instead of /auth/callback (e.g. due to service worker
+// interception), forward to the correct callback handler.
+if (import.meta.client) {
+  const oauthUserId = route.query.userId as string;
+  const oauthSecret = route.query.secret as string;
+  if (oauthUserId && oauthSecret) {
+    router.replace({
+      path: "/auth/callback",
+      query: { userId: oauthUserId, secret: oauthSecret },
+    });
+  }
+}
 
 let speechService = {
   speak: (provider: TTSProvider, text: string) => {
