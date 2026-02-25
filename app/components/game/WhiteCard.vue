@@ -1,5 +1,6 @@
 <template>
   <div
+    v-bind="$attrs"
     class="card-scaler select-none perspective-distant justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
   >
     <div
@@ -97,6 +98,11 @@
 <script lang="ts" setup>
 import { gsap } from "gsap";
 import { computed } from "vue";
+
+defineOptions({
+  inheritAttrs: false,
+});
+
 import ReportCard from "~/components/ReportCard.vue";
 import { SFX } from "~/config/sfx.config";
 
@@ -227,10 +233,10 @@ watch(
 onMounted(async () => {
   if (!props.text) {
     try {
-      const { databases } = useAppwrite();
-      if (!databases) {
+      const { databases, tables } = getAppwrite();
+      if (!databases || !tables) {
         console.warn(
-          "Appwrite databases not available for card:",
+          "Appwrite databases or tables not available for card:",
           props.cardId,
         );
         fallbackText.value = "This card will be revealed soon";
@@ -251,7 +257,11 @@ onMounted(async () => {
       }
 
       try {
-        const doc = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteWhiteCardCollectionId, rowId: props.cardId });
+        const doc = await tables.getRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteWhiteCardCollectionId,
+          rowId: props.cardId,
+        });
 
         if (doc && (doc as any).text) {
           fallbackText.value = (doc as any).text;
@@ -263,15 +273,23 @@ onMounted(async () => {
           );
           fallbackText.value = "Card text unavailable";
         }
-      } catch (docError: string | any) {
+      } catch (docError: any) {
         console.error("Error fetching card text:", docError);
+
+        const errorMessage =
+          typeof docError === "string" ? docError : docError?.message || "";
 
         // Provide a more specific error message for document not found
         if (
-          docError.includes("Document with the requested ID could not be found")
+          errorMessage.includes(
+            "Document with the requested ID could not be found",
+          )
         ) {
           fallbackText.value = "This card is from another game";
-        } else if (docError.includes("Network error")) {
+        } else if (
+          errorMessage.includes("Network error") ||
+          errorMessage.includes("fetch")
+        ) {
           fallbackText.value = "Network error - check connection";
         } else {
           fallbackText.value = "Error loading card content";
