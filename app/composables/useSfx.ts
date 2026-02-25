@@ -95,11 +95,27 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
       if (!buffer) {
         try {
           const response = await fetch(file);
+          if (!response.ok) {
+            if (import.meta.dev)
+              console.warn(
+                `Audio file not found or failed to load: ${file} (${response.status})`,
+              );
+            return;
+          }
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("text/html")) {
+            if (import.meta.dev)
+              console.warn(
+                `Failed to load audio: ${file} returned an HTML page instead of an audio file`,
+              );
+            return;
+          }
           const arrayBuffer = await response.arrayBuffer();
           buffer = await audioContext.decodeAudioData(arrayBuffer);
           bufferCache.set(file, buffer);
-        } catch (err) {
-          if (import.meta.dev) console.warn("Failed to load audio:", err);
+        } catch (err: any) {
+          if (import.meta.dev)
+            console.warn("Failed to load audio:", err?.message || err);
           return;
         }
       }
