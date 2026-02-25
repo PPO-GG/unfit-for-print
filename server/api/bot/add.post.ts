@@ -58,14 +58,21 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // --- Generate bot identity (crypto-random to avoid duplicates) ---
+  // --- Generate bot identity ---
+  // Collect existing bot names in this lobby to avoid name collisions
+  const existingBotNames = existingBots.rows.map(
+    (doc: any) => doc.name as string,
+  );
+  const botName = generateBotName(existingBotNames);
+  const botAvatar = getBotAvatarUrl(botName);
+
+  // Unique userId for internal tracking (still uses a random suffix)
   const botSuffix = crypto
     .randomUUID()
     .replace(/-/g, "")
     .substring(0, 6)
     .toUpperCase();
   const botUserId = `bot_${botSuffix}`;
-  const botName = `BOT-${botSuffix}`;
 
   // --- Create player document ---
   const playerDoc = await tables.createRow({
@@ -76,7 +83,7 @@ export default defineEventHandler(async (event) => {
       userId: botUserId,
       lobbyId,
       name: botName,
-      avatar: "",
+      avatar: botAvatar,
       isHost: false,
       joinedAt: new Date().toISOString(),
       provider: "bot",
@@ -94,6 +101,7 @@ export default defineEventHandler(async (event) => {
       $id: playerDoc.$id,
       userId: botUserId,
       name: botName,
+      avatar: botAvatar,
       playerType: "bot",
     },
   };

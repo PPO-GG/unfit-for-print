@@ -80,7 +80,13 @@ export function useBots(
     try {
       const result = await $fetch<{
         success: boolean;
-        bot: { $id: string; userId: string; name: string; playerType: string };
+        bot: {
+          $id: string;
+          userId: string;
+          name: string;
+          avatar: string;
+          playerType: string;
+        };
       }>("/api/bot/add", {
         method: "POST",
         headers: authHeaders(),
@@ -97,7 +103,7 @@ export function useBots(
           userId: result.bot.userId,
           lobbyId: lobby.value.$id,
           name: result.bot.name,
-          avatar: "",
+          avatar: result.bot.avatar,
           isHost: false,
           joinedAt: new Date().toISOString(),
           provider: "bot",
