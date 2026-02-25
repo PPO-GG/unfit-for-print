@@ -301,10 +301,33 @@ export function useBots(
     }
 
     if (phase === "complete") {
-      // Game over — clean up bots
-      await removeAllBots();
+      // Game over — do NOT remove bots here.
+      // Bots stay visible in the leaderboard/GameOver screen.
+      // They will be cleaned up when the lobby resets back to "waiting"
+      // (handled by a separate phase transition watcher below).
+      return;
     }
   };
+
+  // ─── Bot Cleanup on Lobby Reset ───────────────────────────────────────
+  // When the lobby transitions from "complete" → "waiting" (via resetGameState),
+  // remove all bots so the host starts fresh in the new waiting room.
+  let previousPhase: string | null = null;
+  const stopPhaseWatcher = watch(
+    gameState,
+    (newState) => {
+      const currentPhase = newState?.phase ?? null;
+      if (
+        previousPhase === "complete" &&
+        currentPhase === "waiting" &&
+        isHost.value
+      ) {
+        removeAllBots();
+      }
+      previousPhase = currentPhase;
+    },
+    { immediate: true },
+  );
 
   // ─── Game State Watcher ──────────────────────────────────────────────
   // Every useBots instance registers a watcher, but botActionsInFlight
@@ -327,6 +350,7 @@ export function useBots(
   if (getCurrentInstance()) {
     onUnmounted(() => {
       stopWatcher();
+      stopPhaseWatcher();
     });
   }
 
