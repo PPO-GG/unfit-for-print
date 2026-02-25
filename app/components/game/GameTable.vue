@@ -8,6 +8,7 @@ import { shuffle } from "lodash-es";
 import { useCardFlyCoords } from "~/composables/useCardFlyCoords";
 import { useCardPlayPreferences } from "~/composables/useCardPlayPreferences";
 import { SFX, SPRITES } from "~/config/sfx.config";
+import GameTableSeats from "./GameTableSeats.vue";
 
 interface BlackCard {
   id: string;
@@ -837,7 +838,14 @@ function handleSelectWinner(playerId: string) {
 </script>
 
 <template>
-  <div ref="tableRef" class="game-table">
+  <div
+    ref="tableRef"
+    class="game-table"
+    :class="{
+      'game-table--no-hand':
+        !isParticipant || !isSubmitting || isJudge || !!submissions[myId],
+    }"
+  >
     <!-- Hidden template card for cloning optimistic fly-in ghosts.
          Always rendered off-screen so we can clone a pixel-perfect
          face-down WhiteCard that matches the badge fly-in ghosts. -->
@@ -857,6 +865,7 @@ function handleSelectWinner(playerId: string) {
       :submissions="submissions"
       :judge-id="judgeId"
       :scores="scores"
+      :round-winner="effectiveRoundWinner"
     />
 
     <!-- Table Center -->
@@ -1065,6 +1074,20 @@ function handleSelectWinner(playerId: string) {
       </div>
     </Transition>
 
+    <!-- Judge banner at bottom (submission phase, user is the judge) -->
+    <Transition name="hand-exit">
+      <div
+        v-if="blackCard && isParticipant && isSubmitting && isJudge"
+        class="judge-hand-banner"
+      >
+        <Icon name="mdi:gavel" class="judge-hand-icon" />
+        <span class="judge-hand-title">{{ t("game.you_are_judge") }}</span>
+        <span class="judge-hand-subtitle">{{
+          t("game.waiting_for_submissions")
+        }}</span>
+      </div>
+    </Transition>
+
     <!-- Winner Celebration Overlay -->
     <WinnerCelebration
       :winner-selected="winnerSelected"
@@ -1091,6 +1114,11 @@ function handleSelectWinner(playerId: string) {
   justify-content: center;
   padding-top: 5.5rem;
   padding-bottom: 8rem;
+  transition: padding-bottom 0.5s ease;
+}
+
+.game-table--no-hand {
+  padding-bottom: 0rem;
 }
 
 /* Off-screen template card for cloning optimistic fly-in ghosts */
@@ -1530,5 +1558,50 @@ function handleSelectWinner(playerId: string) {
 .hand-exit-leave-to {
   opacity: 0;
   transform: translateY(100px);
+}
+
+/* ── Judge Banner (bottom, replaces hand) ────────────────────── */
+.judge-hand-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 50;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+
+  padding: 1.25rem 1rem 1.75rem;
+  background: linear-gradient(
+    to top,
+    rgba(15, 23, 42, 0.92) 0%,
+    rgba(15, 23, 42, 0.6) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.judge-hand-icon {
+  font-size: 2rem;
+  color: rgba(245, 158, 11, 0.85);
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.3));
+}
+
+.judge-hand-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(245, 158, 11, 0.9);
+}
+
+.judge-hand-subtitle {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: rgba(148, 163, 184, 0.7);
+  animation: pulse-text 2s ease-in-out infinite;
 }
 </style>
