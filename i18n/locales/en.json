@@ -38,6 +38,7 @@
   "game.nogamesavailable": "No public games available right now.",
   "game.phase_judging": "Judging Phase",
   "game.phase_submission": "Submission Phase",
+  "game.read_aloud": "Read Aloud",
   "game.player_choosing": "Choosing",
   "game.player_dealt_in": "Player Dealt In",
   "game.player_dealt_in_description": "{name} is now participating in the game",

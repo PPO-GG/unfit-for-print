@@ -15,6 +15,12 @@ import GameTable from "~/components/game/GameTable.vue";
 import GameOver from "~/components/game/GameOver.vue";
 import GameHeader from "~/components/game/GameHeader.vue";
 import { SFX } from "~/config/sfx.config";
+import { useSpeech } from "~/composables/useSpeech";
+import { useUserPrefsStore } from "@/stores/userPrefsStore";
+import {
+  TTS_PROVIDERS,
+  getProviderFromVoiceId,
+} from "~/constants/ttsProviders";
 
 const { t } = useI18n();
 const props = defineProps<{ lobby: Lobby; players: Player[] }>();
@@ -88,6 +94,75 @@ const userStore = useUserStore();
 const myId = userStore.user?.$id ?? "";
 const { notify } = useNotifications();
 
+// ── TTS (read-aloud broadcast) ──────────────────────────────────
+type TTSProvider = "browser" | "elevenlabs" | "openai";
+const userPrefs = useUserPrefsStore();
+
+let speechService = {
+  speak: (_provider: TTSProvider, _text: string) => {},
+  isSpeaking: ref(false),
+};
+
+if (import.meta.client) {
+  const openAIConfig = TTS_PROVIDERS.OPENAI;
+  const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
+  speechService = useSpeech({
+    elevenLabsVoiceId: elevenLabsConfig.apiVoice,
+    openAIVoice: openAIConfig.apiVoice,
+  });
+}
+
+const currentProvider = computed(
+  (): TTSProvider => getProviderFromVoiceId(userPrefs.ttsVoice),
+);
+
+const readingAloud = computed(() => {
+  if (!import.meta.client) return false;
+  return speechService.isSpeaking.value;
+});
+
+// Guard: prevent re-reading the same text on reconnects / hot-reloads.
+// The text is stored as "<nonce>|<actual text>" so re-reading the same
+// card produces a different state value.
+let lastReadAloudNonce = "";
+
+// Watch for readAloudText changes from ANY client (including the judge)
+watch(
+  () => state.value?.readAloudText,
+  (raw) => {
+    if (!raw || !import.meta.client) return;
+    // Extract nonce and text: "<nonce>|<text>"
+    const pipeIdx = raw.indexOf("|");
+    const nonce = pipeIdx >= 0 ? raw.slice(0, pipeIdx) : "";
+    const text = pipeIdx >= 0 ? raw.slice(pipeIdx + 1) : raw;
+    if (nonce === lastReadAloudNonce) return;
+    lastReadAloudNonce = nonce;
+    speechService.speak(currentProvider.value, text);
+  },
+);
+
+/** Judge triggers: call API to broadcast readAloudText to all players. */
+async function handleReadAloud(text: string) {
+  if (!text) return;
+  // Prefix with a timestamp nonce so re-reading the same card triggers a new state change
+  const noncedText = `${Date.now()}|${text}`;
+  try {
+    await $fetch("/api/game/read-aloud", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${userStore.session?.$id}`,
+        "x-appwrite-user-id": userStore.user?.$id ?? "",
+      },
+      body: {
+        lobbyId: props.lobby.$id,
+        text: noncedText,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to broadcast read-aloud:", err);
+  }
+}
+
 // Add computed properties to check player type
 const currentPlayer = computed(() => {
   return props.players.find((p) => p.userId === myId);
@@ -137,6 +212,66 @@ const confirmedRoundWinner = ref<string | null>(null);
 let nextRoundTimeout: NodeJS.Timeout | null = null;
 let hasTriggeredNextRound = false;
 
+// ── Resilient next-round with retry ─────────────────────────
+async function tryStartNextRound(maxAttempts = 3): Promise<boolean> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await startNextRound(props.lobby.$id, props.lobby.$id);
+      playSfx(SFX.cardShuffle, { volume: 0.4 });
+      if (props.lobby?.$id) {
+        await fetchGameCards(props.lobby.$id);
+      }
+      return true;
+    } catch (err) {
+      console.warn(
+        `[GameBoard] next-round attempt ${attempt}/${maxAttempts} failed:`,
+        err,
+      );
+      if (attempt < maxAttempts) {
+        // Exponential backoff: 2s, 4s
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+    }
+  }
+  return false;
+}
+
+// ── Phase staleness watchdog ────────────────────────────────
+// If the game stays stuck in roundEnd (all retries exhausted during a
+// transient outage that later resolves), periodically re-attempt.
+let stalePhaseInterval: NodeJS.Timeout | null = null;
+
+function startStalePhaseWatchdog() {
+  stopStalePhaseWatchdog();
+  stalePhaseInterval = setInterval(async () => {
+    if (
+      isHost.value &&
+      isRoundEnd.value &&
+      !isComplete.value &&
+      !hasTriggeredNextRound
+    ) {
+      console.info("[GameBoard] Watchdog: retrying stuck next-round…");
+      hasTriggeredNextRound = true;
+      const ok = await tryStartNextRound(2);
+      if (ok) {
+        stopStalePhaseWatchdog();
+        if (!isComplete.value) winnerSelected.value = false;
+      } else {
+        hasTriggeredNextRound = false;
+      }
+    } else if (!isRoundEnd.value) {
+      stopStalePhaseWatchdog();
+    }
+  }, 10_000);
+}
+
+function stopStalePhaseWatchdog() {
+  if (stalePhaseInterval) {
+    clearInterval(stalePhaseInterval);
+    stalePhaseInterval = null;
+  }
+}
+
 const effectiveRoundWinner = computed(() => {
   return localRoundWinner.value || state.value?.roundWinner || null;
 });
@@ -179,19 +314,15 @@ watch(
         nextRoundTimeout = setTimeout(async () => {
           if (isHost.value && !hasTriggeredNextRound && !isComplete.value) {
             hasTriggeredNextRound = true;
-            try {
-              await startNextRound(props.lobby.$id, props.lobby.$id);
-              playSfx(SFX.cardShuffle, { volume: 0.4 });
-              // Refresh game cards for new round
-              if (props.lobby?.$id) {
-                await fetchGameCards(props.lobby.$id);
-              }
-            } catch (err) {
-              console.error("Failed to auto-start next round:", err);
+            const ok = await tryStartNextRound();
+            if (ok) {
+              if (!isComplete.value) winnerSelected.value = false;
+            } else {
+              // All retries exhausted — start watchdog for recovery
+              hasTriggeredNextRound = false;
+              startStalePhaseWatchdog();
             }
-          }
-          // Reset for next round (skip if game is over — keep celebration visible)
-          if (!isComplete.value) {
+          } else if (!isComplete.value) {
             winnerSelected.value = false;
           }
         }, 5000);
@@ -208,6 +339,7 @@ watch(
     localRoundWinner.value = null;
     confirmedRoundWinner.value = null;
     hasTriggeredNextRound = false;
+    stopStalePhaseWatchdog();
   },
 );
 
@@ -245,6 +377,7 @@ async function revealCard(playerId: string) {
 // Clean up on unmount
 onUnmounted(() => {
   if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
+  stopStalePhaseWatchdog();
   if (gameCardsUnsubscribe) gameCardsUnsubscribe();
 });
 
@@ -373,11 +506,13 @@ function handleLeave() {
           :winning-cards="state?.winningCards || []"
           :scores="state?.scores || {}"
           :judge-id="judgeId"
+          :reading-aloud="readingAloud"
           :card-texts="cardTexts"
           @select-cards="handleCardSubmit"
           @convert-to-player="convertToPlayer"
           @select-winner="handleSelectWinner"
           @reveal-card="revealCard"
+          @read-aloud="handleReadAloud"
         />
 
         <!-- Waiting State -->

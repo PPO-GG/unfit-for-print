@@ -16,6 +16,8 @@ export interface GameState {
   returnedToLobby?: Record<PlayerId, boolean>;
   skippedPlayers?: PlayerId[];
   revealedCards?: Record<PlayerId, boolean>;
+  /** Ephemeral TTS text set by the judge — all clients read it aloud then clear it. */
+  readAloudText?: string;
   gameEndTime?: number;
 
   config: {

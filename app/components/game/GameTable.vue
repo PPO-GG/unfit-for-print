@@ -7,6 +7,7 @@ import confetti from "canvas-confetti";
 import { shuffle } from "lodash-es";
 import { useCardFlyCoords } from "~/composables/useCardFlyCoords";
 import { useCardPlayPreferences } from "~/composables/useCardPlayPreferences";
+import { mergeCardText } from "~/composables/useMergeCards";
 import { SFX, SPRITES } from "~/config/sfx.config";
 import GameTableSeats from "./GameTableSeats.vue";
 
@@ -41,6 +42,8 @@ const props = withDefaults(
     winningCards?: string[];
     scores?: Record<string, number>;
     judgeId?: string | null;
+    /** Whether the TTS engine is currently speaking (driven by parent). */
+    readingAloud?: boolean;
     /** Resolved card texts keyed by card ID — eliminates per-card Appwrite fetches. */
     cardTexts?: CardTexts;
   }>(),
@@ -53,6 +56,7 @@ const props = withDefaults(
     winningCards: () => [],
     scores: () => ({}),
     judgeId: null,
+    readingAloud: false,
     cardTexts: () => ({}),
   },
 );
@@ -62,11 +66,50 @@ const emit = defineEmits([
   "convert-to-player",
   "select-winner",
   "reveal-card",
+  "read-aloud",
 ]);
 
 const { t } = useI18n();
 const { consumeCentroid } = useCardFlyCoords();
 const { playMode, cycleMode } = useCardPlayPreferences();
+
+/**
+ * Read a submission's merged card combination aloud for everyone.
+ * Emits an event to the parent (GameBoard) which calls the API
+ * to broadcast the text to all clients via realtime.
+ */
+async function readAloud(playerId: string) {
+  if (!import.meta.client) return;
+  const sub = props.submissions[playerId];
+  if (!sub || !props.blackCard) return;
+
+  // Check which card IDs are missing from the cardTexts map
+  const missingIds = sub.filter((cardId) => !props.cardTexts?.[cardId]?.text);
+
+  // Resolve missing texts on-demand (submitted cards aren't always in cardTexts)
+  let resolvedTexts: Record<string, { text: string; pack: string }> = {};
+  if (missingIds.length > 0) {
+    try {
+      resolvedTexts = await $fetch("/api/cards/resolve", {
+        method: "POST",
+        body: { cardIds: missingIds },
+      });
+    } catch (err) {
+      console.error("[ReadAloud] Failed to resolve card texts:", err);
+    }
+  }
+
+  // Merge cardTexts prop + freshly resolved texts
+  const whiteTexts = sub.map(
+    (cardId) =>
+      props.cardTexts?.[cardId]?.text ?? resolvedTexts[cardId]?.text ?? "",
+  );
+
+  const merged = mergeCardText(props.blackCard.text, whiteTexts);
+  if (!merged) return;
+
+  emit("read-aloud", merged);
+}
 
 // Sprite-based SFX for card landing sounds
 const { playSfx: playCardLandSfx } = useSfx(
@@ -141,6 +184,22 @@ const gridCols = computed(() => {
   if (count <= 6) return 3;
   if (count <= 8) return 4;
   return 4;
+});
+
+// ── Total card density for responsive judging grid sizing ───────
+const totalCardDensity = computed(() => {
+  const subs = displaySubmissions.value.length;
+  const pick = props.blackCard?.pick || 1;
+  return subs * pick;
+});
+
+// Density class drives CSS-level card sizing + overlap in the judging grid
+const densityClass = computed(() => {
+  const density = totalCardDensity.value;
+  if (density <= 4) return "";
+  if (density <= 6) return "judging-grid--medium";
+  if (density <= 8) return "judging-grid--dense";
+  return "judging-grid--very-dense";
 });
 
 // ── Submission helpers ──────────────────────────────────────────
@@ -578,8 +637,9 @@ watch(
 // When effectiveRoundWinner changes from null → a player ID, animate:
 // 1. Losing cards fade + shrink out
 // 2. Winning card slides to horizontal center of the table
-// Note: winnerAnimating stays true until the celebration overlay appears
-// or the round resets — this prevents CSS from hiding or reflowing the card.
+// Note: winnerAnimating stays true until the round resets (phase-change
+// watcher) — this prevents CSS class changes from causing a flex reflow
+// that shifts the card behind the celebration overlay.
 watch(
   () => props.effectiveRoundWinner,
   async (winnerId, oldWinnerId) => {
@@ -646,16 +706,10 @@ watch(
   },
 );
 
-// Reset winnerAnimating when the celebration overlay appears
-// (at that point the overlay covers everything, so we can clean up).
-watch(
-  () => props.winnerSelected,
-  (selected) => {
-    if (selected) {
-      winnerAnimating.value = false;
-    }
-  },
-);
+// winnerAnimating stays true until the round resets (handled by the
+// phase-change watcher). Resetting it when the celebration overlay
+// appears caused a CSS-class-driven flex reflow that visually shifted
+// the winner card behind the overlay.
 
 function fireConfetti() {
   // Multiple bursts for a big celebration
@@ -853,6 +907,7 @@ function handleSelectWinner(playerId: string) {
       <WhiteCard
         :flipped="true"
         :disable-hover="true"
+        :flat="true"
         back-logo-url="/img/ufp.svg"
       />
     </div>
@@ -921,6 +976,7 @@ function handleSelectWinner(playerId: string) {
                 :flipped="true"
                 :is-winner="false"
                 :disable-hover="true"
+                :flat="true"
                 back-logo-url="/img/ufp.svg"
               />
             </div>
@@ -933,6 +989,7 @@ function handleSelectWinner(playerId: string) {
         v-if="isJudging && hasTransitionedToRow"
         ref="cardContainerRef"
         class="judging-grid"
+        :class="densityClass"
       >
         <div
           v-for="(sub, idx) in displaySubmissions"
@@ -1012,10 +1069,33 @@ function handleSelectWinner(playerId: string) {
                 />
               </div>
 
-              <!-- Judging phase UI -->
+              <!-- Judging phase UI placeholder -->
               <template v-if="showJudgingUI"> </template>
             </div>
           </div>
+
+          <!-- Read-aloud button — positioned on the grid-cell (outside the card's 3D transform chain) -->
+          <button
+            v-if="
+              showJudgingUI &&
+              isJudge &&
+              isRevealed(sub.playerId) &&
+              !effectiveRoundWinner
+            "
+            class="read-aloud-btn"
+            :class="{ 'read-aloud-btn--speaking': readingAloud }"
+            :disabled="readingAloud"
+            :title="t('game.read_aloud')"
+            @click.stop="readAloud(sub.playerId)"
+          >
+            <Icon
+              :name="
+                readingAloud
+                  ? 'svg-spinners:pulse-rings-multiple'
+                  : 'solar:user-speak-bold-duotone'
+              "
+            />
+          </button>
         </div>
 
         <!-- No submissions yet -->
@@ -1479,6 +1559,101 @@ function handleSelectWinner(playerId: string) {
   }
 }
 
+/* ── Density-aware sizing for multi-pick judging grids ──────────
+   Keep cards near full size and rely on revealed-card overlap to
+   fit everything horizontally. The judging phase has full viewport
+   width (no hand at bottom), so we use it. */
+
+/* Medium density (5-6 total cards) — minimal adjustments */
+.judging-grid--medium {
+  gap: 0.85rem;
+}
+
+/* Dense (7-8 total cards) — slight card reduction + overlap */
+.judging-grid--dense {
+  gap: 0.75rem;
+}
+.judging-grid--dense :deep(.card-scaler) {
+  width: clamp(5.5rem, 11vw, 16rem);
+}
+.judging-grid--dense .grid-cell {
+  padding: 0.5rem;
+}
+
+/* Very dense (9+ total cards — e.g. 5 players × Draw 2) */
+.judging-grid--very-dense {
+  gap: 0.65rem;
+}
+.judging-grid--very-dense :deep(.card-scaler) {
+  width: clamp(5rem, 10vw, 14rem);
+}
+.judging-grid--very-dense .grid-cell {
+  padding: 0.4rem;
+}
+
+/* Dense grids: overlap revealed cards to keep pairs compact but readable.
+   The second card peeks out enough to read its text. */
+.judging-grid--dense
+  .unified-card--grid
+  .submission-group--revealed
+  .submission-cards
+  > *:not(:last-child),
+.judging-grid--very-dense
+  .unified-card--grid
+  .submission-group--revealed
+  .submission-cards
+  > *:not(:last-child) {
+  margin-right: -3rem;
+}
+
+/* Face-down overlap: match proportionally to card width */
+.judging-grid--dense
+  .unified-card--grid
+  .submission-group:not(.submission-group--revealed)
+  .submission-cards
+  > *:not(:last-child) {
+  margin-right: -5rem;
+}
+.judging-grid--very-dense
+  .unified-card--grid
+  .submission-group:not(.submission-group--revealed)
+  .submission-cards
+  > *:not(:last-child) {
+  margin-right: -4.5rem;
+}
+
+@media (min-width: 768px) {
+  /* Desktop: stronger revealed overlap — single row of 5 groups fits */
+  .judging-grid--dense
+    .unified-card--grid
+    .submission-group--revealed
+    .submission-cards
+    > *:not(:last-child),
+  .judging-grid--very-dense
+    .unified-card--grid
+    .submission-group--revealed
+    .submission-cards
+    > *:not(:last-child) {
+    margin-right: -5rem;
+  }
+
+  .judging-grid--dense
+    .unified-card--grid
+    .submission-group:not(.submission-group--revealed)
+    .submission-cards
+    > *:not(:last-child) {
+    margin-right: -8rem;
+  }
+
+  .judging-grid--very-dense
+    .unified-card--grid
+    .submission-group:not(.submission-group--revealed)
+    .submission-cards
+    > *:not(:last-child) {
+    margin-right: -7rem;
+  }
+}
+
 /* ── Reveal Hint ─────────────────────────────────────────────── */
 .reveal-hint {
   font-size: 0.9rem;
@@ -1603,5 +1778,60 @@ function handleSelectWinner(playerId: string) {
   letter-spacing: 0.04em;
   color: rgba(148, 163, 184, 0.7);
   animation: pulse-text 2s ease-in-out infinite;
+}
+
+/* ── Read-Aloud Button ──────────────────────────────────────── */
+.read-aloud-btn {
+  position: absolute;
+  bottom: 0.35rem;
+  right: 0.35rem;
+  z-index: 10;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+
+  background: rgba(245, 158, 11, 0.15);
+  color: rgba(245, 158, 11, 0.85);
+  font-size: 1.15rem;
+
+  backdrop-filter: blur(4px);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.read-aloud-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.3);
+  color: rgba(245, 158, 11, 1);
+  transform: scale(1.12);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.read-aloud-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.read-aloud-btn--speaking {
+  animation: speak-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes speak-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 12px 4px rgba(245, 158, 11, 0.35);
+  }
 }
 </style>
