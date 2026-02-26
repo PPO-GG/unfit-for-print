@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.7.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.3...v2.7.0) (2026-02-26)
+
+
+### ✨ Features
+
+* **seo:** add dynamic OG metadata for shared lobby links ([c3ef1c6](https://github.com/PPO-GG/unfit-for-print/commit/c3ef1c63e48c4b4a83b57a7825557e207d40a3ad))
+
+
+### 🐛 Bug Fixes
+
+* **build:** remove node-appwrite external to fix Cloudflare Workers 500s ([13a59a9](https://github.com/PPO-GG/unfit-for-print/commit/13a59a9f5ddc9042ba57194d81ca58e313f357e1))
+
 ## [2.6.3](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.2...v2.6.3) (2026-02-26)
 
 
