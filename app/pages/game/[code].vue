@@ -201,7 +201,31 @@ const { data: lobbyMeta } = await useAsyncData(`lobby-meta-${code}`, () =>
 
 const ogTitle = computed(() => {
   const name = lobbyMeta.value?.lobbyName;
-  return name ? `${name} | Unfit for Print` : `Unfit for Print – Game ${code}`;
+  const base = name
+    ? `${name} | Unfit for Print`
+    : `Unfit for Print – Game ${code}`;
+
+  // During gameplay, prefix with round info for the browser tab
+  const round = state.value?.round;
+  const phase = state.value?.phase;
+  if (round && phase && phase !== "waiting" && phase !== "complete") {
+    const phaseLabel =
+      isJudge.value && phase === "judging"
+        ? "Your Pick!"
+        : phase === "submitting" && mySubmission.value === null
+          ? "Your Turn!"
+          : phase === "judging"
+            ? "Judging..."
+            : phase === "roundEnd"
+              ? "Round Over"
+              : "";
+    return phaseLabel
+      ? `${phaseLabel} R${round} | ${name || "Unfit for Print"}`
+      : `Round ${round} | ${base}`;
+  }
+  if (phase === "complete") return `Game Over | ${name || "Unfit for Print"}`;
+
+  return base;
 });
 
 const ogDescription = computed(() => {
@@ -216,6 +240,12 @@ const ogDescription = computed(() => {
   return "A hilarious and chaotic web game. Join this lobby and play with friends!";
 });
 
+// Static title for OG meta (crawlers shouldn't see "Your Turn! R3")
+const ogTitleStatic = computed(() => {
+  const name = lobbyMeta.value?.lobbyName;
+  return name ? `${name} | Unfit for Print` : `Unfit for Print – Game ${code}`;
+});
+
 useHead({
   title: ogTitle,
   meta: [
@@ -224,7 +254,7 @@ useHead({
       content: ogDescription,
     },
     { property: "og:site_name", content: "Unfit for Print" },
-    { property: "og:title", content: ogTitle },
+    { property: "og:title", content: ogTitleStatic },
     {
       property: "og:description",
       content: ogDescription,
