@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.6.2](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.1...v2.6.2) (2026-02-26)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** switch deploy from Pages to Workers with wrangler.toml ([466c579](https://github.com/PPO-GG/unfit-for-print/commit/466c579644cb5b9ac6b22b5ee42bc83d8156d32d))
+
 ## [2.6.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.0...v2.6.1) (2026-02-26)
 
 
