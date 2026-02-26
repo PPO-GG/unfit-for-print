@@ -8,13 +8,16 @@ import { H3Event, createError } from "h3";
  * the Appwrite console (Users → select user → Labels).
  * No team membership or env var required.
  *
- * Uses the module-provided `useAppwriteSession()` for session verification,
- * then checks for the "admin" label on the resolved user.
+ * Uses `requireAuth()` for session verification, then checks for the
+ * "admin" label on the resolved user via the admin SDK.
  *
  * Use this in any API route with: `await assertAdmin(event)`
  */
 export async function assertAdmin(event: H3Event) {
-  const user = await useAppwriteSession(event);
+  const userId = await requireAuth(event);
+
+  const { users } = useAppwriteAdmin();
+  const user = await users.get(userId);
 
   if (!user.labels?.includes("admin")) {
     throw createError({
@@ -22,4 +25,6 @@ export async function assertAdmin(event: H3Event) {
       statusMessage: "Forbidden: admin access required",
     });
   }
+
+  return userId;
 }
