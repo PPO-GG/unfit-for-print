@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.6.3](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.2...v2.6.3) (2026-02-26)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** add github-pages environment to deploy job ([f633248](https://github.com/PPO-GG/unfit-for-print/commit/f6332482d79b4cc96f67e7ec0422195eef0bcaeb))
+
 ## [2.6.2](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.1...v2.6.2) (2026-02-26)
 
 
