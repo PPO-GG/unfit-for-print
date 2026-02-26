@@ -27,18 +27,27 @@ export default defineNuxtConfig({
       inline: ["node-appwrite", "node-fetch-native-with-agent"],
     },
     exportConditions: ["workerd", "worker", "default"],
-    // unenv-level aliases: resolve to the native Web API stubs provided
-    // by node-fetch-native-with-agent for the workerd runtime.
-    // This avoids the Node.js-specific code paths that use `instanceof`
-    // with classes unavailable in Cloudflare Workers (workerd).
-    unenv: {
-      alias: {
-        "node-fetch-native-with-agent": "node-fetch-native-with-agent/native",
-        "node-fetch-native-with-agent/proxy":
-          "node-fetch-native-with-agent/native",
-        "node-fetch-native-with-agent/agent":
-          "node-fetch-native-with-agent/native",
-      },
+    // Alias node-fetch-native-with-agent to a local shim that re-exports
+    // native Web APIs (globalThis.fetch, File, etc.). This prevents the
+    // Node.js-specific code paths that use `instanceof` with classes
+    // unavailable in Cloudflare Workers (workerd).
+    alias: {
+      "node-fetch-native-with-agent/polyfill": join(
+        import.meta.dirname,
+        "server/utils/fetch-shim.mjs",
+      ),
+      "node-fetch-native-with-agent/agent": join(
+        import.meta.dirname,
+        "server/utils/fetch-shim.mjs",
+      ),
+      "node-fetch-native-with-agent/proxy": join(
+        import.meta.dirname,
+        "server/utils/fetch-shim.mjs",
+      ),
+      "node-fetch-native-with-agent": join(
+        import.meta.dirname,
+        "server/utils/fetch-shim.mjs",
+      ),
     },
   },
 
