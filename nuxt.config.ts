@@ -35,12 +35,12 @@ export default defineNuxtConfig({
 
   scripts: {
     registry: {
-      rybbitAnalytics: {
-        siteId: "2",
-        scriptInput: {
-          src: "https://rybbit.ppo.gg/api/script.js",
-        },
-      },
+      // rybbitAnalytics: {
+      //   siteId: "2",
+      //   scriptInput: {
+      //     src: "https://rybbit.ppo.gg/api/script.js",
+      //   },
+      // },
     },
   },
   routeRules: {
