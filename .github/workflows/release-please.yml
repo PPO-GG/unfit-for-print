@@ -24,6 +24,12 @@ name: Release & Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: "Force deploy without a release (for debugging)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -35,6 +41,7 @@ jobs:
   # On Release PR merge: creates a GitHub Release + tag, then signals deploy.
   release-please:
     name: Release Please
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -48,11 +55,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── Step 2: Build & Deploy (only on new release) ────────────────────────
+  # ── Step 2: Build & Deploy (only on new release OR manual dispatch) ───
   deploy:
     name: Deploy to Cloudflare Workers
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     environment: github-pages
 
