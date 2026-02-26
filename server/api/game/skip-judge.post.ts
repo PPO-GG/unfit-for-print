@@ -24,7 +24,11 @@ export default defineEventHandler(async (event) => {
   return withRetry(async () => {
     try {
       // --- Fetch lobby and decode state ---
-      const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
+      const lobby = await tables.getRow({
+        databaseId: DB,
+        tableId: LOBBY,
+        rowId: lobbyId,
+      });
       const capturedVersion = lobby.$updatedAt;
       const state = decodeGameState(lobby.gameState);
 
@@ -37,9 +41,11 @@ export default defineEventHandler(async (event) => {
       }
 
       // --- Fetch gamecards document ---
-      const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
-                  Query.equal("lobbyId", lobbyId),
-                ] });
+      const gameCardsQuery = await tables.listRows({
+        databaseId: DB,
+        tableId: GAMECARDS,
+        queries: [Query.equal("lobbyId", lobbyId)],
+      });
       if (gameCardsQuery.rows.length === 0) {
         throw createError({
           statusCode: 404,
@@ -85,10 +91,19 @@ export default defineEventHandler(async (event) => {
       const coreState = extractCoreState(state);
 
       await assertVersionUnchanged(lobbyId, capturedVersion);
-      await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
-      await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
-                  gameState: encodeGameState(coreState),
-                } });
+      // Write LOBBY first (consistent write-order pattern)
+      await tables.updateRow({
+        databaseId: DB,
+        tableId: LOBBY,
+        rowId: lobbyId,
+        data: { gameState: encodeGameState(coreState) },
+      });
+      await tables.updateRow({
+        databaseId: DB,
+        tableId: GAMECARDS,
+        rowId: gameCards.$id,
+        data: updatedGameCards,
+      });
 
       return {
         success: true,

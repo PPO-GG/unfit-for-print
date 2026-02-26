@@ -129,6 +129,7 @@ export function extractCoreState(
     gameEndTime: state.gameEndTime,
     skippedPlayers: state.skippedPlayers || [],
     revealedCards: state.revealedCards || {},
+    readAloudText: state.readAloudText || undefined,
     config: state.config || {
       maxPoints: 10,
       cardsPerPlayer: 7,
@@ -216,32 +217,92 @@ export async function assertVersionUnchanged(
 }
 
 /**
- * Wraps an async operation with automatic retry on 409 (version conflict).
+ * Wraps an async operation with automatic retry on retryable errors.
+ * Retries on:
+ *   - 409 (version conflict) — up to maxRetries attempts
+ *   - 404 (row_not_found)    — up to 2 attempts with longer backoff
+ *     (transient Appwrite consistency glitch; the document is known to exist)
+ *
  * Use this at the top level of game endpoints to handle concurrent mutations.
  *
  * @param fn The operation to execute (should include read, mutate, version check, and write)
- * @param maxRetries Maximum number of attempts (default: 3)
+ * @param maxRetries Maximum number of attempts for 409 conflicts (default: 5)
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,
-  maxRetries = 3,
+  maxRetries = 5,
 ): Promise<T> {
+  const MAX_NOT_FOUND_RETRIES = 2;
+  let notFoundRetries = 0;
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err: any) {
-      const isConflict = err?.statusCode === 409;
+      const statusCode = err?.statusCode ?? err?.code;
+      const isConflict = statusCode === 409;
+      const isNotFound = statusCode === 404;
+
       if (isConflict && attempt < maxRetries) {
         console.warn(
           `[ConcurrencyGuard] Version conflict, retry ${attempt}/${maxRetries}`,
         );
-        // Exponential backoff: 50ms, 100ms, 150ms...
-        await new Promise((r) => setTimeout(r, 50 * attempt));
+        // Jittered exponential backoff: base * 2^attempt + random jitter
+        // Prevents thundering-herd when multiple players submit simultaneously
+        const baseMs = 50 * Math.pow(2, attempt - 1); // 50, 100, 200, 400, 800
+        const jitter = Math.random() * baseMs; // 0–100% of base
+        await new Promise((r) => setTimeout(r, baseMs + jitter));
         continue;
       }
+
+      if (isNotFound && notFoundRetries < MAX_NOT_FOUND_RETRIES) {
+        notFoundRetries++;
+        console.warn(
+          `[ConcurrencyGuard] Transient 404 (row_not_found), retry ${notFoundRetries}/${MAX_NOT_FOUND_RETRIES}`,
+        );
+        // Longer backoff for 404 — Appwrite consistency lag
+        const baseMs = 200 * Math.pow(2, notFoundRetries - 1); // 200, 400
+        const jitter = Math.random() * 100;
+        await new Promise((r) => setTimeout(r, baseMs + jitter));
+        continue;
+      }
+
       throw err;
     }
   }
   // Unreachable, but TypeScript needs it
   throw createError({ statusCode: 500, statusMessage: "Exhausted retries" });
+}
+
+/**
+ * Post-write verification for submission operations.
+ * Re-reads the lobby after writing and throws 409 if the expected
+ * player's submission is missing — catches lost updates that slip
+ * through the TOCTOU gap between assertVersionUnchanged and the write.
+ *
+ * @param lobbyId The lobby document ID
+ * @param playerId The player whose submission should be present
+ */
+export async function verifySubmission(
+  lobbyId: string,
+  playerId: string,
+): Promise<void> {
+  const tables = getAdminTables();
+  const { DB, LOBBY } = getCollectionIds();
+
+  const fresh = await tables.getRow({
+    databaseId: DB,
+    tableId: LOBBY,
+    rowId: lobbyId,
+  });
+  const freshState = decodeGameState(fresh.gameState);
+  if (!freshState.submissions?.[playerId]) {
+    console.warn(
+      `[ConcurrencyGuard] Post-write verification failed: submission for ${playerId} missing. Retrying...`,
+    );
+    throw createError({
+      statusCode: 409,
+      statusMessage: "Submission lost due to concurrent write. Retrying...",
+    });
+  }
 }

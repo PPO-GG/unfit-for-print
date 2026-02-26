@@ -39,14 +39,20 @@ export default defineEventHandler(async (event) => {
   return withRetry(async () => {
     try {
       // --- Fetch lobby and decode state ---
-      const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
+      const lobby = await tables.getRow({
+        databaseId: DB,
+        tableId: LOBBY,
+        rowId: lobbyId,
+      });
       const capturedVersion = lobby.$updatedAt;
       const state = decodeGameState(lobby.gameState);
 
       // --- Fetch gamecards document ---
-      const gameCardsQuery = await tables.listRows({ databaseId: DB, tableId: GAMECARDS, queries: [
-                  Query.equal("lobbyId", lobbyId),
-                ] });
+      const gameCardsQuery = await tables.listRows({
+        databaseId: DB,
+        tableId: GAMECARDS,
+        queries: [Query.equal("lobbyId", lobbyId)],
+      });
       if (gameCardsQuery.rows.length === 0) {
         throw createError({
           statusCode: 404,
@@ -121,11 +127,29 @@ export default defineEventHandler(async (event) => {
       const coreState = extractCoreState(state);
 
       // --- Concurrency check + Persist ---
+      // IMPORTANT: Write LOBBY (gameState with submissions) FIRST, immediately
+      // after the version check, to minimize the TOCTOU window. The version
+      // check protects this document — writing it first ensures another
+      // concurrent request can't slip in between check and write.
       await assertVersionUnchanged(lobbyId, capturedVersion);
-      await tables.updateRow({ databaseId: DB, tableId: GAMECARDS, rowId: gameCards.$id, data: updatedGameCards });
-      await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
-                  gameState: encodeGameState(coreState),
-                } });
+      await tables.updateRow({
+        databaseId: DB,
+        tableId: LOBBY,
+        rowId: lobbyId,
+        data: { gameState: encodeGameState(coreState) },
+      });
+      await tables.updateRow({
+        databaseId: DB,
+        tableId: GAMECARDS,
+        rowId: gameCards.$id,
+        data: updatedGameCards,
+      });
+
+      // --- Post-write verification ---
+      // Re-read the lobby to confirm our submission survived. If another
+      // writer overwrote it in the tiny remaining TOCTOU gap, this throws
+      // a 409 which triggers withRetry to re-read and re-apply.
+      await verifySubmission(lobbyId, playerId);
 
       return { success: true };
     } catch (err: any) {

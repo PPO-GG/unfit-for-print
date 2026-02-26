@@ -168,12 +168,8 @@ async function handleBotPlay(
     const coreState = extractCoreState(state);
 
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await tables.updateRow({
-      databaseId: DB,
-      tableId: GAMECARDS,
-      rowId: gameCards.$id,
-      data: updatedGameCards,
-    });
+    // IMPORTANT: Write LOBBY (gameState with submissions) FIRST to minimize
+    // the TOCTOU window. The version check protects the lobby document.
     await tables.updateRow({
       databaseId: DB,
       tableId: LOBBY,
@@ -182,6 +178,15 @@ async function handleBotPlay(
         gameState: encodeGameState(coreState),
       },
     });
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: GAMECARDS,
+      rowId: gameCards.$id,
+      data: updatedGameCards,
+    });
+
+    // Post-write verification: confirm the bot's submission survived
+    await verifySubmission(lobbyId, botUserId);
 
     return { success: true, cardsPlayed: cardsToPlay };
   });
@@ -289,12 +294,7 @@ async function handleBotJudge(
     const coreState = extractCoreState(state);
 
     await assertVersionUnchanged(lobbyId, capturedVersion);
-    await tables.updateRow({
-      databaseId: DB,
-      tableId: GAMECARDS,
-      rowId: gameCards.$id,
-      data: updatedGameCards,
-    });
+    // Write LOBBY first (consistent write-order pattern)
     await tables.updateRow({
       databaseId: DB,
       tableId: LOBBY,
@@ -303,6 +303,12 @@ async function handleBotJudge(
         status: state.phase === "complete" ? "complete" : "playing",
         gameState: encodeGameState(coreState),
       },
+    });
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: GAMECARDS,
+      rowId: gameCards.$id,
+      data: updatedGameCards,
     });
 
     return { success: true, winnerId, phase: state.phase };
