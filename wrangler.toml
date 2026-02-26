@@ -1,0 +1,18 @@
+#:schema node_modules/wrangler/config-schema.json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unfit for Print — Cloudflare Worker Configuration
+#
+# This config is used by `wrangler deploy` in the GitHub Actions pipeline.
+# Environment variables and secrets are managed in the Cloudflare dashboard
+# and are NOT overwritten by deployments.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name = "unfit-for-print"
+main = ".output/server/index.mjs"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Serve Nuxt static assets from the build output
+[assets]
+directory = ".output/public"
