@@ -1,41 +1,34 @@
 <script lang="ts" setup>
 import { useCursor } from "~/composables/useCursor";
 
-const { cursorEl, isVisible, isPointer, isActive, init, destroy } = useCursor();
+const { cursorRef, animated, init, destroy } = useCursor();
 
 onMounted(() => init());
 onUnmounted(() => destroy());
 </script>
 
 <template>
-  <Teleport to="body">
-    <div
-      ref="cursorEl"
-      class="custom-cursor"
-      :class="{
-        'custom-cursor--visible': isVisible,
-        'custom-cursor--pointer': isPointer,
-        'custom-cursor--active': isActive,
-      }"
-    >
-      <!-- Default arrow cursor -->
-      <img
-        src="/img/cursor/default.svg"
-        alt=""
-        class="cursor-img cursor-img--default"
-        aria-hidden="true"
-        draggable="false"
-      />
-      <!-- Pointer hand cursor -->
-      <img
-        src="/img/cursor/pointer.svg"
-        alt=""
-        class="cursor-img cursor-img--pointer"
-        aria-hidden="true"
-        draggable="false"
-      />
-    </div>
-  </Teleport>
+  <ClientOnly>
+    <!-- JS-animated cursor element (Chromium only) -->
+    <Teleport v-if="animated" to="body">
+      <div ref="cursorRef" class="custom-cursor">
+        <img
+          src="/img/cursor/default.svg"
+          alt=""
+          class="cursor-img cursor-img--default"
+          aria-hidden="true"
+          draggable="false"
+        />
+        <img
+          src="/img/cursor/pointer.svg"
+          alt=""
+          class="cursor-img cursor-img--pointer"
+          aria-hidden="true"
+          draggable="false"
+        />
+      </div>
+    </Teleport>
+  </ClientOnly>
 </template>
 
 <style scoped>
@@ -46,6 +39,7 @@ onUnmounted(() => destroy());
   z-index: 99999;
   pointer-events: none;
   will-change: transform;
+  contain: layout style size;
   opacity: 0;
   transition: opacity 0.15s ease;
 }
@@ -59,7 +53,7 @@ onUnmounted(() => destroy());
   position: absolute;
   width: 28px;
   height: 28px;
-  max-width: none; /* Prevents Tailwind's img { max-width: 100% } from collapsing this to 0px */
+  max-width: none;
   transition:
     transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275),
     opacity 0.15s ease;

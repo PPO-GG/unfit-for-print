@@ -1,23 +1,51 @@
 import { ref } from "vue";
 
 /**
- * GSAP-powered custom cursor with smooth lerp tracking.
+ * Browser-adaptive custom cursor.
  *
- * Hides the native cursor via `cursor: none`, renders two image layers
- * (default arrow + pointer hand) and switches between them
- * based on what the mouse is hovering.
+ * Strategy selection:
+ * ────────────────────
+ * - **Chromium browsers**: JS-animated cursor with lerp tracking, smooth
+ *   morph transitions between arrow ↔ pointer, and click-press effects.
+ *   Chrome's compositor handles this at 60fps even on heavy pages.
  *
- * Uses direct `style.transform` on the live Vue ref each frame,
- * avoiding stale DOM references from quickSetter.
+ * - **Firefox & others**: CSS `cursor: url()` for OS-level hardware
+ *   rendering. Firefox's main-thread architecture causes visible jank
+ *   with JS-driven cursors on heavy pages, so we let the OS handle it.
  *
- * - Interactive elements (buttons, links, cards) trigger a pointer morph.
- * - Touch devices are excluded automatically.
+ * Touch devices are excluded automatically via `(pointer: fine)`.
  */
-export function useCursor() {
-  const cursorEl = ref<HTMLDivElement | null>(null);
-  const isVisible = ref(false);
-  const isPointer = ref(false);
-  const isActive = ref(false); // mouse pressed
+
+const isChromium =
+  typeof navigator !== "undefined" && /Chrome\//.test(navigator.userAgent);
+
+/* ═══════════════════════════════════════════════════════════════
+   Shared
+   ═══════════════════════════════════════════════════════════════ */
+
+const INTERACTIVE_SELECTORS = [
+  "a",
+  "button",
+  '[role="button"]',
+  "input",
+  "select",
+  "textarea",
+  "label[for]",
+  ".cursor-pointer",
+  ".card-scaler",
+  ".unified-card",
+  ".grid-cell--clickable",
+  ".grid-cell--selectable",
+  ".submission-group--clickable",
+  ".submission-group--selectable",
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   Strategy A — JS-animated cursor (Chromium only)
+   ═══════════════════════════════════════════════════════════════ */
+
+function createAnimatedCursor() {
+  const cursorRef = ref<HTMLDivElement | null>(null);
 
   let mouseX = 0;
   let mouseY = 0;
@@ -25,96 +53,91 @@ export function useCursor() {
   let currentY = 0;
   let rafId: number | null = null;
   let initialized = false;
+  let frameCount = 0;
 
-  // CSS selectors that trigger the pointer cursor morph
-  const INTERACTIVE_SELECTOR = [
-    "a",
-    "button",
-    '[role="button"]',
-    "input",
-    "select",
-    "textarea",
-    "label[for]",
-    ".cursor-pointer",
-    ".card-scaler",
-    ".unified-card",
-    ".grid-cell--clickable",
-    ".grid-cell--selectable",
-    ".submission-group--clickable",
-    ".submission-group--selectable",
-  ].join(",");
+  let wasVisible = false;
+  let wasPointer = false;
+  let wasActive = false;
 
-  function isElementInteractive(el: Element | null): boolean {
-    if (!el) return false;
-    return !!el.closest(INTERACTIVE_SELECTOR);
-  }
+  const SELECTOR = INTERACTIVE_SELECTORS.join(",");
 
   function onMouseMove(e: MouseEvent) {
     mouseX = e.clientX;
     mouseY = e.clientY;
 
-    if (!isVisible.value) {
-      isVisible.value = true;
+    if (!wasVisible && cursorRef.value) {
+      currentX = mouseX;
+      currentY = mouseY;
+      cursorRef.value.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+      cursorRef.value.classList.add("custom-cursor--visible");
+      wasVisible = true;
     }
-
-    // Check what we're hovering
-    const target = document.elementFromPoint(e.clientX, e.clientY);
-    isPointer.value = isElementInteractive(target);
   }
 
   function onMouseDown() {
-    isActive.value = true;
+    if (cursorRef.value && !wasActive) {
+      cursorRef.value.classList.add("custom-cursor--active");
+      wasActive = true;
+    }
   }
 
   function onMouseUp() {
-    isActive.value = false;
+    if (cursorRef.value && wasActive) {
+      cursorRef.value.classList.remove("custom-cursor--active");
+      wasActive = false;
+    }
   }
 
   function onMouseLeave() {
-    isVisible.value = false;
+    if (cursorRef.value && wasVisible) {
+      cursorRef.value.classList.remove("custom-cursor--visible");
+      wasVisible = false;
+    }
   }
 
   function onMouseEnter() {
-    isVisible.value = true;
+    if (cursorRef.value && !wasVisible) {
+      currentX = mouseX;
+      currentY = mouseY;
+      cursorRef.value.classList.add("custom-cursor--visible");
+      wasVisible = true;
+    }
   }
 
-  /**
-   * Animation loop using lerp for smooth cursor trailing.
-   * Directly sets style.transform on the current cursorEl ref each frame,
-   * so the cursor always tracks the live DOM element even if Vue re-renders it.
-   */
   function animate() {
-    const speed = 0.2; // lerp factor (lower = smoother/laggier)
+    const speed = 0.5;
     currentX += (mouseX - currentX) * speed;
     currentY += (mouseY - currentY) * speed;
 
-    const el = cursorEl.value;
+    const el = cursorRef.value;
     if (el) {
       el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+
+      // Throttle hit-test to every 6th frame (~10 fps at 60 fps)
+      frameCount++;
+      if (frameCount >= 6) {
+        frameCount = 0;
+        const target = document.elementFromPoint(mouseX, mouseY);
+        const nowPointer = !!target?.closest(SELECTOR);
+
+        if (nowPointer !== wasPointer) {
+          el.classList.toggle("custom-cursor--pointer", nowPointer);
+          wasPointer = nowPointer;
+        }
+      }
     }
 
     rafId = requestAnimationFrame(animate);
   }
 
   function init() {
-    if (typeof window === "undefined") return;
-    if (initialized) return;
+    if (typeof window === "undefined" || initialized) return;
 
-    // Many Windows laptops have touchscreens but are primarily used with a mouse.
-    // maxTouchPoints > 0 will block the cursor for those users.
-    // Instead we rely partially on matchMedia but allow normal pointer functionality.
     const isFinePointer = window.matchMedia("(pointer: fine)").matches;
-    if (!isFinePointer) {
-      console.log(
-        "[GSAP Cursor] Bailing: No fine pointer device detected (likely mobile).",
-      );
-      return;
-    }
+    if (!isFinePointer) return;
 
-    // Add class to <html> to disable CSS cursor rules and hide native cursor
     document.documentElement.classList.add("gsap-cursor-active");
 
-    // Inject cursor:none so the native cursor is hidden
     if (!document.getElementById("gsap-cursor-hide")) {
       const style = document.createElement("style");
       style.id = "gsap-cursor-hide";
@@ -126,7 +149,6 @@ export function useCursor() {
       document.head.appendChild(style);
     }
 
-    // Position at center initially
     mouseX = window.innerWidth / 2;
     mouseY = window.innerHeight / 2;
     currentX = mouseX;
@@ -138,10 +160,8 @@ export function useCursor() {
     document.documentElement.addEventListener("mouseleave", onMouseLeave);
     document.documentElement.addEventListener("mouseenter", onMouseEnter);
 
-    // Start the animation loop immediately — it checks cursorEl.value each frame
     rafId = requestAnimationFrame(animate);
     initialized = true;
-    console.log("[GSAP Cursor] Active — smooth cursor enabled");
   }
 
   function destroy() {
@@ -155,18 +175,72 @@ export function useCursor() {
     document.documentElement.removeEventListener("mouseleave", onMouseLeave);
     document.documentElement.removeEventListener("mouseenter", onMouseEnter);
 
-    // Remove class and injected style
     document.documentElement.classList.remove("gsap-cursor-active");
     const style = document.getElementById("gsap-cursor-hide");
     if (style) style.remove();
   }
 
-  return {
-    cursorEl,
-    isVisible,
-    isPointer,
-    isActive,
-    init,
-    destroy,
-  };
+  return { cursorRef, init, destroy, animated: true };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Strategy B — CSS OS-level cursor (Firefox & fallback)
+   ═══════════════════════════════════════════════════════════════ */
+
+function createCssCursor() {
+  const cursorRef = ref<HTMLDivElement | null>(null); // unused, keeps return shape uniform
+  let initialized = false;
+  let styleEl: HTMLStyleElement | null = null;
+
+  const pointerSelector = INTERACTIVE_SELECTORS.map(
+    (s) => `.custom-cursor-active ${s}`,
+  ).join(",\n    ");
+
+  function init() {
+    if (typeof window === "undefined" || initialized) return;
+
+    const isFinePointer = window.matchMedia("(pointer: fine)").matches;
+    if (!isFinePointer) return;
+
+    document.documentElement.classList.add("custom-cursor-active");
+
+    if (!document.getElementById("custom-cursor-style")) {
+      styleEl = document.createElement("style");
+      styleEl.id = "custom-cursor-style";
+      styleEl.textContent = `
+    .custom-cursor-active,
+    .custom-cursor-active * {
+      cursor: url('/img/cursor/default.cur'), url('/img/cursor/default.png') 2 2, default !important;
+    }
+    ${pointerSelector} {
+      cursor: url('/img/cursor/pointer.cur'), url('/img/cursor/pointer.png') 6 6, pointer !important;
+    }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
+    initialized = true;
+  }
+
+  function destroy() {
+    initialized = false;
+    document.documentElement.classList.remove("custom-cursor-active");
+    if (styleEl) {
+      styleEl.remove();
+      styleEl = null;
+    } else {
+      const existing = document.getElementById("custom-cursor-style");
+      if (existing) existing.remove();
+    }
+  }
+
+  return { cursorRef, init, destroy, animated: false };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Public API
+   ═══════════════════════════════════════════════════════════════ */
+
+export function useCursor() {
+  return isChromium ? createAnimatedCursor() : createCssCursor();
 }
