@@ -267,8 +267,19 @@ export function useBots(
         // Schedule staggered reveal calls
         for (let i = 0; i < submitterIds.length; i++) {
           const playerId = submitterIds[i]!;
+          const currentRound = state.round;
           const revealTimer = setTimeout(async () => {
             if (!lobby.value) return;
+            // Guard: ensure we're still in judging phase for the same round.
+            // If the game moved on (e.g., phase transition or new round), skip.
+            const currentState = gameState.value;
+            if (
+              !currentState ||
+              currentState.phase !== "judging" ||
+              currentState.round !== currentRound
+            ) {
+              return;
+            }
             try {
               await $fetch("/api/game/reveal-card", {
                 method: "POST",
