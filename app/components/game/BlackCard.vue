@@ -1,6 +1,6 @@
 <template>
   <div
-    class="card-scaler select-none perspective-distant justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none perspective-[800px] justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
   >
     <div
       ref="card"
@@ -234,12 +234,35 @@ function handleMouseMove(e: MouseEvent) {
   const centerX = cardRect.width / 2;
   const centerY = cardRect.height / 2;
 
-  const rotateX = ((y - centerY) / centerY) * 15;
-  const rotateY = ((centerX - x) / centerX) * 15;
+  const rotateX = Math.round(((y - centerY) / centerY) * 15);
+  const rotateY = Math.round(((centerX - x) / centerX) * 15);
 
   rotation.value = { x: rotateX, y: rotateY };
 
   applyTransform(rotateX, rotateY);
+}
+
+function updateShadow(rotateX: number, rotateY: number, intensity: number) {
+  const scaler = card.value?.parentElement as HTMLElement | null;
+  if (!scaler) return;
+
+  const rx = rotateX * intensity;
+  const ry = rotateY * intensity;
+
+  // Shadow offsets move opposite to tilt direction (light source above-center)
+  const shadowX = -ry * 1.2;
+  const shadowY = 8 + rx * 0.8;
+  const lift = (Math.abs(rx) + Math.abs(ry)) / 2;
+
+  // More tilt = higher elevation = softer, more opaque shadow
+  const blur = 16 + lift * 1.5;
+  const opacity = 0.35 + lift * 0.02;
+
+  // Drive the ::before shadow blob via individual CSS custom properties
+  scaler.style.setProperty("--shadow-x", `${shadowX.toFixed(1)}px`);
+  scaler.style.setProperty("--shadow-y", `${shadowY.toFixed(1)}px`);
+  scaler.style.setProperty("--shadow-blur", `${blur.toFixed(1)}px`);
+  scaler.style.setProperty("--shadow-opacity", opacity.toFixed(3));
 }
 
 function applyTransform(rotateX = 0, rotateY = 0) {
@@ -251,27 +274,97 @@ function applyTransform(rotateX = 0, rotateY = 0) {
     rotateX(${rotateX * intensity}deg)
     rotateY(${rotateY * intensity}deg)
   `;
+
+  // Physical shadow tracks the tilt
+  updateShadow(rotateX, rotateY, intensity);
 }
 
 function resetTransform() {
   if (card.value) {
     rotation.value = { x: 0, y: 0 };
     applyTransform(0, 0);
+    // Clear custom properties so CSS defaults take over
+    const scaler = card.value.parentElement as HTMLElement | null;
+    if (scaler) {
+      scaler.style.removeProperty("--shadow-x");
+      scaler.style.removeProperty("--shadow-y");
+      scaler.style.removeProperty("--shadow-blur");
+      scaler.style.removeProperty("--shadow-opacity");
+      scaler.style.removeProperty("--shadow-scale-x");
+    }
   }
 }
 
 watch(
   () => props.flipped,
   (flipped) => {
-    const el = card.value?.querySelector(".card__inner");
-    if (!el) return;
+    const innerEl = card.value?.querySelector(".card__inner");
+    if (!innerEl || !card.value) return;
 
-    gsap.to(el, {
+    // Kill any in-progress flip to prevent jitter on rapid clicks
+    gsap.killTweensOf(innerEl);
+
+    const tl = gsap.timeline({ onStart: () => playRandomFlip() });
+
+    // Main flip — single continuous rotation preserving the elastic card-flip feel
+    tl.to(innerEl, {
       rotateY: flipped ? 180 : 0,
       duration: 1.5,
-      ease: "elastic.out(0.2,0.1)",
-      onStart: () => playRandomFlip(),
+      ease: "elastic.out(0.2, 0.1)",
     });
+
+    // Bend overlay — concurrent tweens that dip and recover while the flip runs
+    // Quick dip: card narrows and tilts forward as it bends mid-flip
+    tl.to(
+      innerEl,
+      {
+        scaleX: 0.82,
+        rotateX: -10,
+        duration: 0.2,
+        ease: "power2.out",
+      },
+      0,
+    );
+
+    // Recovery: card springs back to flat
+    tl.to(
+      innerEl,
+      {
+        scaleX: 1,
+        rotateX: 0,
+        duration: 0.5,
+        ease: "elastic.out(0.3, 0.15)",
+      },
+      0.2,
+    );
+
+    // Shadow: fade out + squeeze as card goes edge-on, then recover
+    const scaler = card.value.parentElement as HTMLElement | null;
+    if (scaler) {
+      gsap.killTweensOf(scaler);
+      // Disappear as card passes through 90°
+      tl.to(
+        scaler,
+        {
+          "--shadow-opacity": 0,
+          "--shadow-scale-x": 0.1,
+          duration: 0.15,
+          ease: "power2.in",
+        },
+        0,
+      );
+      // Reappear as card settles face-up
+      tl.to(
+        scaler,
+        {
+          "--shadow-opacity": 0.35,
+          "--shadow-scale-x": 1,
+          duration: 0.5,
+          ease: "power2.out",
+        },
+        0.2,
+      );
+    }
   },
 );
 
@@ -286,7 +379,11 @@ onMounted(async () => {
     }
     try {
       // `Fetching full card data for ID: ${props.cardId}`);
-      const doc = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteBlackCardCollectionId, rowId: props.cardId });
+      const doc = await tables.getRow({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwriteBlackCardCollectionId,
+        rowId: props.cardId,
+      });
       if (!props.text) {
         fallbackText.value = (doc as any).text;
       }
@@ -315,11 +412,16 @@ onMounted(async () => {
 .card {
   width: 100%;
   height: 100%;
-  background: transparent;
+  /* No background here — .card__inner provides the Firefox GPU seam-gap
+     colour AND rotates with the flip animation. A background on this
+     static wrapper would appear as a non-rotating layer mid-flip. */
   border-radius: 12px;
   transform-style: preserve-3d;
   position: relative;
   transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  /* Hint the compositor to use a single layer for the 3D element tree,
+     reducing tile-boundary calculations in Firefox/Gecko */
+  will-change: transform;
 }
 
 .card--flipped {
@@ -331,6 +433,9 @@ onMounted(async () => {
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
+  /* Match the card-face colour so any GPU tile-seam gaps in the children
+     reveal this same colour instead of transparent → dark. */
+  background-color: #1c2342;
   border-radius: 12px;
 }
 
@@ -348,6 +453,14 @@ onMounted(async () => {
   border-radius: 12px;
   /* Ensure content is positioned correctly */
   z-index: 1;
+  /* Firefox anti-aliasing fix: transparent outline forces the compositor to
+     rasterize rounded corners with AA during preserve-3d transforms */
+  outline: 1px solid transparent;
+  /* Firefox GPU tiling fix: opacity < 1 forces a new stacking context with
+     different GPU compositing, bypassing the tiled rendering path.
+     NOTE: filter:blur(0) is on .card-content instead — applying it here
+     can break backface-visibility in Gecko's 3D pipeline. */
+  opacity: 0.999;
 }
 
 .card__front,
@@ -405,6 +518,11 @@ onMounted(async () => {
   border-radius: 12px;
   /* overflow:hidden moved here from .card__face to avoid Firefox 3D compositing seam artifacts */
   overflow: hidden;
+  /* Firefox GPU tiling fix: filter forces a temporary compositing surface that
+     flattens the content into a single raster layer BEFORE the parent's 3D
+     transform is applied. Placed here (inside the face) rather than on
+     .card__face to avoid interfering with backface-visibility. */
+  filter: blur(0);
 }
 
 /* Decorative border + vignette — on .card-content (clipped by overflow:hidden) instead of .card__face (in the 3D chain) to avoid Firefox rectangular bounding box artifacts */
@@ -421,14 +539,34 @@ onMounted(async () => {
 
 .card-scaler {
   container-type: inline-size;
-  /* Shadow lives here (outside preserve-3d chain) to avoid Firefox compositing flicker */
   border-radius: 12px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
+  position: relative;
+  /* Default shadow values; JS overrides during hover / flip */
+  --shadow-x: 0px;
+  --shadow-y: 8px;
+  --shadow-blur: 16px;
+  --shadow-opacity: 0.35;
+  --shadow-scale-x: 1;
 }
 
-.card-scaler:hover {
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+/* Shadow blob — a blurred dark pseudo that acts as a physical ground shadow.
+   Unlike box-shadow (which only radiates outward and leaves a cutout),
+   this is a real filled element visible even directly under the card. */
+.card-scaler::before {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, var(--shadow-opacity));
+  filter: blur(var(--shadow-blur));
+  transform: translate(var(--shadow-x), var(--shadow-y))
+    scaleX(var(--shadow-scale-x));
+  z-index: -1;
+  pointer-events: none;
+  transition:
+    filter 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-text {

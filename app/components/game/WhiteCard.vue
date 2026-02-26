@@ -1,19 +1,30 @@
 <template>
   <div
     v-bind="$attrs"
-    class="card-scaler select-none perspective-distant justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
+    :class="flat ? '' : 'perspective-[800px]'"
   >
     <div
       ref="card"
-      :class="{ 'card--flipped': flipped, 'card--winner': isWinner }"
+      :class="[
+        flat ? 'card--flat' : 'card--3d',
+        { 'card--flipped': flipped, 'card--winner': isWinner },
+      ]"
       class="card cursor-pointer"
       @mouseleave="resetTransform"
       @mousemove="handleMouseMove"
       @click="$emit('click')"
     >
-      <div class="card__inner cursor-pointer">
-        <!-- Front Side -->
-        <div class="card__face card__front cursor-pointer">
+      <div
+        class="card__inner cursor-pointer"
+        :class="flat ? 'card__inner--flat' : 'card__inner--3d'"
+      >
+        <!-- Front Side (3D mode: always rendered, hidden by backface-visibility;
+             Flat mode: only rendered when not flipped) -->
+        <div
+          v-if="!flat || !flipped"
+          class="card__face card__front cursor-pointer"
+        >
           <slot name="front">
             <div
               class="card-content rounded-lg relative overflow-hidden cursor-pointer"
@@ -59,8 +70,12 @@
           </slot>
         </div>
 
-        <!-- Back Side -->
-        <div class="card__face card__back cursor-pointer">
+        <!-- Back Side (3D mode: always rendered, shown via rotateY(180deg);
+             Flat mode: only rendered when flipped) -->
+        <div
+          v-if="!flat || flipped"
+          class="card__face card__back cursor-pointer"
+        >
           <slot name="back">
             <div class="card-content cursor-pointer">
               <img
@@ -133,6 +148,10 @@ const props = defineProps<{
   maskUrl?: string;
   isWinner?: boolean;
   disableHover?: boolean;
+  /** Flat rendering mode: bypasses preserve-3d entirely to avoid Firefox GPU
+   *  tiling artifacts. Use for cards that never need an animated flip
+   *  (e.g. hand cards, pile cards). */
+  flat?: boolean;
 }>();
 
 const fallbackText = ref("");
@@ -192,12 +211,35 @@ function handleMouseMove(e: MouseEvent) {
   const centerX = cardRect.width / 2;
   const centerY = cardRect.height / 2;
 
-  const rotateX = ((y - centerY) / centerY) * 15;
-  const rotateY = ((centerX - x) / centerX) * 15;
+  const rotateX = Math.round(((y - centerY) / centerY) * 15);
+  const rotateY = Math.round(((centerX - x) / centerX) * 15);
 
   rotation.value = { x: rotateX, y: rotateY };
 
   applyTransform(rotateX, rotateY);
+}
+
+function updateShadow(rotateX: number, rotateY: number, intensity: number) {
+  const scaler = card.value?.parentElement as HTMLElement | null;
+  if (!scaler) return;
+
+  const rx = rotateX * intensity;
+  const ry = rotateY * intensity;
+
+  // Shadow offsets move opposite to tilt direction (light source above-center)
+  const shadowX = -ry * 1.2;
+  const shadowY = 8 + rx * 0.8;
+  const lift = (Math.abs(rx) + Math.abs(ry)) / 2;
+
+  // More tilt = higher elevation = softer, more opaque shadow
+  const blur = 16 + lift * 1.5;
+  const opacity = 0.35 + lift * 0.02;
+
+  // Drive the ::before shadow blob via individual CSS custom properties
+  scaler.style.setProperty("--shadow-x", `${shadowX.toFixed(1)}px`);
+  scaler.style.setProperty("--shadow-y", `${shadowY.toFixed(1)}px`);
+  scaler.style.setProperty("--shadow-blur", `${blur.toFixed(1)}px`);
+  scaler.style.setProperty("--shadow-opacity", opacity.toFixed(3));
 }
 
 function applyTransform(rotateX = 0, rotateY = 0) {
@@ -206,27 +248,97 @@ function applyTransform(rotateX = 0, rotateY = 0) {
 
   // Only tilt the outer .card container
   card.value.style.transform = `rotateX(${rotateX * intensity}deg) rotateY(${rotateY * intensity}deg)`;
+
+  // Physical shadow tracks the tilt
+  updateShadow(rotateX, rotateY, intensity);
 }
 
 function resetTransform() {
   if (card.value && !props.disableHover) {
     rotation.value = { x: 0, y: 0 };
     applyTransform(0, 0);
+    // Clear custom properties so CSS defaults take over
+    const scaler = card.value.parentElement as HTMLElement | null;
+    if (scaler) {
+      scaler.style.removeProperty("--shadow-x");
+      scaler.style.removeProperty("--shadow-y");
+      scaler.style.removeProperty("--shadow-blur");
+      scaler.style.removeProperty("--shadow-opacity");
+      scaler.style.removeProperty("--shadow-scale-x");
+    }
   }
 }
 
 watch(
   () => props.flipped,
   (flipped) => {
-    const el = card.value?.querySelector(".card__inner");
-    if (!el) return;
+    const innerEl = card.value?.querySelector(".card__inner");
+    if (!innerEl || !card.value) return;
 
-    gsap.to(el, {
+    // Kill any in-progress flip to prevent jitter on rapid clicks
+    gsap.killTweensOf(innerEl);
+
+    const tl = gsap.timeline({ onStart: () => playRandomFlip() });
+
+    // Main flip — single continuous rotation preserving the elastic card-flip feel
+    tl.to(innerEl, {
       rotateY: flipped ? 180 : 0,
       duration: 1.5,
-      ease: "elastic.out(0.2,0.1)",
-      onStart: () => playRandomFlip(),
+      ease: "elastic.out(0.2, 0.1)",
     });
+
+    // Bend overlay — concurrent tweens that dip and recover while the flip runs
+    // Quick dip: card narrows, tilts forward, and lifts as it bends mid-flip
+    tl.to(
+      innerEl,
+      {
+        scaleX: 0.82,
+        rotateX: -10,
+        duration: 0.2,
+        ease: "power2.out",
+      },
+      0,
+    );
+
+    // Recovery: card springs back to flat
+    tl.to(
+      innerEl,
+      {
+        scaleX: 1,
+        rotateX: 0,
+        duration: 0.5,
+        ease: "elastic.out(0.3, 0.15)",
+      },
+      0.2,
+    );
+
+    // Shadow: fade out + squeeze as card goes edge-on, then recover
+    const scaler = card.value.parentElement as HTMLElement | null;
+    if (scaler) {
+      gsap.killTweensOf(scaler);
+      // Disappear as card passes through 90°
+      tl.to(
+        scaler,
+        {
+          "--shadow-opacity": 0,
+          "--shadow-scale-x": 0.1,
+          duration: 0.15,
+          ease: "power2.in",
+        },
+        0,
+      );
+      // Reappear as card settles face-up
+      tl.to(
+        scaler,
+        {
+          "--shadow-opacity": 0.35,
+          "--shadow-scale-x": 1,
+          duration: 0.5,
+          ease: "power2.out",
+        },
+        0.2,
+      );
+    }
   },
 );
 
@@ -309,17 +421,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ── Shared base styles (both 3D and flat modes) ───────────────── */
 .card {
   width: 100%;
   height: 100%;
-  background: transparent;
   border-radius: 12px;
-  transform-style: preserve-3d;
   position: relative;
   transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.card--flipped {
+.card--flipped:not(.card--flat) {
   transform: rotateY(180deg);
 }
 
@@ -327,23 +438,18 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   position: relative;
-  transform-style: preserve-3d;
 }
 
 .card__face {
   position: absolute;
   width: 100%;
   height: 100%;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
-
   font-size: 1.25rem;
   text-align: center;
   border-radius: 12px;
-  /* Ensure content is positioned correctly */
   z-index: 1;
 }
 
@@ -365,7 +471,6 @@ onMounted(async () => {
   background-color: #e7e1de;
 }
 
-/* Ensure shine effect is properly positioned on both sides */
 .card__front .card__shine,
 .card__back .card__shine {
   position: absolute;
@@ -376,10 +481,6 @@ onMounted(async () => {
   border-radius: 12px;
 }
 
-.card__back {
-  transform: rotateY(180deg);
-}
-
 .card__shine {
   position: absolute;
   inset: 0;
@@ -387,6 +488,67 @@ onMounted(async () => {
   z-index: 100;
   transition: background-position 250ms linear;
   border-radius: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3D MODE — interactive cards that need animated flip (homepage, judging grid)
+   Uses preserve-3d + backface-visibility for real 3D card flip.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.card--3d {
+  /* No background here — .card__inner--3d provides the Firefox GPU seam-gap
+     colour AND rotates with the flip animation. A background on this
+     static wrapper would appear as a non-rotating layer mid-flip. */
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.card--3d .card__inner--3d {
+  transform-style: preserve-3d;
+  background-color: #e7e1de;
+  border-radius: 12px;
+}
+
+.card--3d .card__face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Firefox anti-aliasing fix: transparent outline forces the compositor to
+     rasterize rounded corners with AA during preserve-3d transforms */
+  outline: 1px solid transparent;
+  /* Firefox GPU tiling fix: opacity < 1 forces a new stacking context with
+     different GPU compositing, bypassing the tiled rendering path. */
+  opacity: 0.999;
+}
+
+/* Extend the AA fix to the front/back panels — they have their own
+   border-radius and get rasterized as separate 3D layers in Gecko. */
+.card--3d .card__front,
+.card--3d .card__back {
+  outline: 1px solid transparent;
+}
+
+.card--3d .card__back {
+  transform: rotateY(180deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLAT MODE — static cards (hand, pile) where flip is not animated.
+   No preserve-3d = no Firefox GPU tiling = no seam artifacts.
+   Front/back visibility is controlled by v-if in the template.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.card--flat {
+  background: #e7e1de;
+  transform-style: flat;
+}
+
+.card--flat .card__inner--flat {
+  transform-style: flat;
+  border-radius: 12px;
+}
+
+/* In flat mode, the visible face is rendered normally (no 3D rotation).
+   The back face doesn't need rotateY(180deg) because v-if handles visibility. */
+.card--flat .card__back {
+  transform: none;
 }
 
 .card-content {
@@ -401,6 +563,11 @@ onMounted(async () => {
   border-radius: 12px;
   /* overflow:hidden moved here from .card__face to avoid Firefox 3D compositing seam artifacts */
   overflow: hidden;
+  /* Firefox GPU tiling fix: filter forces a temporary compositing surface that
+     flattens the content into a single raster layer BEFORE the parent's 3D
+     transform is applied. Placed here (inside the face) rather than on
+     .card__face to avoid interfering with backface-visibility. */
+  filter: blur(0);
 }
 
 /* Decorative border + vignette — on .card-content (clipped by overflow:hidden) instead of .card__face (in the 3D chain) to avoid Firefox rectangular bounding box artifacts */
@@ -417,14 +584,34 @@ onMounted(async () => {
 
 .card-scaler {
   container-type: inline-size;
-  /* Shadow lives here (outside preserve-3d chain) to avoid Firefox compositing flicker */
   border-radius: 12px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
+  position: relative;
+  /* Default shadow values; JS overrides during hover / flip */
+  --shadow-x: 0px;
+  --shadow-y: 8px;
+  --shadow-blur: 16px;
+  --shadow-opacity: 0.35;
+  --shadow-scale-x: 1;
 }
 
-.card-scaler:hover {
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+/* Shadow blob — a blurred dark pseudo that acts as a physical ground shadow.
+   Unlike box-shadow (which only radiates outward and leaves a cutout),
+   this is a real filled element visible even directly under the card. */
+.card-scaler::before {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, var(--shadow-opacity));
+  filter: blur(var(--shadow-blur));
+  transform: translate(var(--shadow-x), var(--shadow-y))
+    scaleX(var(--shadow-scale-x));
+  z-index: -1;
+  pointer-events: none;
+  transition:
+    filter 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-text {

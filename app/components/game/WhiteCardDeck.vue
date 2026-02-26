@@ -67,6 +67,7 @@ watch(isDealing, (dealing) => {
         :shine="false"
         :threeDeffect="false"
         :disableHover="true"
+        :flat="true"
       />
     </div>
   </div>
