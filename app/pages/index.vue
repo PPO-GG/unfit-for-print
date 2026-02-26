@@ -119,10 +119,6 @@ import ShareImage from "~/components/game/ShareImage.vue";
 import { SFX } from "~/config/sfx.config";
 type TTSProvider = "browser" | "elevenlabs" | "openai";
 
-const {
-  proxy: { event },
-} = useScriptRybbitAnalytics();
-
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
 const openAIConfig = TTS_PROVIDERS.OPENAI;
@@ -202,12 +198,6 @@ const handleSpeakClick = () => {
 
 const handleTryMeClick = () => {
   fetchNewCards();
-  if (isClient.value) {
-    event("FetchCards", {
-      userId: `${userStore.user?.$id || "anonymous"}`,
-      combo: `${mergeCardText(blackCard.value.text, whiteCard.value.text)}`,
-    });
-  }
 };
 
 const { vibrate } = useVibrate({ pattern: [10, 7, 5], interval: 0 });

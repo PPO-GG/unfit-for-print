@@ -1,44 +1,19 @@
-import { defineNuxtPlugin, useRuntimeConfig, useRoute } from '#app'
-import { useScriptRybbitAnalytics } from '#imports'
+import { defineNuxtPlugin } from "#app";
 
-export default defineNuxtPlugin((nuxtApp) => {
-    const { proxy } = useScriptRybbitAnalytics()
-    const route = useRoute()
-    const config = useRuntimeConfig()
+// Analytics plugin — Rybbit analytics is currently disabled.
+// This plugin provides a no-op $analytics interface so existing
+// callers don't break if they reference it.
+export default defineNuxtPlugin(() => {
+  const analytics = {
+    trackEvent: (_name: string, _props: Record<string, any> = {}) => {},
+    trackPageview: () => {},
+    setUserId: (_id: string) => {},
+    clearUserId: () => {},
+  };
 
-    const getContext = () => {
-        const userStore = useUserStore()
-        return {
-            route: route.name ?? route.path,
-            userId: userStore.user?.$id ?? undefined,
-        }
-    }
-
-    const trackEvent = (name: string, props: Record<string, any> = {}) => {
-        if (import.meta.client) {
-            proxy.event(name, { ...getContext(), ...props })
-        }
-    }
-
-    const trackPageview = () => {
-        if (import.meta.client) proxy.pageview()
-    }
-
-    const setUserId = (id: string) => {
-        if (import.meta.client) proxy.identify(id)
-    }
-
-    const clearUserId = () => {
-        if (import.meta.client) proxy.clearUserId()
-    }
-
-    const analytics = {
-        trackEvent,
-        trackPageview,
-        setUserId,
-        clearUserId
-    }
-
-    // Inject as $analytics
-    nuxtApp.provide('analytics', analytics)
-})
+  return {
+    provide: {
+      analytics,
+    },
+  };
+});
