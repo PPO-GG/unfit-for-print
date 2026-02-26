@@ -175,22 +175,44 @@ watch(
   { immediate: true },
 );
 
-// ─── SEO ────────────────────────────────────────────────────────────────────
+// ─── SEO (SSR-friendly via useAsyncData) ────────────────────────────────────
+const { data: lobbyMeta } = await useAsyncData(`lobby-meta-${code}`, () =>
+  $fetch<{
+    lobbyName?: string | null;
+    hostName?: string | null;
+    code?: string;
+  }>(`/api/lobby/${code}`),
+);
+
+const ogTitle = computed(() => {
+  const name = lobbyMeta.value?.lobbyName;
+  return name ? `${name} | Unfit for Print` : `Unfit for Print – Game ${code}`;
+});
+
+const ogDescription = computed(() => {
+  const host = lobbyMeta.value?.hostName;
+  const name = lobbyMeta.value?.lobbyName;
+  if (name && host)
+    return `Join "${name}" — Hosted by ${host}. A hilarious Cards Against Humanity-style party game!`;
+  if (name)
+    return `Join "${name}" — A hilarious Cards Against Humanity-style party game!`;
+  if (host)
+    return `Hosted by ${host}. Join this lobby and play Unfit for Print with friends!`;
+  return "A hilarious and chaotic web game. Join this lobby and play with friends!";
+});
+
 useHead({
-  title: `Unfit for Print | Game ${code}`,
+  title: ogTitle,
   meta: [
     {
       name: "description",
-      content:
-        "Join the chaos in Unfit for Print – a Cards Against Humanity-inspired party game!",
+      content: ogDescription,
     },
     { property: "og:site_name", content: "Unfit for Print" },
-    { property: "og:title", content: `Unfit for Print - Game ${code}` },
+    { property: "og:title", content: ogTitle },
     {
       property: "og:description",
-      content: lobby.value?.hostUserId
-        ? `Hosted by ${lobby.value?.hostUserId}`
-        : "A hilarious and chaotic web game. Join this lobby and play with friends!",
+      content: ogDescription,
     },
     { property: "og:type", content: "website" },
     { property: "og:url", content: `${config.public.baseUrl}/game/${code}` },

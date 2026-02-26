@@ -34,6 +34,41 @@ export default defineEventHandler(async (event) => {
 
   const lobby = res.rows[0]!;
 
+  // ── Enrich with lobby name from game settings ──────────────────────────
+  let lobbyName: string | null = null;
+  try {
+    const settingsRes = await tables.listRows({
+      databaseId: dbId,
+      tableId: config.public.appwriteGameSettingsCollectionId as string,
+      queries: [Query.equal("lobbyId", lobby.$id), Query.limit(1)],
+    });
+    if (settingsRes.total > 0 && settingsRes.rows[0]?.lobbyName) {
+      lobbyName = settingsRes.rows[0].lobbyName as string;
+    }
+  } catch {
+    // Non-critical — fall through with null
+  }
+
+  // ── Enrich with host display name from players collection ─────────────
+  let hostName: string | null = null;
+  if (lobby.hostUserId) {
+    try {
+      const playerRes = await tables.listRows({
+        databaseId: dbId,
+        tableId: config.public.appwritePlayerCollectionId as string,
+        queries: [
+          Query.equal("userId", lobby.hostUserId as string),
+          Query.limit(1),
+        ],
+      });
+      if (playerRes.total > 0 && playerRes.rows[0]?.name) {
+        hostName = playerRes.rows[0].name as string;
+      }
+    } catch {
+      // Non-critical — fall through with null
+    }
+  }
+
   // Only return safe data to the frontend
   return {
     name: lobby.name,
@@ -41,6 +76,7 @@ export default defineEventHandler(async (event) => {
     hostUserId: lobby.hostUserId,
     isPrivate: lobby.isPrivate,
     currentPlayers: lobby.currentPlayers,
-    // Add more fields as needed — but filter sensitive stuff
+    lobbyName,
+    hostName,
   };
 });
