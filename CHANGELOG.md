@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.0.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.7.1...v3.0.0) (2026-02-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* nuxt-appwrite module is no longer used as a dependency
+
+### ♻️ Refactors
+
+* inline nuxt-appwrite module for Cloudflare Workers compatibility ([d54a625](https://github.com/PPO-GG/unfit-for-print/commit/d54a6257f6e4e880de704ffbf9e5aa55878a90cc))
+
 ## [2.7.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.7.0...v2.7.1) (2026-02-26)
 
 
