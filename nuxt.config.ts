@@ -11,17 +11,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   ssr: true,
 
-  // Prevent node-appwrite from being bundled by Nitro's Rollup.
-  // TablesDB uses `instanceof` checks that break when the class is
-  // re-exported through ESM/CJS interop in the production bundle.
-  nitro: {
-    externals: {
-      inline: [],
-    },
-    rollupConfig: {
-      external: ["node-appwrite"],
-    },
-  },
+  nitro: {},
 
   future: {
     compatibilityVersion: 4,
