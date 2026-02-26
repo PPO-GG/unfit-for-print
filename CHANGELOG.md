@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.6.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.0...v2.6.1) (2026-02-26)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update nuxt-appwrite to pre-built dist commit ([7b81094](https://github.com/PPO-GG/unfit-for-print/commit/7b810946492ba8fc6f95bafcdc38b97303e82182))
+
 ## [2.6.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.5.0...v2.6.0) (2026-02-26)
 
 
