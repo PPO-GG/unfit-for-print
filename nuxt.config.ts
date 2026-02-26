@@ -27,23 +27,18 @@ export default defineNuxtConfig({
       inline: ["node-appwrite", "node-fetch-native-with-agent"],
     },
     exportConditions: ["workerd", "worker", "default"],
-    // Force Rollup to resolve the workerd-compatible paths.
-    // nitro.exportConditions alone doesn't propagate to the resolve
-    // plugin for inlined packages — explicit aliases guarantee it.
-    rollupConfig: {
-      resolve: {
-        exportConditions: ["workerd", "worker", "default"],
+    // unenv-level aliases: resolve to the native Web API stubs provided
+    // by node-fetch-native-with-agent for the workerd runtime.
+    // This avoids the Node.js-specific code paths that use `instanceof`
+    // with classes unavailable in Cloudflare Workers (workerd).
+    unenv: {
+      alias: {
+        "node-fetch-native-with-agent": "node-fetch-native-with-agent/native",
+        "node-fetch-native-with-agent/proxy":
+          "node-fetch-native-with-agent/native",
+        "node-fetch-native-with-agent/agent":
+          "node-fetch-native-with-agent/native",
       },
-    },
-    // Direct alias overrides as a safety net: map the main entry
-    // and known sub-paths to their native (Web API) stubs.
-    alias: {
-      "node-fetch-native-with-agent":
-        "node-fetch-native-with-agent/dist/native.mjs",
-      "node-fetch-native-with-agent/proxy":
-        "node-fetch-native-with-agent/dist/proxy-stub.mjs",
-      "node-fetch-native-with-agent/agent":
-        "node-fetch-native-with-agent/dist/agent-stub.mjs",
     },
   },
 
