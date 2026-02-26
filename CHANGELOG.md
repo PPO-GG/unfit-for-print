@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.6.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.5.0...v2.6.0) (2026-02-26)
+
+
+### ✨ Features
+
+* **game:** add dynamic card shadows and improved flip animations ([4cff990](https://github.com/PPO-GG/unfit-for-print/commit/4cff990d909dbfc5a002ce8249aafd657045f262))
+* **game:** add player rankings to table seats ([6869b64](https://github.com/PPO-GG/unfit-for-print/commit/6869b646e014071ba2aca819e80d08f5d2bbaadb))
+* **game:** add TTS read-aloud broadcast with resilient round advancement ([1522afa](https://github.com/PPO-GG/unfit-for-print/commit/1522afa0967350f21be4ea13afcb24e3888c9bbe))
+* **game:** add unique bot names and DiceBear avatars ([eebacd0](https://github.com/PPO-GG/unfit-for-print/commit/eebacd0c3ea783d910ab91178641e785db53f316))
+* **game:** scale hand cards smaller at rest and enlarge on hover ([b180d04](https://github.com/PPO-GG/unfit-for-print/commit/b180d045eed40f4c8c2e2cf0992c16e53d858ca9))
+
+
+### 🐛 Bug Fixes
+
+* **auth:** persist Discord avatar URL and improve refresh reliability ([49df350](https://github.com/PPO-GG/unfit-for-print/commit/49df3501b6d8e60cfc9a072d65fabf0184b38831))
+* **game:** harden submission endpoints with retry and version checks ([82d4a52](https://github.com/PPO-GG/unfit-for-print/commit/82d4a52d7fd20d3e4328aa338d618750e6500ab7))
+* **home:** correct homepage markup ([b243d61](https://github.com/PPO-GG/unfit-for-print/commit/b243d6145f7d3f742fde17c19d8825649df9d7cf))
+* **pwa:** service worker redirect fix ([ddcb97e](https://github.com/PPO-GG/unfit-for-print/commit/ddcb97eb8b7f7c7638efbc005b781be46c42d88f))
+
 ## [2.5.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.4.1...v2.5.0) (2026-02-25)
 
 
