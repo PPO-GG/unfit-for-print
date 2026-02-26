@@ -24,13 +24,15 @@ export default defineNuxtConfig({
   // pick that path instead of the Node.js-specific one.
   nitro: {
     externals: {
-      inline: ["node-appwrite", "node-fetch-native-with-agent"],
+      inline: ["node-appwrite", "node-fetch-native-with-agent", "json-bigint"],
     },
     exportConditions: ["workerd", "worker", "default"],
-    // Alias node-fetch-native-with-agent to a local shim that re-exports
-    // native Web APIs (globalThis.fetch, File, etc.). This prevents the
-    // Node.js-specific code paths that use `instanceof` with classes
-    // unavailable in Cloudflare Workers (workerd).
+    // ── Cloudflare Workers (workerd) compatibility aliases ────────────
+    // Problem 1: node-fetch-native-with-agent's Node.js path imports
+    //   node:http agents unavailable in workerd → use our Web API shim.
+    // Problem 2: json-bigint does `instanceof BigNumber` which breaks
+    //   across CJS/ESM module boundaries in the bundled output.
+    //   Since we don't use BigInt data, native JSON is safe.
     alias: {
       "node-fetch-native-with-agent/polyfill": join(
         import.meta.dirname,
@@ -47,6 +49,10 @@ export default defineNuxtConfig({
       "node-fetch-native-with-agent": join(
         import.meta.dirname,
         "server/utils/fetch-shim.mjs",
+      ),
+      "json-bigint": join(
+        import.meta.dirname,
+        "server/utils/json-bigint-shim.mjs",
       ),
     },
   },
