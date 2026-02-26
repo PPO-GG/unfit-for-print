@@ -28,7 +28,7 @@
         />
         <div
           v-else
-          class="flex items-center p-2 text-white w-[clamp(6rem,12vw,18rem)] aspect-[3/4] bg-[#1c2342] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.slate.800)]"
+          class="flex items-center p-2 text-white w-[clamp(6rem,12vw,18rem)] aspect-[3/4] bg-[#1c2342] rounded-xl"
         >
           <div class="grid gap-2 w-full px-2">
             <USkeleton class="h-4 w-[85%] bg-slate-600/50" />
