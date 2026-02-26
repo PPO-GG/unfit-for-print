@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.1.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.0.0...v3.1.0) (2026-02-26)
+
+
+### ✨ Features
+
+* **web:** add dynamic browser tab title with phase and round info ([df98a3e](https://github.com/PPO-GG/unfit-for-print/commit/df98a3e593ebb7cbac9e3f346cee28ccffee4ba7))
+* **web:** add dynamic favicon with round badge and status indicators ([b366cdf](https://github.com/PPO-GG/unfit-for-print/commit/b366cdf37986dfed09622ff8ad83f76e8abd8a49))
+
+
+### 🐛 Bug Fixes
+
+* **api:** use requireAuth and admin SDK in assertAdmin utility ([0358ddc](https://github.com/PPO-GG/unfit-for-print/commit/0358ddc5dcaf2db6634a6c1f2bcd1bc38f0227d7))
+
+
+### ♻️ Refactors
+
+* **web:** replace Rybbit analytics plugin with no-op stub ([6c319b7](https://github.com/PPO-GG/unfit-for-print/commit/6c319b7461a11b93e6ef75f904afc2f0f4d72f0e))
+
 ## [3.0.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.7.1...v3.0.0) (2026-02-26)
 
 
