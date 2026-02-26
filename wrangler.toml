@@ -13,6 +13,26 @@ main = ".output/server/index.mjs"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# ─── Runtime environment variables ──────────────────────────────────────────
+# Non-sensitive NUXT_PUBLIC_* values must be available as Worker bindings so
+# Nitro's useRuntimeConfig() can read them on the server at runtime.
+# Secrets (NUXT_APPWRITE_API_KEY, ELEVENLABS_API_KEY, OPENAI_API_KEY) are
+# managed via `wrangler secret put` or the Cloudflare dashboard.
+[vars]
+NUXT_PUBLIC_APPWRITE_ENDPOINT = "https://api.ppo.gg/v1"
+NUXT_PUBLIC_APPWRITE_PROJECT_ID = "682eb1b9000cb3845772"
+NUXT_PUBLIC_APPWRITE_DATABASE_ID = "682f6e7600320fde48dd"
+NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID = "682f7023002e326f6a7b"
+NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID = "682f6e80000ec0e482c0"
+NUXT_PUBLIC_APPWRITE_LOBBY_COLLECTION_ID = "682f739000399dcb3559"
+NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID = "682f74c3002e6e839dcf"
+NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID = "682f70a2003d1627f79e"
+NUXT_PUBLIC_APPWRITE_GAMECHAT_COLLECTION_ID = "682f71970037cff8ed48"
+NUXT_PUBLIC_APPWRITE_GAMESETTINGS_COLLECTION_ID = "682f728c00354e3180b9"
+NUXT_PUBLIC_APPWRITE_SUBMISSION_COLLECTION_ID = "6847bc7c0022410580fc"
+NUXT_PUBLIC_APPWRITE_REPORTS_COLLECTION_ID = "684b126e0003f2c0e558"
+NUXT_PUBLIC_BASE_URL = "https://unfit.cards"
+
 # Serve Nuxt static assets from the build output
 [assets]
 directory = ".output/public"
