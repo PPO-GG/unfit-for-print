@@ -7,6 +7,7 @@ import { usePlayers } from "~/composables/usePlayers";
 import { useNotifications } from "~/composables/useNotifications";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useGameContext } from "~/composables/useGameContext";
+import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useGameCards } from "~/composables/useGameCards";
 import { useGameSettings } from "~/composables/useGameSettings";
@@ -62,14 +63,28 @@ const {
   isWaiting,
   isComplete,
   isJudging,
+  isSubmitting,
+  isJudge,
   leaderboard,
   isRoundEnd,
   myId,
+  mySubmission,
   state,
 } = useGameContext(
   lobby,
   computed(() => playerHands.value),
 );
+
+// ─── Dynamic Favicon ──────────────────────────────────────────────────────
+useDynamicFavicon({
+  state,
+  isJudge,
+  isSubmitting,
+  isJudging,
+  isRoundEnd,
+  isComplete,
+  hasSubmitted: computed(() => mySubmission.value !== null),
+});
 
 // ─── Host Check ─────────────────────────────────────────────────────────────
 const isHost = computed(() => {
