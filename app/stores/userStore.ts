@@ -98,23 +98,44 @@ export const useUserStore = defineStore("user", {
             provider: session.provider,
           };
 
-          // Discord avatar data is persisted to Appwrite prefs during the
-          // OAuth callback (/auth/callback). Read from prefs first — they
-          // survive across sessions. Fall back to a live Discord API call
-          // only if prefs are empty AND we have an access token.
-          const prefs = this.user!.prefs;
-          if (!prefs.discordUserId || !prefs.avatar) {
-            if (this.accessToken && session.provider === "discord") {
-              try {
-                const discord = await this.fetchDiscordUserData(
-                  this.accessToken,
-                );
-                this.user!.prefs.avatar = discord.avatar;
-                this.user!.prefs.discordUserId = discord.id;
-              } catch {
-                // Non-fatal — avatar just won't be available
-                console.warn("[userStore] Discord API fallback failed");
+          // Discord avatar: prefer the persisted full CDN URL from prefs.
+          // If missing, call the server-side admin endpoint to fetch it
+          // (the admin SDK holds the provider refresh token, so it always
+          // works — unlike the short-lived client access token).
+          if (!this.user!.prefs?.avatarUrl) {
+            try {
+              const avatarData = await $fetch("/api/auth/discord-avatar", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${this.session!.$id}`,
+                  "x-appwrite-user-id": this.user!.$id,
+                },
+                body: { userId: this.user!.$id },
+              });
+
+              if (avatarData?.avatarUrl) {
+                // Persist for future page loads so we skip this call next time
+                this.user!.prefs.avatarUrl = avatarData.avatarUrl;
+                this.user!.prefs.avatar = avatarData.avatar ?? undefined;
+                this.user!.prefs.discordUserId =
+                  avatarData.discordUserId ?? undefined;
+
+                // Write back to Appwrite prefs so it survives across devices
+                try {
+                  await account.updatePrefs({
+                    ...this.user!.prefs,
+                    avatarUrl: avatarData.avatarUrl,
+                    avatar: avatarData.avatar ?? undefined,
+                    discordUserId: avatarData.discordUserId ?? undefined,
+                  });
+                } catch {
+                  // Non-fatal — we still have it in memory for this session
+                  console.warn("[userStore] Failed to persist avatar prefs");
+                }
               }
+            } catch {
+              // Non-fatal — avatar just won't be available this session
+              console.warn("[userStore] Discord avatar fetch failed");
             }
           }
 

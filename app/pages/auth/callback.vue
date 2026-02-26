@@ -58,6 +58,7 @@ onMounted(async () => {
             ...currentPrefs,
             discordUserId: avatarData.discordUserId,
             avatar: avatarData.avatar,
+            avatarUrl: avatarData.avatarUrl,
           });
           console.log(
             "[Auth Callback] Discord avatar persisted to prefs:",

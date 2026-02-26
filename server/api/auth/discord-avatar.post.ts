@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
 
     if (!discordIdentity) {
       console.log("[discord-avatar] No Discord identity found for", userId);
-      return { discordUserId: null, avatar: null };
+      return { discordUserId: null, avatar: null, avatarUrl: null };
     }
 
     const discordUserId = discordIdentity.providerUid;

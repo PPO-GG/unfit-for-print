@@ -73,13 +73,22 @@ const handleLogout = async () => {
 const avatarUrl = computed(() => {
   const user = userStore.user;
   if (!user?.prefs) return null;
-  if (
-    user.provider === "discord" &&
-    user.prefs.discordUserId &&
-    user.prefs.avatar
-  ) {
+
+  // Prefer the full CDN URL persisted during OAuth callback / session fetch
+  if (user.prefs.avatarUrl) {
+    return user.prefs.avatarUrl;
+  }
+
+  // Legacy fallback: reconstruct from hash if avatarUrl wasn't persisted yet
+  if (user.prefs.discordUserId && user.prefs.avatar) {
     return `https://cdn.discordapp.com/avatars/${user.prefs.discordUserId}/${user.prefs.avatar}.png`;
   }
+
+  // Anonymous users: generate a fun DiceBear avatar from their name
+  if (user.name) {
+    return `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(user.name)}`;
+  }
+
   return null;
 });
 
