@@ -148,17 +148,23 @@ const canSkipJudge = (player: Player) => {
   );
 };
 
-const getScoreForPlayer = (playerId: string) => {
+const getScoreForPlayer = (playerId: string): number => {
   if (props.scores && playerId in props.scores) {
-    return props.scores[playerId];
+    return props.scores[playerId] ?? 0;
   }
   return scores.value[playerId] || 0;
 };
 
 const getPlayerAvatarUrl = (player: Player): string | null => {
-  if (!player?.avatar) return null;
+  if (!player?.avatar) {
+    // No stored avatar — generate DiceBear for non-bot players
+    if (player?.playerType !== "bot" && player?.name) {
+      return `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(player.name)}`;
+    }
+    return null;
+  }
 
-  // Full URL already stored (Discord CDN, Google, etc.) — use directly
+  // Full URL already stored (Discord CDN, Google, DiceBear, etc.) — use directly
   if (player.avatar.startsWith("http")) {
     return player.avatar;
   }
@@ -303,13 +309,11 @@ function getPlayerStatus(
           v-if="player.playerType !== 'spectator'"
           class="score-pill"
           :class="{
-            'score-pill--has-score': getScoreForPlayer(player.userId ?? '') > 0,
+            'score-pill--has-score': getScoreForPlayer(player.userId) > 0,
           }"
         >
           <Icon name="solar:star-bold" class="score-icon" />
-          <span class="score-num">{{
-            getScoreForPlayer(player.userId ?? "")
-          }}</span>
+          <span class="score-num">{{ getScoreForPlayer(player.userId) }}</span>
         </div>
 
         <!-- Host admin actions -->

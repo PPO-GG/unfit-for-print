@@ -31,6 +31,46 @@ const totalParticipants = computed(
 function getPlayerScore(playerId: string): number {
   return props.scores?.[playerId] ?? 0;
 }
+
+// ── Position rankings (dense rank — ties share the same position) ──
+const myPosition = computed(() => {
+  const allPlayers = props.players.filter((p) => p.playerType !== "spectator");
+  const ranked = allPlayers
+    .map((p) => ({ id: p.userId, score: getPlayerScore(p.userId) }))
+    .sort((a, b) => b.score - a.score);
+
+  let position = 1;
+  for (let i = 0; i < ranked.length; i++) {
+    if (i > 0 && ranked[i]!.score < ranked[i - 1]!.score) {
+      position = i + 1;
+    }
+    if (ranked[i]!.id === props.myId) return position;
+  }
+  return 0;
+});
+
+const totalRanked = computed(
+  () => props.players.filter((p) => p.playerType !== "spectator").length,
+);
+
+function getOrdinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"] as const;
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
+
+function getPositionColorClass(position: number): string {
+  switch (position) {
+    case 1:
+      return "my-position--gold";
+    case 2:
+      return "my-position--silver";
+    case 3:
+      return "my-position--bronze";
+    default:
+      return "my-position--muted";
+  }
+}
 </script>
 
 <template>
@@ -68,6 +108,13 @@ function getPlayerScore(playerId: string): number {
         <span class="my-score-role">
           <Icon v-if="isJudge" name="mdi:gavel" class="text-amber-400" />
           {{ isJudge ? t("game.role_judge") : t("game.role_player") }}
+          <span
+            v-if="myPosition"
+            class="my-position-pill"
+            :class="getPositionColorClass(myPosition)"
+          >
+            {{ getOrdinal(myPosition) }}
+          </span>
         </span>
       </div>
       <div class="my-score-value-card">
@@ -263,5 +310,61 @@ function getPlayerScore(playerId: string): number {
   letter-spacing: 0.06em;
   color: rgba(148, 163, 184, 0.9);
   text-transform: uppercase;
+}
+
+/* ── Position Pill (inline with role) ────────────────────── */
+.my-position-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.05rem 0.4rem;
+  border-radius: 9999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  margin-left: 0.3rem;
+  border: 1px solid;
+  vertical-align: middle;
+}
+
+.my-position--gold {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.85),
+    rgba(234, 179, 8, 0.9)
+  );
+  border-color: rgba(253, 224, 71, 0.6);
+  color: #451a03;
+}
+
+.my-position--silver {
+  background: linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.8),
+    rgba(203, 213, 225, 0.85)
+  );
+  border-color: rgba(226, 232, 240, 0.5);
+  color: #1e293b;
+}
+
+.my-position--bronze {
+  background: linear-gradient(
+    135deg,
+    rgba(180, 120, 60, 0.8),
+    rgba(205, 150, 85, 0.85)
+  );
+  border-color: rgba(217, 175, 120, 0.5);
+  color: #3b1e08;
+}
+
+.my-position--muted {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.85),
+    rgba(15, 23, 42, 0.9)
+  );
+  border-color: rgba(100, 116, 139, 0.3);
+  color: rgba(148, 163, 184, 0.7);
 }
 </style>

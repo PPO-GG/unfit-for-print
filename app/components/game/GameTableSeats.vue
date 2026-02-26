@@ -35,6 +35,49 @@ function getPlayerScore(playerId: string): number {
   return props.scores?.[playerId] ?? 0;
 }
 
+// ── Position rankings (dense rank — ties share the same position) ──
+const positionMap = computed(() => {
+  const allPlayers = props.players.filter((p) => p.playerType !== "spectator");
+  // Build array of { id, score } and sort descending
+  const ranked = allPlayers
+    .map((p) => ({ id: p.userId, score: getPlayerScore(p.userId) }))
+    .sort((a, b) => b.score - a.score);
+
+  const map: Record<string, number> = {};
+  let position = 1;
+  for (let i = 0; i < ranked.length; i++) {
+    // Dense ranking: same score = same position
+    if (i > 0 && ranked[i]!.score < ranked[i - 1]!.score) {
+      position = i + 1;
+    }
+    map[ranked[i]!.id] = position;
+  }
+  return map;
+});
+
+function getOrdinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"] as const;
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
+
+function getPlayerPosition(playerId: string): number {
+  return positionMap.value[playerId] ?? 0;
+}
+
+function getPositionClass(position: number): string {
+  switch (position) {
+    case 1:
+      return "position-badge--gold";
+    case 2:
+      return "position-badge--silver";
+    case 3:
+      return "position-badge--bronze";
+    default:
+      return "position-badge--muted";
+  }
+}
+
 // ── Seat positioning ────────────────────────────────────────────
 function getSeatStyle(index: number, total: number) {
   const fraction = total <= 1 ? 0.5 : index / (total - 1);
@@ -246,6 +289,15 @@ watch(
               : 'bg-linear-to-br from-slate-600/60 to-slate-800/90 shadow-[0_0_0_3px_rgba(30,41,59,0.95),0_4px_16px_rgba(0,0,0,0.3)] group-hover:shadow-[0_0_0_3px_rgba(51,65,85,0.95),0_6px_24px_rgba(0,0,0,0.4)]',
         ]"
       >
+        <!-- Position badge (top-left, always visible) -->
+        <div
+          v-if="getPlayerPosition(player.userId)"
+          class="position-badge"
+          :class="getPositionClass(getPlayerPosition(player.userId))"
+        >
+          <span>{{ getOrdinal(getPlayerPosition(player.userId)) }}</span>
+        </div>
+
         <!-- Score card badge (top-right, appears on hover) -->
         <div
           class="score-card-badge absolute -top-1.5 -right-2.5 w-[26px] h-[34px] bg-linear-to-br from-slate-800 to-slate-950 border-[1.5px] border-slate-600/40 rounded-[4px] flex items-center justify-center origin-bottom-left opacity-0 scale-0 rotate-12 transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] z-10 shadow-[0_3px_8px_rgba(0,0,0,0.5)] pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:rotate-12"
@@ -323,6 +375,14 @@ watch(
           :alt="player.name"
           size="sm"
         />
+        <!-- Position badge (overflow) -->
+        <div
+          v-if="getPlayerPosition(player.userId)"
+          class="position-badge position-badge--sm"
+          :class="getPositionClass(getPlayerPosition(player.userId))"
+        >
+          <span>{{ getOrdinal(getPlayerPosition(player.userId)) }}</span>
+        </div>
         <div
           class="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] bg-linear-to-br from-slate-800 to-slate-950 border-[1.5px] border-slate-600/40 rounded-[3px] flex items-center justify-center px-[3px] rotate-[10deg] scale-0 opacity-0 transition-all duration-250 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] pointer-events-none text-[0.65rem] text-slate-100/90 z-5 group-hover/overflow:rotate-[10deg] group-hover/overflow:scale-100 group-hover/overflow:opacity-100"
         >
@@ -359,5 +419,91 @@ watch(
 }
 .animate-check-pop {
   animation: check-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ── Position Badge ──────────────────────────────────────────── */
+.position-badge {
+  position: absolute;
+  top: -0.3rem;
+  left: -0.55rem;
+  min-width: 24px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  z-index: 10;
+  pointer-events: none;
+  animation: check-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1.5px solid;
+}
+
+.position-badge--sm {
+  position: absolute;
+  top: -0.4rem;
+  left: -0.5rem;
+  min-width: 20px;
+  height: 15px;
+  font-size: 0.55rem;
+  padding: 0 3px;
+}
+
+/* 1st — gold crown */
+.position-badge--gold {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.85),
+    rgba(234, 179, 8, 0.9)
+  );
+  border-color: rgba(253, 224, 71, 0.6);
+  color: #451a03;
+  box-shadow:
+    0 0 8px rgba(245, 158, 11, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* 2nd — silver */
+.position-badge--silver {
+  background: linear-gradient(
+    135deg,
+    rgba(148, 163, 184, 0.8),
+    rgba(203, 213, 225, 0.85)
+  );
+  border-color: rgba(226, 232, 240, 0.5);
+  color: #1e293b;
+  box-shadow:
+    0 0 6px rgba(148, 163, 184, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* 3rd — bronze */
+.position-badge--bronze {
+  background: linear-gradient(
+    135deg,
+    rgba(180, 120, 60, 0.8),
+    rgba(205, 150, 85, 0.85)
+  );
+  border-color: rgba(217, 175, 120, 0.5);
+  color: #3b1e08;
+  box-shadow:
+    0 0 6px rgba(180, 120, 60, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* 4th+ — muted */
+.position-badge--muted {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.85),
+    rgba(15, 23, 42, 0.9)
+  );
+  border-color: rgba(100, 116, 139, 0.3);
+  color: rgba(148, 163, 184, 0.7);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 </style>
