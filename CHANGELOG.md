@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.7.1](https://github.com/PPO-GG/unfit-for-print/compare/v2.7.0...v2.7.1) (2026-02-26)
+
+
+### 🐛 Bug Fixes
+
+* **nitro:** add Cloudflare Workers export conditions for node-appwrite ([75870a6](https://github.com/PPO-GG/unfit-for-print/commit/75870a68d34fa15a4c99cedbfa965e38ef960b9b))
+
+
+### ⚡ Performance
+
+* **cursor:** rewrite custom cursor with dual-strategy architecture ([a0c3485](https://github.com/PPO-GG/unfit-for-print/commit/a0c3485dba70b22b784742a64997470d3cb1ad3a))
+
 ## [2.7.0](https://github.com/PPO-GG/unfit-for-print/compare/v2.6.3...v2.7.0) (2026-02-26)
 
 
