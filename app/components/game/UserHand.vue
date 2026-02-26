@@ -129,7 +129,7 @@ function animateCards() {
     if (hovered !== null) {
       if (i === hovered) {
         y -= hoverLift;
-        scale = 1.25;
+        scale = 1.2;
         rotation *= 0.15; // Straighten up the card significantly
         zIndex = 100;
       } else {
@@ -146,7 +146,7 @@ function animateCards() {
 
     if (isSelected) {
       y -= 25;
-      scale = Math.max(scale, 1.05);
+      scale = Math.max(scale, 1.1);
       zIndex = Math.max(zIndex, 90);
     }
 
@@ -470,9 +470,9 @@ function toggleCardSelection(cardId: string, index: number) {
       if (el) {
         gsap.fromTo(
           el,
-          { scale: 1.15 },
+          { scale: 1.2 },
           {
-            scale: 1.05,
+            scale: 1.1,
             duration: 0.3,
             ease: "elastic.out(1.2, 0.4)",
             onComplete: () => animateCards(),
@@ -711,6 +711,7 @@ onUnmounted(() => {
             :cardId="cardId"
             :text="props.cardTexts?.[cardId]?.text"
             :disableHover="true"
+            :flat="true"
           />
         </div>
       </div>
@@ -857,8 +858,15 @@ onUnmounted(() => {
 .hand-card--fan {
   position: absolute;
   bottom: 0;
-  width: clamp(6rem, 12vw, 18rem);
+  width: clamp(5rem, 10vw, 15rem);
   aspect-ratio: 3 / 4;
+}
+
+/* Override WhiteCard's hardcoded vw-based width so it inherits the
+   smaller hand-card container size. GSAP scale(1.2) on hover then
+   brings the visual size up to match table cards exactly. */
+.hand-card--fan :deep(.card-scaler) {
+  width: 100% !important;
 }
 
 .hand-card--selected::after {
