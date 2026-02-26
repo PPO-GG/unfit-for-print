@@ -86,14 +86,9 @@ export default defineNuxtConfig({
     "@nuxtjs/i18n",
     "@nuxtjs/device",
     "@nuxt/scripts",
-    "nuxt-appwrite",
+
     "@vite-pwa/nuxt",
   ],
-
-  // ─── nuxt-appwrite module config ─────────────────────────────────
-  // Reads from NUXT_PUBLIC_APPWRITE_* and NUXT_APPWRITE_* env vars automatically.
-  // Explicit values here serve as fallback defaults.
-  appwrite: {},
 
   // ─── PWA ──────────────────────────────────────────────────────────────
   pwa: {
@@ -167,6 +162,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     // Server-only secrets
+    appwriteApiKey: process.env.NUXT_APPWRITE_API_KEY,
     elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
 
     // Client-side (game-specific collection IDs)
