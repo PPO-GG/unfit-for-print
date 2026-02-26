@@ -11,7 +11,23 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   ssr: true,
 
-  nitro: {},
+  // ─── Cloudflare Workers compatibility ──────────────────────────────
+  // node-appwrite's HTTP client uses node-fetch-native-with-agent, which
+  // in Node.js mode imports node:http/node:https to create HTTP agents.
+  // In CF Workers the polyfills are incomplete and the `File` class from
+  // the node path isn't constructable, causing:
+  //   "Right-hand side of 'instanceof' is not callable"
+  //
+  // The library's package.json "exports" already declares a `workerd`
+  // condition that maps to native Web API stubs (globalThis.fetch/File).
+  // Adding "workerd" to Rollup's exportConditions tells the resolver to
+  // pick that path instead of the Node.js-specific one.
+  nitro: {
+    externals: {
+      inline: ["node-appwrite", "node-fetch-native-with-agent"],
+    },
+    exportConditions: ["workerd", "worker", "default"],
+  },
 
   future: {
     compatibilityVersion: 4,
