@@ -62,10 +62,12 @@
     "release-please": "^17.3.0",
     "string-similarity": "^4.0.4",
     "tailwindcss": "^4.2.0",
+    "teleportal": "^0.0.4",
     "unstorage": "^1.17.0",
     "vue": "^3.5.28",
     "vue-matomo": "^4.2.0",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "yjs": "^13.6.29"
   },
   "packageManager": "pnpm@10.12.1",
   "pnpm": {

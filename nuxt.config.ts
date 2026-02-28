@@ -221,6 +221,11 @@ export default defineNuxtConfig({
         process.env.DEPLOY_URL ||
         "http://localhost:3000",
       appVersion: pkg.version,
+
+      // Yjs lobby Teleportal server
+      lobbyTeleportalUrl:
+        process.env.NUXT_PUBLIC_LOBBY_TELEPORTAL_URL ||
+        "wss://teleportal.unfit.cards",
     },
   },
 });
