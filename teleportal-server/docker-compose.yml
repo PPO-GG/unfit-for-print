@@ -1,0 +1,36 @@
+services:
+  teleportal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: unfit-teleportal
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Set to "true" to see all Teleportal messages in logs
+      - DEBUG=false
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "http://localhost:3000/health",
+          "--no-verbose",
+          "--tries=1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      br0_3:
+        ipv4_address: 10.1.0.225
+
+networks:
+  br0_3:
+    name: br0.3
+    external: true

@@ -1,0 +1,26 @@
+{
+  "name": "unfit-teleportal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc --outDir dist",
+    "start": "node dist/src/server.js"
+  },
+  "dependencies": {
+    "crossws": "^0.4.4",
+    "dotenv": "^17.2.3",
+    "teleportal": "0.0.4",
+    "unstorage": "latest",
+    "ws": "^8.18.0",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.29"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
