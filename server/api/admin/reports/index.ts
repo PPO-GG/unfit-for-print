@@ -14,36 +14,57 @@ export default defineEventHandler(async (event) => {
     queries: [Query.orderDesc("$createdAt")],
   });
 
-  // Enrich reports with the actual card text so admins can see what was reported
+  // Enrich reports with the actual card text so admins can see what was reported.
+  // Resilience: if the card isn't found in the expected collection (e.g. due to
+  // a past bug where WhiteCard.vue reported cards as "black"), try the opposite
+  // collection before giving up.
   const enrichedReports = await Promise.all(
     result.rows.map(async (report: any) => {
-      try {
-        const collectionId =
-          report.cardType === "black"
-            ? config.public.appwriteBlackCardCollectionId
-            : config.public.appwriteWhiteCardCollectionId;
+      const primaryCollectionId =
+        report.cardType === "black"
+          ? config.public.appwriteBlackCardCollectionId
+          : config.public.appwriteWhiteCardCollectionId;
+      const fallbackCollectionId =
+        report.cardType === "black"
+          ? config.public.appwriteWhiteCardCollectionId
+          : config.public.appwriteBlackCardCollectionId;
 
-        const card = await tables.getRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: collectionId,
-          rowId: report.cardId,
-        });
+      // Try primary collection first, then fallback
+      for (const collectionId of [primaryCollectionId, fallbackCollectionId]) {
+        try {
+          const card = await tables.getRow({
+            databaseId: config.public.appwriteDatabaseId,
+            tableId: collectionId,
+            rowId: report.cardId,
+          });
 
-        return {
-          ...report,
-          cardText: card.text ?? null,
-          cardPack: card.pack ?? null,
-          cardActive: card.active ?? null,
-        };
-      } catch {
-        // Card may have been deleted already
-        return {
-          ...report,
-          cardText: null,
-          cardPack: null,
-          cardActive: null,
-        };
+          // If found in the fallback collection, correct the cardType
+          const correctedType =
+            collectionId === fallbackCollectionId
+              ? report.cardType === "black"
+                ? "white"
+                : "black"
+              : report.cardType;
+
+          return {
+            ...report,
+            cardType: correctedType,
+            cardText: card.text ?? null,
+            cardPack: card.pack ?? null,
+            cardActive: card.active ?? null,
+          };
+        } catch {
+          // Not found in this collection, try next
+        }
       }
+
+      // Card not found in either collection — likely deleted
+      return {
+        ...report,
+        cardText: null,
+        cardPack: null,
+        cardActive: null,
+      };
     }),
   );
 

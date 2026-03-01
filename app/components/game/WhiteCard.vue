@@ -102,7 +102,7 @@
     <template #body>
       <ReportCard
         :card-id="cardId || ''"
-        card-type="black"
+        card-type="white"
         @cancel="showReportModal = false"
         @submit="showReportModal = false"
       />
