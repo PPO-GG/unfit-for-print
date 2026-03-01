@@ -69,6 +69,24 @@
             </div>
           </div>
 
+          <!-- Max Pick -->
+          <div class="field-group">
+            <label class="field-label">{{ t("game.settings.max_pick") }}</label>
+            <div class="pick-selector">
+              <button
+                v-for="n in 3"
+                :key="n"
+                type="button"
+                class="pick-btn"
+                :class="{ 'pick-btn--active': localSettings.maxPick >= n }"
+                @click="localSettings.maxPick = n"
+              >
+                {{ t("game.settings.pick_n", { n }) }}
+              </button>
+            </div>
+            <p class="pick-hint">{{ pickHintText }}</p>
+          </div>
+
           <!-- Private toggle -->
           <div class="field-group field-inline">
             <UCheckbox
@@ -190,24 +208,40 @@ onMounted(async () => {
   if (!databases) return;
   loadingPacks.value = true;
   try {
-    const blackCountResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTIONS.black, queries: [Query.limit(1)] });
+    const blackCountResult = await tables.listRows({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTIONS.black,
+      queries: [Query.limit(1)],
+    });
     const totalBlackCards = blackCountResult.total;
     const chunkSize = 1000;
     const blackPacks = new Set<string>();
 
     for (let offset = 0; offset < totalBlackCards; offset += chunkSize) {
-      const blackCardsChunk = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTIONS.black, queries: [Query.limit(chunkSize), Query.offset(offset)] });
+      const blackCardsChunk = await tables.listRows({
+        databaseId: DB_ID,
+        tableId: CARD_COLLECTIONS.black,
+        queries: [Query.limit(chunkSize), Query.offset(offset)],
+      });
       blackCardsChunk.rows.forEach((card: any) => {
         if (card.pack && !card.disabled) blackPacks.add(card.pack);
       });
     }
 
-    const whiteCountResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTIONS.white, queries: [Query.limit(1)] });
+    const whiteCountResult = await tables.listRows({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTIONS.white,
+      queries: [Query.limit(1)],
+    });
     const totalWhiteCards = whiteCountResult.total;
     const whitePacks = new Set<string>();
 
     for (let offset = 0; offset < totalWhiteCards; offset += chunkSize) {
-      const whiteCardsChunk = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTIONS.white, queries: [Query.limit(chunkSize), Query.offset(offset)] });
+      const whiteCardsChunk = await tables.listRows({
+        databaseId: DB_ID,
+        tableId: CARD_COLLECTIONS.white,
+        queries: [Query.limit(chunkSize), Query.offset(offset)],
+      });
       whiteCardsChunk.rows.forEach((card: any) => {
         if (card.pack && !card.disabled) whitePacks.add(card.pack);
       });
@@ -252,6 +286,7 @@ const readOnlyMap = {
   lobbyName: t("game.settings.lobby_name"),
   maxPoints: t("game.settings.points_to_win"),
   numPlayerCards: t("game.settings.cards_per_player"),
+  maxPick: t("game.settings.max_pick"),
   isPrivate: t("game.settings.is_private"),
   password: t("game.settings.lobby_password"),
   cardPacks: t("game.settings.card_packs"),
@@ -260,10 +295,19 @@ const readOnlyMap = {
 const formatValue = (key: keyof GameSettings) => {
   const value = props.settings[key];
   if (key === "isPrivate") return value ? "YES" : "NO";
+  if (key === "maxPick")
+    return t("game.settings.up_to_pick_n", { n: value || 3 });
   if (key === "cardPacks" && Array.isArray(value))
     return value.join(", ") || "—";
   return value || "—";
 };
+
+const pickHintText = computed(() => {
+  const v = localSettings.value.maxPick ?? 3;
+  if (v === 1) return t("game.settings.pick_hint_1");
+  if (v === 2) return t("game.settings.pick_hint_2");
+  return t("game.settings.pick_hint_3");
+});
 </script>
 
 <style scoped>
@@ -383,7 +427,7 @@ const formatValue = (key: keyof GameSettings) => {
   color: #64748b;
 }
 
-/* ─── Pack tags ──────────────────────────────────────────────── */
+/* ─── Pick tags ──────────────────────────────────────────────── */
 .pack-tags {
   display: flex;
   flex-wrap: wrap;
@@ -399,6 +443,52 @@ const formatValue = (key: keyof GameSettings) => {
   border: 1px solid rgba(139, 92, 246, 0.25);
   border-radius: 4px;
   padding: 1px 0.4rem;
+}
+
+/* ─── Pick selector ──────────────────────────────────────────── */
+.pick-selector {
+  display: flex;
+  gap: 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+.pick-btn {
+  flex: 1;
+  padding: 0.4rem 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.6);
+  border: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.pick-btn + .pick-btn {
+  border-left: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.pick-btn:hover {
+  background: rgba(139, 92, 246, 0.08);
+  color: #94a3b8;
+}
+
+.pick-btn--active {
+  background: rgba(139, 92, 246, 0.18);
+  color: #a78bfa;
+  box-shadow: inset 0 0 12px rgba(139, 92, 246, 0.15);
+}
+
+.pick-hint {
+  font-size: 0.6rem;
+  color: #475569;
+  margin-top: 0.25rem;
+  letter-spacing: 0.04em;
 }
 
 /* ─── Save button ────────────────────────────────────────────── */
