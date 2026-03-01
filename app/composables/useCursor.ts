@@ -105,7 +105,7 @@ function createAnimatedCursor() {
   }
 
   function animate() {
-    const speed = 0.5;
+    const speed = 0.9;
     currentX += (mouseX - currentX) * speed;
     currentY += (mouseY - currentY) * speed;
 

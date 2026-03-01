@@ -1,5 +1,6 @@
 // server/api/game/start.post.ts
-// Replaces the Appwrite Function: functions/startGame/src/main.js
+// Fetches and shuffles cards from Appwrite, returns the data as JSON
+// for the client to write into the Y.Doc.
 import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
@@ -33,7 +34,11 @@ export default defineEventHandler(async (event) => {
     let gameSettings = settings || null;
     if (documentId && !gameSettings) {
       try {
-        gameSettings = await tables.getRow({ databaseId: DB, tableId: GAMESETTINGS, rowId: documentId });
+        gameSettings = await tables.getRow({
+          databaseId: DB,
+          tableId: GAMESETTINGS,
+          rowId: documentId,
+        });
       } catch (err: any) {
         console.error("[startGame] Failed to fetch settings:", err.message);
         throw createError({
@@ -44,12 +49,20 @@ export default defineEventHandler(async (event) => {
     }
 
     // --- Load lobby + players (filtered to this lobby only) ---
-    const lobby = await tables.getRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId });
-    const playersRes = await tables.listRows({ databaseId: DB, tableId: PLAYER, queries: [
-              Query.equal("lobbyId", lobbyId),
-              Query.notEqual("playerType", "spectator"),
-              Query.limit(100),
-            ] });
+    const lobby = await tables.getRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+    });
+    const playersRes = await tables.listRows({
+      databaseId: DB,
+      tableId: PLAYER,
+      queries: [
+        Query.equal("lobbyId", lobbyId),
+        Query.notEqual("playerType", "spectator"),
+        Query.limit(100),
+      ],
+    });
     const playerIds = playersRes.rows.map((d) => d.userId);
     const playerCount = playerIds.length;
 
@@ -93,31 +106,100 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    const INITIAL_BLACK_CARDS = 5;
     const firstBlackId = allBlackIds[0] as string;
-    const firstBlack = await tables.getRow({ databaseId: DB, tableId: BLACK_CARDS, rowId: firstBlackId });
-    const blackDeck = allBlackIds.slice(1, INITIAL_BLACK_CARDS);
+    const firstBlack = await tables.getRow({
+      databaseId: DB,
+      tableId: BLACK_CARDS,
+      rowId: firstBlackId,
+    });
+    const blackDeck = allBlackIds.slice(1);
 
-    // --- Assemble game state (no card data — stored separately) ---
-    const gameState = {
-      phase: "submitting",
-      judgeId: lobby.hostUserId,
+    // --- Batch-resolve all card texts for embedding in Y.Doc ---
+    // This eliminates the N+1 pattern — all card texts are resolved server-side
+    // and sent to the client to embed in the Y.Doc once.
+    const BATCH_SIZE = 100;
+    const cardTexts: Record<
+      string,
+      { text: string; pack: string; pick?: number }
+    > = {};
+
+    // Resolve white card texts
+    const allWhiteIdsToResolve = [
+      ...new Set([...Object.values(hands).flat(), ...whiteDeck]),
+    ];
+    for (let i = 0; i < allWhiteIdsToResolve.length; i += BATCH_SIZE) {
+      const batch = allWhiteIdsToResolve.slice(i, i + BATCH_SIZE);
+      try {
+        const res = await tables.listRows({
+          databaseId: DB,
+          tableId: WHITE_CARDS,
+          queries: [
+            Query.equal("$id", batch),
+            Query.limit(BATCH_SIZE),
+            Query.select(["$id", "text", "pack"]),
+          ],
+        });
+        for (const doc of res.rows) {
+          cardTexts[doc.$id] = {
+            text: (doc as any).text ?? "",
+            pack: (doc as any).pack ?? "",
+          };
+        }
+      } catch (err) {
+        console.error("[startGame] White card batch resolve failed:", err);
+      }
+    }
+
+    // Resolve ALL black card texts (including pick count for multi-pick prompts)
+    const allBlackIdsToResolve = [firstBlackId, ...blackDeck];
+    for (let i = 0; i < allBlackIdsToResolve.length; i += BATCH_SIZE) {
+      const batch = allBlackIdsToResolve.slice(i, i + BATCH_SIZE);
+      try {
+        const res = await tables.listRows({
+          databaseId: DB,
+          tableId: BLACK_CARDS,
+          queries: [
+            Query.equal("$id", batch),
+            Query.limit(BATCH_SIZE),
+            Query.select(["$id", "text", "pack", "pick"]),
+          ],
+        });
+        for (const doc of res.rows) {
+          cardTexts[doc.$id] = {
+            text: (doc as any).text ?? "",
+            pack: (doc as any).pack ?? "",
+            pick: (doc as any).pick ?? 1,
+          };
+        }
+      } catch (err) {
+        console.error("[startGame] Black card batch resolve failed:", err);
+      }
+    }
+
+    // --- Update Appwrite lobby status (registry only) ---
+    await tables.updateRow({
+      databaseId: DB,
+      tableId: LOBBY,
+      rowId: lobbyId,
+      data: {
+        status: "playing",
+      },
+    });
+
+    // --- Return card data for client to write into Y.Doc ---
+    return {
+      success: true,
+      whiteDeck,
+      blackDeck,
       blackCard: {
         id: firstBlack.$id,
         text: firstBlack.text,
         pick: firstBlack.pick || 1,
       },
-      submissions: {},
-      scores: playerIds.reduce(
-        (acc: Record<string, number>, id: string) => ({ ...acc, [id]: 0 }),
-        {},
-      ),
-      round: 1,
-      roundWinner: null,
-      roundEndStartTime: null,
-      gameEndTime: null,
-      returnedToLobby: {},
-      skippedPlayers: [],
+      hands,
+      cardTexts,
+      playerOrder: playerIds,
+      judgeId: lobby.hostUserId,
       config: {
         maxPoints: gameSettings?.maxPoints || 10,
         cardsPerPlayer: CARDS_PER_PLAYER,
@@ -126,27 +208,6 @@ export default defineEventHandler(async (event) => {
         lobbyName: gameSettings?.lobbyName || "Unnamed Game",
       },
     };
-
-    // --- Create gamecards document ---
-    const handsArray = serializePlayerHands(hands);
-    const gameCards = {
-      lobbyId,
-      whiteDeck,
-      blackDeck,
-      discardWhite: [] as string[],
-      discardBlack: [] as string[],
-      playerHands: handsArray,
-    };
-
-    await tables.createRow({ databaseId: DB, tableId: GAMECARDS, rowId: "unique()", data: gameCards });
-
-    // --- Update lobby status ---
-    await tables.updateRow({ databaseId: DB, tableId: LOBBY, rowId: lobbyId, data: {
-              status: "playing",
-              gameState: encodeGameState(gameState),
-            } });
-
-    return { success: true };
   } catch (err: any) {
     console.error("[startGame] Error:", err.message);
     // Re-throw H3 errors as-is

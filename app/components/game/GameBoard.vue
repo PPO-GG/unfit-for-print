@@ -1,14 +1,9 @@
 <script lang="ts" setup>
 import type { Player } from "~/types/player";
 import type { Lobby } from "~/types/lobby";
-import { useGameContext } from "~/composables/useGameContext";
-import { useGameActions } from "~/composables/useGameActions";
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
 import { useNotifications } from "~/composables/useNotifications";
-import { useGameCards } from "~/composables/useGameCards";
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
 import BlackCardDeck from "~/components/game/BlackCardDeck.vue";
 import WhiteCardDeck from "~/components/game/WhiteCardDeck.vue";
 import GameTable from "~/components/game/GameTable.vue";
@@ -28,68 +23,27 @@ const emit = defineEmits<{
   (e: "leave"): void;
 }>();
 
-const lobbyRef = ref(props.lobby);
-// Keep lobbyRef in sync with props.lobby
-watch(
-  () => props.lobby,
-  (newLobby) => {
-    lobbyRef.value = newLobby;
-  },
-  { immediate: true },
-);
+// ─── Y.Doc Reactive State ───────────────────────────────────────────────────
+// All game state derived from useLobbyReactive — no Appwrite subscriptions.
+const { leaveLobby, reactive: lobbyReactive, engine } = useLobby();
 
-// Initialize useGameCards to get player hands
-const { playerHands, cardTexts, fetchGameCards, subscribeToGameCards } =
-  useGameCards();
+const state = computed(() => lobbyReactive.gameState.value);
+const isSubmitting = lobbyReactive.isSubmitting;
+const isJudging = lobbyReactive.isJudging;
+const isRoundEnd = lobbyReactive.isRoundEnd;
+const isComplete = lobbyReactive.isComplete;
+const isJudge = lobbyReactive.isJudge;
+const isHost = lobbyReactive.isHost;
+const myHand = lobbyReactive.myHand;
+const mySubmission = lobbyReactive.mySubmission;
+const leaderboard = lobbyReactive.leaderboard;
+const cardTexts = lobbyReactive.cardTexts;
 
-// Variable to store the unsubscribe function
-let gameCardsUnsubscribe: (() => void) | null = null;
+const judgeId = computed(() => state.value?.judgeId ?? null);
+const blackCard = computed(() => state.value?.blackCard ?? null);
+const submissions = computed(() => state.value?.submissions ?? {});
 
-// Subscribe to game cards updates when the component is mounted
-onMounted(() => {
-  if (props.lobby?.$id) {
-    gameCardsUnsubscribe = subscribeToGameCards(props.lobby.$id, (cards) => {
-      return;
-    });
-  }
-});
-
-// Watch for changes to the lobby ID and re-subscribe if needed
-watch(
-  () => props.lobby?.$id,
-  (newLobbyId, oldLobbyId) => {
-    if (newLobbyId && newLobbyId !== oldLobbyId) {
-      if (gameCardsUnsubscribe) {
-        gameCardsUnsubscribe();
-      }
-      gameCardsUnsubscribe = subscribeToGameCards(newLobbyId, (cards) => {
-        return;
-      });
-    }
-  },
-);
-
-const {
-  state,
-  isSubmitting,
-  isJudging,
-  isRoundEnd,
-  isComplete,
-  isJudge,
-  myHand,
-  submissions,
-  otherSubmissions,
-  judgeId,
-  blackCard,
-  leaderboard,
-  hands,
-} = useGameContext(
-  lobbyRef,
-  computed(() => playerHands.value),
-);
 const { playSfx } = useSfx();
-const { playCard, selectWinner, startNextRound } = useGameActions();
-const { leaveLobby } = useLobby();
 const userStore = useUserStore();
 const myId = userStore.user?.$id ?? "";
 const { notify } = useNotifications();
@@ -141,26 +95,12 @@ watch(
   },
 );
 
-/** Judge triggers: call API to broadcast readAloudText to all players. */
-async function handleReadAloud(text: string) {
+/** Judge triggers: broadcast readAloudText to all players via Y.Doc. */
+function handleReadAloud(text: string) {
   if (!text) return;
   // Prefix with a timestamp nonce so re-reading the same card triggers a new state change
   const noncedText = `${Date.now()}|${text}`;
-  try {
-    await $fetch("/api/game/read-aloud", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${userStore.session?.$id}`,
-        "x-appwrite-user-id": userStore.user?.$id ?? "",
-      },
-      body: {
-        lobbyId: props.lobby.$id,
-        text: noncedText,
-      },
-    });
-  } catch (err) {
-    console.error("Failed to broadcast read-aloud:", err);
-  }
+  engine.setReadAloud(noncedText);
 }
 
 // Add computed properties to check player type
@@ -178,9 +118,6 @@ const isParticipant = computed(() => {
 const isSpectator = computed(() => {
   return currentPlayer.value?.playerType === "spectator";
 });
-
-// Check if the current user is the host
-const isHost = computed(() => lobbyRef.value?.hostUserId === myId);
 
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string): string => {
@@ -200,7 +137,15 @@ const revealedCards = computed<Record<string, boolean>>(() => {
 });
 
 function handleCardSubmit(cardIds: string[]) {
-  playCard(props.lobby.$id, myId, cardIds);
+  const result = engine.playCard(cardIds);
+  if (!result.success) {
+    console.error("Failed to play card:", result.reason);
+    notify({
+      title: t("game.play_card_failed"),
+      color: "error",
+      icon: "i-mdi-alert-circle",
+    });
+  }
 }
 
 // ── Winner Flow ─────────────────────────────────────────────────
@@ -212,28 +157,15 @@ const confirmedRoundWinner = ref<string | null>(null);
 let nextRoundTimeout: NodeJS.Timeout | null = null;
 let hasTriggeredNextRound = false;
 
-// ── Resilient next-round with retry ─────────────────────────
-async function tryStartNextRound(maxAttempts = 3): Promise<boolean> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      await startNextRound(props.lobby.$id, props.lobby.$id);
-      playSfx(SFX.cardShuffle, { volume: 0.4 });
-      if (props.lobby?.$id) {
-        await fetchGameCards(props.lobby.$id);
-      }
-      return true;
-    } catch (err) {
-      console.warn(
-        `[GameBoard] next-round attempt ${attempt}/${maxAttempts} failed:`,
-        err,
-      );
-      if (attempt < maxAttempts) {
-        // Exponential backoff: 2s, 4s
-        await new Promise((r) => setTimeout(r, 2000 * attempt));
-      }
-    }
+// ── Next round via Y.Doc engine (synchronous, no retry needed) ──────
+function tryStartNextRound(): boolean {
+  const result = engine.nextRound();
+  if (result.success) {
+    playSfx(SFX.cardShuffle, { volume: 0.4 });
+  } else {
+    console.warn("[GameBoard] next-round failed:", result.reason);
   }
-  return false;
+  return result.success;
 }
 
 // ── Phase staleness watchdog ────────────────────────────────
@@ -243,7 +175,7 @@ let stalePhaseInterval: NodeJS.Timeout | null = null;
 
 function startStalePhaseWatchdog() {
   stopStalePhaseWatchdog();
-  stalePhaseInterval = setInterval(async () => {
+  stalePhaseInterval = setInterval(() => {
     if (
       isHost.value &&
       isRoundEnd.value &&
@@ -252,7 +184,7 @@ function startStalePhaseWatchdog() {
     ) {
       console.info("[GameBoard] Watchdog: retrying stuck next-round…");
       hasTriggeredNextRound = true;
-      const ok = await tryStartNextRound(2);
+      const ok = tryStartNextRound();
       if (ok) {
         stopStalePhaseWatchdog();
         if (!isComplete.value) winnerSelected.value = false;
@@ -277,8 +209,13 @@ const effectiveRoundWinner = computed(() => {
 });
 
 // The active game phase for the GameTable component
-// During roundEnd, keep showing as "judging" so the cards/celebration stay visible
+// During roundEnd, keep showing as "judging" so the cards/celebration stay visible.
+// IMPORTANT: "submitting-complete" must stay as "submitting" — it's a brief 500ms
+// window after the last card is submitted. If we switch to "judging" prematurely,
+// the GameTable's pile cards disappear before the FLIP animation can capture their
+// positions, causing a blank screen instead of the pile→grid spread animation.
 const activePhase = computed<"submitting" | "judging">(() => {
+  const phase = state.value?.phase;
   if (isJudging.value || isRoundEnd.value || isComplete.value) return "judging";
   return "submitting";
 });
@@ -311,19 +248,41 @@ watch(
         hasTriggeredNextRound = false;
         if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
 
-        nextRoundTimeout = setTimeout(async () => {
+        nextRoundTimeout = setTimeout(() => {
           if (isHost.value && !hasTriggeredNextRound && !isComplete.value) {
             hasTriggeredNextRound = true;
-            const ok = await tryStartNextRound();
+            const ok = tryStartNextRound();
             if (ok) {
               if (!isComplete.value) winnerSelected.value = false;
             } else {
-              // All retries exhausted — start watchdog for recovery
               hasTriggeredNextRound = false;
               startStalePhaseWatchdog();
             }
           } else if (!isComplete.value) {
+            // Non-host: schedule a fallback attempt in case host is unavailable.
+            // nextRound() is idempotent — first client to succeed transitions the
+            // phase; subsequent calls return { success: false } harmlessly.
             winnerSelected.value = false;
+            if (!hasTriggeredNextRound) {
+              setTimeout(() => {
+                if (
+                  isRoundEnd.value &&
+                  !isComplete.value &&
+                  !hasTriggeredNextRound
+                ) {
+                  console.info(
+                    "[GameBoard] Non-host fallback: advancing stuck round",
+                  );
+                  hasTriggeredNextRound = true;
+                  const ok = tryStartNextRound();
+                  if (ok) {
+                    if (!isComplete.value) winnerSelected.value = false;
+                  } else {
+                    hasTriggeredNextRound = false;
+                  }
+                }
+              }, 3000);
+            }
           }
         }, 5000);
       }, 2000); // 2s delay to show winning card highlight before celebration
@@ -347,30 +306,24 @@ function handleSelectWinner(playerId: string) {
   // First mark the winner locally for immediate feedback
   localRoundWinner.value = playerId;
 
-  // Submit to server — this triggers the watch above for all players
-  selectWinner(props.lobby.$id, playerId);
+  // Mutate Y.Doc — triggers the watch above for all players via sync
+  const result = engine.selectWinner(playerId);
+  if (!result.success) {
+    console.error("Failed to select winner:", result.reason);
+    localRoundWinner.value = null;
+    return;
+  }
 
   // Play sound effect for the judge only
   playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
 }
 
-// Reveal a card — calls server endpoint
-async function revealCard(playerId: string) {
+// Reveal a card — direct Y.Doc mutation
+function revealCard(playerId: string) {
   if (revealedCards.value[playerId]) return;
-  try {
-    await $fetch("/api/game/reveal-card", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${userStore.session?.$id}`,
-        "x-appwrite-user-id": userStore.user?.$id ?? "",
-      },
-      body: {
-        lobbyId: props.lobby.$id,
-        playerId,
-      },
-    });
-  } catch (err) {
-    console.error("Failed to reveal card:", err);
+  const result = engine.revealCard(playerId);
+  if (!result.success) {
+    console.error("Failed to reveal card:", result.reason);
   }
 }
 
@@ -378,63 +331,14 @@ async function revealCard(playerId: string) {
 onUnmounted(() => {
   if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
   stopStalePhaseWatchdog();
-  if (gameCardsUnsubscribe) gameCardsUnsubscribe();
 });
 
-// Add function to convert spectator to player
-async function convertToPlayer(playerId: string) {
+// Convert spectator to player — direct Y.Doc mutation
+function convertToPlayer(playerId: string) {
   if (!isHost.value) return;
 
-  try {
-    const playerDoc = props.players.find((p) => p.userId === playerId);
-    if (!playerDoc) return;
-
-    const { databases, tables } = getAppwrite();
-    const config = useRuntimeConfig();
-
-    await tables.updateRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwritePlayerCollectionId,
-      rowId: playerDoc.$id,
-      data: { playerType: "player" },
-    });
-
-    // Deal cards to the player
-    const gameCardsRes = await tables.listRows({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteGamecardsCollectionId,
-      queries: [Query.equal("lobbyId", props.lobby.$id)],
-    });
-
-    const gameCards = gameCardsRes.rows[0];
-    if (!gameCards) return;
-    const whiteDeck = gameCards.whiteDeck || [];
-    const cardsPerPlayer = state.value?.config?.cardsPerPlayer || 10;
-    const newHand = whiteDeck.slice(0, cardsPerPlayer);
-    const remainingDeck = whiteDeck.slice(cardsPerPlayer);
-
-    const pHands = gameCards.playerHands || [];
-    const parsedHands = pHands.map((hand: string) => JSON.parse(hand));
-
-    const existingHandIndex = parsedHands.findIndex(
-      (h: any) => h.playerId === playerId,
-    );
-    if (existingHandIndex >= 0) {
-      parsedHands[existingHandIndex].cards = newHand;
-    } else {
-      parsedHands.push({ playerId, cards: newHand });
-    }
-
-    await tables.updateRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteGamecardsCollectionId,
-      rowId: gameCards.$id,
-      data: {
-        whiteDeck: remainingDeck,
-        playerHands: parsedHands.map((hand: any) => JSON.stringify(hand)),
-      },
-    });
-
+  const result = engine.convertToPlayer(playerId);
+  if (result.success) {
     notify({
       title: t("game.player_dealt_in"),
       description: t("game.player_dealt_in_description", {
@@ -443,7 +347,8 @@ async function convertToPlayer(playerId: string) {
       color: "success",
       icon: "i-mdi-account-plus",
     });
-  } catch (err) {
+  } else {
+    console.error("Failed to convert spectator:", result.reason);
     notify({
       title: t("game.error_player_dealt_in"),
       color: "error",

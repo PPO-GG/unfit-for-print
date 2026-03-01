@@ -177,7 +177,10 @@ const handleJoined = (code: string) => {
     icon: "i-mdi-loading i-spin",
     duration: 3000,
   });
-  router.push(`/game/${code}`);
+  // Pass creator=true so [code].vue skips the "are you in this lobby?" check
+  // when navigating directly after creating. The player exists in the Y.Doc
+  // but may not have an Appwrite player document yet.
+  router.push(`/game/${code}?creator=true`);
 };
 
 const openPolicyModal = () => {

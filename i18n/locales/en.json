@@ -12,6 +12,7 @@
   "chat.placeholder": "Type a message...",
   "chat.profanity_description": "This toggles profanity filtering",
   "chat.send": "Send",
+  "chat.settings": "Settings",
   "chat.tts_description": "This toggles text-to-speech",
   "footer.copyright": "© 2025 Unfit for Print. All rights reserved.",
   "game.attempting_to_start_next_round": "Attempting to Start Next Round",

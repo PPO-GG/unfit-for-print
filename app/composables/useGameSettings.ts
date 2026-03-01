@@ -31,11 +31,11 @@ export function useGameSettings() {
       });
 
       if (response.rows.length > 0) {
-        const rawSettings = response.rows[0];
+        const rawSettings = response.rows[0] as Record<string, any>;
 
         // Normalize relationship object into a flat string ID, matching #60 handling
         if (
-          rawSettings.lobbyId &&
+          rawSettings?.lobbyId &&
           typeof rawSettings.lobbyId === "object" &&
           rawSettings.lobbyId.$id
         ) {
@@ -90,7 +90,8 @@ export function useGameSettings() {
     // The server will convert it to a relationship object
     const defaultSettings: Omit<
       GameSettings,
-      keyof import("appwrite").Models.Document
+      | keyof import("appwrite").Models.Document
+      | keyof import("appwrite").Models.Row
     > = {
       maxPoints: 10,
       numPlayerCards: 10,

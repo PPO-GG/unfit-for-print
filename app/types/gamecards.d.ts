@@ -22,6 +22,8 @@ export interface GameCards {
 export interface CardTextEntry {
   text: string;
   pack: string;
+  /** Pick count — only populated for black cards (defaults to 1 when absent) */
+  pick?: number;
 }
 
 /** Map of cardId → resolved text & pack, shared across GameTable and UserHand */

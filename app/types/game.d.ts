@@ -3,7 +3,13 @@ export type CardId = string; // Appwrite card document ID
 
 // Core game state stored in the lobby document
 export interface GameState {
-  phase: "waiting" | "submitting" | "judging" | "roundEnd" | "complete";
+  phase:
+    | "waiting"
+    | "submitting"
+    | "submitting-complete"
+    | "judging"
+    | "roundEnd"
+    | "complete";
   judgeId: PlayerId | null;
   players?: Record<string, string>;
   blackCard: { id: CardId; text: string; pick: number } | null;

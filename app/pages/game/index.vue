@@ -68,11 +68,20 @@
 
           <!-- Left: Info -->
           <div class="flex items-center gap-4 min-w-0">
-            <!-- Avatar placeholder -->
+            <!-- Host avatar -->
             <div
-              class="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-violet-900/40 border border-violet-500/20 text-violet-300"
+              class="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-violet-900/40 border border-violet-500/20 text-violet-300 overflow-hidden"
             >
-              <span class="i-solar-users-group-rounded-bold-duotone text-xl" />
+              <img
+                v-if="getHostAvatar(lobby)"
+                :src="getHostAvatar(lobby)!"
+                :alt="getHostName(lobby)"
+                class="w-full h-full object-cover"
+              />
+              <span
+                v-else
+                class="i-solar-users-group-rounded-bold-duotone text-xl"
+              />
             </div>
 
             <div class="min-w-0">
@@ -97,6 +106,66 @@
                     class="i-solar-crown-minimalistic-bold-duotone text-amber-500/70"
                   />
                   {{ getHostName(lobby) }}
+                </span>
+              </div>
+
+              <!-- Player avatar stack -->
+              <div
+                v-if="lobbyPlayers[lobby.$id]?.length"
+                class="flex items-center gap-1 mt-2"
+              >
+                <div class="flex items-center -space-x-1.5">
+                  <div
+                    v-for="player in lobbyPlayers[lobby.$id]!.slice(0, 6)"
+                    :key="player.$id"
+                    class="relative shrink-0 w-6 h-6 rounded-full border-2 border-slate-800 overflow-hidden bg-slate-700"
+                    :title="player.name"
+                  >
+                    <img
+                      v-if="player.avatar"
+                      :src="player.avatar"
+                      :alt="player.name"
+                      class="w-full h-full object-cover"
+                    />
+                    <span
+                      v-else
+                      class="flex items-center justify-center w-full h-full text-[10px] font-bold text-slate-400 uppercase"
+                    >
+                      {{ player.name?.charAt(0) || "?" }}
+                    </span>
+                    <!-- Bot indicator -->
+                    <span
+                      v-if="player.playerType === 'bot'"
+                      class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-3 h-3 rounded-full bg-slate-900 border border-slate-700"
+                    >
+                      <span
+                        class="i-solar-bot-minimalistic-bold-duotone text-[8px] text-cyan-400"
+                      />
+                    </span>
+                    <!-- Host crown -->
+                    <span
+                      v-else-if="player.isHost"
+                      class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-3 h-3 rounded-full bg-slate-900 border border-slate-700"
+                    >
+                      <span
+                        class="i-solar-crown-minimalistic-bold-duotone text-[8px] text-amber-400"
+                      />
+                    </span>
+                  </div>
+                </div>
+                <!-- Overflow count -->
+                <span
+                  v-if="lobbyPlayers[lobby.$id]!.length > 6"
+                  class="text-[10px] font-semibold text-slate-500 ml-1"
+                >
+                  +{{ lobbyPlayers[lobby.$id]!.length - 6 }}
+                </span>
+                <!-- Player count -->
+                <span class="text-[10px] text-slate-500 ml-1 tabular-nums">
+                  {{ lobbyPlayers[lobby.$id]!.length }}
+                  {{
+                    lobbyPlayers[lobby.$id]!.length === 1 ? "player" : "players"
+                  }}
                 </span>
               </div>
             </div>
@@ -175,6 +244,8 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from "vue";
+import { usePlayers } from "~/composables/usePlayers";
+import type { Player } from "~/types/player";
 import { useRouter } from "vue-router";
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
@@ -196,7 +267,7 @@ if (import.meta.client) {
 const config = useRuntimeConfig();
 const showJoin = ref(false);
 const showCreate = ref(false);
-const { getPlayerName, getPlayerNameSync } = useGetPlayerName();
+const { getPlayerName, getPlayerNameSync, playerCache } = useGetPlayerName();
 
 const DB_ID = config.public.appwriteDatabaseId;
 const LOBBY_COL = config.public.appwriteLobbyCollectionId;
@@ -212,7 +283,9 @@ const router = useRouter();
 const userStore = useUserStore();
 const { getActiveLobbyForUser } = useLobby();
 const { showIfAuthenticated } = useUserAccess();
+const { getPlayersForLobby } = usePlayers();
 const hostNames = ref<Record<string, string>>({});
+const lobbyPlayers = ref<Record<string, Player[]>>({});
 
 const fetchPublicLobbies = async () => {
   if (!tables) return;
@@ -252,6 +325,11 @@ const fetchPublicLobbies = async () => {
         });
       }
 
+      // Fetch all players for this lobby in the background
+      getPlayersForLobby(lobby.$id).then((players) => {
+        lobbyPlayers.value[lobby.$id] = players;
+      });
+
       publicLobbies.push({
         ...lobby,
         lobbyName: settings.lobbyName || "Unnamed Lobby",
@@ -271,6 +349,12 @@ const getHostName = (lobby: LobbyWithName): string => {
   // Use the synchronous version which will return from cache if available
   // or trigger a background fetch if not
   return getPlayerNameSync(lobby.hostUserId);
+};
+
+// Function to get host avatar for a specific lobby
+const getHostAvatar = (lobby: LobbyWithName): string | null => {
+  if (!lobby.hostUserId) return null;
+  return playerCache.value[lobby.hostUserId]?.avatar ?? null;
 };
 
 onMounted(async () => {

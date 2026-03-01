@@ -371,7 +371,7 @@ watch(
 onMounted(async () => {
   // Fetch card data only if text AND numPick are not provided, but cardId is.
   if ((!props.text || props.numPick === undefined) && props.cardId) {
-    const { databases } = useAppwrite();
+    const { databases, tables } = getAppwrite();
     const config = useRuntimeConfig();
     if (!databases) {
       console.error("Appwrite database service not available.");

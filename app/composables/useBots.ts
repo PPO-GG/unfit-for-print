@@ -1,6 +1,6 @@
 // composables/useBots.ts
 // Client-side bot orchestrator.
-// Watches game state and triggers bot actions (play cards, judge) via server API.
+// Watches game state and triggers bot actions (play cards, judge) via Y.Doc engine.
 // Only runs logic on the host's client to avoid duplicate bot actions.
 
 import {
@@ -15,7 +15,6 @@ import {
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import type { GameState } from "~/types/game";
-import { useGameState } from "~/composables/useGameState";
 
 const MAX_BOTS = 5;
 
@@ -37,12 +36,23 @@ export function useBots(
   players: Ref<Player[]>,
   isHost: ComputedRef<boolean>,
 ) {
-  const { decodeGameState } = useGameState();
   const userStore = useUserStore();
+
+  // ─── Y.Doc Integration ──────────────────────────────────────────────
+  // Bots are written to Y.Doc (the source of truth for real-time state)
+  // in addition to Appwrite (for server-side auth/validation).
+  const lobbyDoc = useLobbyDoc();
+  const mutations = useLobbyMutations(lobbyDoc);
+
+  // Y.Doc game engine — used for bot play/reveal/judge actions
+  const engine = useYjsGameEngine(lobbyDoc);
+
+  // Y.Doc reactive state — used to watch game state changes
+  const reactive = useLobbyReactive(lobbyDoc);
 
   // ─── Auth Headers ──────────────────────────────────────────────────
   // Sends session ID + user ID in headers for secure admin-SDK verification
-  // server-side. Mirrors the pattern used by admin components.
+  // server-side. Only used for add/remove bot Appwrite shim calls.
   const authHeaders = () => ({
     Authorization: `Bearer ${userStore.session?.$id}`,
     "x-appwrite-user-id": userStore.user?.$id ?? "",
@@ -61,14 +71,10 @@ export function useBots(
     return botPlayers.value.length < MAX_BOTS;
   });
 
-  const gameState = computed<GameState | null>(() => {
-    if (!lobby.value?.gameState) return null;
-    try {
-      return decodeGameState(lobby.value.gameState) as GameState;
-    } catch {
-      return null;
-    }
-  });
+  // Read game state from Y.Doc reactive bridge (not Appwrite).
+  const gameState = computed<GameState | null>(
+    () => reactive.gameState.value ?? null,
+  );
 
   // ─── Add / Remove Bot ─────────────────────────────────────────────────
 
@@ -95,21 +101,18 @@ export function useBots(
         },
       });
 
-      // Optimistic UI update — push the new bot into the local players list
-      // so the UI reflects it immediately without waiting for realtime.
-      if (result?.bot && lobby.value) {
-        const newBotPlayer: Player = {
-          $id: result.bot.$id,
+      // Write the bot into Y.Doc — this triggers reactive updates across
+      // all connected clients via useLobbyReactive's observer.
+      if (result?.bot && lobbyDoc.doc.value) {
+        mutations.addPlayer({
           userId: result.bot.userId,
-          lobbyId: lobby.value.$id,
           name: result.bot.name,
           avatar: result.bot.avatar,
           isHost: false,
           joinedAt: new Date().toISOString(),
           provider: "bot",
           playerType: "bot",
-        };
-        players.value = [...players.value, newBotPlayer];
+        });
       }
     } catch (err: any) {
       botError.value =
@@ -123,6 +126,17 @@ export function useBots(
   const removeBot = async (botUserId: string) => {
     if (!lobby.value) return;
 
+    // Get bot name before removing (for system message in Y.Doc)
+    let botName: string | undefined;
+    if (lobbyDoc.doc.value) {
+      try {
+        const raw = lobbyDoc.getPlayers().get(botUserId);
+        if (raw) botName = JSON.parse(raw).name;
+      } catch {
+        /* ignore */
+      }
+    }
+
     try {
       await $fetch("/api/bot/remove", {
         method: "POST",
@@ -132,6 +146,11 @@ export function useBots(
           botUserId,
         },
       });
+
+      // Remove from Y.Doc — triggers reactive updates across all clients
+      if (lobbyDoc.doc.value) {
+        mutations.removePlayer(botUserId, botName);
+      }
     } catch (err: any) {
       console.error("Failed to remove bot:", err);
     }
@@ -162,26 +181,65 @@ export function useBots(
     }
   };
 
-  // ─── Bot Action Trigger ───────────────────────────────────────────────
+  // ─── Bot Card Play (via Y.Doc engine) ──────────────────────────────────
 
-  const triggerBotAction = async (
-    botUserId: string,
-    action: "play" | "judge",
-  ) => {
-    if (!lobby.value) return;
-    try {
-      await $fetch("/api/bot/act", {
-        method: "POST",
-        headers: authHeaders(),
-        body: {
-          lobbyId: lobby.value.$id,
-          botUserId,
-          action,
-        },
-      });
-    } catch (err: any) {
-      console.error(`Bot ${botUserId} failed to ${action}:`, err);
+  /**
+   * Picks random cards from a bot's hand and plays them via the Y.Doc engine.
+   * Returns true if the action succeeded.
+   */
+  const botPlayCards = (botUserId: string): boolean => {
+    const state = gameState.value;
+    if (!state || state.phase !== "submitting") return false;
+    if (state.judgeId === botUserId) return false;
+    if (state.submissions?.[botUserId]) return false;
+
+    // Read the bot's hand from Y.Doc
+    const hand = engine.readHand(botUserId);
+    if (!hand || hand.length === 0) {
+      console.warn(`[useBots] Bot ${botUserId} has no cards in hand`);
+      return false;
     }
+
+    // Determine how many cards to play (based on black card pick count)
+    const pickCount = state.blackCard?.pick || 1;
+    const cardsToPlay = hand.slice(0, Math.min(pickCount, hand.length));
+
+    const result = engine.playCard(cardsToPlay, botUserId);
+    if (!result.success) {
+      console.warn(`[useBots] Bot ${botUserId} play failed:`, result.reason);
+    }
+    return result.success;
+  };
+
+  // ─── Bot Reveal & Judge (via Y.Doc engine) ─────────────────────────────
+
+  /**
+   * Bot judge reveals a single card. Returns true if successful.
+   */
+  const botRevealCard = (playerId: string): boolean => {
+    const result = engine.revealCard(playerId);
+    return result.success;
+  };
+
+  /**
+   * Bot judge picks a random winner from submissions.
+   * Returns true if successful.
+   */
+  const botSelectWinner = (): boolean => {
+    const state = gameState.value;
+    if (!state || state.phase !== "judging") return false;
+
+    const submitterIds = Object.keys(state.submissions || {});
+    if (submitterIds.length === 0) return false;
+
+    const randomIndex = Math.floor(Math.random() * submitterIds.length);
+    const winnerId = submitterIds[randomIndex]!;
+
+    const result = engine.selectWinner(winnerId);
+    if (!result.success) {
+      console.warn("[useBots] Bot judge select-winner failed:", result.reason);
+    }
+    return result.success;
   };
 
   // ─── Automated Bot Behavior (host-only) ──────────────────────────────
@@ -204,6 +262,13 @@ export function useBots(
       // a single coalesced state update with ALL submissions, causing
       // every card to animate simultaneously.
       const BOT_STAGGER_MS = 600; // snappy overlap — fly-in is 0.8s but ghosts are independent
+
+      // Round > 1: add a base delay so bots don't submit while the
+      // round-won celebration overlay is still animating out on clients.
+      // The host clears winnerSelected synchronously, but other clients
+      // may still be showing the overlay when the new round's gameState
+      // arrives. 2.5s is enough for the overlay dismiss + brief breathing room.
+      const BASE_DELAY_MS = state.round > 1 ? 2500 : 0;
       let staggerIndex = 0;
 
       for (const bot of botPlayers.value) {
@@ -212,14 +277,16 @@ export function useBots(
         if (state.submissions?.[bot.userId]) continue; // Already submitted
         if (state.judgeId === bot.userId) continue; // Judge doesn't play
 
-        const delay = staggerIndex * BOT_STAGGER_MS;
+        const delay = BASE_DELAY_MS + staggerIndex * BOT_STAGGER_MS;
         staggerIndex++;
 
         botActionsInFlight.add(actionKey);
         const timer = setTimeout(() => {
-          triggerBotAction(bot.userId, "play").finally(() => {
+          try {
+            botPlayCards(bot.userId);
+          } finally {
             botActionsInFlight.delete(actionKey);
-          });
+          }
         }, delay);
         pendingBotTimers.push(timer);
       }
@@ -268,8 +335,7 @@ export function useBots(
         for (let i = 0; i < submitterIds.length; i++) {
           const playerId = submitterIds[i]!;
           const currentRound = state.round;
-          const revealTimer = setTimeout(async () => {
-            if (!lobby.value) return;
+          const revealTimer = setTimeout(() => {
             // Guard: ensure we're still in judging phase for the same round.
             // If the game moved on (e.g., phase transition or new round), skip.
             const currentState = gameState.value;
@@ -280,21 +346,7 @@ export function useBots(
             ) {
               return;
             }
-            try {
-              await $fetch("/api/game/reveal-card", {
-                method: "POST",
-                headers: authHeaders(),
-                body: {
-                  lobbyId: lobby.value.$id,
-                  playerId,
-                },
-              });
-            } catch (err: any) {
-              console.error(
-                `Bot judge failed to reveal card for ${playerId}:`,
-                err,
-              );
-            }
+            botRevealCard(playerId);
           }, totalDelay);
           pendingBotTimers.push(revealTimer);
           totalDelay += REVEAL_STAGGER_MS;
@@ -303,9 +355,11 @@ export function useBots(
         // After all reveals + thinking delay, pick a winner
         totalDelay += THINKING_DELAY_MS;
         const judgeTimer = setTimeout(() => {
-          triggerBotAction(judgeBot.userId, "judge").finally(() => {
+          try {
+            botSelectWinner();
+          } finally {
             botActionsInFlight.delete(actionKey);
-          });
+          }
         }, totalDelay);
         pendingBotTimers.push(judgeTimer);
       }

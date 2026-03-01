@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, nextTick, onBeforeUnmount } from "vue";
 import type { Player } from "~/types/player";
 import type { CardTexts } from "~/types/gamecards";
 import { gsap } from "gsap";
@@ -264,6 +264,9 @@ const animatedPids = new Set<string>();
 const flyingGhosts = ref<Set<string>>(new Set());
 // Optimistic ghosts that must persist until the real pile card arrives
 const pendingOptimisticGhosts = new Map<string, HTMLElement>();
+// Pids whose submission arrived (Y.Doc sync) BEFORE the GSAP animation finished.
+// The GSAP onComplete checks this set to self-clean instead of storing a persistent ghost.
+const earlyArrivalPids = new Set<string>();
 
 // Vue-controlled pile card positioning. Returns the inline style for
 // each pile card so Vue maintains positions through re-renders.
@@ -293,9 +296,18 @@ watch(
       // Clean up any lingering optimistic ghosts
       for (const ghost of pendingOptimisticGhosts.values()) ghost.remove();
       pendingOptimisticGhosts.clear();
+      earlyArrivalPids.clear();
       cardAngles = {};
       prevSubmissionKeys.value = new Set();
       winnerAnimating.value = false;
+
+      // Remove ALL leaked ghost DOM elements (safety net for unmount/remount races)
+      document
+        .querySelectorAll<HTMLElement>("[data-unfit-ghost]")
+        .forEach((el) => {
+          gsap.killTweensOf(el);
+          el.remove();
+        });
 
       // Clear GSAP transforms from grid cells to prevent stale state
       const container = cardContainerRef.value;
@@ -325,8 +337,20 @@ watch(
       // Clean up optimistic ghost now that the real pile card exists
       const ghost = pendingOptimisticGhosts.get(key);
       if (ghost) {
-        ghost.remove();
-        pendingOptimisticGhosts.delete(key);
+        if (flyingGhosts.value.has(key)) {
+          // Animation still in progress — let GSAP onComplete handle wrapper
+          // removal so the fly-in animation finishes visually.
+          earlyArrivalPids.add(key);
+          flyingGhosts.value.delete(key);
+        } else {
+          // Animation already finished — safe to remove immediately
+          ghost.remove();
+          pendingOptimisticGhosts.delete(key);
+        }
+      } else if (animatedPids.has(key) && flyingGhosts.value.has(key)) {
+        // Submission arrived before GSAP animation completed — mark for
+        // self-cleanup in onComplete so the ghost doesn't persist forever.
+        earlyArrivalPids.add(key);
         flyingGhosts.value.delete(key);
       }
     }
@@ -403,6 +427,7 @@ watch(
       // Strip ALL classes to remove conflicting .unified-card--pile rules
       // (inset: 0, margin: auto, opacity: 0, position: absolute)
       ghost.className = "";
+      ghost.dataset.unfitGhost = "true";
       ghost.style.cssText = `
         position: fixed;
         left: 0;
@@ -800,6 +825,16 @@ function handleCardSubmit(cardIds: string[]) {
 
   const finalAngle = getCardAngle(pid);
 
+  // Create wrapper for ghost elements — registered immediately so the
+  // submissions watcher can find and clean it up if the Y.Doc update
+  // arrives before the GSAP animation finishes.
+  const ghostWrapper = document.createElement("div");
+  ghostWrapper.dataset.unfitGhost = "true";
+  ghostWrapper.style.cssText =
+    "position:fixed;top:0;left:0;pointer-events:none;z-index:9998;";
+  document.body.appendChild(ghostWrapper);
+  pendingOptimisticGhosts.set(pid, ghostWrapper);
+
   // Create one ghost per card for multi-pick visual feedback
   const ghosts: HTMLElement[] = [];
   for (let i = 0; i < cardCount; i++) {
@@ -823,7 +858,7 @@ function handleCardSubmit(cardIds: string[]) {
         border: 6px solid rgba(0,0,0,0.25);
       `;
     }
-    document.body.appendChild(ghost);
+    ghostWrapper.appendChild(ghost);
     ghosts.push(ghost);
 
     // Each card gets a unique spin and a visibly fanned landing position
@@ -851,20 +886,24 @@ function handleCardSubmit(cardIds: string[]) {
         delay: i * 0.12,
         ease: "power3.out",
         onComplete: () => {
-          // Only the last ghost manages lifecycle — remove all ghosts
-          // when the real pile card arrives via the submissions watcher.
+          // Only the last ghost manages lifecycle.
           if (i === cardCount - 1) {
-            // Wrap all ghosts in a container so a single Map entry cleans them all up
-            const wrapper = document.createElement("div");
-            wrapper.style.cssText =
-              "position:fixed;top:0;left:0;pointer-events:none;z-index:9998;";
-            ghosts.forEach((g) => wrapper.appendChild(g));
-            document.body.appendChild(wrapper);
-            pendingOptimisticGhosts.set(pid, wrapper);
             playCardLandSfx("", {
               volume: [0.7, 0.9],
               pitch: [0.9, 1.1],
             });
+
+            if (earlyArrivalPids.has(pid)) {
+              // Y.Doc submission arrived before animation finished —
+              // remove the wrapper now that the animation is done.
+              earlyArrivalPids.delete(pid);
+              ghostWrapper.remove();
+              pendingOptimisticGhosts.delete(pid);
+            } else {
+              // Animation finished before Y.Doc data arrived.
+              // Show real pile card; wrapper stays for watcher cleanup.
+              flyingGhosts.value.delete(pid);
+            }
           }
         },
       },
@@ -873,6 +912,32 @@ function handleCardSubmit(cardIds: string[]) {
 
   emit("select-cards", cardIds);
 }
+
+// ── Unmount cleanup: remove leaked ghost DOM elements + kill GSAP tweens ──
+// If GameTable unmounts mid-animation (e.g., reactive state flicker during
+// a transient Teleportal reconnect), ghost clones on document.body would
+// otherwise persist indefinitely — the "cards stuck on screen" bug.
+onBeforeUnmount(() => {
+  // 1. Kill tweens AND remove ALL tagged ghost elements from document.body.
+  //    Previous version only killed tweens without removing the elements,
+  //    leaving orphan ghosts visible on screen after Teleportal reconnects.
+  document.querySelectorAll<HTMLElement>("[data-unfit-ghost]").forEach((el) => {
+    gsap.killTweensOf(el);
+    el.remove();
+  });
+
+  // 2. Remove any pendingOptimisticGhosts not caught by the selector
+  for (const wrapper of pendingOptimisticGhosts.values()) {
+    gsap.killTweensOf(wrapper);
+    wrapper.remove();
+  }
+  pendingOptimisticGhosts.clear();
+
+  // 3. Clear reactive tracking state
+  flyingGhosts.value.clear();
+  animatedPids.clear();
+  earlyArrivalPids.clear();
+});
 
 function convertToPlayer(playerId: string) {
   emit("convert-to-player", playerId);

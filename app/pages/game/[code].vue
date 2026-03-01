@@ -1,17 +1,13 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch, computed, toRaw } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, computed, toRaw } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
-import { usePlayers } from "~/composables/usePlayers";
 import { useNotifications } from "~/composables/useNotifications";
 import { useJoinLobby } from "~/composables/useJoinLobby";
-import { useGameContext } from "~/composables/useGameContext";
 import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
-import { useGameCards } from "~/composables/useGameCards";
 import { useGameSettings } from "~/composables/useGameSettings";
-import { useGameRealtime } from "~/composables/useGameRealtime";
 
 import { useAutoReturn } from "~/composables/useAutoReturn";
 import { useSpectatorConversion } from "~/composables/useSpectatorConversion";
@@ -33,6 +29,7 @@ const nuxtApp = useNuxtApp();
 definePageMeta({ layout: "game" });
 
 const code = route.params.code as string;
+const ACTIVE_GAME_KEY = "unfit:activeGame";
 const lobby = ref<Lobby | null>(null);
 const players = ref<Player[]>([]);
 const loading = ref(true);
@@ -53,11 +50,15 @@ const {
   getActiveLobbyForUser,
   startGame,
   isInLobby,
+  lobbyDoc,
+  reactive,
+  engine,
 } = useLobby();
 const { getGameSettings, createDefaultGameSettings } = useGameSettings();
 const { initSessionIfNeeded } = useJoinLobby();
-const { playerHands, subscribeToGameCards } = useGameCards();
 
+// ─── Reactive State from Y.Doc ──────────────────────────────────────────────
+// All game state is derived from useLobbyReactive() — no Appwrite subscriptions.
 const {
   isPlaying,
   isWaiting,
@@ -69,10 +70,34 @@ const {
   isRoundEnd,
   myId,
   mySubmission,
-  state,
-} = useGameContext(
-  lobby,
-  computed(() => playerHands.value),
+  isHost,
+} = reactive;
+
+// Wrap the Y.Doc gameState ref in a computed so it satisfies ComputedRef<>
+// expected by useDynamicFavicon, useAutoReturn, useSpectatorConversion.
+const state = computed(() => reactive.gameState.value);
+
+// ─── Sync players from Y.Doc ────────────────────────────────────────────────
+watch(
+  () => reactive.playerList.value,
+  (v) => {
+    players.value = v;
+  },
+  { immediate: true },
+);
+
+// ─── Sync lobby ref from Y.Doc meta ────────────────────────────────────────
+// Keep the legacy lobby ref fresh with host/status changes from the Y.Doc.
+watch(
+  () => reactive.meta.value,
+  (meta) => {
+    if (!meta || !lobby.value) return;
+    lobby.value = {
+      ...lobby.value,
+      hostUserId: meta.hostUserId,
+      status: meta.status,
+    };
+  },
 );
 
 // ─── Dynamic Favicon ──────────────────────────────────────────────────────
@@ -86,24 +111,6 @@ useDynamicFavicon({
   hasSubmitted: computed(() => mySubmission.value !== null),
 });
 
-// ─── Host Check ─────────────────────────────────────────────────────────────
-const isHost = computed(() => {
-  const hostId = lobby.value?.hostUserId;
-  const userId = userStore.user?.$id;
-  if (!hostId || !userId) return false;
-  return hostId === userId;
-});
-
-// ─── Extracted Composables ──────────────────────────────────────────────────
-const { setupRealtime } = useGameRealtime({
-  lobby,
-  players,
-  gameSettings,
-  isHost,
-  selfLeaving,
-  subscribeToGameCards,
-});
-
 const { hasReturnedToLobby, autoReturnTimeRemaining, handleContinue } =
   useAutoReturn({
     state,
@@ -111,6 +118,7 @@ const { hasReturnedToLobby, autoReturnTimeRemaining, handleContinue } =
     isComplete,
     isHost,
     lobbyRef: lobby,
+    lobbyDoc,
   });
 
 // ─── Delayed Complete Gate ──────────────────────────────────────────────────
@@ -266,15 +274,29 @@ useHead({
 });
 // ─── Sidebar Watcher ────────────────────────────────────────────────────────
 // Desktop sidebar can be toggled. Auto-collapse when game starts, but allow user to re-open.
+// The re-open is debounced to prevent visual flapping during transient
+// Teleportal reconnects (Y.Doc state briefly nulls → isPlaying flickers false).
 const showDesktopSidebar = ref(true);
+let sidebarReopenTimer: ReturnType<typeof setTimeout> | null = null;
+
 watch(isPlaying, (newIsPlaying) => {
+  // Always cancel any pending re-open when isPlaying changes
+  if (sidebarReopenTimer) {
+    clearTimeout(sidebarReopenTimer);
+    sidebarReopenTimer = null;
+  }
+
   if (newIsPlaying) {
     // Auto-collapse both mobile and desktop sidebars when game starts
     isSidebarOpen.value = false;
     showDesktopSidebar.value = false;
   } else {
-    // Re-show sidebar when game ends
-    showDesktopSidebar.value = true;
+    // Delay sidebar restoration to survive transient Y.Doc reconnect flickers.
+    // If isPlaying flips back to true within 500ms, the timer is cancelled above.
+    sidebarReopenTimer = setTimeout(() => {
+      showDesktopSidebar.value = true;
+      sidebarReopenTimer = null;
+    }, 500);
   }
 });
 
@@ -360,36 +382,80 @@ onMounted(async () => {
       console.error("Failed to fetch lobby data:", error);
     }
 
+    // ── Session-persisted rejoin fast-path ───────────────────────────
+    // On page refresh, anonymous users may get a NEW Appwrite session (new
+    // $id), so Y.Doc and Appwrite checks against the new ID fail.
+    // sessionStorage survives refreshes within the same tab and lets us
+    // know the user was previously in this exact game.
+    const wasInThisGame =
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(ACTIVE_GAME_KEY) === code;
+
+    // Connect to Y.Doc early so membership checks can read the players map.
+    if (lobbyDoc.lobbyCode.value !== code) {
+      await lobbyDoc.connect(code);
+    }
+
     if (!isCreator) {
-      const activeLobby = await getActiveLobbyForUser(user.$id);
-      if (activeLobby && activeLobby.code === code) {
-        // Already in this lobby — proceed
-      } else if (activeLobby) {
-        notify({
-          title: t("lobby.return_active_game"),
-          color: "info",
-          icon: "i-mdi-controller",
-        });
-        return router.replace(`/game/${activeLobby.code}`);
-      } else {
-        // No active lobby found — check if this is a page refresh
-        // and user is still actually in this lobby
+      // ── Rejoin Check ──────────────────────────────────────────────
+      // Priority 1: Check the Y.Doc players map (already synced above).
+      const inYDoc = (() => {
+        try {
+          return !!lobbyDoc.getPlayers().get(user.$id);
+        } catch {
+          return false;
+        }
+      })();
+
+      if (!inYDoc && !wasInThisGame) {
+        // Not found in Y.Doc and no session memory of this game.
+        // Check if they belong to a *different* active lobby.
+        const activeLobby = await getActiveLobbyForUser(user.$id);
+        if (activeLobby && activeLobby.code !== code) {
+          notify({
+            title: t("lobby.return_active_game"),
+            color: "info",
+            icon: "i-mdi-controller",
+          });
+          return router.replace(`/game/${activeLobby.code}`);
+        }
+
+        // Final fallback: Appwrite player doc check for this lobby
         const stillInLobby = fetchedLobby
           ? await isInLobby(user.$id, fetchedLobby.$id)
           : false;
 
         if (!stillInLobby) {
-          // User has no player doc for this lobby — must join first
           showJoinModal.value = true;
           return;
         }
-        // User is in fact in this lobby (e.g. page refresh) — proceed
       }
+      // Player confirmed in this game — proceed
     }
 
     lobby.value = fetchedLobby;
     joinedLobby.value = true;
-    await setupRealtime(fetchedLobby);
+
+    // Persist active game for rejoin-on-refresh (survives F5 in same tab)
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(ACTIVE_GAME_KEY, code);
+    }
+
+    // Fetch game settings from Appwrite (still needed for start-game flow)
+    try {
+      const settings = await getGameSettings(fetchedLobby.$id);
+      if (!settings && isHost.value) {
+        gameSettings.value = await createDefaultGameSettings(
+          fetchedLobby.$id,
+          `${userStore.user?.name || "Anonymous"}'s Game`,
+          userStore.user?.$id,
+        );
+      } else if (settings) {
+        gameSettings.value = settings;
+      }
+    } catch (err) {
+      console.error("Failed to load game settings:", err);
+    }
   } catch (err) {
     console.error(err);
     notify({
@@ -400,6 +466,21 @@ onMounted(async () => {
     await router.replace("/");
   } finally {
     loading.value = false;
+  }
+});
+
+// ─── Cleanup on Navigation Away ─────────────────────────────────────────────
+// If the user navigates away (back button, route change, etc.) without
+// explicitly leaving via handleLeave, tear down the Y.Doc connection so the
+// Teleportal server doesn't retain ghost clients and stale documents.
+onBeforeUnmount(() => {
+  if (sidebarReopenTimer) {
+    clearTimeout(sidebarReopenTimer);
+    sidebarReopenTimer = null;
+  }
+  if (!selfLeaving.value && lobbyDoc.connected.value) {
+    console.log("[GamePage] Unmounting — disconnecting lobby Y.Doc");
+    lobbyDoc.disconnect();
   }
 });
 
@@ -415,7 +496,12 @@ const handleJoinSuccess = async (joinedCode: string) => {
     return;
   }
   lobby.value = fetchedLobby;
-  await setupRealtime(fetchedLobby);
+
+  // Connect to Y.Doc (joinLobby may already connect, but ensure it)
+  if (lobbyDoc.lobbyCode.value !== joinedCode) {
+    await lobbyDoc.connect(joinedCode);
+  }
+
   showJoinModal.value = false;
   joinedLobby.value = true;
 };
@@ -423,6 +509,10 @@ const handleJoinSuccess = async (joinedCode: string) => {
 const handleLeave = async () => {
   if (!lobby.value || !userStore.user?.$id) return;
   selfLeaving.value = true;
+  // Clear session marker so a future visit to this code shows the join form
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.removeItem(ACTIVE_GAME_KEY);
+  }
   await leaveLobby(lobby.value.$id, userStore.user.$id);
   return router.replace("/");
 };
@@ -506,13 +596,10 @@ function copyLobbyLink() {
   }, 2000);
 }
 
-async function handleSkipPlayer(playerId: string) {
+function handleSkipPlayer(playerId: string) {
   if (!lobby.value) return;
-  try {
-    await $fetch("/api/game/skip-player", {
-      method: "POST",
-      body: { lobbyId: lobby.value.$id, playerId, userId: userStore.user?.$id },
-    });
+  const result = engine.skipPlayer(playerId);
+  if (result.success) {
     const playerName = getPlayerName(playerId);
     notify({
       title: t("game.player_was_skipped", { name: playerName }),
@@ -520,8 +607,8 @@ async function handleSkipPlayer(playerId: string) {
       icon: "i-mdi-skip-next",
       duration: 3000,
     });
-  } catch (err: any) {
-    console.error("Failed to skip player:", err);
+  } else {
+    console.error("Failed to skip player:", result.reason);
     notify({
       title: t("game.skip_player_failed"),
       color: "error",
@@ -530,13 +617,10 @@ async function handleSkipPlayer(playerId: string) {
   }
 }
 
-async function handleSkipJudge() {
+function handleSkipJudge() {
   if (!lobby.value) return;
-  try {
-    await $fetch("/api/game/skip-judge", {
-      method: "POST",
-      body: { lobbyId: lobby.value.$id, userId: userStore.user?.$id },
-    });
+  const result = engine.skipJudge();
+  if (result.success) {
     const judgeName = getPlayerName(state.value?.judgeId || null);
     notify({
       title: `Judge ${judgeName} was skipped — no winner this round`,
@@ -544,8 +628,8 @@ async function handleSkipJudge() {
       icon: "i-mdi-gavel",
       duration: 3000,
     });
-  } catch (err: any) {
-    console.error("Failed to skip judge:", err);
+  } else {
+    console.error("Failed to skip judge:", result.reason);
     notify({
       title: "Failed to skip judge",
       color: "error",
@@ -758,7 +842,7 @@ async function handleSkipJudge() {
   left: 0;
   z-index: 40;
   height: 100vh;
-  width: 340px;
+  width: 21.25rem;
   max-width: 90vw;
   padding: 0;
   flex-direction: column;

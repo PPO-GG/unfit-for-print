@@ -2,7 +2,8 @@ import { ref, computed, watch, onUnmounted } from "vue";
 import type { ComputedRef, Ref } from "vue";
 import type { Lobby } from "~/types/lobby";
 import type { GameState } from "~/types/game";
-import { useLobby } from "~/composables/useLobby";
+import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import { useNotifications } from "~/composables/useNotifications";
 import { useI18n } from "vue-i18n";
 
@@ -10,7 +11,7 @@ import { useI18n } from "vue-i18n";
  * Manages auto-return-to-lobby logic after a game completes.
  * Handles the 60-second countdown and the "Continue" action for individual players.
  *
- * gameEndTime is now set server-side by select-winner when phase === "complete".
+ * Uses Y.Doc game engine mutations instead of Appwrite CRUD.
  */
 export function useAutoReturn(options: {
   state: ComputedRef<GameState | null>;
@@ -18,9 +19,10 @@ export function useAutoReturn(options: {
   isComplete: ComputedRef<boolean>;
   isHost: ComputedRef<boolean>;
   lobbyRef: Ref<Lobby | null>;
+  lobbyDoc: LobbyDocResult;
 }) {
-  const { state, myId, isComplete, isHost, lobbyRef } = options;
-  const { markPlayerReturnedToLobby, resetGameState } = useLobby();
+  const { state, myId, isComplete, isHost, lobbyRef, lobbyDoc } = options;
+  const engine = useYjsGameEngine(lobbyDoc);
   const { notify } = useNotifications();
   const { t } = useI18n();
 
@@ -68,11 +70,14 @@ export function useAutoReturn(options: {
           !hasReturnedToLobby.value &&
           myId.value
         ) {
-          await markPlayerReturnedToLobby(lobbyRef.value.$id, myId.value);
+          // Mark player as returned via Y.Doc mutation (no Appwrite call)
+          engine.markReturnedToLobby(myId.value);
+
           // Host resets the lobby so everyone transitions back to the waiting room
           if (isHost.value) {
-            await resetGameState(lobbyRef.value.$id);
+            engine.resetGame();
           }
+
           notify({
             title: t("lobby.return_to_lobby"),
             description: t("lobby.timer_expired_return_description"),
@@ -94,7 +99,6 @@ export function useAutoReturn(options: {
   });
 
   // Watch for game completion to start/stop auto-return
-  // gameEndTime is now set server-side by select-winner — no client write needed
   watch(isComplete, (newIsComplete) => {
     if (newIsComplete && lobbyRef.value?.status === "complete") {
       startAutoReturnCheck();
@@ -108,12 +112,13 @@ export function useAutoReturn(options: {
     if (!lobbyRef.value || !myId.value) return;
 
     try {
-      await markPlayerReturnedToLobby(lobbyRef.value.$id, myId.value);
+      // Mark player as returned via Y.Doc mutation (no Appwrite call)
+      engine.markReturnedToLobby(myId.value);
 
       // Host resets the lobby so everyone transitions back to the waiting room.
-      // Non-host players will see the change via realtime subscription.
+      // Non-host players will see the change via Y.Doc sync.
       if (isHost.value) {
-        await resetGameState(lobbyRef.value.$id);
+        engine.resetGame();
       }
 
       notify({

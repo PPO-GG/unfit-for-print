@@ -3,8 +3,6 @@ import { computed, ref } from "vue";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import type { Player } from "~/types/player";
-import { useGameContext } from "~/composables/useGameContext";
-import type { Lobby } from "~/types/lobby";
 
 const { t } = useI18n();
 const props = defineProps<{
@@ -25,31 +23,6 @@ const emit = defineEmits<{
   (e: "skip-judge"): void;
 }>();
 
-// Create a ref for the lobby and initialize it with basic data
-function createLobby(partial: Partial<Lobby>): Lobby {
-  return {
-    $createdAt: new Date().toISOString(),
-    $updatedAt: new Date().toISOString(),
-    code: "",
-    status: "waiting",
-    round: 0,
-    ...partial,
-  } as Lobby;
-}
-
-const lobbyRef = ref<Lobby>(
-  createLobby({
-    $id: props.lobbyId,
-    hostUserId: props.hostUserId,
-    players: props.players.map((player) => player.$id),
-    gameState: JSON.stringify({
-      phase: "waiting",
-      scores: {},
-    }),
-  }),
-);
-
-const { scores } = useGameContext(lobbyRef);
 const { kickPlayer, promoteToHost, reshufflePlayerCards } = useLobby();
 const userStore = useUserStore();
 const { notify } = useNotifications();
@@ -149,10 +122,7 @@ const canSkipJudge = (player: Player) => {
 };
 
 const getScoreForPlayer = (playerId: string): number => {
-  if (props.scores && playerId in props.scores) {
-    return props.scores[playerId] ?? 0;
-  }
-  return scores.value[playerId] || 0;
+  return props.scores?.[playerId] ?? 0;
 };
 
 const getPlayerAvatarUrl = (player: Player): string | null => {
