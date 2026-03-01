@@ -42,6 +42,11 @@ export function useGameSettings() {
           rawSettings.lobbyId = rawSettings.lobbyId.$id;
         }
 
+        // Default maxPick to 3 if not present (not in Appwrite schema)
+        if (rawSettings.maxPick === undefined || rawSettings.maxPick === null) {
+          rawSettings.maxPick = 3;
+        }
+
         settings.value = rawSettings as unknown as GameSettings;
         return settings.value;
       }
@@ -95,12 +100,17 @@ export function useGameSettings() {
     > = {
       maxPoints: 10,
       numPlayerCards: 10,
+      maxPick: 3,
       cardPacks: ["CAH Base Set"],
       isPrivate: options?.isPrivate || false,
       password: options?.password,
       lobbyId, // This will be converted to a relationship by Appwrite if the collection is configured for relationships
       lobbyName,
     };
+
+    // Strip maxPick from write payload — not in Appwrite schema,
+    // stored only in Y.Doc settings map at runtime.
+    const { maxPick: _mp, ...appwritePayload } = defaultSettings;
 
     try {
       // Define permissions array
@@ -127,11 +137,15 @@ export function useGameSettings() {
           databaseId: config.public.appwriteDatabaseId,
           tableId: config.public.appwriteGameSettingsCollectionId,
           rowId: documentId,
-          data: defaultSettings,
+          data: appwritePayload,
           permissions: permissions,
         });
 
-        settings.value = response as unknown as GameSettings;
+        // Merge maxPick back — not stored in Appwrite, kept in Y.Doc
+        settings.value = {
+          ...response,
+          maxPick: defaultSettings.maxPick,
+        } as unknown as GameSettings;
         return settings.value;
       } catch (createErr: any) {
         // If document already exists (409 Conflict), try to get it
@@ -179,7 +193,11 @@ export function useGameSettings() {
           },
         });
 
-        settings.value = response as unknown as GameSettings;
+        // Merge maxPick back — not stored in Appwrite, kept in Y.Doc
+        settings.value = {
+          ...response,
+          maxPick: newSettings.maxPick ?? 3,
+        } as unknown as GameSettings;
         return settings.value;
       }
 

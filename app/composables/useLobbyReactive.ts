@@ -173,7 +173,7 @@ function parseGameState(raw: Record<string, any>): GameState {
     players: safeParseJson(raw.players, {}),
     config: safeParseJson(raw.config, {
       maxPoints: 10,
-      cardsPerPlayer: 7,
+      cardsPerPlayer: 10,
       cardPacks: [],
       isPrivate: false,
       lobbyName: "",
@@ -216,7 +216,7 @@ interface LobbySettings {
 function parseSettings(raw: Record<string, any>): LobbySettings {
   return {
     maxPoints: raw.maxPoints ?? 10,
-    cardsPerPlayer: raw.cardsPerPlayer ?? 7,
+    cardsPerPlayer: raw.cardsPerPlayer ?? 10,
     cardPacks: safeParseJson(raw.cardPacks, []),
     isPrivate: raw.isPrivate ?? false,
     lobbyName: raw.lobbyName ?? "",
@@ -312,7 +312,7 @@ export function useLobbyReactive(lobbyDoc: LobbyDocResult) {
   const hands = useYMapReactive(lobbyDoc, lobbyDoc.getHands, parseHands);
   const chat = useYArrayReactive(lobbyDoc, lobbyDoc.getChat, parseChatMessage);
 
-  // ── Derived Computeds (mirror useGameContext interface) ────────────────
+  // ── Derived Computeds ─────────────────────────────────────────────────
 
   const userStore = useUserStore();
 
@@ -394,7 +394,7 @@ export function useLobbyReactive(lobbyDoc: LobbyDocResult) {
     players,
     chat,
 
-    // Derived computeds (compatible with useGameContext interface)
+    // Derived computeds
     myId,
     myHand,
     mySubmission,

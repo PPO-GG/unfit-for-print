@@ -7,7 +7,8 @@ import { useI18n } from "vue-i18n";
 
 /**
  * Handles converting a spectator into an active player mid-game.
- * Now delegates entirely to a server-side endpoint for proper validation.
+ * Delegates to the Y.Doc game engine which deals cards and updates state locally,
+ * syncing to all clients via Teleportal.
  */
 export function useSpectatorConversion(options: {
   isHost: ComputedRef<boolean>;
@@ -16,33 +17,20 @@ export function useSpectatorConversion(options: {
   state: ComputedRef<GameState | null>;
   getPlayerName: (playerId: string | null) => string;
 }) {
-  const { isHost, lobbyRef, getPlayerName } = options;
+  const { isHost, getPlayerName } = options;
   const { notify } = useNotifications();
   const { t } = useI18n();
 
+  // Y.Doc game engine — replaces the server API call
+  const lobbyDoc = useLobbyDoc();
+  const engine = useYjsGameEngine(lobbyDoc);
+
   const convertToPlayer = async (playerId: string) => {
     if (!isHost.value) return;
-    if (!lobbyRef.value || !lobbyRef.value.$id) {
-      console.error("Cannot convert player: Lobby ID is undefined");
-      notify({
-        title: t("game.error_player_dealt_in"),
-        description: t("game.lobby_id_missing"),
-        color: "error",
-        icon: "i-mdi-alert",
-      });
-      return;
-    }
 
-    try {
-      await $fetch("/api/game/convert-spectator", {
-        method: "POST",
-        body: {
-          lobbyId: lobbyRef.value.$id,
-          playerId,
-          userId: useUserStore().user?.$id,
-        },
-      });
+    const result = engine.convertToPlayer(playerId);
 
+    if (result.success) {
       notify({
         title: t("game.player_dealt_in"),
         description: t("game.player_dealt_in_description", {
@@ -51,10 +39,11 @@ export function useSpectatorConversion(options: {
         color: "success",
         icon: "i-mdi-account-plus",
       });
-    } catch (err) {
-      console.error("Failed to convert player to participant:", err);
+    } else {
+      console.error("Failed to convert player to participant:", result.reason);
       notify({
         title: t("game.error_player_dealt_in"),
+        description: result.reason,
         color: "error",
         icon: "i-mdi-alert",
       });

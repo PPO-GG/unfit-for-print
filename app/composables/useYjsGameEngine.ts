@@ -294,28 +294,48 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       const newJudgeId = order[nextJudgeIdx]!;
       gs.set("judgeId", newJudgeId);
 
-      // Draw new black card
+      // Draw new black card (respecting maxPick setting)
       let blackDeck = [...cards.blackDeck];
       let discardBlack = [...cards.discardBlack];
+      const maxPick = safeParseJson<number>(
+        lobbyDoc.getSettings().get("maxPick"),
+        3,
+      );
 
-      // If deck is empty, reshuffle discard pile
-      if (blackDeck.length === 0) {
-        blackDeck = shuffle([...discardBlack]);
-        discardBlack = [];
-      }
-
-      const newBlackCardId = blackDeck.pop()!;
       // Look up the card text from the embedded cardTexts
       const cardTexts = safeParseJson<CardTexts>(
         getCards().get("cardTexts"),
         {},
       );
-      const cardEntry = cardTexts[newBlackCardId];
-      const newBlackCard = {
-        id: newBlackCardId,
-        text: cardEntry?.text ?? "Unknown card",
-        pick: cardEntry?.pick ?? 1,
-      };
+
+      // Find next eligible black card (pick <= maxPick)
+      let newBlackCardId: string | null = null;
+      let reshuffled = false;
+      while (!newBlackCardId) {
+        if (blackDeck.length === 0) {
+          if (reshuffled) break; // Avoid infinite loop
+          blackDeck = shuffle([...discardBlack]);
+          discardBlack = [];
+          reshuffled = true;
+          if (blackDeck.length === 0) break;
+        }
+        const candidateId = blackDeck.pop()!;
+        const candidateEntry = cardTexts[candidateId];
+        if ((candidateEntry?.pick ?? 1) <= maxPick) {
+          newBlackCardId = candidateId;
+        } else {
+          discardBlack.push(candidateId);
+        }
+      }
+
+      const cardEntry = newBlackCardId ? cardTexts[newBlackCardId] : null;
+      const newBlackCard = newBlackCardId
+        ? {
+            id: newBlackCardId,
+            text: cardEntry?.text ?? "Unknown card",
+            pick: cardEntry?.pick ?? 1,
+          }
+        : { id: "", text: "No eligible cards remain", pick: 1 };
       gs.set("blackCard", JSON.stringify(newBlackCard));
       c.set("blackDeck", JSON.stringify(blackDeck));
       c.set("discardBlack", JSON.stringify(discardBlack));
@@ -325,7 +345,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       let discardWhite = safeParseJson<CardId[]>(c.get("discardWhite"), []);
       const numCards = safeParseJson<number>(
         lobbyDoc.getSettings().get("cardsPerPlayer"),
-        7,
+        10,
       );
 
       for (const [playerId, rawHand] of handsMap.entries()) {
@@ -442,7 +462,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
 
   const convertToPlayer = (
     playerId: PlayerId,
-  ): { success: boolean; reason?: string } => {
+  ): { success: boolean; reason?: string; cardsDealt?: number } => {
     const ydoc = requireDoc();
     const rawPlayer = getPlayers().get(playerId);
     if (!rawPlayer) return { success: false, reason: "Player not found" };
@@ -452,12 +472,68 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     if (player.playerType !== "spectator")
       return { success: false, reason: "Not a spectator" };
 
+    const state = readGameState();
+    const cards = readCards();
+    const numCards = safeParseJson<number>(
+      lobbyDoc.getSettings().get("cardsPerPlayer"),
+      10,
+    );
+
+    // Check if there are enough cards in the deck
+    let whiteDeck = [...cards.whiteDeck];
+    let discardWhite = [...cards.discardWhite];
+
+    if (whiteDeck.length < numCards) {
+      // Reshuffle discard pile into deck
+      whiteDeck = shuffle([...whiteDeck, ...discardWhite]);
+      discardWhite = [];
+    }
+
+    if (whiteDeck.length < numCards) {
+      return {
+        success: false,
+        reason: "Not enough cards in deck to deal a hand",
+      };
+    }
+
+    // Deal cards from the deck
+    const newHand = whiteDeck.splice(0, numCards);
+
     ydoc.transact(() => {
+      const gs = getGameState();
+      const c = getCards();
+      const handsMap = getHands();
+
+      // Flip player type
       player.playerType = "player";
       getPlayers().set(playerId, JSON.stringify(player));
+
+      // Deal hand
+      handsMap.set(playerId, JSON.stringify(newHand));
+
+      // Update deck
+      c.set("whiteDeck", JSON.stringify(whiteDeck));
+      c.set("discardWhite", JSON.stringify(discardWhite));
+
+      // Initialize score to 0 if not present
+      const scores = safeParseJson<Record<string, number>>(
+        gs.get("scores"),
+        {},
+      );
+      if (scores[playerId] === undefined) {
+        scores[playerId] = 0;
+        gs.set("scores", JSON.stringify(scores));
+      }
+
+      // Add to playerOrder if not already present
+      const order = safeParseJson<string[]>(gs.get("playerOrder"), []);
+      if (!order.includes(playerId)) {
+        order.push(playerId);
+        gs.set("playerOrder", JSON.stringify(order));
+      }
     });
 
-    return { success: true };
+    return { success: true, cardsDealt: numCards };
   };
 
   // ── Reset Game ─────────────────────────────────────────────────────────
@@ -591,19 +667,38 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         const newJudgeId = handPlayerIds[0] || remainingPlayerIds[0] || "";
         gs.set("judgeId", newJudgeId);
 
-        // Draw new black card
+        // Draw new black card (respecting maxPick setting)
         let blackDeck = [...cards.blackDeck];
-        if (blackDeck.length === 0) {
-          blackDeck = shuffle([...discardBlack]);
-          discardBlack.length = 0;
+        const maxPick = safeParseJson<number>(
+          lobbyDoc.getSettings().get("maxPick"),
+          3,
+        );
+        const cardTexts = safeParseJson<Record<string, any>>(
+          c.get("cardTexts"),
+          {},
+        );
+
+        // Find next eligible black card (pick <= maxPick)
+        let nextBlackId: string | null = null;
+        let reshuffled = false;
+        while (!nextBlackId) {
+          if (blackDeck.length === 0) {
+            if (reshuffled) break;
+            blackDeck = shuffle([...discardBlack]);
+            discardBlack.length = 0;
+            reshuffled = true;
+            if (blackDeck.length === 0) break;
+          }
+          const candidateId = blackDeck.pop()!;
+          const candidateEntry = cardTexts[candidateId];
+          if ((candidateEntry?.pick ?? 1) <= maxPick) {
+            nextBlackId = candidateId;
+          } else {
+            discardBlack.push(candidateId);
+          }
         }
 
-        if (blackDeck.length > 0) {
-          const nextBlackId = blackDeck.pop()!;
-          const cardTexts = safeParseJson<Record<string, any>>(
-            c.get("cardTexts"),
-            {},
-          );
+        if (nextBlackId) {
           const entry = cardTexts[nextBlackId];
           gs.set(
             "blackCard",
@@ -624,7 +719,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         // Refill hands for players who submitted
         const numCards = safeParseJson<number>(
           lobbyDoc.getSettings().get("cardsPerPlayer"),
-          7,
+          10,
         );
         let whiteDeck = safeParseJson<CardId[]>(c.get("whiteDeck"), []);
         let discardW = safeParseJson<CardId[]>(c.get("discardWhite"), []);

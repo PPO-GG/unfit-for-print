@@ -24,6 +24,7 @@ export interface LobbyInitPayload {
   settings: {
     maxPoints: number;
     cardsPerPlayer: number;
+    maxPick: number;
     cardPacks: string[];
     isPrivate: boolean;
     lobbyName: string;
@@ -93,6 +94,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       const settings = getSettings();
       settings.set("maxPoints", payload.settings.maxPoints);
       settings.set("cardsPerPlayer", payload.settings.cardsPerPlayer);
+      settings.set("maxPick", payload.settings.maxPick ?? 3);
       settings.set("cardPacks", JSON.stringify(payload.settings.cardPacks));
       settings.set("isPrivate", payload.settings.isPrivate);
       settings.set("lobbyName", payload.settings.lobbyName);
@@ -209,6 +211,8 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
         settings.set("maxPoints", updates.maxPoints);
       if (updates.cardsPerPlayer !== undefined)
         settings.set("cardsPerPlayer", updates.cardsPerPlayer);
+      if (updates.maxPick !== undefined)
+        settings.set("maxPick", updates.maxPick);
       if (updates.cardPacks !== undefined)
         settings.set("cardPacks", JSON.stringify(updates.cardPacks));
       if (updates.isPrivate !== undefined)

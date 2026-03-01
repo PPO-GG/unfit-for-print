@@ -53,6 +53,7 @@ const {
   lobbyDoc,
   reactive,
   engine,
+  mutations,
 } = useLobby();
 const { getGameSettings, createDefaultGameSettings } = useGameSettings();
 const { initSessionIfNeeded } = useJoinLobby();
@@ -97,6 +98,35 @@ watch(
       hostUserId: meta.hostUserId,
       status: meta.status,
     };
+  },
+);
+
+// ─── Sync Y.Doc status → Appwrite (host only) ──────────────────────────────
+// When the Y.Doc meta.status changes (game complete, reset to waiting), the
+// host writes the new value back to the Appwrite lobby document so that
+// discovery queries (getActiveLobbyForUser, browse games) stay accurate.
+watch(
+  () => reactive.meta.value?.status,
+  async (newStatus, oldStatus) => {
+    if (!newStatus || newStatus === oldStatus) return;
+    if (!isHost.value || !lobby.value?.$id) return;
+
+    // Only sync actionable transitions — "playing" is handled by start.post.ts
+    if (newStatus === "complete" || newStatus === "waiting") {
+      try {
+        const { tables } = getAppwrite();
+        await tables.updateRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteLobbyCollectionId,
+          rowId: lobby.value.$id,
+          data: { status: newStatus },
+        });
+      } catch (err) {
+        // Non-critical — the Y.Doc is the authority.
+        // If this fails, the Appwrite doc is stale but gameplay is unaffected.
+        console.warn("[GamePage] Failed to sync status to Appwrite:", err);
+      }
+    }
   },
 );
 
@@ -519,6 +549,18 @@ const handleLeave = async () => {
 
 const handleSettingsUpdate = (newSettings: GameSettingsType) => {
   gameSettings.value = newSettings;
+
+  // Sync the updated Appwrite settings into the Y.Doc so all clients
+  // and downstream consumers (nextRound, reshufflePlayerCards) use
+  // the correct values for cardsPerPlayer, cardPacks, maxPoints, etc.
+  mutations.updateSettings({
+    maxPoints: newSettings.maxPoints,
+    cardsPerPlayer: newSettings.numPlayerCards,
+    maxPick: newSettings.maxPick,
+    cardPacks: newSettings.cardPacks,
+    isPrivate: newSettings.isPrivate,
+    lobbyName: newSettings.lobbyName,
+  });
 };
 
 const ensureGameSettings = async () => {
@@ -671,7 +713,7 @@ function handleSkipJudge() {
       <Transition name="sidebar-toggle">
         <div
           v-if="!showDesktopSidebar && isPlaying"
-          class="hidden xl:flex fixed left-4 top-4 z-50 sidebar-toggle-btn"
+          class="hidden xl:flex fixed left-4 top-4 z-[75] sidebar-toggle-btn"
         >
           <UButton
             icon="i-solar-sidebar-minimalistic-bold-duotone"
@@ -688,7 +730,7 @@ function handleSkipJudge() {
       <Transition name="sidebar-backdrop">
         <div
           v-if="showDesktopSidebar && isPlaying"
-          class="hidden xl:block fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px]"
+          class="hidden xl:block fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px]"
           @click="showDesktopSidebar = false"
         />
       </Transition>
@@ -840,7 +882,7 @@ function handleSkipJudge() {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 40;
+  z-index: 70;
   height: 100vh;
   width: 21.25rem;
   max-width: 90vw;

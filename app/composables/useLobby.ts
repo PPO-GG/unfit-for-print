@@ -143,8 +143,6 @@ export const useLobby = () => {
         hostUserId,
         code: lobbyCode,
         status: "waiting",
-        round: 0,
-        gameState: "{}",
       };
 
       const permissions = [
@@ -180,7 +178,8 @@ export const useLobby = () => {
         hostAvatar: avatarUrl || "",
         settings: {
           maxPoints: 10,
-          cardsPerPlayer: 7,
+          cardsPerPlayer: 10,
+          maxPick: 3,
           cardPacks: ["CAH Base Set"],
           isPrivate: isPrivate || false,
           lobbyName: displayName,
@@ -511,6 +510,7 @@ export const useLobby = () => {
       config: {
         maxPoints: number;
         cardsPerPlayer: number;
+        maxPick: number;
         cardPacks: string[];
         isPrivate: boolean;
         lobbyName: string;
@@ -536,6 +536,18 @@ export const useLobby = () => {
     if (!result || !result.success) {
       throw new Error(result?.error || "Failed to start game");
     }
+
+    // Sync the server-returned config into the Y.Doc settings so all
+    // downstream consumers (nextRound, reshufflePlayerCards) use the
+    // actual game configuration rather than the initial defaults.
+    mutations.updateSettings({
+      maxPoints: result.config.maxPoints,
+      cardsPerPlayer: result.config.cardsPerPlayer,
+      maxPick: result.config.maxPick,
+      cardPacks: result.config.cardPacks,
+      isPrivate: result.config.isPrivate,
+      lobbyName: result.config.lobbyName,
+    });
 
     // Write the game state into Y.Doc — all clients see this instantly
     mutations.startGame({
@@ -644,7 +656,17 @@ export const useLobby = () => {
         ];
       }
 
-      // Redistribute 7 cards to each non-judge player
+      // Read the configured hand size from Y.Doc settings
+      const settingsMap = lobbyDoc.getSettings();
+      let numCards = 10;
+      try {
+        const raw = settingsMap.get("cardsPerPlayer");
+        if (raw !== undefined && raw !== null) numCards = Number(raw) || 10;
+      } catch {
+        /* use default */
+      }
+
+      // Redistribute cards to each non-judge player
       let cardIndex = 0;
       for (const pid of playerIds) {
         if (pid === judgeId) {
@@ -652,7 +674,7 @@ export const useLobby = () => {
           continue;
         }
         const newHand: string[] = [];
-        for (let i = 0; i < 7 && cardIndex < shuffledCards.length; i++) {
+        for (let i = 0; i < numCards && cardIndex < shuffledCards.length; i++) {
           newHand.push(shuffledCards[cardIndex]!);
           cardIndex++;
         }
@@ -686,8 +708,8 @@ export const useLobby = () => {
             if (pid === judgeId) continue;
             try {
               const hand: string[] = JSON.parse(handsMap.get(pid) || "[]");
-              if (hand.length < 7) {
-                const needed = 7 - hand.length;
+              if (hand.length < numCards) {
+                const needed = numCards - hand.length;
                 const extras = whiteDeck.splice(0, needed);
                 hand.push(...extras);
                 handsMap.set(pid, JSON.stringify(hand));

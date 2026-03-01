@@ -4,6 +4,7 @@ export interface GameSettings extends Models.Row {
   // Game configuration
   maxPoints: number; // Maximum points to win the game
   numPlayerCards: number; // Number of cards each player holds
+  maxPick: number; // Maximum pick value for black cards (1–3)
   cardPacks: string[]; // Array of card pack IDs to use
   isPrivate: boolean; // Whether the lobby is private
 

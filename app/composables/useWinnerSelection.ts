@@ -2,7 +2,6 @@ import { ref, computed, watch } from "vue";
 import type { ComputedRef, Ref } from "vue";
 import type { Lobby } from "~/types/lobby";
 import type { GameState } from "~/types/game";
-import { useGameActions } from "~/composables/useGameActions";
 import { useSfx } from "~/composables/useSfx";
 import { SFX } from "~/config/sfx.config";
 
@@ -13,8 +12,11 @@ export function useWinnerSelection(options: {
   winningCards: ComputedRef<string[]>;
 }) {
   const { state, lobbyRef, roundWinner, winningCards } = options;
-  const { selectWinner } = useGameActions();
   const { playSfx } = useSfx();
+
+  // Y.Doc game engine — replaces the server API call
+  const lobbyDoc = useLobbyDoc();
+  const engine = useYjsGameEngine(lobbyDoc);
 
   // Local reactive state for optimistic UI updates before real-time arrives
   const localRoundWinner = ref<string | null>("");
@@ -38,7 +40,7 @@ export function useWinnerSelection(options: {
     return [];
   });
 
-  // Reset local round winner when the server confirms via real-time
+  // Reset local round winner when the Y.Doc confirms via real-time
   watch(roundWinner, (newWinner) => {
     if (newWinner) {
       localRoundWinner.value = "";
@@ -47,7 +49,7 @@ export function useWinnerSelection(options: {
 
   /**
    * Handles winner selection by the judge.
-   * Sets optimistic local state, then calls the API.
+   * Sets optimistic local state, then mutates the Y.Doc directly.
    */
   function handleWinnerSelect(playerId: string) {
     localRoundWinner.value = playerId;
@@ -60,17 +62,11 @@ export function useWinnerSelection(options: {
       localWinningCards.value = state.value.submissions[playerId];
     }
 
-    if (lobbyRef.value?.$id) {
-      selectWinner(lobbyRef.value.$id, playerId)
-        .then((result) => {
-          if (result?.winningCards?.length) {
-            localWinningCards.value = result.winningCards;
-          }
-          playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
-        })
-        .catch((err) => {
-          console.error("Failed to select winner:", err);
-        });
+    const result = engine.selectWinner(playerId);
+    if (result.success) {
+      playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
+    } else {
+      console.error("Failed to select winner:", result.reason);
     }
   }
 

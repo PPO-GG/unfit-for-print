@@ -109,6 +109,12 @@
 
     <!-- Main content area - full width if sidebar is moved -->
     <div :class="{ 'flex-1': !sidebarMoved, 'w-full': sidebarMoved }">
+      <WaitingHero
+        v-if="sidebarMoved"
+        :lobby-code="lobby.code"
+        :players="players"
+        :is-host="isHost"
+      />
       <GameSettings
         v-if="gameSettings && !sidebarMoved"
         :host-user-id="lobby.hostUserId"
@@ -158,7 +164,7 @@ watch(
 
 const router = useRouter();
 const userStore = useUserStore();
-const { startGame, leaveLobby } = useLobby();
+const { startGame, leaveLobby, mutations } = useLobby();
 const { getGameSettings, createDefaultGameSettings } = useGameSettings();
 const myId = userStore.user?.$id ?? "";
 const isHost = computed(() => props.lobby?.hostUserId === userStore.user?.$id);
@@ -242,6 +248,15 @@ onMounted(async () => {
 });
 const handleSettingsUpdate = (newSettings: GameSettings) => {
   gameSettings.value = newSettings;
+
+  // Sync into Y.Doc so all clients see the updated config
+  mutations.updateSettings({
+    maxPoints: newSettings.maxPoints,
+    cardsPerPlayer: newSettings.numPlayerCards,
+    cardPacks: newSettings.cardPacks,
+    isPrivate: newSettings.isPrivate,
+    lobbyName: newSettings.lobbyName,
+  });
 };
 
 const startGameWrapper = async () => {

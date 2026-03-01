@@ -100,7 +100,7 @@ export function useAutoReturn(options: {
 
   // Watch for game completion to start/stop auto-return
   watch(isComplete, (newIsComplete) => {
-    if (newIsComplete && lobbyRef.value?.status === "complete") {
+    if (newIsComplete) {
       startAutoReturnCheck();
     } else if (autoReturnCheckInterval.value) {
       clearInterval(autoReturnCheckInterval.value);
