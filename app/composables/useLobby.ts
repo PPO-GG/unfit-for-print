@@ -1,50 +1,45 @@
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { ID, type Models, Permission, Query, Role } from "appwrite";
 import { useUserStore } from "~/stores/userStore";
-import { useGameState } from "~/composables/useGameState";
-import { useGameActions } from "~/composables/useGameActions";
 import { isAnonymousUser } from "~/composables/useUserUtils";
 import { usePlayers } from "~/composables/usePlayers";
 import { getAppwrite } from "~/utils/appwrite";
-import { useGameSettings } from "~/composables/useGameSettings";
 import { getRandomHexString } from "~/composables/useCrypto";
+import { useLobbyDoc } from "~/composables/useLobbyDoc";
+import { useLobbyMutations } from "~/composables/useLobbyMutations";
+import { useLobbyReactive } from "~/composables/useLobbyReactive";
+import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
-import type { GameState } from "~/types/game";
-import type { GameSettings } from "~/types/gamesettings";
 
 export const useLobby = () => {
-  const players = ref<Player[]>([]);
-  const { getUserAvatarUrl, getPlayersForLobby } = usePlayers();
+  const { getUserAvatarUrl } = usePlayers();
   const getConfig = () => useRuntimeConfig();
   const userStore = useUserStore();
-  const { encodeGameState, decodeGameState } = useGameState();
 
-  const fetchPlayers = async (lobbyId: string) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-    const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
-    players.value = res.rows.map((doc: Record<string, any>) => ({
-      $id: doc.$id,
-      userId: doc.userId,
-      lobbyId: doc.lobbyId,
-      name: doc.name,
-      avatar: doc.avatar,
-      isHost: doc.isHost,
-      joinedAt: doc.joinedAt,
-      provider: doc.provider,
-      playerType: doc.playerType,
-    }));
-  };
+  // ── Y.Doc Infrastructure ──────────────────────────────────────────────
+  // Singleton lobby doc + derived composables.
+  const lobbyDoc = useLobbyDoc();
+  const mutations = useLobbyMutations(lobbyDoc);
+  const reactive = useLobbyReactive(lobbyDoc);
+  const engine = useYjsGameEngine(lobbyDoc);
+
+  // Compatibility shim: `players` ref that mirrors the Y.Doc reactive player list.
+  // Consumers that read `useLobby().players` continue to work without changes.
+  const players = computed<Player[]>(() => reactive.playerList.value);
+
+  // ── Appwrite Registry (discovery only) ────────────────────────────────
 
   const getLobbyByCode = async (code: string): Promise<Lobby | null> => {
-    const { databases, tables } = getAppwrite();
+    const { tables } = getAppwrite();
     const config = getConfig();
     try {
-      const result = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, queries: [Query.equal("code", code), Query.limit(1)] });
-      return result.rows[0]
-        ? (result.rows[0] as unknown as Lobby)
-        : null;
+      const result = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwriteLobbyCollectionId,
+        queries: [Query.equal("code", code), Query.limit(1)],
+      });
+      return result.rows[0] ? (result.rows[0] as unknown as Lobby) : null;
     } catch (error: unknown) {
       if (
         error instanceof Error &&
@@ -61,210 +56,44 @@ export const useLobby = () => {
     }
   };
 
-  const createLobby = async (
-    hostUserId: string,
-    lobbyName?: string,
-    isPrivate?: boolean,
-    password?: string,
-  ) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-
-    // Check if the user already has an active lobby
-    const existingLobby = await getActiveLobbyForUser(hostUserId);
-    if (existingLobby) {
-      throw new Error(
-        "You already have an active lobby. Please finish or leave that lobby before creating a new one.",
-      );
-    }
-
-    // Generate a cryptographically secure random lobby code
-    const randomValue = getRandomHexString(4);
-    const lobbyCode = randomValue.substring(0, 6).toUpperCase();
-
-    try {
-      // First, verify if collections exist by doing a test query
-      try {
-        await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, queries: [Query.limit(1)] });
-      } catch (error: unknown) {
-        if (error instanceof Error && "code" in error && error.code === 404) {
-          console.error(
-            "Lobby collection not found:",
-            config.public.appwriteLobbyCollectionId,
-          );
-          throw new Error(
-            "Unable to create lobby: Database not properly configured",
-          );
-        }
-        throw error;
-      }
-
-      const lobbyData = {
-        hostUserId,
-        code: lobbyCode,
-        status: "waiting",
-        round: 0,
-        gameState: encodeGameState({
-          phase: "waiting",
-          round: 0,
-          scores: {},
-          hands: {},
-          submissions: {},
-          whiteDeck: [],
-          blackDeck: [],
-          discardWhite: [],
-          discardBlack: [],
-          blackCard: null,
-          judgeId: null,
-          roundWinner: null,
-          roundEndStartTime: null,
-          returnedToLobby: {},
-          gameEndTime: null,
-        }),
-      };
-
-      const permissions = [
-        Permission.read(Role.any()),
-        Permission.update(Role.user(hostUserId)),
-        Permission.delete(Role.user(hostUserId)),
-      ];
-
-      const lobby = await tables.createRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: ID.unique(), data: lobbyData, permissions: permissions });
-
-      // Create default game settings for the lobby
-      try {
-        const { createDefaultGameSettings } = useGameSettings();
-        const displayName =
-          lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
-        await createDefaultGameSettings(lobby.$id, displayName, hostUserId, {
-          isPrivate: isPrivate || false,
-          password: password,
-        });
-      } catch (error: unknown) {
-        // Clean up the created lobby if we can't create game settings
-        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobby.$id });
-        console.error("Failed to create game settings:", error);
-        throw new Error(
-          "Unable to create lobby: Failed to create game settings",
-        );
-      }
-
-      // Also verify players collection before joining
-      try {
-        await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.limit(1)] });
-      } catch (error: unknown) {
-        if (error instanceof Error && "code" in error && error.code === 404) {
-          // Clean up the created lobby since we can't create players
-          await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobby.$id });
-          console.error(
-            "Players collection not found:",
-            config.public.appwritePlayerCollectionId,
-          );
-          throw new Error(
-            "Unable to create lobby: Database not properly configured",
-          );
-        }
-        throw error;
-      }
-
-      await joinLobby(lobby.code, {
-        username: userStore.user?.name ?? "Anonymous",
-        isHost: true,
-      });
-
-      return { ...lobby };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        // Enhance error message to include collection IDs for debugging
-        const message =
-          error.message ===
-          "Unable to create lobby: Database not properly configured"
-            ? `Database configuration error. Please verify collections exist: Lobby (${config.public.appwriteLobbyCollectionId}) and Players (${config.public.appwritePlayerCollectionId})`
-            : error.message;
-        throw new Error(message);
-      }
-      throw error;
-    }
-  };
-
-  const isInLobby = async (userId: string, lobbyId: string) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-    const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [
-                Query.equal("userId", userId),
-                Query.equal("lobbyId", lobbyId),
-                Query.limit(1),
-              ] });
-    return res.total > 0;
-  };
-
-  const joinLobby = async (
-    code: string,
-    options?: { username?: string; isHost?: boolean; skipSession?: boolean },
-  ) => {
-    const { databases, tables, account } = getAppwrite();
-    const config = getConfig();
-    if (!userStore.session && !options?.skipSession) {
-      await account.createAnonymousSession();
-    }
-
-    // Fetch the session first so we know the provider
-    const session = await account.getSession("current");
-
-    // Now enrich the store with Discord/Google prefs (avatar hash, discordUserId, etc.)
-    await userStore.fetchUserSession();
-
-    // Use the ENRICHED user from the store — not the pre-enrichment account.get() result
-    const enrichedUser = userStore.user;
-    if (!enrichedUser) throw new Error("User session could not be loaded");
-
-    // Also fetch the raw Appwrite user for API calls that need Models.User shape
-    const rawUser = await account.get();
-    // Copy enriched prefs onto rawUser so getUserAvatarUrl sees avatar + discordUserId
-    rawUser.prefs = { ...rawUser.prefs, ...enrichedUser.prefs };
-
-    const username =
-      options?.username ??
-      enrichedUser.name ??
-      rawUser.prefs?.name ??
-      "Unknown";
-    const lobby = await getLobbyByCode(code);
-    if (!lobby) throw new Error("Lobby not found");
-
-    await account.updatePrefs({ name: username });
-    await createPlayerIfNeeded(
-      rawUser,
-      session,
-      lobby.$id,
-      username,
-      !!options?.isHost,
-    );
-
-    if (session.provider !== "anonymous") {
-      const state = decodeGameState(lobby.gameState);
-      state.players ??= {};
-      state.players[rawUser.$id] = username;
-      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobby.$id, data: {
-                    gameState: encodeGameState(state),
-                  } });
-    }
-
-    return { ...lobby };
-  };
-
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
-    const { databases, tables } = getAppwrite();
+    const { tables } = getAppwrite();
     const config = getConfig();
 
     try {
-      const playerRes = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.equal("userId", userId), Query.limit(1)] });
+      const playerRes = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwritePlayerCollectionId,
+        queries: [Query.equal("userId", userId), Query.limit(1)],
+      });
 
       if (playerRes.total === 0) return null;
 
-      const playerDoc = playerRes.rows[0];
-      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: playerDoc.lobbyId });
+      const playerDoc = playerRes.rows[0]!;
+
+      let lobby;
+      try {
+        lobby = await tables.getRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteLobbyCollectionId,
+          rowId: playerDoc.lobbyId,
+        });
+      } catch (lookupErr: any) {
+        // Stale player doc pointing to a deleted lobby — clean slate
+        if (
+          lookupErr?.code === 404 ||
+          lookupErr?.message?.includes("could not be found")
+        ) {
+          console.warn(
+            "[useLobby] Stale player doc references missing lobby:",
+            playerDoc.lobbyId,
+          );
+          return null;
+        }
+        throw lookupErr;
+      }
 
       if (lobby.status === "complete") return null;
       return lobby as unknown as Lobby;
@@ -284,489 +113,635 @@ export const useLobby = () => {
     }
   };
 
-  const createPlayerIfNeeded = async (
-    user: Models.User<Models.Preferences>,
-    session: Models.Session,
-    lobbyId: string,
-    username: string,
-    isHost: boolean,
+  // ── Create Lobby ──────────────────────────────────────────────────────
+  // Creates a minimal Appwrite registry doc, then initializes the Y.Doc.
+
+  const createLobby = async (
+    hostUserId: string,
+    lobbyName?: string,
+    isPrivate?: boolean,
+    _password?: string,
   ) => {
-    const { databases, tables } = getAppwrite();
+    const { tables } = getAppwrite();
     const config = getConfig();
-    const avatarUrl = getUserAvatarUrl(user, session.provider);
 
-    // Check if player already exists
-    const existing = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [
-                Query.equal("userId", user.$id),
-                Query.equal("lobbyId", lobbyId),
-                Query.limit(1),
-              ] });
+    // Check if the user already has an active lobby
+    const existingLobby = await getActiveLobbyForUser(hostUserId);
+    if (existingLobby) {
+      throw new Error(
+        "You already have an active lobby. Please finish or leave that lobby before creating a new one.",
+      );
+    }
 
-    // If player exists, update their avatar if needed
-    if (existing.total > 0) {
-      const existingPlayer = existing.rows[0];
-      if (avatarUrl && existingPlayer.avatar !== avatarUrl) {
-        await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: existingPlayer.$id, data: {
-                        avatar: avatarUrl,
-                      } });
+    // Generate a cryptographically secure random lobby code
+    const randomValue = getRandomHexString(4);
+    const lobbyCode = randomValue.substring(0, 6).toUpperCase();
+
+    try {
+      // Create minimal Appwrite registry doc (discovery only)
+      const lobbyData = {
+        hostUserId,
+        code: lobbyCode,
+        status: "waiting",
+        round: 0,
+        gameState: "{}",
+      };
+
+      const permissions = [
+        Permission.read(Role.any()),
+        Permission.update(Role.user(hostUserId)),
+        Permission.delete(Role.user(hostUserId)),
+      ];
+
+      const lobby = await tables.createRow({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwriteLobbyCollectionId,
+        rowId: ID.unique(),
+        data: lobbyData,
+        permissions,
+      });
+
+      // Connect to Teleportal Y.Doc and initialize the full structure
+      await lobbyDoc.connect(lobbyCode);
+
+      const displayName =
+        lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
+
+      const user = userStore.user;
+      const session = userStore.session;
+      const avatarUrl = user
+        ? getUserAvatarUrl(user as any, session?.provider)
+        : null;
+
+      mutations.initializeLobby({
+        code: lobbyCode,
+        hostUserId,
+        hostName: user?.name ?? "Anonymous",
+        hostAvatar: avatarUrl || "",
+        settings: {
+          maxPoints: 10,
+          cardsPerPlayer: 7,
+          cardPacks: ["CAH Base Set"],
+          isPrivate: isPrivate || false,
+          lobbyName: displayName,
+          roundEndCountdownDuration: 5,
+        },
+      });
+
+      // Compatibility shim: create Appwrite player doc so server-side
+      // APIs (requirePlayerInLobby, requireHost) can find the host.
+      try {
+        await tables.createRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwritePlayerCollectionId,
+          rowId: ID.unique(),
+          data: {
+            userId: hostUserId,
+            lobbyId: lobby.$id,
+            name: user?.name ?? "Anonymous",
+            avatar: avatarUrl || "",
+            isHost: true,
+            joinedAt: new Date().toISOString(),
+            provider: userStore.session?.provider || "anonymous",
+            playerType: "player",
+          },
+          permissions: [
+            Permission.read(Role.any()),
+            Permission.update(Role.user(hostUserId)),
+            Permission.delete(Role.user(hostUserId)),
+          ],
+        });
+      } catch (err) {
+        console.warn("[useLobby] Failed to create Appwrite player shim:", err);
       }
-      return;
+
+      return { ...lobby };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        const message =
+          error.message ===
+          "Unable to create lobby: Database not properly configured"
+            ? `Database configuration error. Please verify collections exist: Lobby (${config.public.appwriteLobbyCollectionId})`
+            : error.message;
+        throw new Error(message);
+      }
+      throw error;
     }
-
-    // Check game state to determine if player should be a spectator
-    const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
-
-    // Determine player type based on game state
-    let playerType = "player";
-    if (lobby.status === "playing") {
-      // If game is in progress, new players join as spectators
-      playerType = "spectator";
-    }
-
-    const permissions = isAnonymousUser(user)
-      ? ['read("any")', 'update("any")', 'delete("any")']
-      : [
-          `read("any")`,
-          `update("user:${user.$id}")`,
-          `delete("user:${user.$id}")`,
-        ];
-
-    const newPlayer = await tables.createRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: ID.unique(), data: {
-                userId: user.$id,
-                lobbyId,
-                name: username,
-                avatar: avatarUrl || (user.prefs as Record<string, any>)?.avatar || "",
-                isHost,
-                joinedAt: new Date().toISOString(),
-                provider: session.provider,
-                playerType, // Set the player type
-              }, permissions: permissions });
   };
 
-  const leaveLobby = async (lobbyId: string, userId: string) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-    const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
+  // ── Join Lobby ────────────────────────────────────────────────────────
+  // Looks up the Appwrite registry, connects to the existing Y.Doc,
+  // and adds the player via Y.Doc mutations.
 
-    // Delegate game state cleanup to server BEFORE deleting the player doc,
-    // so the verifyPlayerInLobby check passes on the server side.
-    if (lobby.status === "playing") {
+  const joinLobby = async (
+    code: string,
+    options?: { username?: string; isHost?: boolean; skipSession?: boolean },
+  ) => {
+    const { account } = getAppwrite();
+    if (!userStore.session && !options?.skipSession) {
+      await account.createAnonymousSession();
+    }
+
+    // Fetch the session to know the provider
+    const session = await account.getSession("current");
+
+    // Enrich the store with OAuth prefs (avatar hash, discordUserId, etc.)
+    await userStore.fetchUserSession();
+
+    const enrichedUser = userStore.user;
+    if (!enrichedUser) throw new Error("User session could not be loaded");
+
+    // Also fetch raw Appwrite user for avatar resolution
+    const rawUser = await account.get();
+    rawUser.prefs = { ...rawUser.prefs, ...enrichedUser.prefs };
+
+    const username =
+      options?.username ??
+      enrichedUser.name ??
+      rawUser.prefs?.name ??
+      "Unknown";
+
+    const lobby = await getLobbyByCode(code);
+    if (!lobby) throw new Error("Lobby not found");
+
+    await account.updatePrefs({ name: username });
+
+    // Connect to the existing Y.Doc (if not already connected for this code)
+    if (lobbyDoc.lobbyCode.value !== code) {
+      await lobbyDoc.connect(code);
+    }
+
+    // Determine player type: spectators if game is in progress
+    const meta = lobbyDoc.getMeta();
+    const status = meta.get("status") || "waiting";
+    const playerType = status === "playing" ? "spectator" : "player";
+
+    // Check if player is already in the Y.Doc
+    const existingPlayer = lobbyDoc.getPlayers().get(rawUser.$id);
+    if (!existingPlayer) {
+      const avatarUrl = getUserAvatarUrl(rawUser as any, session.provider);
+
+      mutations.addPlayer({
+        userId: rawUser.$id,
+        name: username,
+        avatar:
+          avatarUrl || (rawUser.prefs as Record<string, any>)?.avatar || "",
+        isHost: !!options?.isHost,
+        joinedAt: new Date().toISOString(),
+        provider: session.provider,
+        playerType,
+      });
+
+      // Compatibility shim: create Appwrite player doc so server-side
+      // APIs (requirePlayerInLobby) can find this player.
+      const { tables } = getAppwrite();
+      const config = getConfig();
       try {
-        await $fetch("/api/game/player-leave", {
-          method: "POST",
-          body: { lobbyId, leavingUserId: userId, userId },
+        await tables.createRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwritePlayerCollectionId,
+          rowId: ID.unique(),
+          data: {
+            userId: rawUser.$id,
+            lobbyId: lobby.$id,
+            name: username,
+            avatar:
+              avatarUrl || (rawUser.prefs as Record<string, any>)?.avatar || "",
+            isHost: !!options?.isHost,
+            joinedAt: new Date().toISOString(),
+            provider: session.provider,
+            playerType,
+          },
+          permissions: [
+            Permission.read(Role.any()),
+            Permission.update(Role.user(rawUser.$id)),
+            Permission.delete(Role.user(rawUser.$id)),
+          ],
         });
+      } catch (err) {
+        console.warn("[useLobby] Failed to create Appwrite player shim:", err);
+      }
+    }
+
+    return { ...lobby };
+  };
+
+  // ── Is In Lobby ───────────────────────────────────────────────────────
+  // Checks Y.Doc players map first, falls back to Appwrite for pre-connect state.
+
+  const isInLobby = async (userId: string, lobbyId: string) => {
+    // If Y.Doc is connected, check the players map directly
+    if (lobbyDoc.doc.value) {
+      try {
+        return !!lobbyDoc.getPlayers().get(userId);
+      } catch {
+        // Y.Doc not ready — fall through to Appwrite
+      }
+    }
+
+    // Fallback: Appwrite query (for pre-connect state, e.g., page refresh)
+    const { tables } = getAppwrite();
+    const config = getConfig();
+    const res = await tables.listRows({
+      databaseId: config.public.appwriteDatabaseId,
+      tableId: config.public.appwritePlayerCollectionId,
+      queries: [
+        Query.equal("userId", userId),
+        Query.equal("lobbyId", lobbyId),
+        Query.limit(1),
+      ],
+    });
+    return res.total > 0;
+  };
+
+  // ── Leave Lobby ───────────────────────────────────────────────────────
+  // Removes player from Y.Doc, handles host promotion, disconnects if last human.
+
+  const leaveLobby = async (lobbyId: string, userId: string) => {
+    const { tables } = getAppwrite();
+    const config = getConfig();
+
+    // Get player name before removing (for system message)
+    const playerJson = lobbyDoc.doc.value
+      ? lobbyDoc.getPlayers().get(userId)
+      : null;
+    let playerName: string | undefined;
+    if (playerJson) {
+      try {
+        playerName = JSON.parse(playerJson).name;
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // If game is playing, handle player-leave game state via engine
+    const meta = lobbyDoc.doc.value ? lobbyDoc.getMeta() : null;
+    const status = meta?.get("status");
+    if (status === "playing") {
+      try {
+        engine.handlePlayerLeave(userId);
       } catch (err) {
         console.error("Failed to process player leave game state:", err);
       }
     }
 
-    // Delete the leaving player's document
-    const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [
-                Query.equal("userId", userId),
-                Query.equal("lobbyId", lobbyId),
-                Query.limit(1),
-              ] });
+    // Remove from Y.Doc
+    mutations.removePlayer(userId, playerName);
 
-    if (res.total > 0) {
-      await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: res.rows[0].$id });
+    // Check remaining human players
+    const playersMap = lobbyDoc.doc.value ? lobbyDoc.getPlayers() : null;
+    const remainingHumans: Array<{ id: string; data: any }> = [];
+    if (playersMap) {
+      for (const [pid, raw] of playersMap.entries()) {
+        try {
+          const p = JSON.parse(raw);
+          if (p.playerType !== "bot" && p.playerType !== "spectator") {
+            remainingHumans.push({ id: pid, data: p });
+          }
+        } catch {
+          /* skip malformed */
+        }
+      }
     }
 
-    // Fetch all remaining players
-    await fetchPlayers(lobbyId);
-
-    // Check if any human players remain (not bots, not spectators)
-    const remainingHumans = players.value.filter(
-      (p) => p.playerType !== "bot" && p.playerType !== "spectator",
-    );
-
-    // If no human players remain, tear down the entire lobby
+    // If no human players remain, tear down
     if (remainingHumans.length === 0) {
-      // Delete all remaining player docs (bots, spectators)
-      for (const player of players.value) {
-        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: player.$id });
+      // Disconnect Y.Doc — Teleportal will GC the doc
+      lobbyDoc.disconnect();
+
+      // Clean up Appwrite registry
+      try {
+        await tables.deleteRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteLobbyCollectionId,
+          rowId: lobbyId,
+        });
+      } catch (err) {
+        console.warn("Failed to delete Appwrite lobby registry:", err);
       }
 
-      // Delete gamecards document associated with this lobby
-      const gamecards = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
-
-      for (const gamecard of gamecards.rows) {
-        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, rowId: gamecard.$id });
-      }
-
-      // Delete chat messages associated with this lobby
-      const chatMessages = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamechatCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
-
-      for (const message of chatMessages.rows) {
-        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamechatCollectionId, rowId: message.$id });
-      }
-
-      // Delete game settings associated with this lobby
-      const gameSettings = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGameSettingsCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
-
-      for (const setting of gameSettings.rows) {
-        await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGameSettingsCollectionId, rowId: setting.$id });
-      }
-
-      // Delete the lobby itself
-      await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
       return;
     }
 
-    // Humans remain — if the host left, promote a new one
-    if (lobby.hostUserId === userId) {
-      const newHost = remainingHumans[0];
-      if (newHost) {
-        await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
-                        hostUserId: newHost.userId,
-                      } });
-        await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: newHost.$id, data: {
-                        isHost: true,
-                      } });
-      }
+    // Host left — promote a new one via Y.Doc
+    const hostUserId = meta?.get("hostUserId");
+    if (hostUserId === userId && remainingHumans.length > 0) {
+      const newHost = remainingHumans[0]!;
+      lobbyDoc.doc.value?.transact(() => {
+        // Update meta
+        lobbyDoc.getMeta().set("hostUserId", newHost.id);
+
+        // Update player record
+        const updatedPlayer = { ...newHost.data, isHost: true };
+        lobbyDoc.getPlayers().set(newHost.id, JSON.stringify(updatedPlayer));
+
+        // Demote all other players
+        for (const other of remainingHumans.slice(1)) {
+          const otherData = { ...other.data, isHost: false };
+          lobbyDoc.getPlayers().set(other.id, JSON.stringify(otherData));
+        }
+      });
     }
+
+    // Always disconnect this client's WebSocket after mutations are sent.
+    // Small delay ensures the Y.Doc mutations are flushed to the server
+    // before we tear down the connection.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    lobbyDoc.disconnect();
   };
 
-  // Start Game function with settings
+  // ── Start Game ────────────────────────────────────────────────────────
+  // Fetches cards from server, then writes full game state into Y.Doc.
+
   const startGame = async (
     lobbyId: string,
-    gameSettings?: GameSettings | null,
+    gameSettings?: {
+      maxPoints?: number;
+      numPlayerCards?: number;
+      cardPacks?: string[];
+      isPrivate?: boolean;
+      lobbyName?: string;
+      $id?: string;
+    } | null,
   ) => {
-    // Validate we have enough players
-    await fetchPlayers(lobbyId);
-    const validPlayers = players.value.filter((p) => p.userId);
-    if (validPlayers.length < 3) throw new Error("Not enough players to start");
-
-    // Update all non-bot players to be participants (bots keep their 'bot' type)
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-
-    for (const player of players.value) {
-      if (player.playerType === "bot") continue; // Bots keep their type
-      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: player.$id, data: {
-                    playerType: "player",
-                  } });
-    }
-
-    // Fetch game settings if not provided
-    if (!gameSettings) {
-      const { getGameSettings } = useGameSettings();
-      gameSettings = await getGameSettings(lobbyId);
-    }
-
-    // Make sure we have a valid documentId
-    if (!gameSettings || !gameSettings.$id) {
-      throw new Error(
-        "Game settings not found. Please create game settings first.",
-      );
-    }
-
-    const { startGame: startGameFunction } = useGameActions();
-    try {
-      // Create a clean copy of the game settings to avoid issues with Proxy objects
-      // and ensure lobbyId is a string, not an object
-      const cleanSettings = {
-        ...gameSettings,
-        lobbyId:
-          typeof gameSettings.lobbyId === "object"
-            ? lobbyId
-            : gameSettings.lobbyId,
-      };
-
-      // Include game settings in the function call
-      const payload = {
-        lobbyId,
-        documentId: gameSettings.$id,
-        settings: cleanSettings,
-      };
-
-      const result = await startGameFunction(JSON.stringify(payload));
-
-      if (!result || !(result as any).success) {
-        throw new Error((result as any)?.error || "Failed to start game");
+    // Validate player count from Y.Doc
+    const playersMap = lobbyDoc.getPlayers();
+    const playerIds: string[] = [];
+    for (const [pid, raw] of playersMap.entries()) {
+      try {
+        const p = JSON.parse(raw);
+        if (p.playerType !== "spectator") {
+          playerIds.push(pid);
+        }
+      } catch {
+        /* skip */
       }
-
-      return result;
-    } catch (error) {
-      console.error("Error calling startGame server function:", error);
-      throw error;
     }
+
+    if (playerIds.length < 3) throw new Error("Not enough players to start");
+
+    // Convert spectators to players
+    lobbyDoc.doc.value?.transact(() => {
+      for (const [pid, raw] of playersMap.entries()) {
+        try {
+          const p = JSON.parse(raw);
+          if (p.playerType === "bot") continue;
+          if (p.playerType !== "player") {
+            p.playerType = "player";
+            playersMap.set(pid, JSON.stringify(p));
+          }
+        } catch {
+          /* skip */
+        }
+      }
+    });
+
+    // Call server to fetch and shuffle cards from Appwrite
+    // (card packs are permanent Appwrite data)
+    const result = await $fetch<{
+      success: boolean;
+      error?: string;
+      whiteDeck: string[];
+      blackDeck: string[];
+      blackCard: { id: string; text: string; pick: number };
+      hands: Record<string, string[]>;
+      cardTexts: Record<string, { text: string; pack: string }>;
+      playerOrder: string[];
+      judgeId: string;
+      config: {
+        maxPoints: number;
+        cardsPerPlayer: number;
+        cardPacks: string[];
+        isPrivate: boolean;
+        lobbyName: string;
+      };
+    }>("/api/game/start", {
+      method: "POST",
+      body: {
+        lobbyId,
+        documentId: gameSettings?.$id,
+        settings: gameSettings
+          ? {
+              ...gameSettings,
+              lobbyId:
+                typeof (gameSettings as any).lobbyId === "object"
+                  ? lobbyId
+                  : (gameSettings as any).lobbyId,
+            }
+          : undefined,
+        userId: userStore.user?.$id,
+      },
+    });
+
+    if (!result || !result.success) {
+      throw new Error(result?.error || "Failed to start game");
+    }
+
+    // Write the game state into Y.Doc — all clients see this instantly
+    mutations.startGame({
+      whiteDeck: result.whiteDeck,
+      blackDeck: result.blackDeck,
+      blackCard: result.blackCard,
+      hands: result.hands,
+      cardTexts: result.cardTexts,
+      playerOrder: result.playerOrder,
+      judgeId: result.judgeId,
+    });
+
+    return result;
   };
+
+  // ── Kick Player ───────────────────────────────────────────────────────
 
   const kickPlayer = async (playerId: string) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-    await tables.deleteRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: playerId });
-  };
-
-  const promoteToHost = async (lobbyId: string, newHostPlayer: Player) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-
-    await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
-                hostUserId: newHostPlayer.userId,
-              } });
-
-    await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, rowId: newHostPlayer.$id, data: {
-                isHost: true,
-              } });
-  };
-
-  const resetGameState = async (lobbyId: string) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-
-    try {
-      // Get the current lobby
-      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
-
-      // Decode the current game state
-      const state = decodeGameState(lobby.gameState);
-
-      // Update the game state to waiting phase
-      state.phase = "waiting";
-
-      // Update the lobby status and game state
-      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
-                    status: "waiting",
-                    gameState: encodeGameState(state),
-                  } });
-
-      return true;
-    } catch (error) {
-      console.error("Error resetting game state:", error);
-      throw error;
+    // Get name for system message
+    const raw = lobbyDoc.doc.value ? lobbyDoc.getPlayers().get(playerId) : null;
+    let name: string | undefined;
+    if (raw) {
+      try {
+        name = JSON.parse(raw).name;
+      } catch {
+        /* ignore */
+      }
     }
+    mutations.removePlayer(playerId, name);
   };
 
-  const reshufflePlayerCards = async (lobbyId: string) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
+  // ── Promote to Host ───────────────────────────────────────────────────
 
-    try {
-      // Get the current lobby
-      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
+  const promoteToHost = async (_lobbyId: string, newHostPlayer: Player) => {
+    lobbyDoc.doc.value?.transact(() => {
+      lobbyDoc.getMeta().set("hostUserId", newHostPlayer.userId);
 
-      // Decode the current game state
-      const state = decodeGameState(lobby.gameState) as GameState;
-
-      // Fetch the gamecards document
-      const gameCardsQuery = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, queries: [Query.equal("lobbyId", lobbyId)] });
-
-      if (gameCardsQuery.rows.length === 0) {
-        throw new Error(`No gamecards document found for lobby ${lobbyId}`);
+      // Update the new host's player record
+      const raw = lobbyDoc.getPlayers().get(newHostPlayer.userId);
+      if (raw) {
+        try {
+          const p = JSON.parse(raw);
+          p.isHost = true;
+          lobbyDoc.getPlayers().set(newHostPlayer.userId, JSON.stringify(p));
+        } catch {
+          /* ignore */
+        }
       }
+    });
+  };
 
-      const gameCards = gameCardsQuery.rows[0];
+  // ── Reset Game State ──────────────────────────────────────────────────
+  // Delegates to useYjsGameEngine.resetGame()
 
-      // Use card data from gameCards
-      // Convert playerHands array to hands object
-      state.hands = {};
-      if (gameCards.playerHands && Array.isArray(gameCards.playerHands)) {
-        gameCards.playerHands.forEach((handString: string) => {
-          const hand = JSON.parse(handString);
-          state.hands[hand.playerId] = hand.cards;
-        });
-      }
-      state.whiteDeck = gameCards.whiteDeck || [];
+  const resetGameState = async (_lobbyId: string) => {
+    engine.resetGame();
+    return true;
+  };
 
-      // Only allow reshuffling if the game is in progress
-      if (state.phase !== "submitting" && state.phase !== "judging") {
-        throw new Error("Cannot reshuffle cards outside of an active game");
-      }
+  // ── Reshuffle Player Cards ────────────────────────────────────────────
+  // Same logic as before, but operating on Y.Doc maps instead of Appwrite.
 
+  const reshufflePlayerCards = async (_lobbyId: string) => {
+    const ydoc = lobbyDoc.doc.value;
+    if (!ydoc) throw new Error("No active Y.Doc");
+
+    const gs = lobbyDoc.getGameState();
+    const cards = lobbyDoc.getCards();
+    const handsMap = lobbyDoc.getHands();
+
+    const phase = gs.get("phase");
+    if (phase !== "submitting" && phase !== "judging") {
+      throw new Error("Cannot reshuffle cards outside of an active game");
+    }
+
+    const judgeId = gs.get("judgeId");
+
+    ydoc.transact(() => {
       // Collect all cards from all players' hands
       const allCards: string[] = [];
-      const playerIds = Object.keys(state.hands);
-
-      // Create a set to track unique cards and prevent duplicates
+      const playerIds: string[] = [];
       const uniqueCards = new Set<string>();
 
-      // Add all cards from hands to the collection, ensuring no duplicates
-      playerIds.forEach((playerId) => {
-        if (state.hands[playerId]) {
-          state.hands[playerId].forEach((cardId) => {
+      for (const [pid, rawHand] of handsMap.entries()) {
+        playerIds.push(pid);
+        try {
+          const hand: string[] = JSON.parse(rawHand);
+          for (const cardId of hand) {
             if (!uniqueCards.has(cardId)) {
               uniqueCards.add(cardId);
               allCards.push(cardId);
-            } else {
-              console.warn(
-                `Duplicate card ${cardId} found in player ${playerId}'s hand during reshuffle`,
-              );
             }
-          });
+          }
+        } catch {
+          /* skip malformed */
         }
-      });
+      }
 
-      // Shuffle all collected cards
-      const shuffledCards = shuffle(allCards);
+      // Shuffle all collected cards (Fisher-Yates)
+      const shuffledCards = [...allCards];
+      for (let i = shuffledCards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledCards[i], shuffledCards[j]] = [
+          shuffledCards[j]!,
+          shuffledCards[i]!,
+        ];
+      }
 
-      // Redistribute 7 cards to each player
+      // Redistribute 7 cards to each non-judge player
       let cardIndex = 0;
-      playerIds.forEach((playerId) => {
-        // Skip the judge
-        if (playerId === state.judgeId) {
-          state.hands[playerId] = [];
-          return;
+      for (const pid of playerIds) {
+        if (pid === judgeId) {
+          handsMap.set(pid, "[]");
+          continue;
         }
-
-        // Give each player 7 cards
         const newHand: string[] = [];
-        state.hands[playerId] = newHand;
         for (let i = 0; i < 7 && cardIndex < shuffledCards.length; i++) {
-          const card = shuffledCards[cardIndex];
-          if (card) newHand.push(card);
+          newHand.push(shuffledCards[cardIndex]!);
           cardIndex++;
         }
-      });
+        handsMap.set(pid, JSON.stringify(newHand));
+      }
 
-      // If we need more cards, get them from the deck
-      if (cardIndex >= shuffledCards.length && state.whiteDeck.length > 0) {
-        // Create a set of all cards that have been dealt so far
-        const dealtCards = new Set<string>();
+      // If we need more cards, draw from the deck
+      if (cardIndex >= shuffledCards.length) {
+        let whiteDeck: string[];
+        try {
+          whiteDeck = JSON.parse(cards.get("whiteDeck") || "[]");
+        } catch {
+          whiteDeck = [];
+        }
 
-        // Add all cards from player hands to the set
-        playerIds.forEach((playerId) => {
-          if (state.hands[playerId]) {
-            state.hands[playerId].forEach((cardId) => dealtCards.add(cardId));
+        if (whiteDeck.length > 0) {
+          // Filter deck to remove cards already in hands
+          const dealtCards = new Set<string>();
+          for (const pid of playerIds) {
+            try {
+              const hand: string[] = JSON.parse(handsMap.get(pid) || "[]");
+              for (const id of hand) dealtCards.add(id);
+            } catch {
+              /* skip */
+            }
           }
-        });
+          whiteDeck = whiteDeck.filter((id) => !dealtCards.has(id));
 
-        // Filter the deck to remove any duplicates of cards already in hands
-        // Update the deck with the filtered version
-        state.whiteDeck = state.whiteDeck.filter(
-          (cardId) => !dealtCards.has(cardId),
-        );
-
-        // Now distribute cards from the filtered deck
-        playerIds.forEach((playerId) => {
-          const playerHand = state.hands[playerId];
-          if (
-            playerId !== state.judgeId &&
-            playerHand &&
-            playerHand.length < 7
-          ) {
-            const cardsNeeded = 7 - playerHand.length;
-            const cardsToAdd = state.whiteDeck.splice(0, cardsNeeded);
-            playerHand.push(...cardsToAdd);
+          // Distribute from deck
+          for (const pid of playerIds) {
+            if (pid === judgeId) continue;
+            try {
+              const hand: string[] = JSON.parse(handsMap.get(pid) || "[]");
+              if (hand.length < 7) {
+                const needed = 7 - hand.length;
+                const extras = whiteDeck.splice(0, needed);
+                hand.push(...extras);
+                handsMap.set(pid, JSON.stringify(hand));
+              }
+            } catch {
+              /* skip */
+            }
           }
-        });
+
+          cards.set("whiteDeck", JSON.stringify(whiteDeck));
+        }
       }
 
       // Reset submissions since hands have changed
-      state.submissions = {};
+      gs.set("submissions", "{}");
+    });
 
-      // Extract updated card data for gameCards document
-      // Convert hands object back to playerHands array
-      const handsArray = Object.entries(state.hands).map(([playerId, cards]) =>
-        JSON.stringify({ playerId, cards }),
-      );
-
-      const updatedGameCards = {
-        ...gameCards,
-        playerHands: handsArray,
-        whiteDeck: state.whiteDeck,
-      };
-
-      // Remove card data from state before encoding
-      const coreState = { ...state } as Partial<GameState>;
-      delete coreState.hands;
-      delete coreState.whiteDeck;
-      delete coreState.discardWhite;
-      delete coreState.discardBlack;
-
-      // Update both documents
-      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteGamecardsCollectionId, rowId: gameCards.$id, data: updatedGameCards });
-
-      // Update the game state
-      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
-                    gameState: encodeGameState(coreState),
-                  } });
-
-      return true;
-    } catch (error) {
-      console.error("Error reshuffling player cards:", error);
-      throw error;
-    }
+    return true;
   };
 
-  // Mark a player as returned to the lobby without affecting other players
+  // ── Mark Player Returned to Lobby ─────────────────────────────────────
+  // Delegates to useYjsGameEngine.markReturnedToLobby()
+
   const markPlayerReturnedToLobby = async (
-    lobbyId: string,
+    _lobbyId: string,
     playerId: string,
   ) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
-
-    try {
-      // Get the current lobby
-      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
-
-      // Decode the current game state
-      const state = decodeGameState(lobby.gameState);
-
-      // Initialize returnedToLobby if it doesn't exist
-      if (!state.returnedToLobby) {
-        state.returnedToLobby = {};
-      }
-
-      // Mark this player as returned
-      state.returnedToLobby[playerId] = true;
-
-      // Note: gameEndTime is now set server-side by select-winner when phase === "complete"
-
-      // Update the game state in the database
-      await tables.updateRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId, data: {
-                    gameState: encodeGameState(state),
-                  } });
-
-      return true;
-    } catch (error) {
-      console.error("Error marking player as returned to lobby:", error);
-      throw error;
-    }
+    engine.markReturnedToLobby(playerId);
+    return true;
   };
 
-  // Check if all players have returned to the lobby or if the auto-return timer has expired
-  // This function no longer resets the game state for everyone
-  const checkAllPlayersReturned = async (lobbyId: string) => {
-    const { databases, tables } = getAppwrite();
-    const config = getConfig();
+  // ── Check All Players Returned ────────────────────────────────────────
+  // Reads from Y.Doc reactive state.
 
-    try {
-      // Get the current lobby
-      const lobby = await tables.getRow({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwriteLobbyCollectionId, rowId: lobbyId });
+  const checkAllPlayersReturned = async (_lobbyId: string) => {
+    const gs = reactive.gameState.value;
+    if (!gs || gs.phase !== "complete") return false;
 
-      // Decode the current game state
-      const state = decodeGameState(lobby.gameState);
+    const autoReturnTime = 60 * 1000;
+    const timeElapsed = gs.gameEndTime ? Date.now() - gs.gameEndTime : 0;
 
-      // If the game is not complete, do nothing
-      if (state.phase !== "complete") {
-        return false;
-      }
+    const allPlayerIds = reactive.playerList.value.map((p) => p.userId);
+    const allReturned = allPlayerIds.every(
+      (pid) => gs.returnedToLobby && gs.returnedToLobby[pid],
+    );
 
-      // Check if the auto-return timer has expired (60 seconds)
-      const autoReturnTime = 60 * 1000; // 60 seconds in milliseconds
-      const timeElapsed = state.gameEndTime
-        ? Date.now() - state.gameEndTime
-        : 0;
+    return allReturned || timeElapsed >= autoReturnTime;
+  };
 
-      // Get all players in the lobby
-      const allPlayers = await getPlayersForLobby(lobbyId);
-      const playerIds = allPlayers.map((player) => player.userId);
+  // ── Fetch Players (compatibility — reads from Y.Doc) ──────────────────
 
-      // Check if all players have returned to the lobby
-      const allReturned = playerIds.every(
-        (playerId) => state.returnedToLobby && state.returnedToLobby[playerId],
-      );
-
-      // We no longer reset the game state here, just return whether all players have returned
-      // or the timer has expired. Each player will individually transition to the waiting room.
-      return allReturned || timeElapsed >= autoReturnTime;
-    } catch (error) {
-      console.error("Error checking if all players have returned:", error);
-      return false;
-    }
+  const fetchPlayers = async (_lobbyId: string) => {
+    // No-op: players are reactive via useLobbyReactive.playerList
+    // This function exists only for signature compatibility.
   };
 
   return {
@@ -782,10 +757,15 @@ export const useLobby = () => {
     kickPlayer,
     promoteToHost,
     getActiveLobbyForUser,
-    createPlayerIfNeeded,
     resetGameState,
     reshufflePlayerCards,
     markPlayerReturnedToLobby,
     checkAllPlayersReturned,
+
+    // Y.Doc infrastructure — exposed for consumers that need direct access
+    lobbyDoc,
+    reactive,
+    mutations,
+    engine,
   };
 };

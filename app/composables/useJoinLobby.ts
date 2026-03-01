@@ -70,7 +70,11 @@ export const useJoinLobby = () => {
       // Check if the chosen username is already taken in this lobby
       const { databases, tables } = getAppwrite();
       const config = useRuntimeConfig();
-      const existingPlayers = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [Query.equal("lobbyId", lobby.$id), Query.limit(100)] });
+      const existingPlayers = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwritePlayerCollectionId,
+        queries: [Query.equal("lobbyId", lobby.$id), Query.limit(100)],
+      });
       const nameTaken = existingPlayers.rows.some(
         (doc: Record<string, any>) =>
           doc.name?.toLowerCase() === username.trim().toLowerCase(),
@@ -84,13 +88,17 @@ export const useJoinLobby = () => {
       await joinLobby(code, { username });
 
       // Fetch *your* newly created players-doc to capture its $id
-      const res = await tables.listRows({ databaseId: config.public.appwriteDatabaseId, tableId: config.public.appwritePlayerCollectionId, queries: [
-                    Query.equal("userId", user.$id),
-                    Query.equal("lobbyId", lobby.$id),
-                    Query.limit(1),
-                  ] });
+      const res = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwritePlayerCollectionId,
+        queries: [
+          Query.equal("userId", user.$id),
+          Query.equal("lobbyId", lobby.$id),
+          Query.limit(1),
+        ],
+      });
       const myDoc = res.rows[0];
-      userStore.playerDocId = myDoc.$id;
+      if (myDoc) userStore.playerDocId = myDoc.$id;
 
       // Navigate into the game
       await router.push(`/game/${lobby.code}`);
