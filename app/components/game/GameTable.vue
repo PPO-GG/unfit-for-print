@@ -658,6 +658,59 @@ watch(
   },
 );
 
+// ── Self-win confetti: bottom-left corner blast when OUR card is picked ──
+watch(
+  () => props.effectiveRoundWinner,
+  (winnerId) => {
+    if (!winnerId || winnerId !== props.myId) return;
+
+    const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
+
+    // Immediate burst — angled upward/right from the bottom-left corner
+    confetti({
+      particleCount: 60,
+      angle: 55,
+      spread: 60,
+      startVelocity: 45,
+      origin: { x: 0.05, y: 0.95 },
+      colors,
+      gravity: 0.9,
+      ticks: 120,
+      scalar: 1.1,
+    });
+
+    // Delayed secondary burst for a layered feel
+    setTimeout(() => {
+      confetti({
+        particleCount: 40,
+        angle: 70,
+        spread: 50,
+        startVelocity: 35,
+        origin: { x: 0.1, y: 0.98 },
+        colors,
+        gravity: 1.0,
+        ticks: 100,
+        scalar: 0.9,
+      });
+    }, 200);
+
+    // Third burst — wider fan
+    setTimeout(() => {
+      confetti({
+        particleCount: 30,
+        angle: 45,
+        spread: 80,
+        startVelocity: 30,
+        origin: { x: 0.02, y: 0.92 },
+        colors,
+        gravity: 1.1,
+        ticks: 80,
+        scalar: 0.7,
+      });
+    }, 400);
+  },
+);
+
 // ── Winner Slide-to-Center Animation ────────────────────────────
 // When effectiveRoundWinner changes from null → a player ID, animate:
 // 1. Losing cards fade + shrink out
