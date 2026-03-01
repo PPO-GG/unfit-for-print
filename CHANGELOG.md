@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.3.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.2.0...v3.3.0) (2026-03-01)
+
+
+### ✨ Features
+
+* **game:** add confetti blast when your card wins ([3c596cd](https://github.com/PPO-GG/unfit-for-print/commit/3c596cde5b5f92693571765db41e1bae8f46c82d))
+* **game:** add maxPick setting UI with pick selector and hints ([b76226d](https://github.com/PPO-GG/unfit-for-print/commit/b76226d6c15178d8b0ea0b8111d77a0fff5a3751))
+* **game:** add WaitingHero component for lobby display ([92e6089](https://github.com/PPO-GG/unfit-for-print/commit/92e60897af57ef24735a9ef6e38405daec9c1621))
+* **game:** enhance Y.Doc engine with card dealing, settings sync, and spectator conversion ([99dc9af](https://github.com/PPO-GG/unfit-for-print/commit/99dc9afb5bdfb6848aa40dcba30bf90ec1576b86))
+* **i18n:** add game settings and lobby i18n keys for all locales ([b79aa39](https://github.com/PPO-GG/unfit-for-print/commit/b79aa3929593db73584cd2fa47a6fa5a76a1d472))
+
+
+### ♻️ Refactors
+
+* **game:** migrate game actions from server API to Y.Doc engine ([5a65709](https://github.com/PPO-GG/unfit-for-print/commit/5a65709437a0c9982a3918564ce97eaa4931b854))
+
 ## [3.2.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.1.0...v3.2.0) (2026-03-01)
 
 
