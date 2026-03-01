@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.2.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.1.0...v3.2.0) (2026-03-01)
+
+
+### ✨ Features
+
+* **admin:** update dashboard for yjs lobby monitoring ([cbf527b](https://github.com/PPO-GG/unfit-for-print/commit/cbf527bfad8699d42d53b3a47703c62c4c6a21f5))
+* **api:** add teleportal yjs server for realtime game lobbies ([326a8e5](https://github.com/PPO-GG/unfit-for-print/commit/326a8e5fbaf63202b1668ba211c269bb0b53cd67))
+* **web:** update game ui and endpoints to use yjs state structures ([c39d7ce](https://github.com/PPO-GG/unfit-for-print/commit/c39d7ce994a03ae04c5f092bb72b1d4cf620b94a))
+
+
+### 🐛 Bug Fixes
+
+* **api:** force node-fetch-native-with-agent to workerd-compatible aliases ([1ebc1dc](https://github.com/PPO-GG/unfit-for-print/commit/1ebc1dc440794d0a2edc3e2b6332e6021991e772))
+* **api:** shim json-bigint to fix instanceof BigNumber crash on CF Workers ([ed175e4](https://github.com/PPO-GG/unfit-for-print/commit/ed175e492208375b99f36e0c34b2e3ae5c9f9afb))
+* **api:** use local fetch shim to bypass node-fetch-native-with-agent on workerd ([28b15c4](https://github.com/PPO-GG/unfit-for-print/commit/28b15c43f0482e3e61f50b760041e6c1022d6e1f))
+* **api:** use unenv aliases for node-fetch-native-with-agent workerd compatibility ([c7ee1b8](https://github.com/PPO-GG/unfit-for-print/commit/c7ee1b87d851f2d9d3122b11dfbeea25eb16c793))
+
+
+### ♻️ Refactors
+
+* **web:** decompose useLobby into reactive yjs composables ([e5d8f24](https://github.com/PPO-GG/unfit-for-print/commit/e5d8f24bc760e364d2bb90671ce0b290048e126f))
+
 ## [3.1.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.0.0...v3.1.0) (2026-02-26)
 
 
