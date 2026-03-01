@@ -77,7 +77,7 @@ const deleteUser = async (userId: string) => {
     if (res.success) {
       users.value = users.value.filter((u) => u.$id !== userId);
     } else {
-      console.error("Delete failed:", res.message);
+      console.error("Delete failed:", (res as any).message);
     }
   } catch (err) {
     console.error("Delete request failed:", err);

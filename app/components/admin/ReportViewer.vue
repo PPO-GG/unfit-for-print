@@ -375,7 +375,7 @@ onMounted(fetchReports);
             <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
               <span>{{ formatDate(report.$createdAt) }}</span>
               <UBadge
-                :color="report.cardType === 'black' ? 'neutral' : 'white'"
+                :color="report.cardType === 'black' ? 'neutral' : 'secondary'"
                 variant="subtle"
                 size="xs"
               >

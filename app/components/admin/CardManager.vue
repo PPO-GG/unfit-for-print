@@ -16,7 +16,7 @@ const { notify } = useNotifications();
 // Use the shared card search state
 const { searchTerm, cardType } = useCardSearch();
 
-const selectedPack = ref(null);
+const selectedPack = ref<string | undefined>(undefined);
 const availablePacks = ref<string[]>([]);
 const cards = ref<any[]>([]);
 const loading = ref(false);
@@ -106,7 +106,11 @@ onMounted(async () => {
   if (!databases) return;
   try {
     // First get total count of cards
-    const countResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(1)] });
+    const countResult = await tables.listRows({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      queries: [Query.limit(1)],
+    });
     const totalCards = countResult.total;
 
     // Fetch all cards to extract packs (using a reasonable chunk size)
@@ -115,7 +119,11 @@ onMounted(async () => {
 
     // Fetch cards in chunks to get all packs
     for (let offset = 0; offset < totalCards; offset += chunkSize) {
-      const result = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(chunkSize), Query.offset(offset)] });
+      const result = await tables.listRows({
+        databaseId: DB_ID,
+        tableId: CARD_COLLECTION.value,
+        queries: [Query.limit(chunkSize), Query.offset(offset)],
+      });
 
       // Extract packs from this chunk
       result.rows.forEach((doc) => {
@@ -141,7 +149,11 @@ watch(cardType, async () => {
   if (!databases) return;
   try {
     // First get total count of cards
-    const countResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(1)] });
+    const countResult = await tables.listRows({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      queries: [Query.limit(1)],
+    });
     const totalCards = countResult.total;
 
     // Fetch all cards to extract packs (using a reasonable chunk size)
@@ -150,7 +162,11 @@ watch(cardType, async () => {
 
     // Fetch cards in chunks to get all packs
     for (let offset = 0; offset < totalCards; offset += chunkSize) {
-      const result = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [Query.limit(chunkSize), Query.offset(offset)] });
+      const result = await tables.listRows({
+        databaseId: DB_ID,
+        tableId: CARD_COLLECTION.value,
+        queries: [Query.limit(chunkSize), Query.offset(offset)],
+      });
 
       // Extract packs from this chunk
       result.rows.forEach((doc) => {
@@ -214,10 +230,11 @@ const fetchCards = async () => {
         useServerSideSearch = true;
 
         // Test the query to see if it works
-        await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [
-                      ...queries,
-                      Query.limit(1),
-                    ] });
+        await tables.listRows({
+          databaseId: DB_ID,
+          tableId: CARD_COLLECTION.value,
+          queries: [...queries, Query.limit(1)],
+        });
       } catch (searchErr) {
         // If server-side search fails, remove the search query and note that we'll need client-side filtering
         // This is expected behavior if fulltext indexes are still being created or propagated
@@ -231,7 +248,11 @@ const fetchCards = async () => {
     }
 
     // First get count of matching cards (without search if we're doing client-side filtering)
-    const countResult = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [...queries, Query.limit(1)] });
+    const countResult = await tables.listRows({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      queries: [...queries, Query.limit(1)],
+    });
     let totalMatchingCards = countResult.total;
 
     // If no cards match the filters, return early
@@ -248,7 +269,11 @@ const fetchCards = async () => {
 
     // Fetch cards in chunks
     for (let offset = 0; offset < totalMatchingCards; offset += chunkSize) {
-      const result = await tables.listRows({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, queries: [...queries, Query.limit(chunkSize), Query.offset(offset)] });
+      const result = await tables.listRows({
+        databaseId: DB_ID,
+        tableId: CARD_COLLECTION.value,
+        queries: [...queries, Query.limit(chunkSize), Query.offset(offset)],
+      });
 
       allCards.push(...result.rows);
 
@@ -335,9 +360,14 @@ watch(currentPage, (newPage) => {
 
 const toggleCardActive = async (card: any) => {
   try {
-    const updated = await tables.updateRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: card.$id, data: {
-                active: !card.active,
-              } });
+    const updated = await tables.updateRow({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      rowId: card.$id,
+      data: {
+        active: !card.active,
+      },
+    });
     card.active = updated.active;
     notify({
       title: `Card ${updated.active ? "Activated" : "Deactivated"}`,
@@ -365,9 +395,14 @@ const togglePackActive = async (pack: string, setActive: boolean) => {
 
     // Update each card in the pack
     const updatePromises = packCards.map((card) =>
-      tables.updateRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: card.$id, data: {
-                    active: setActive,
-                  } }),
+      tables.updateRow({
+        databaseId: DB_ID,
+        tableId: CARD_COLLECTION.value,
+        rowId: card.$id,
+        data: {
+          active: setActive,
+        },
+      }),
     );
 
     await Promise.all(updatePromises);
@@ -402,7 +437,11 @@ const deleteCard = async (card: any) => {
   }
 
   try {
-    await tables.deleteRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: card.$id });
+    await tables.deleteRow({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      rowId: card.$id,
+    });
     // Remove from local list
     cards.value = cards.value.filter((c) => c.$id !== card.$id);
     totalCards.value--;
@@ -451,7 +490,12 @@ const saveCardEdit = async () => {
       updateData.pick = parseInt(editingCardPicks.value.toString()) || 1;
     }
 
-    const updated = await tables.updateRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: editingCard.value.$id, data: updateData });
+    const updated = await tables.updateRow({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      rowId: editingCard.value.$id,
+      data: updateData,
+    });
 
     // Update in local list
     const index = cards.value.findIndex((c) => c.$id === updated.$id);
@@ -509,7 +553,12 @@ const addSingleCard = async () => {
     }
 
     // Create the new card document
-    const newCard = await tables.createRow({ databaseId: DB_ID, tableId: collectionId, rowId: "unique()", data: cardData });
+    const newCard = await tables.createRow({
+      databaseId: DB_ID,
+      tableId: collectionId,
+      rowId: "unique()",
+      data: cardData,
+    });
 
     // Add to local list if the current view includes this pack and type
     if (
@@ -725,7 +774,11 @@ const handleSimilarCardAction = async (similarCard: any) => {
       cardToKeep.value === "original" ? similarCard : selectedCard.value;
 
     // Delete the card
-    await tables.deleteRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: cardToDelete.$id });
+    await tables.deleteRow({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      rowId: cardToDelete.$id,
+    });
 
     // Remove from local list
     cards.value = cards.value.filter((c) => c.$id !== cardToDelete.$id);
@@ -811,6 +864,7 @@ const handleAllSimilarCardAction = async () => {
     }
 
     const currentPair = allSimilarPairs.value[currentPairIndex.value];
+    if (!currentPair) return;
 
     // Determine which card to delete based on user selection
     const cardToDelete =
@@ -829,7 +883,11 @@ const handleAllSimilarCardAction = async () => {
     }
 
     // Delete the card
-    await tables.deleteRow({ databaseId: DB_ID, tableId: CARD_COLLECTION.value, rowId: cardToDelete.$id });
+    await tables.deleteRow({
+      databaseId: DB_ID,
+      tableId: CARD_COLLECTION.value,
+      rowId: cardToDelete.$id,
+    });
 
     // Remove from local list
     cards.value = cards.value.filter((c) => c.$id !== cardToDelete.$id);
@@ -989,10 +1047,11 @@ const seedingStats = ref({
   insertedCards: 0,
   skippedDuplicates: 0,
   skippedSimilar: 0,
+  skippedLongText: 0,
   failedCards: 0,
   currentPack: "",
   currentCardType: "",
-  position: null,
+  position: null as string | null,
   warnings: [] as string[],
   errors: [] as string[],
 });
@@ -1001,7 +1060,7 @@ const seedingStats = ref({
 const resumePosition = ref(null);
 const showResumePrompt = ref(false);
 
-const uploadJsonFile = async (resumeFromPosition = null) => {
+const uploadJsonFile = async (resumeFromPosition: string | null = null) => {
   if (!uploadState.file || !uploadState.fileContent) {
     notify({
       title: "Upload Error",
@@ -1035,7 +1094,7 @@ const uploadJsonFile = async (resumeFromPosition = null) => {
 
   // First send the data via POST request
   try {
-    const payload = {
+    const payload: Record<string, string | null> = {
       file: uploadState.fileContent,
       sessionId: Date.now().toString(), // Generate a session ID
     };
@@ -1143,8 +1202,9 @@ const uploadJsonFile = async (resumeFromPosition = null) => {
     });
 
     eventSource.addEventListener("error", (event) => {
-      const data = event.data
-        ? JSON.parse(event.data)
+      const msgEvent = event as MessageEvent;
+      const data = msgEvent.data
+        ? JSON.parse(msgEvent.data)
         : { message: "Unknown error occurred" };
       console.error("Seeding error:", data);
 
@@ -1181,12 +1241,14 @@ const uploadJsonFile = async (resumeFromPosition = null) => {
       uploading.value = false;
       showProgress.value = false;
     };
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Failed to initiate seeding:", err);
 
     notify({
       title: "Upload Failed",
-      description: err.message || "Could not start the seeding process",
+      description:
+        (err instanceof Error ? err.message : undefined) ||
+        "Could not start the seeding process",
       color: "error",
     });
 
@@ -1597,7 +1659,7 @@ const resumeUpload = () => {
             where it left off?
           </p>
           <div class="flex gap-2">
-            <UButton size="sm" color="amber" @click="resumeUpload"
+            <UButton size="sm" color="warning" @click="resumeUpload"
               >Resume Upload</UButton
             >
             <UButton size="sm" variant="ghost" @click="showResumePrompt = false"
@@ -1609,7 +1671,7 @@ const resumeUpload = () => {
         <UButton
           :loading="uploading"
           :disabled="!uploadState.file || !uploadState.fileContent"
-          @click="uploadJsonFile"
+          @click="uploadJsonFile()"
           color="primary"
           class="mt-4"
           variant="subtle"
@@ -1854,7 +1916,9 @@ const resumeUpload = () => {
                 Similarity:
                 <span class="font-bold text-info-400"
                   >{{
-                    allSimilarPairs[currentPairIndex].similarityScore
+                    Math.round(
+                      allSimilarPairs[currentPairIndex]!.similarity * 100,
+                    )
                   }}%</span
                 >
               </div>
@@ -1879,11 +1943,12 @@ const resumeUpload = () => {
                   "
                   @click="cardToKeep = 'card1'"
                 >
-                  {{ allSimilarPairs[currentPairIndex].card1.text }}
+                  {{ allSimilarPairs[currentPairIndex]!.card1.text }}
                 </div>
                 <div class="text-xs text-gray-400">
-                  Pack: {{ allSimilarPairs[currentPairIndex].card1.pack }} | ID:
-                  {{ allSimilarPairs[currentPairIndex].card1.$id }}
+                  Pack: {{ allSimilarPairs[currentPairIndex]!.card1.pack }} |
+                  ID:
+                  {{ allSimilarPairs[currentPairIndex]!.card1.$id }}
                 </div>
               </div>
 
@@ -1899,11 +1964,12 @@ const resumeUpload = () => {
                   "
                   @click="cardToKeep = 'card2'"
                 >
-                  {{ allSimilarPairs[currentPairIndex].card2.text }}
+                  {{ allSimilarPairs[currentPairIndex]!.card2.text }}
                 </div>
                 <div class="text-xs text-gray-400">
-                  Pack: {{ allSimilarPairs[currentPairIndex].card2.pack }} | ID:
-                  {{ allSimilarPairs[currentPairIndex].card2.$id }}
+                  Pack: {{ allSimilarPairs[currentPairIndex]!.card2.pack }} |
+                  ID:
+                  {{ allSimilarPairs[currentPairIndex]!.card2.$id }}
                 </div>
               </div>
             </div>
