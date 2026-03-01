@@ -137,6 +137,9 @@
 
   html {
     scroll-behavior: smooth;
+    /* Scale UI proportionally on large viewports (1440p, 4K).
+       ~17px at 1080p → ~19px at 1440p → ~22px at 4K. */
+    font-size: clamp(16px, 12px + 0.2vw + 0.1vh, 22px);
   }
 
   body {

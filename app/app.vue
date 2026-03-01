@@ -69,8 +69,8 @@ useHead({
     { rel: "canonical", href: config.public.baseUrl },
     {
       rel: "icon",
-      type: "image/png",
-      href: `${config.public.baseUrl}/img/favicon.png`,
+      type: "image/svg+xml",
+      href: `${config.public.baseUrl}/img/ufp2.svg`,
     },
   ],
 });
