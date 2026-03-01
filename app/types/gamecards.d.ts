@@ -1,23 +1,13 @@
-import type { PlayerId, CardId } from "./game";
+// types/gamecards.d.ts
+// Card text resolution types — used by the Y.Doc engine and UI components.
+// The GameCards Appwrite collection is no longer used; all card data
+// lives in the Y.Doc after start.post.ts resolves and embeds it.
 
-// Keep this interface for type safety when working with parsed data
-export interface PlayerHand {
-  playerId: PlayerId;
-  cards: CardId[];
-}
-
-export interface GameCards {
-  lobbyId: string;
-  whiteDeck: CardId[];
-  blackDeck: CardId[];
-  discardWhite: CardId[];
-  discardBlack: CardId[];
-  playerHands: string[];
-}
+import type { CardId } from "./game";
 
 /**
  * Resolved card text entry — returned by /api/cards/resolve.
- * Populated once per gamecards fetch and keyed by card $id.
+ * Embedded in the Y.Doc cardTexts map by start.post.ts.
  */
 export interface CardTextEntry {
   text: string;

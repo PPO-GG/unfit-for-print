@@ -1,13 +1,10 @@
 // types/lobby.ts
+// Represents the minimal Appwrite lobby document used for discovery.
+// All game state lives in the Y.Doc (Teleportal); this is registry-only.
 import type { Models } from "appwrite";
 
 export interface Lobby extends Models.Row {
   code: string;
   hostUserId: string;
-  players: string[];
   status: "waiting" | "playing" | "complete";
-  round: number;
-  gameState: string;
-  roundEndCountdownDuration: number; // Host-configurable countdown duration (seconds)
-  revealedSubmissions?: Record<string, boolean> | string;
 }

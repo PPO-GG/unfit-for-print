@@ -17,34 +17,35 @@ export default defineEventHandler(async (event) => {
   // Auth: Only the lobby host can start the game
   await verifyHost(userId, lobbyId);
 
-  const {
-    DB,
-    LOBBY,
-    PLAYER,
-    WHITE_CARDS,
-    BLACK_CARDS,
-    GAMECARDS,
-    GAMESETTINGS,
-  } = getCollectionIds();
+  const { DB, LOBBY, PLAYER, WHITE_CARDS, BLACK_CARDS, GAMESETTINGS } =
+    getCollectionIds();
   const databases = getAdminDatabases();
   const tables = getAdminTables();
 
   try {
-    // --- Fetch Game Settings if documentId is provided ---
+    // --- Resolve Game Settings ---
+    // Priority: client-provided settings > Appwrite fetch by documentId > null
     let gameSettings = settings || null;
-    if (documentId && !gameSettings) {
+
+    // If client-provided settings are missing numPlayerCards, try fetching
+    // the canonical Appwrite settings document as a fallback.
+    const needsFetch =
+      !gameSettings ||
+      gameSettings.numPlayerCards === undefined ||
+      gameSettings.numPlayerCards === null;
+
+    if (needsFetch && documentId) {
       try {
-        gameSettings = await tables.getRow({
+        const fetched = await tables.getRow({
           databaseId: DB,
           tableId: GAMESETTINGS,
           rowId: documentId,
         });
+        // Merge: keep client-provided fields, fill gaps from Appwrite
+        gameSettings = { ...fetched, ...gameSettings };
       } catch (err: any) {
         console.error("[startGame] Failed to fetch settings:", err.message);
-        throw createError({
-          statusCode: 500,
-          statusMessage: "Could not load game settings",
-        });
+        // Non-fatal: fall through with whatever settings we have
       }
     }
 
@@ -77,7 +78,17 @@ export default defineEventHandler(async (event) => {
     const allWhiteIds = shuffle(
       await fetchAllIds(WHITE_CARDS, databases, DB, gameSettings?.cardPacks),
     );
-    const CARDS_PER_PLAYER = gameSettings?.numPlayerCards || 7;
+    const CARDS_PER_PLAYER = gameSettings?.numPlayerCards || 10;
+    console.log("[startGame] Settings resolved:", {
+      hasSettings: !!gameSettings,
+      numPlayerCards: gameSettings?.numPlayerCards,
+      numPlayerCardsType: typeof gameSettings?.numPlayerCards,
+      CARDS_PER_PLAYER,
+      cardPacks: gameSettings?.cardPacks,
+      settingsKeys: gameSettings ? Object.keys(gameSettings) : "null",
+      hadDocumentId: !!documentId,
+      hadClientSettings: !!settings,
+    });
     const EXTRA_WHITES = 100;
     const totalWhites = playerCount * CARDS_PER_PLAYER + EXTRA_WHITES;
 
@@ -105,14 +116,6 @@ export default defineEventHandler(async (event) => {
         statusMessage: "No black cards available for selected card packs",
       });
     }
-
-    const firstBlackId = allBlackIds[0] as string;
-    const firstBlack = await tables.getRow({
-      databaseId: DB,
-      tableId: BLACK_CARDS,
-      rowId: firstBlackId,
-    });
-    const blackDeck = allBlackIds.slice(1);
 
     // --- Batch-resolve all card texts for embedding in Y.Doc ---
     // This eliminates the N+1 pattern — all card texts are resolved server-side
@@ -151,9 +154,8 @@ export default defineEventHandler(async (event) => {
     }
 
     // Resolve ALL black card texts (including pick count for multi-pick prompts)
-    const allBlackIdsToResolve = [firstBlackId, ...blackDeck];
-    for (let i = 0; i < allBlackIdsToResolve.length; i += BATCH_SIZE) {
-      const batch = allBlackIdsToResolve.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < allBlackIds.length; i += BATCH_SIZE) {
+      const batch = allBlackIds.slice(i, i + BATCH_SIZE);
       try {
         const res = await tables.listRows({
           databaseId: DB,
@@ -176,6 +178,26 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // --- Apply maxPick filter to black cards ---
+    // Remove black cards whose pick count exceeds the host's maxPick setting.
+    const MAX_PICK = Math.min(3, Math.max(1, gameSettings?.maxPick ?? 3));
+
+    const eligibleBlackIds = allBlackIds.filter((id: string) => {
+      const entry = cardTexts[id];
+      return (entry?.pick ?? 1) <= MAX_PICK;
+    });
+
+    if (eligibleBlackIds.length === 0) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: `No black cards available with pick ≤ ${MAX_PICK} for selected card packs`,
+      });
+    }
+
+    const firstBlackId = eligibleBlackIds[0] as string;
+    const firstBlack = cardTexts[firstBlackId]!;
+    const blackDeck = eligibleBlackIds.slice(1);
+
     // --- Update Appwrite lobby status (registry only) ---
     await tables.updateRow({
       databaseId: DB,
@@ -192,7 +214,7 @@ export default defineEventHandler(async (event) => {
       whiteDeck,
       blackDeck,
       blackCard: {
-        id: firstBlack.$id,
+        id: firstBlackId,
         text: firstBlack.text,
         pick: firstBlack.pick || 1,
       },
@@ -203,6 +225,7 @@ export default defineEventHandler(async (event) => {
       config: {
         maxPoints: gameSettings?.maxPoints || 10,
         cardsPerPlayer: CARDS_PER_PLAYER,
+        maxPick: MAX_PICK,
         cardPacks: gameSettings?.cardPacks || [],
         isPrivate: gameSettings?.isPrivate || false,
         lobbyName: gameSettings?.lobbyName || "Unnamed Game",
