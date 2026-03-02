@@ -18,7 +18,6 @@ export default defineAppConfig({
       slots: {
         overlay: "fixed inset-0 backdrop-blur-md bg-slate-950/60",
         content: [
-          "bg-slate-900/95 divide-y divide-slate-700/50",
           "flex flex-col focus:outline-none",
           "ring ring-slate-700/50 shadow-2xl shadow-black/60",
         ].join(" "),

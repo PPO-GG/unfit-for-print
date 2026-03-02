@@ -15,35 +15,20 @@
           >DEV MODE</span
         >
       </div>
-      <LoadingOverlay :is-loading="isPageLoading" />
-      <NuxtPage />
+      <NuxtPage :transition="pageTransition" />
     </NuxtLayout>
   </UApp>
 </template>
 <script lang="ts" setup>
-import { ref, onMounted, nextTick } from "vue";
-import { useHead, useRuntimeConfig, useNuxtApp } from "#imports";
+import { useHead, useRuntimeConfig } from "#imports";
 const isDev = import.meta.env.DEV;
-const isPageLoading = ref(true);
-
-// Clear initial loading as soon as the app mounts
-onMounted(() => {
-  nextTick(() => {
-    isPageLoading.value = false;
-  });
-});
-
-// Show loading overlay during page transitions (brief flash guard)
-const nuxtApp = useNuxtApp();
-nuxtApp.hook("page:start", () => {
-  isPageLoading.value = true;
-});
-nuxtApp.hook("page:finish", () => {
-  nextTick(() => {
-    isPageLoading.value = false;
-  });
-});
 const config = useRuntimeConfig();
+
+// Named CSS transition — enter/leave keyframes are defined in main.css
+const pageTransition = {
+  name: "page",
+  mode: "out-in" as const,
+};
 
 // Default SEO meta — individual pages (e.g. game/[code].vue) override via useHead()
 useHead({

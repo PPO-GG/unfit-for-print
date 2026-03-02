@@ -137,12 +137,39 @@
 
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
+    /* Overlay scrollbar — floats over content like macOS / Firefox default.
+       Deprecated spec-wise but still supported in all Chromium browsers. */
+    overflow-y: overlay;
     /* Scale UI proportionally on large viewports (1440p, 4K).
        ~17px at 1080p → ~19px at 1440p → ~22px at 4K. */
     font-size: clamp(16px, 12px + 0.2vw + 0.1vh, 22px);
+    /* Firefox: thin scrollbar, dark-themed */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.45) transparent; /* slate-500/45 */
+  }
+
+  /* Chromium / WebKit scrollbar styling */
+  html::-webkit-scrollbar {
+    width: 8px;
+    background: transparent;
+  }
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  html::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35); /* slate-500/35 */
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  html::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.55); /* slate-500/55 */
+    background-clip: content-box;
   }
 
   body {
+    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-family: var(--font-display);
@@ -238,5 +265,53 @@
   .scrollbar-game::-webkit-scrollbar-thumb {
     background-color: #475569; /* slate-600 */
     border-radius: 3px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PAGE TRANSITIONS
+   Named "page" — wired up via NuxtPage :transition in app.vue.
+   Mode is "out-in": old page fully exits before new page enters.
+   Uses a subtle upward slide + fade — feels like dealing a new card.
+───────────────────────────────────────────────────────────────────────────── */
+
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity 200ms ease,
+    transform 220ms ease;
+}
+
+/* Enter: slide up from slightly below */
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Leave: slide up and fade out (like a card being dealt away) */
+.page-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Reduced-motion: plain crossfade, no movement */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active {
+    transition: opacity 150ms ease;
+  }
+  .page-enter-from,
+  .page-enter-to,
+  .page-leave-from,
+  .page-leave-to {
+    transform: none;
   }
 }
