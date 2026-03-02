@@ -104,6 +104,148 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     return safeParseJson<CardId[]>(getHands().get(playerId), []);
   };
 
+  /**
+   * Returns IDs of active game participants (players + bots).
+   * Excludes spectators so they don't inflate eligible-player counts.
+   */
+  const getActivePlayerIds = (): PlayerId[] => {
+    const result: PlayerId[] = [];
+    for (const [pid, raw] of getPlayers().entries()) {
+      const p = safeParseJson<{ playerType?: string }>(raw, {});
+      if (
+        p.playerType === "player" ||
+        p.playerType === "bot" ||
+        !p.playerType
+      ) {
+        result.push(pid);
+      }
+    }
+    return result;
+  };
+
+  // ── Deck Replenishment ─────────────────────────────────────────────────
+  // When the white card deck runs low, the host fetches fresh cards from
+  // Appwrite instead of recycling the discard pile. This keeps games fresh.
+
+  const DECK_LOW_THRESHOLD = 50;
+  let replenishing = false;
+
+  /**
+   * Collects every white card ID currently tracked in the Y.Doc
+   * (deck + hands + discard + active submissions).
+   */
+  const collectAllUsedWhiteIds = (): string[] => {
+    const cards = readCards();
+    const state = readGameState();
+    const used: string[] = [...cards.whiteDeck, ...cards.discardWhite];
+    // All hands
+    for (const [, rawHand] of getHands().entries()) {
+      used.push(...safeParseJson<string[]>(rawHand, []));
+    }
+    // Active submissions
+    for (const cardIds of Object.values(state.submissions)) {
+      used.push(...(cardIds as string[]));
+    }
+    return used;
+  };
+
+  /**
+   * Fetches fresh white cards from the server and merges them into the Y.Doc.
+   * Only the host should call this to avoid duplicate fetches.
+   */
+  const replenishWhiteDeck = async (count: number = 200): Promise<void> => {
+    if (replenishing) return;
+    replenishing = true;
+
+    try {
+      const packs = safeParseJson<string[]>(
+        lobbyDoc.getSettings().get("cardPacks"),
+        [],
+      );
+      const excludeIds = collectAllUsedWhiteIds();
+
+      const result = await $fetch<{
+        success: boolean;
+        cardIds: string[];
+        cardTexts: Record<string, { text: string; pack: string }>;
+      }>("/api/game/draw-cards", {
+        method: "POST",
+        body: { cardPacks: packs, excludeIds, count },
+      });
+
+      if (!result?.success || result.cardIds.length === 0) {
+        console.warn(
+          "[GameEngine] No fresh cards available — recycling discard pile",
+        );
+
+        // Last resort: reshuffle discard pile back into deck
+        const ydoc = requireDoc();
+        ydoc.transact(() => {
+          const c = getCards();
+          const deck = safeParseJson<string[]>(c.get("whiteDeck"), []);
+          const discard = safeParseJson<string[]>(c.get("discardWhite"), []);
+
+          if (discard.length > 0) {
+            deck.push(...shuffle([...discard]));
+            c.set("whiteDeck", JSON.stringify(deck));
+            c.set("discardWhite", "[]");
+          }
+        });
+        return;
+      }
+
+      const ydoc = requireDoc();
+      ydoc.transact(() => {
+        const c = getCards();
+
+        // Append new IDs to deck
+        const deck = safeParseJson<string[]>(c.get("whiteDeck"), []);
+        deck.push(...result.cardIds);
+        c.set("whiteDeck", JSON.stringify(deck));
+
+        // Merge new texts into cardTexts
+        const texts = safeParseJson<Record<string, any>>(
+          c.get("cardTexts"),
+          {},
+        );
+        Object.assign(texts, result.cardTexts);
+        c.set("cardTexts", JSON.stringify(texts));
+      });
+
+      console.log(
+        `[GameEngine] Replenished deck with ${result.cardIds.length} fresh cards`,
+      );
+    } catch (err) {
+      console.warn("[GameEngine] Failed to replenish deck:", err);
+    } finally {
+      replenishing = false;
+    }
+  };
+
+  /**
+   * Checks deck level and triggers an async replenish if the current user
+   * is the host and the deck is running low.
+   */
+  const scheduleReplenishIfNeeded = (): void => {
+    try {
+      const isHostUser = getMeta().get("hostUserId") === myId();
+      if (!isHostUser) return;
+
+      const deckSize = safeParseJson<string[]>(
+        getCards().get("whiteDeck"),
+        [],
+      ).length;
+
+      if (deckSize < DECK_LOW_THRESHOLD) {
+        replenishWhiteDeck().catch((err) =>
+          console.warn("[GameEngine] Background replenish failed:", err),
+        );
+      }
+    } catch {
+      // Y.Doc may have been destroyed — safe to ignore
+    }
+  };
+
   // ── Play Card ──────────────────────────────────────────────────────────
   // Replaces: POST /api/game/play-card
 
@@ -146,9 +288,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("submissions", JSON.stringify(submissions));
 
       // Check if all eligible players have submitted
-      const allPlayerIds = Object.keys(
-        Object.fromEntries(getPlayers().entries()),
-      );
+      const allPlayerIds = getActivePlayerIds();
       const eligiblePlayers = allPlayerIds.filter(
         (id) => id !== state.judgeId && !state.skippedPlayers.includes(id),
       );
@@ -279,10 +419,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       const order = state.playerOrder;
       const currentJudgeIdx = order.indexOf(state.judgeId ?? "");
       let nextJudgeIdx = (currentJudgeIdx + 1) % order.length;
-      // Skip players who aren't in the game anymore
-      const activePlayers = new Set(
-        Object.keys(Object.fromEntries(getPlayers().entries())),
-      );
+      // Skip players who aren't in the game anymore (excludes spectators)
+      const activePlayers = new Set(getActivePlayerIds());
       let attempts = 0;
       while (
         !activePlayers.has(order[nextJudgeIdx]!) &&
@@ -340,9 +478,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       c.set("blackDeck", JSON.stringify(blackDeck));
       c.set("discardBlack", JSON.stringify(discardBlack));
 
-      // Refill player hands
-      let whiteDeck = [...cards.whiteDeck];
-      let discardWhite = safeParseJson<CardId[]>(c.get("discardWhite"), []);
+      // Refill player hands (draw from deck only — no discard recycling)
+      const whiteDeck = [...cards.whiteDeck];
       const numCards = safeParseJson<number>(
         lobbyDoc.getSettings().get("cardsPerPlayer"),
         10,
@@ -353,12 +490,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         const deficit = numCards - hand.length;
 
         if (deficit > 0) {
-          // Reshuffle if needed
-          if (whiteDeck.length < deficit) {
-            whiteDeck = shuffle([...whiteDeck, ...discardWhite]);
-            discardWhite = [];
-          }
-
           const newCards = whiteDeck.splice(
             0,
             Math.min(deficit, whiteDeck.length),
@@ -369,7 +500,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       }
 
       c.set("whiteDeck", JSON.stringify(whiteDeck));
-      c.set("discardWhite", JSON.stringify(discardWhite));
 
       // Clear round state
       gs.set("submissions", "{}");
@@ -382,6 +512,9 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("round", state.round + 1);
       gs.set("phase", "submitting");
     });
+
+    // Async: replenish deck if running low (host only)
+    scheduleReplenishIfNeeded();
 
     return { success: true };
   };
@@ -408,9 +541,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("skippedPlayers", JSON.stringify(skipped));
 
       // Check if all remaining players have submitted
-      const allPlayerIds = Object.keys(
-        Object.fromEntries(getPlayers().entries()),
-      );
+      const allPlayerIds = getActivePlayerIds();
       const eligible = allPlayerIds.filter(
         (id) => id !== state.judgeId && !skipped.includes(id),
       );
@@ -479,25 +610,18 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       10,
     );
 
-    // Check if there are enough cards in the deck
-    let whiteDeck = [...cards.whiteDeck];
-    let discardWhite = [...cards.discardWhite];
+    // Deal from the deck directly — no discard recycling
+    const whiteDeck = [...cards.whiteDeck];
+    const cardsAvailable = Math.min(numCards, whiteDeck.length);
 
-    if (whiteDeck.length < numCards) {
-      // Reshuffle discard pile into deck
-      whiteDeck = shuffle([...whiteDeck, ...discardWhite]);
-      discardWhite = [];
-    }
-
-    if (whiteDeck.length < numCards) {
+    if (cardsAvailable === 0) {
       return {
         success: false,
         reason: "Not enough cards in deck to deal a hand",
       };
     }
 
-    // Deal cards from the deck
-    const newHand = whiteDeck.splice(0, numCards);
+    const newHand = whiteDeck.splice(0, cardsAvailable);
 
     ydoc.transact(() => {
       const gs = getGameState();
@@ -513,7 +637,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
 
       // Update deck
       c.set("whiteDeck", JSON.stringify(whiteDeck));
-      c.set("discardWhite", JSON.stringify(discardWhite));
 
       // Initialize score to 0 if not present
       const scores = safeParseJson<Record<string, number>>(
@@ -533,7 +656,10 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       }
     });
 
-    return { success: true, cardsDealt: numCards };
+    // Async: replenish deck if running low (host only)
+    scheduleReplenishIfNeeded();
+
+    return { success: true, cardsDealt: cardsAvailable };
   };
 
   // ── Reset Game ─────────────────────────────────────────────────────────
@@ -716,22 +842,17 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         c.set("discardBlack", JSON.stringify(discardBlack));
         c.set("discardWhite", JSON.stringify(discardWhite));
 
-        // Refill hands for players who submitted
+        // Refill hands for players who submitted (draw from deck only)
         const numCards = safeParseJson<number>(
           lobbyDoc.getSettings().get("cardsPerPlayer"),
           10,
         );
-        let whiteDeck = safeParseJson<CardId[]>(c.get("whiteDeck"), []);
-        let discardW = safeParseJson<CardId[]>(c.get("discardWhite"), []);
+        const whiteDeck = safeParseJson<CardId[]>(c.get("whiteDeck"), []);
 
         for (const [pid, rawHand] of handsMap.entries()) {
           const hand = safeParseJson<CardId[]>(rawHand, []);
           const deficit = numCards - hand.length;
           if (deficit > 0) {
-            if (whiteDeck.length < deficit) {
-              whiteDeck = shuffle([...whiteDeck, ...discardW]);
-              discardW = [];
-            }
             const newCards = whiteDeck.splice(
               0,
               Math.min(deficit, whiteDeck.length),
@@ -742,7 +863,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         }
 
         c.set("whiteDeck", JSON.stringify(whiteDeck));
-        c.set("discardWhite", JSON.stringify(discardW));
 
         // Reset round state
         gs.set("revealedCards", "{}");
@@ -768,6 +888,9 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       // Case 3: Non-judge left during judging — no phase change needed,
       // judge can still pick from remaining submissions
     });
+
+    // Async: replenish deck if running low (host only)
+    scheduleReplenishIfNeeded();
   };
 
   return {
@@ -783,5 +906,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     resetGame,
     markReturnedToLobby,
     handlePlayerLeave,
+    replenishWhiteDeck,
   };
 }

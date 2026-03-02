@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
       hadDocumentId: !!documentId,
       hadClientSettings: !!settings,
     });
-    const EXTRA_WHITES = 100;
+    const EXTRA_WHITES = 300;
     const totalWhites = playerCount * CARDS_PER_PLAYER + EXTRA_WHITES;
 
     // Deal hands
