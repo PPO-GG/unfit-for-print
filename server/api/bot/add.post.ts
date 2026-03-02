@@ -67,11 +67,7 @@ export default defineEventHandler(async (event) => {
   const botAvatar = getBotAvatarUrl(botName);
 
   // Unique userId for internal tracking (still uses a random suffix)
-  const botSuffix = crypto
-    .randomUUID()
-    .replace(/-/g, "")
-    .substring(0, 6)
-    .toUpperCase();
+  const botSuffix = uuid().replace(/-/g, "").substring(0, 6).toUpperCase();
   const botUserId = `bot_${botSuffix}`;
 
   // --- Create player document ---
