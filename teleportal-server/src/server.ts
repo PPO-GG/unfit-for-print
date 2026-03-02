@@ -122,6 +122,7 @@ function getDocumentDetails(docId: string): {
   }>;
   meta: Record<string, any>;
   phase?: string;
+  round?: number;
 } {
   const now = Date.now();
   const clients = documentClientCount.get(docId) || 0;
@@ -137,6 +138,7 @@ function getDocumentDetails(docId: string): {
   }> = [];
   let meta: Record<string, any> = {};
   let phase: string | undefined;
+  let round: number | undefined;
 
   const ydoc = YDocStorage.docs.get(docId);
   if (ydoc) {
@@ -170,16 +172,18 @@ function getDocumentDetails(docId: string): {
       // Meta map may not exist yet
     }
 
-    // Read game phase from Y.Map("gameState")
+    // Read game phase and round from Y.Map("gameState")
     try {
       const gameStateMap = ydoc.getMap("gameState");
       phase = gameStateMap.get("phase") as string | undefined;
+      const rawRound = gameStateMap.get("round");
+      if (typeof rawRound === "number") round = rawRound;
     } catch {
       // Game state may not exist yet
     }
   }
 
-  return { clients, idleSec, players, meta, phase };
+  return { clients, idleSec, players, meta, phase, round };
 }
 
 // Periodic sweep: remove stale clients (connected but never joined a doc)
@@ -486,6 +490,40 @@ const httpServer = createServer(async (req, res) => {
         timestamp: now,
       }),
     );
+    return;
+  }
+
+  // Public lobbies summary — lightweight, unauthenticated endpoint for the
+  // lobby browser. Returns only non-sensitive game metadata per lobby.
+  if (urlPath === "/lobbies/summary") {
+    const allDocIds = new Set([
+      ...documentClientCount.keys(),
+      ...YDocStorage.docs.keys(),
+    ]);
+
+    const lobbies: Array<{
+      code: string;
+      phase: string;
+      round: number;
+      players: number;
+      playerNames: string[];
+    }> = [];
+
+    for (const docId of allDocIds) {
+      const details = getDocumentDetails(docId);
+      // Extract lobby code from docId (format: "lobby/lobby-CODE")
+      const code = docId.replace(/^lobby\/lobby-/, "");
+      lobbies.push({
+        code,
+        phase: details.phase || "waiting",
+        round: details.round || 0,
+        players: details.players.length,
+        playerNames: details.players.map((p) => p.name),
+      });
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json", ...corsHeaders });
+    res.end(JSON.stringify({ lobbies, timestamp: Date.now() }));
     return;
   }
 

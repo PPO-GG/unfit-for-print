@@ -13,30 +13,32 @@
 
       <!-- Primary CTAs -->
       <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <UButton
-          size="xl"
-          variant="subtle"
-          color="primary"
-          icon="i-solar-hand-shake-line-duotone"
-          class="text-base font-bold uppercase tracking-wider text-xl"
-          @click="showJoin = true"
-        >
-          {{ t("modal.join_lobby") }}
-        </UButton>
-
-        <ClientOnly>
+        <UFieldGroup>
           <UButton
-            v-if="showIfAuthenticated"
             size="xl"
             variant="subtle"
-            color="warning"
-            icon="i-solar-add-square-bold-duotone"
+            color="success"
+            icon="i-solar-hand-shake-line-duotone"
             class="text-base font-bold uppercase tracking-wider text-xl"
-            @click="showCreate = true"
+            @click="showJoin = true"
           >
-            {{ t("modal.create_lobby") }}
+            {{ t("modal.join_lobby") }}
           </UButton>
-        </ClientOnly>
+
+          <ClientOnly>
+            <UButton
+              v-if="showIfAuthenticated"
+              size="xl"
+              variant="subtle"
+              color="warning"
+              icon="i-solar-add-square-bold-duotone"
+              class="text-base font-bold uppercase tracking-wider text-xl"
+              @click="showCreate = true"
+            >
+              {{ t("modal.create_lobby") }}
+            </UButton>
+          </ClientOnly>
+        </UFieldGroup>
       </div>
     </div>
 
@@ -50,14 +52,15 @@
         <span
           class="text-xs font-bold uppercase tracking-widest text-slate-400 tabular-nums"
         >
-          {{ lobbies.length }} {{ lobbies.length === 1 ? "lobby" : "lobbies" }}
+          {{ sortedLobbies.length }}
+          {{ sortedLobbies.length === 1 ? "lobby" : "lobbies" }}
         </span>
       </div>
 
       <!-- Lobby List -->
-      <ul v-if="lobbies.length" class="space-y-3">
+      <ul v-if="sortedLobbies.length" class="space-y-3">
         <li
-          v-for="lobby in lobbies"
+          v-for="lobby in sortedLobbies"
           :key="lobby.$id"
           class="group relative flex items-center justify-between gap-4 rounded-xl border border-white/8 bg-slate-800/50 backdrop-blur-md px-5 py-4 shadow-lg transition-all duration-200 hover:border-violet-500/40 hover:bg-slate-800/70 hover:shadow-violet-900/30"
         >
@@ -109,9 +112,55 @@
                 </span>
               </div>
 
-              <!-- Player avatar stack -->
+              <!-- Live game info (from Teleportal) -->
               <div
-                v-if="lobbyPlayers[lobby.$id]?.length"
+                v-if="getLiveInfo(lobby.code)"
+                class="flex items-center gap-2 mt-1.5 flex-wrap"
+              >
+                <!-- Phase badge -->
+                <span
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border"
+                  :class="getPhaseClasses(getLiveInfo(lobby.code)!.phase)"
+                >
+                  <span
+                    class="inline-block w-1 h-1 rounded-full animate-pulse"
+                    :class="getPhaseDotClass(getLiveInfo(lobby.code)!.phase)"
+                  />
+                  {{ getPhaseLabel(getLiveInfo(lobby.code)!.phase) }}
+                </span>
+
+                <!-- Round info (only if playing) -->
+                <span
+                  v-if="getLiveInfo(lobby.code)!.round > 0"
+                  class="inline-flex items-center gap-1 text-[10px] text-slate-400 tabular-nums"
+                >
+                  <span
+                    class="i-solar-restart-circle-bold-duotone text-slate-500"
+                  />
+                  Round {{ getLiveInfo(lobby.code)!.round }}
+                </span>
+
+                <!-- Live player count from Teleportal -->
+                <span
+                  class="inline-flex items-center gap-1 text-[10px] text-slate-400 tabular-nums"
+                >
+                  <span
+                    class="i-solar-users-group-rounded-bold-duotone text-slate-500"
+                  />
+                  {{ getLiveInfo(lobby.code)!.players }}
+                  {{
+                    getLiveInfo(lobby.code)!.players === 1
+                      ? "player"
+                      : "players"
+                  }}
+                </span>
+              </div>
+
+              <!-- Player avatar stack (fallback to Appwrite data) -->
+              <div
+                v-if="
+                  !getLiveInfo(lobby.code) && lobbyPlayers[lobby.$id]?.length
+                "
                 class="flex items-center gap-1 mt-2"
               >
                 <div class="flex items-center -space-x-1.5">
@@ -176,19 +225,13 @@
             <!-- Status badge -->
             <span
               class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide border"
-              :class="
-                lobby.status === 'waiting'
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-              "
+              :class="getStatusBadgeClasses(lobby, getLiveInfo(lobby.code))"
             >
               <span
                 class="inline-block w-1.5 h-1.5 rounded-full"
-                :class="
-                  lobby.status === 'waiting' ? 'bg-emerald-400' : 'bg-amber-400'
-                "
+                :class="getStatusDotClass(lobby, getLiveInfo(lobby.code))"
               />
-              {{ lobby.status }}
+              {{ getStatusLabel(lobby, getLiveInfo(lobby.code)) }}
             </span>
 
             <UButton
@@ -243,7 +286,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { usePlayers } from "~/composables/usePlayers";
 import type { Player } from "~/types/player";
 import { useRouter } from "vue-router";
@@ -286,6 +329,164 @@ const { showIfAuthenticated } = useUserAccess();
 const { getPlayersForLobby } = usePlayers();
 const hostNames = ref<Record<string, string>>({});
 const lobbyPlayers = ref<Record<string, Player[]>>({});
+
+// ─── Teleportal Live Data ─────────────────────────────────────────────────
+
+interface LobbySummary {
+  code: string;
+  phase: string;
+  round: number;
+  players: number;
+  playerNames: string[];
+}
+
+const liveLobbies = ref<Record<string, LobbySummary>>({});
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+const POLL_INTERVAL_MS = 10_000;
+
+/** Derive the HTTP base URL from the WS-based lobbyTeleportalUrl */
+const teleportalHttpUrl = computed(() => {
+  const wsUrl = config.public.lobbyTeleportalUrl || "ws://localhost:1235";
+  return wsUrl.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
+});
+
+/** Fetch lightweight lobby summaries from the Teleportal server */
+const fetchLiveSummary = async () => {
+  try {
+    const res = await $fetch<{ lobbies: LobbySummary[]; timestamp: number }>(
+      `${teleportalHttpUrl.value}/lobbies/summary`,
+    );
+    const map: Record<string, LobbySummary> = {};
+    for (const lobby of res.lobbies) {
+      map[lobby.code] = lobby;
+    }
+    liveLobbies.value = map;
+  } catch {
+    // Silently fail — live data is best-effort enhancement
+  }
+};
+
+/** Look up live info for a lobby by code */
+const getLiveInfo = (code: string): LobbySummary | null => {
+  return liveLobbies.value[code] || null;
+};
+
+// ─── Phase Display Helpers ────────────────────────────────────────────────
+
+const getPhaseLabel = (phase: string): string => {
+  switch (phase) {
+    case "waiting":
+      return "Waiting";
+    case "submitting":
+    case "submitting-complete":
+      return "Submitting";
+    case "judging":
+      return "Judging";
+    case "roundEnd":
+      return "Round End";
+    case "complete":
+      return "Game Over";
+    default:
+      return phase;
+  }
+};
+
+const getPhaseClasses = (phase: string): string => {
+  switch (phase) {
+    case "waiting":
+      return "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+    case "submitting":
+    case "submitting-complete":
+      return "bg-sky-500/10 border-sky-500/30 text-sky-400";
+    case "judging":
+      return "bg-amber-500/10 border-amber-500/30 text-amber-400";
+    case "roundEnd":
+      return "bg-violet-500/10 border-violet-500/30 text-violet-400";
+    case "complete":
+      return "bg-rose-500/10 border-rose-500/30 text-rose-400";
+    default:
+      return "bg-slate-500/10 border-slate-500/30 text-slate-400";
+  }
+};
+
+const getPhaseDotClass = (phase: string): string => {
+  switch (phase) {
+    case "waiting":
+      return "bg-emerald-400";
+    case "submitting":
+    case "submitting-complete":
+      return "bg-sky-400";
+    case "judging":
+      return "bg-amber-400";
+    case "roundEnd":
+      return "bg-violet-400";
+    case "complete":
+      return "bg-rose-400";
+    default:
+      return "bg-slate-400";
+  }
+};
+
+// ─── Status Badge (Right Side) ────────────────────────────────────────────
+
+const getStatusLabel = (
+  lobby: LobbyWithName,
+  live: LobbySummary | null,
+): string => {
+  if (live) {
+    if (live.phase === "waiting") return "Waiting";
+    if (live.phase === "complete") return "Finished";
+    return `Round ${live.round}`;
+  }
+  return lobby.status;
+};
+
+const getStatusBadgeClasses = (
+  lobby: LobbyWithName,
+  live: LobbySummary | null,
+): string => {
+  const phase = live?.phase || lobby.status;
+  if (phase === "waiting")
+    return "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
+  if (phase === "complete")
+    return "bg-rose-500/10 border-rose-500/30 text-rose-400";
+  // Any in-progress phase
+  return "bg-amber-500/10 border-amber-500/30 text-amber-400";
+};
+
+const getStatusDotClass = (
+  lobby: LobbyWithName,
+  live: LobbySummary | null,
+): string => {
+  const phase = live?.phase || lobby.status;
+  if (phase === "waiting") return "bg-emerald-400";
+  if (phase === "complete") return "bg-rose-400";
+  return "bg-amber-400";
+};
+
+// ─── Sorted Lobbies ───────────────────────────────────────────────────────
+// Waiting lobbies first (people are waiting for players), then playing, then complete.
+
+const sortedLobbies = computed(() => {
+  return [...lobbies.value].sort((a, b) => {
+    const liveA = getLiveInfo(a.code);
+    const liveB = getLiveInfo(b.code);
+    const phaseA = liveA?.phase || a.status;
+    const phaseB = liveB?.phase || b.status;
+
+    // Normalize to status bucket
+    const orderA = phaseA === "waiting" ? 0 : phaseA === "complete" ? 2 : 1;
+    const orderB = phaseB === "waiting" ? 0 : phaseB === "complete" ? 2 : 1;
+
+    if (orderA !== orderB) return orderA - orderB;
+    // Within same status, sort by player count descending (more active first)
+    const playersA = liveA?.players ?? 0;
+    const playersB = liveB?.players ?? 0;
+    return playersB - playersA;
+  });
+});
+
+// ─── Appwrite Data Fetch ──────────────────────────────────────────────────
 
 const fetchPublicLobbies = async () => {
   if (!tables) return;
@@ -362,13 +563,26 @@ onMounted(async () => {
   if (!userStore.isLoggedIn) {
     await userStore.fetchUserSession();
   }
-  await fetchPublicLobbies();
+
+  // Fetch Appwrite lobbies and Teleportal live data in parallel
+  await Promise.all([fetchPublicLobbies(), fetchLiveSummary()]);
+
   const userId = userStore.user?.$id;
   if (userId) {
     const activeLobby = await getActiveLobbyForUser(userId);
     if (activeLobby?.code) {
       return router.replace(`/game/${activeLobby.code}`);
     }
+  }
+
+  // Start polling for live data
+  pollTimer = setInterval(fetchLiveSummary, POLL_INTERVAL_MS);
+});
+
+onBeforeUnmount(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 });
 
