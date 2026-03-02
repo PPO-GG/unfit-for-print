@@ -114,8 +114,8 @@ export default defineNuxtConfig({
     "@nuxtjs/i18n",
     "@nuxtjs/device",
     "@nuxt/scripts",
-
     "@vite-pwa/nuxt",
+    "@nuxtjs/mdc",
   ],
 
   // ─── PWA ──────────────────────────────────────────────────────────────
