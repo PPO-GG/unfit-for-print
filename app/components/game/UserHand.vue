@@ -710,6 +710,7 @@ onUnmounted(() => {
           <WhiteCard
             :cardId="cardId"
             :text="props.cardTexts?.[cardId]?.text"
+            :card-pack="props.cardTexts?.[cardId]?.pack"
             :disableHover="true"
             :flat="true"
           />

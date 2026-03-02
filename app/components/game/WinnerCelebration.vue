@@ -209,6 +209,7 @@ watch(
               class="winner-answer-card"
               :cardId="cardId"
               :text="props.cardTexts?.[cardId]?.text"
+              :card-pack="props.cardTexts?.[cardId]?.pack"
               :is-winner="true"
               :flipped="false"
               back-logo-url="/img/ufp.svg"
