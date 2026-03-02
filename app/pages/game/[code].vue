@@ -679,11 +679,38 @@ function handleSkipJudge() {
     });
   }
 }
+
+function handleResetGame() {
+  if (!isHost.value) return;
+  engine.resetGame();
+  isStarting.value = false;
+  notify({
+    title: t("game.reset_to_lobby_success"),
+    color: "success",
+    icon: "i-solar-restart-bold-duotone",
+    duration: 4000,
+  });
+}
 </script>
 
 <template>
   <div class="bg-slate-900 text-white">
-    <LoadingOverlay :is-loading="loading" :message="t('game.loading_game')" />
+    <!-- In-game loading overlay (waiting for lobby / Y.Doc init) -->
+    <Transition name="page">
+      <div
+        v-if="loading"
+        class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-900/90 backdrop-blur-sm"
+      >
+        <Icon
+          name="svg-spinners:blocks-shuffle-3"
+          size="64px"
+          class="text-white"
+        />
+        <p class="text-white text-xl font-display tracking-wide">
+          {{ t("game.loading_game") }}
+        </p>
+      </div>
+    </Transition>
 
     <!-- Join modal -->
     <div
@@ -769,6 +796,7 @@ function handleSkipJudge() {
             @convert-spectator="convertToPlayer"
             @skip-player="handleSkipPlayer"
             @skip-judge="handleSkipJudge"
+            @reset-game="handleResetGame"
             @update:settings="handleSettingsUpdate"
           />
         </div>
@@ -803,6 +831,7 @@ function handleSkipJudge() {
               @convert-spectator="convertToPlayer"
               @skip-player="handleSkipPlayer"
               @skip-judge="handleSkipJudge"
+              @reset-game="handleResetGame"
               @update:settings="handleSettingsUpdate"
               @close="isSidebarOpen = false"
             />

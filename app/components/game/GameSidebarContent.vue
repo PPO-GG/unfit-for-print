@@ -26,12 +26,15 @@ const emit = defineEmits<{
   (e: "copy-link"): void;
   (e: "leave"): void;
   (e: "start-game"): void;
+  (e: "reset-game"): void;
   (e: "convert-spectator", playerId: string): void;
   (e: "skip-player", playerId: string): void;
   (e: "skip-judge"): void;
   (e: "update:settings", settings: GameSettings): void;
   (e: "close"): void;
 }>();
+
+const showResetConfirm = ref(false);
 
 // Bot management — create reactive refs from props for the composable
 const lobbyRef = computed(() => (props.lobby as any) ?? null);
@@ -98,17 +101,74 @@ const canStart = computed(() => playerCount.value >= minPlayers);
         />
       </div>
       <div class="game-room-divider" />
-      <UButton
-        class="eject-btn"
-        color="error"
-        variant="soft"
-        trailing-icon="i-solar-exit-bold-duotone"
-        block
-        @click="emit('leave')"
-      >
-        {{ t("game.leave_game") }}
-      </UButton>
+      <!-- Host: Reset to Lobby (only during gameplay) -->
+      <UFieldGroup class="flex w-full">
+        <UButton
+          v-if="isHost && !isWaiting"
+          class="reset-btn"
+          color="warning"
+          variant="soft"
+          trailing-icon="i-solar-restart-bold-duotone"
+          block
+          @click="showResetConfirm = true"
+        >
+          {{ t("game.reset_to_lobby") }}
+        </UButton>
+        <UButton
+          class="eject-btn"
+          color="error"
+          variant="soft"
+          trailing-icon="i-solar-exit-bold-duotone"
+          block
+          @click="emit('leave')"
+        >
+          {{ t("game.leave_game") }}
+        </UButton>
+      </UFieldGroup>
     </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- RESET CONFIRMATION MODAL               -->
+    <!-- ═══════════════════════════════════════ -->
+    <UModal v-model:open="showResetConfirm">
+      <template #content>
+        <div class="reset-modal">
+          <div class="reset-modal-icon">
+            <Icon
+              name="solar:restart-bold-duotone"
+              class="text-amber-400 text-3xl"
+            />
+          </div>
+          <h3 class="reset-modal-title">
+            {{ t("game.reset_to_lobby_confirm_title") }}
+          </h3>
+          <p class="reset-modal-desc">
+            {{ t("game.reset_to_lobby_confirm_description") }}
+          </p>
+          <div class="reset-modal-actions">
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="lg"
+              @click="showResetConfirm = false"
+            >
+              {{ t("game.reset_to_lobby_cancel") }}
+            </UButton>
+            <UButton
+              color="warning"
+              size="lg"
+              trailing-icon="i-solar-restart-bold-duotone"
+              @click="
+                showResetConfirm = false;
+                emit('reset-game');
+              "
+            >
+              {{ t("game.reset_to_lobby_confirm") }}
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
 
     <!-- ═══════════════════════════════════════ -->
     <!-- 2. PLAYERS NEEDED BAR (waiting only)    -->
@@ -361,9 +421,55 @@ const canStart = computed(() => playerCount.value >= minPlayers);
   margin: 0.75rem 0;
 }
 
+.reset-btn {
+  letter-spacing: 0.08em;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
 .eject-btn {
   letter-spacing: 0.08em;
   font-size: 1rem;
+}
+
+/* ─── Reset Confirmation Modal ──────────────────────────────── */
+.reset-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.reset-modal-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.reset-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.reset-modal-desc {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  max-width: 20rem;
+}
+
+.reset-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 /* ─── Launch Panel ──────────────────────────────────────────── */
