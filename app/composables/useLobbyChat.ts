@@ -34,7 +34,7 @@ export function useLobbyChat(lobbyDoc: LobbyDocResult) {
     requireDoc().transact(() => {
       getChat().push([
         JSON.stringify({
-          id: crypto.randomUUID(),
+          id: uuid(),
           userId: userStore.user?.$id ?? "anonymous",
           name: userStore.user?.name ?? "Anonymous",
           text: trimmed,
@@ -53,7 +53,7 @@ export function useLobbyChat(lobbyDoc: LobbyDocResult) {
     requireDoc().transact(() => {
       getChat().push([
         JSON.stringify({
-          id: crypto.randomUUID(),
+          id: uuid(),
           userId: "system",
           name: "System",
           text,

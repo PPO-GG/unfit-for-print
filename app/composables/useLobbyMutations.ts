@@ -146,7 +146,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       const chat = getChat();
       chat.push([
         JSON.stringify({
-          id: crypto.randomUUID(),
+          id: uuid(),
           userId: "system",
           name: "System",
           text: `${payload.hostName} created the lobby`,
@@ -167,7 +167,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       // System chat message
       getChat().push([
         JSON.stringify({
-          id: crypto.randomUUID(),
+          id: uuid(),
           userId: "system",
           name: "System",
           text: `${player.name} joined the lobby`,
@@ -187,7 +187,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       if (playerName) {
         getChat().push([
           JSON.stringify({
-            id: crypto.randomUUID(),
+            id: uuid(),
             userId: "system",
             name: "System",
             text: `${playerName} left the lobby`,
