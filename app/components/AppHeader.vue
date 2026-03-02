@@ -4,24 +4,56 @@ import { useUserStore } from "~/stores/userStore";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useNotifications } from "~/composables/useNotifications";
 import { ref, watch } from "vue";
-import { useRouter, useRoute } from "#vue-router";
-import { useLobby } from "~/composables/useLobby";
+import { useRoute } from "#vue-router";
 import { useUiStore } from "~/stores/uiStore";
 import { useI18n } from "vue-i18n";
 import { useIsAdmin } from "~/composables/useAdminCheck";
+import { useLobbyActions } from "~/composables/useLobbyActions";
 
-const { getActiveLobbyForUser } = useLobby();
-const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
 const uiStore = useUiStore();
 const { notify } = useNotifications();
 const isMobileMenuOpen = ref(false);
-const showJoin = ref(false);
-const showCreate = ref(false);
-const isJoining = ref(false);
-const isCreating = ref(false);
 const { t } = useI18n();
+
+const {
+  isJoining,
+  isCreating,
+  showJoin,
+  showCreate,
+  checkForActiveLobbyAndJoin,
+  checkForActiveLobbyAndCreate,
+  handleJoined,
+} = useLobbyActions();
+
+const navItems = [
+  {
+    labelKey: "nav.home",
+    to: "/",
+    icon: "i-solar-home-smile-bold-duotone",
+    color: "info" as const,
+  },
+  {
+    labelKey: "nav.about",
+    to: "/about",
+    icon: "i-solar-info-square-bold-duotone",
+    color: "info" as const,
+  },
+  {
+    labelKey: "nav.games",
+    to: "/game",
+    icon: "i-solar-gamepad-bold-duotone",
+    color: "warning" as const,
+  },
+  {
+    labelKey: "nav.labs",
+    to: "/labs",
+    icon: "i-solar-test-tube-bold-duotone",
+    color: "primary" as const,
+    authRequired: true,
+  },
+];
 
 watch(
   () => route.path,
@@ -92,97 +124,6 @@ const avatarUrl = computed(() => {
   return null;
 });
 
-const checkForActiveLobbyAndJoin = async () => {
-  try {
-    isJoining.value = true;
-
-    if (userStore.user) {
-      const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
-      if (activeLobby) {
-        notify({
-          title: t("notification.redirecting"),
-          color: "info",
-          icon: "i-mdi-controller",
-          duration: 2000,
-        });
-        await router.push(`/game/${activeLobby.code}`);
-        return;
-      }
-    }
-
-    showJoin.value = true;
-  } catch (error: unknown) {
-    console.error("Error checking for active lobby:", error);
-    showJoin.value = true;
-  } finally {
-    isJoining.value = false;
-  }
-};
-
-const checkForActiveLobbyAndCreate = async () => {
-  try {
-    isCreating.value = true;
-
-    if (!userStore.user) {
-      showCreate.value = true;
-      return;
-    }
-
-    // Log runtime configuration for debugging
-    const config = useRuntimeConfig();
-    console.log("Runtime configuration before creating lobby:", {
-      databaseId: config.public.appwriteDatabaseId,
-      lobbyCollectionId: config.public.appwriteLobbyCollectionId,
-      playerCollectionId: config.public.appwritePlayerCollectionId,
-    });
-
-    const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
-    if (activeLobby) {
-      notify({
-        title: t("notification.redirecting"),
-        color: "info",
-        icon: "i-mdi-controller",
-        duration: 2000,
-      });
-      await router.push(`/game/${activeLobby.code}`);
-    } else {
-      showCreate.value = true;
-    }
-  } catch (error: unknown) {
-    // Check if it's an AppwriteException with collection not found error
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      error.code === 404 &&
-      error.message?.includes(
-        "Collection with the requested ID could not be found",
-      )
-    ) {
-      console.warn("Collections not initialized, showing create dialog");
-      showCreate.value = true;
-      return;
-    }
-
-    console.error("Error checking for active lobby:", error);
-    showCreate.value = true;
-  } finally {
-    isCreating.value = false;
-  }
-};
-
-const handleJoined = (code: string) => {
-  notify({
-    title: t("notification.loading_game"),
-    color: "info",
-    icon: "i-mdi-loading i-spin",
-    duration: 3000,
-  });
-  // Pass creator=true so [code].vue skips the "are you in this lobby?" check
-  // when navigating directly after creating. The player exists in the Y.Doc
-  // but may not have an Appwrite player document yet.
-  router.push(`/game/${code}?creator=true`);
-};
-
 const openPolicyModal = () => {
   isMobileMenuOpen.value = false;
   uiStore.togglePolicyModal(true);
@@ -231,7 +172,7 @@ const isAdmin = useIsAdmin();
           aria-label="Create Game"
           class="text-xl p-2 outline-1 dark:outline-none"
           color="warning"
-          icon="i-solar-magic-stick-3-bold-duotone"
+          icon="i-solar-add-square-bold-duotone"
           size="lg"
           variant="soft"
           @click="checkForActiveLobbyAndCreate"
@@ -254,18 +195,22 @@ const isAdmin = useIsAdmin();
       <nav
         class="flex items-center gap-2 justify-end not-lg:hidden ml-auto align-middle"
       >
-        <ClientOnly>
-          <UButton
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
-            color="info"
-            icon="i-solar-home-smile-bold-duotone"
-            size="xl"
-            to="/"
-            variant="subtle"
-            >{{ t("nav.home") }}
-          </UButton>
-        </ClientOnly>
         <UFieldGroup>
+          <ClientOnly>
+            <template v-for="item in navItems" :key="item.to">
+              <UButton
+                v-if="!item.authRequired || isAuthenticatedUser(userStore.user)"
+                :color="item.color"
+                :icon="item.icon"
+                :to="item.to"
+                class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+                size="xl"
+                variant="subtle"
+              >
+                {{ t(item.labelKey) }}
+              </UButton>
+            </template>
+          </ClientOnly>
           <UButton
             :loading="isJoining"
             class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
@@ -281,7 +226,7 @@ const isAdmin = useIsAdmin();
             :icon="
               !isAuthenticatedUser(userStore.user)
                 ? 'i-solar-double-alt-arrow-right-bold-duotone'
-                : 'i-solar-magic-stick-3-bold-duotone'
+                : 'i-solar-add-square-bold-duotone'
             "
             :loading="isCreating"
             class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
@@ -296,26 +241,6 @@ const isAdmin = useIsAdmin();
             }}
           </UButton>
         </UFieldGroup>
-        <ClientOnly>
-          <UButton
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
-            color="warning"
-            icon="i-solar-gamepad-bold-duotone"
-            to="/game"
-            variant="subtle"
-            >{{ t("nav.games") }}
-          </UButton>
-        </ClientOnly>
-        <ClientOnly v-if="isAuthenticatedUser(userStore.user)">
-          <UButton
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
-            color="primary"
-            icon="i-solar-card-bold-duotone"
-            to="/labs"
-            variant="subtle"
-            >{{ t("nav.labs") }}
-          </UButton>
-        </ClientOnly>
         <div
           v-if="isAuthenticatedUser(userStore.user)"
           class="flex items-center gap-2 justify-end not-lg:hidden ml-auto align-middle"
@@ -331,12 +256,6 @@ const isAdmin = useIsAdmin();
               >{{ t("nav.admin") }}
             </UButton>
           </ClientOnly>
-          <!--					<ClientOnly>-->
-          <!--						<UButton class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none" color="secondary"-->
-          <!--						         icon="i-solar-user-id-bold-duotone" to="/profile"-->
-          <!--						         variant="subtle">{{ t('nav.profile') }}-->
-          <!--						</UButton>-->
-          <!--					</ClientOnly>-->
           <UButton
             class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
             color="error"
@@ -418,17 +337,22 @@ const isAdmin = useIsAdmin();
             class="flex-1 overflow-y-auto flex flex-col p-4 bg-slate-100 dark:bg-slate-900"
           >
             <ClientOnly>
-              <UButton
-                block
-                class="mb-2 text-xl py-3 border-2 dark:border-none"
-                color="info"
-                icon="i-solar-home-smile-bold-duotone"
-                size="xl"
-                to="/"
-                variant="soft"
-              >
-                {{ t("nav.home") }}
-              </UButton>
+              <template v-for="item in navItems" :key="item.to">
+                <UButton
+                  v-if="
+                    !item.authRequired || isAuthenticatedUser(userStore.user)
+                  "
+                  :color="item.color"
+                  :icon="item.icon"
+                  :to="item.to"
+                  block
+                  class="mb-2 text-xl py-3 border-2 dark:border-none"
+                  size="xl"
+                  variant="soft"
+                >
+                  {{ t(item.labelKey) }}
+                </UButton>
+              </template>
             </ClientOnly>
             <UButton
               :loading="isJoining"
@@ -478,36 +402,7 @@ const isAdmin = useIsAdmin();
                   {{ t("nav.admin") }}
                 </UButton>
               </ClientOnly>
-              <!--							<ClientOnly>-->
-              <!--								<UButton block class="mb-2 text-xl py-3 border-2 dark:border-none" color="secondary"-->
-              <!--								         icon="i-solar-user-id-bold-duotone" to="/profile"-->
-              <!--								         variant="soft">-->
-              <!--									{{ t('nav.profile') }}-->
-              <!--								</UButton>-->
-              <!--							</ClientOnly>-->
-              <ClientOnly>
-                <UButton
-                  block
-                  class="mb-2 text-xl py-3 border-2 dark:border-none"
-                  color="warning"
-                  icon="i-solar-gamepad-bold-duotone"
-                  to="/game"
-                  variant="soft"
-                >
-                  {{ t("nav.games") }}
-                </UButton>
-              </ClientOnly>
-              <ClientOnly v-if="isAuthenticatedUser(userStore.user)">
-                <UButton
-                  block
-                  class="mb-2 text-xl py-3 border-2 dark:border-none"
-                  color="primary"
-                  icon="i-solar-card-bold-duotone"
-                  to="/labs"
-                  variant="soft"
-                  >{{ t("nav.labs") }}
-                </UButton>
-              </ClientOnly>
+
               <UButton
                 block
                 class="mb-2 text-xl py-3 border-2 dark:border-none"
