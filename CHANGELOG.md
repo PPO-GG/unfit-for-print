@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.4.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.3.1...v3.4.0) (2026-03-02)
+
+
+### ✨ Features
+
+* add About page with how-to-play guide and FAQ ([55d2bb4](https://github.com/PPO-GG/unfit-for-print/commit/55d2bb4af93d35067612fbe4e6864adeca5103df))
+* add Changelog page with GitHub releases via MDC ([02f690b](https://github.com/PPO-GG/unfit-for-print/commit/02f690b96200a2b6a37b9af9de2c4e90a6445bfc))
+* add cross-environment UUID v4 utility ([3de461b](https://github.com/PPO-GG/unfit-for-print/commit/3de461bc7ba8a641c81934d73f2b12512f219c62))
+* **game:** add draw-cards API and async deck replenishment ([33c5bd2](https://github.com/PPO-GG/unfit-for-print/commit/33c5bd2700fb6cca8508258fb2f24436e3c67b43))
+* **game:** add host reset-to-lobby with confirmation modal ([3da85e4](https://github.com/PPO-GG/unfit-for-print/commit/3da85e4454001651f629c38e6ea2831ac88fa8ad))
+* **game:** add real-time lobby browser with live game info ([a4d04b3](https://github.com/PPO-GG/unfit-for-print/commit/a4d04b346a81c1408f05705ca94b6c9e3b89140c))
+* **i18n:** add reset-game and about nav translation keys ([8b07d2a](https://github.com/PPO-GG/unfit-for-print/commit/8b07d2a1eaf63dc9c3b4a39b1159f3cb76571fbc))
+
+
+### 🐛 Bug Fixes
+
+* **game:** pass card-pack prop to WhiteCard for report popover ([b979f28](https://github.com/PPO-GG/unfit-for-print/commit/b979f28da9e99ecbb061bf649b32ab73d870313e))
+
+
+### ♻️ Refactors
+
+* **admin:** replace tabs with responsive card grid layout ([c1a4436](https://github.com/PPO-GG/unfit-for-print/commit/c1a44368968f2757f3e84fd477ece2fd4f99ba30))
+* extract shared lobby actions composable and simplify AppHeader ([e3af1ac](https://github.com/PPO-GG/unfit-for-print/commit/e3af1ac4fc364ca3e9bdedb69059247a08bfcaa4))
+* **game:** fix spectator filtering in lobby mutations and chat ([33e8dc6](https://github.com/PPO-GG/unfit-for-print/commit/33e8dc694b69c416ab77af3ad8ff34f6a748d414))
+
 ## [3.3.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.3.0...v3.3.1) (2026-03-01)
 
 
