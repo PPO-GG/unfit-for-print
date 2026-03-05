@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.5.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.4.0...v3.5.0) (2026-03-05)
+
+
+### ✨ Features
+
+* **admin:** add admin API endpoints for lobby deletion and status updates ([2d89db7](https://github.com/PPO-GG/unfit-for-print/commit/2d89db77209792f18062b8aa7f0d1293beeffc0d))
+* **admin:** add web-worker-powered duplicate card scanner with live progress ([1934963](https://github.com/PPO-GG/unfit-for-print/commit/193496315a16907710ba24ea8561d4c9550aab58))
+* **admin:** fix card upload pipeline with auth headers, progress bar, and live log terminal ([da979fb](https://github.com/PPO-GG/unfit-for-print/commit/da979fb6788d28b8fdaa5b796dc5fc2e57b95eb3))
+* **admin:** overhaul admin card manager into routed multi-page layout ([5acaba4](https://github.com/PPO-GG/unfit-for-print/commit/5acaba41e602bfb6e3d66dad116b48e09745499c))
+* **auth:** always sync Discord username and avatar on session load ([6673317](https://github.com/PPO-GG/unfit-for-print/commit/66733178b12516a90d1f052dc9fb8bd2861d24b1))
+* **changelog:** redesign changelog page with split layout and categorized timeline ([acdc837](https://github.com/PPO-GG/unfit-for-print/commit/acdc83749543116a5e58d0c1cd45dd0faa9c9b98))
+* **game:** fix race conditions in round advancement and card dealing ([8386760](https://github.com/PPO-GG/unfit-for-print/commit/8386760121c018d43e5dd987f924dc572f0b52d4))
+* **speech:** add stop() to TTS composables and front-page speak toggle ([68f1afd](https://github.com/PPO-GG/unfit-for-print/commit/68f1afd38b08a97b8b7b988e2022d8b3331adacf))
+
+
+### 🐛 Bug Fixes
+
+* **game:** fix host demotion not clearing isHost flag on prior host ([87da09c](https://github.com/PPO-GG/unfit-for-print/commit/87da09ca2bbc9c8cbc2e0855cff457602e32dddd))
+
 ## [3.4.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.3.1...v3.4.0) (2026-03-02)
 
 
