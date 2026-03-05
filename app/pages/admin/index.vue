@@ -3,172 +3,168 @@ definePageMeta({
   middleware: "admin",
 });
 
-import { useCardSearch } from "~/composables/useCardSearch";
 import { useIsAdmin } from "~/composables/useAdminCheck";
 
-// Gate rendering until admin check resolves
 const isAdmin = useIsAdmin();
-
-// For tab navigation - use the shared state from useCardSearch
-const { activeTab } = useCardSearch();
 </script>
 
 <template>
   <div>
-    <!-- Show nothing until admin status is confirmed — prevents flash of admin content for non-admins -->
-    <div v-if="isAdmin" class="p-6 space-y-6 max-w-7xl mx-auto">
-      <div
-        class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8"
-      >
-        <div>
-          <h1 class="text-5xl font-bold">Admin Dashboard</h1>
-          <p class="text-gray-400 text-xl mt-1">
-            Manage cards and monitor game lobbies
-          </p>
+    <div v-if="isAdmin" class="p-6 max-w-7xl mx-auto space-y-10">
+      <!-- Header -->
+      <div>
+        <h1 class="text-5xl font-bold">Admin Dashboard</h1>
+        <p class="text-gray-400 text-xl mt-1">
+          Manage cards, monitor lobbies, and administer users
+        </p>
+      </div>
+
+      <!-- ── Card Management Section ─────────────────────────────────────────── -->
+      <section>
+        <h2
+          class="text-lg font-semibold uppercase tracking-widest text-slate-500 mb-3"
+        >
+          Card Management
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <!-- Card Browser -->
+          <NuxtLink to="/admin/cards" class="group block">
+            <UCard
+              class="h-full border border-transparent group-hover:border-primary-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(99,102,241,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-primary-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-primary-600/30 transition-colors"
+                >
+                  <UIcon
+                    name="i-solar-documents-bold-duotone"
+                    class="text-2xl text-primary-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-primary-300 transition-colors"
+                  >
+                    Browse Cards
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    Browse all card packs, preview cards visually, and manage
+                    individual card status
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </NuxtLink>
+
+          <!-- Upload Pack -->
+          <NuxtLink to="/admin/cards/upload" class="group block">
+            <UCard
+              class="h-full border border-transparent group-hover:border-blue-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(59,130,246,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600/30 transition-colors"
+                >
+                  <UIcon
+                    name="i-solar-cloud-upload-bold-duotone"
+                    class="text-2xl text-blue-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-blue-300 transition-colors"
+                  >
+                    Upload Pack
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    Seed new card packs from a JSON file with streaming progress
+                    and resume support
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </NuxtLink>
+
+          <!-- Duplicates -->
+          <NuxtLink to="/admin/cards/duplicates" class="group block">
+            <UCard
+              class="h-full border border-transparent group-hover:border-amber-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(245,158,11,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-amber-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-600/30 transition-colors"
+                >
+                  <UIcon
+                    name="i-solar-copy-bold-duotone"
+                    class="text-2xl text-amber-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-amber-300 transition-colors"
+                  >
+                    Find Duplicates
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    Scan for near-duplicate cards with configurable similarity
+                    threshold and resolve them one-by-one
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </NuxtLink>
         </div>
-      </div>
+      </section>
 
-      <!-- Tab Navigation for smaller screens -->
-      <div class="block lg:hidden mb-6">
-        <UTabs
-          v-model="activeTab"
-          :items="[
-            {
-              label: 'Card Manager',
-              slot: 'cards',
-              value: 'cards',
-              icon: 'i-solar-documents-bold-duotone',
-            },
-            {
-              label: 'Lobby Monitor',
-              slot: 'lobbies',
-              value: 'lobbies',
-              icon: 'i-solar-clipboard-bold-duotone',
-            },
-            {
-              label: 'User Manager',
-              slot: 'users',
-              value: 'users',
-              icon: 'i-solar-users-group-rounded-bold-duotone',
-            },
-            {
-              label: 'Reports',
-              slot: 'reports',
-              value: 'reports',
-              icon: 'i-solar-flag-bold-duotone',
-            },
-          ]"
+      <!-- ── Tools Section ────────────────────────────────────────────────────── -->
+      <section>
+        <h2
+          class="text-lg font-semibold uppercase tracking-widest text-slate-500 mb-3"
         >
-          <template #cards>
-            <div
-              class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg"
+          Monitoring & Users
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Lobby Monitor -->
+          <UCard
+            class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4"
+          >
+            <template #header>
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-semibold">Active Lobbies</h2>
+                <UBadge
+                  icon="i-solar-info-square-bold-duotone"
+                  size="md"
+                  color="info"
+                  variant="solid"
+                  >Monitor active game lobbies and players</UBadge
+                >
+              </div>
+            </template>
+            <AdminLobbyMonitor />
+          </UCard>
+
+          <div class="space-y-6">
+            <!-- Report Viewer -->
+            <UCard
+              class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4"
             >
-              <AdminCardManager />
-            </div>
-          </template>
-          <template #lobbies>
-            <div
-              class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg"
-            >
-              <AdminLobbyMonitor />
-            </div>
-          </template>
-          <template #users>
-            <div
-              class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg"
-            >
-              <AdminUserManager />
-            </div>
-          </template>
-          <template #reports>
-            <div
-              class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6 rounded-lg"
-            >
+              <template #header>
+                <div class="flex justify-between items-center">
+                  <h2 class="text-2xl font-semibold">Reports</h2>
+                  <UBadge
+                    icon="i-solar-info-square-bold-duotone"
+                    size="md"
+                    color="info"
+                    variant="solid"
+                    >View and manage reported cards</UBadge
+                  >
+                </div>
+              </template>
               <AdminReportViewer />
-            </div>
-          </template>
-        </UTabs>
-      </div>
-
-      <!-- Desktop Layout -->
-      <div class="hidden lg:block columns-1 sm:columns-1 md:columns-2 gap-6">
-        <!-- Card Manager -->
-        <UCard
-          class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6"
-        >
-          <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="text-2xl font-semibold">Card Manager</h2>
-              <UBadge
-                icon="i-solar-info-square-bold-duotone"
-                size="md"
-                color="info"
-                variant="solid"
-                >Manage game cards - add, search, edit, delete, or toggle active
-                status</UBadge
-              >
-            </div>
-          </template>
-          <AdminCardManager />
-        </UCard>
-
-        <!-- Lobby Monitor -->
-        <UCard
-          class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6"
-        >
-          <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="text-2xl font-semibold">Active Lobbies</h2>
-              <UBadge
-                icon="i-solar-info-square-bold-duotone"
-                size="md"
-                color="info"
-                variant="solid"
-                >Monitor active game lobbies and players</UBadge
-              >
-            </div>
-          </template>
-          <AdminLobbyMonitor />
-        </UCard>
-
-        <!-- User Manager -->
-        <UCard
-          class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6"
-        >
-          <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="text-2xl font-semibold">Users Manager</h2>
-              <UBadge
-                icon="i-solar-info-square-bold-duotone"
-                size="md"
-                color="info"
-                variant="solid"
-                >Manage Authenticated Users</UBadge
-              >
-            </div>
-          </template>
-          <AdminUserManager />
-        </UCard>
-
-        <!-- Report Viewer -->
-        <UCard
-          class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4 break-inside-avoid mb-6"
-        >
-          <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="text-2xl font-semibold">Reports</h2>
-              <UBadge
-                icon="i-solar-info-square-bold-duotone"
-                size="md"
-                color="info"
-                variant="solid"
-                >View and manage reported cards</UBadge
-              >
-            </div>
-          </template>
-          <AdminReportViewer />
-        </UCard>
-      </div>
+            </UCard>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </template>

@@ -8,10 +8,18 @@ import { watchDebounced } from "@vueuse/core";
 import stringSimilarity from "string-similarity";
 import type { RadioGroupItem, RadioGroupValue } from "@nuxt/ui";
 import { useCardSearch } from "~/composables/useCardSearch";
+import { useUserStore } from "~/stores/userStore";
 
 const { databases, tables } = getAppwrite();
 const config = useRuntimeConfig();
 const { notify } = useNotifications();
+const userStore = useUserStore();
+
+// Auth headers for admin API calls (matches UserManager pattern)
+const authHeaders = () => ({
+  Authorization: `Bearer ${userStore.session?.$id}`,
+  "x-appwrite-user-id": userStore.user?.$id ?? "",
+});
 
 // Use the shared card search state
 const { searchTerm, cardType } = useCardSearch();
@@ -1105,23 +1113,15 @@ const uploadJsonFile = async (resumeFromPosition: string | null = null) => {
     }
 
     // Send the initial POST request to submit the data
-    const response = await fetch("/api/dev/seed", {
+    const responseData = await $fetch("/api/dev/seed", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+      headers: authHeaders(),
+      navigate: false,
+      body: payload,
     });
 
-    // Check if the POST request was successful
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to submit data");
-    }
-
     // Parse the response to get the session ID
-    const responseData = await response.json();
-    const sessionId = responseData.sessionId;
+    const sessionId = (responseData as any).sessionId;
 
     if (!sessionId) {
       throw new Error("No session ID returned from server");
