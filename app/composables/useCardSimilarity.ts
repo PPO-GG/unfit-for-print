@@ -16,13 +16,18 @@ export const useCardSimilarity = () => {
   const selectedCard = ref<any>(null);
   const similarityThreshold = ref(0.7);
 
+  /** 0–1 progress reported by the worker during a scan. */
+  const scanProgress = ref(0);
+  /** Human-readable pair counts reported mid-scan. */
+  const scanStats = ref({ processed: 0, total: 0 });
+
+  // ── Per-card similarity (used by the single-card modal path) ─────────────────
   const findSimilarCards = async (card: any, cardsList: any[]) => {
     loadingSimilarity.value = true;
     selectedCard.value = card;
     showSimilarCardsModal.value = true;
     similarCards.value = [];
 
-    // Simulate slight delay for UI responsiveness
     await new Promise((r) => setTimeout(r, 100));
 
     try {
@@ -68,96 +73,99 @@ export const useCardSimilarity = () => {
     }
   };
 
-  const findAllSimilarCards = async (cardsList: any[]) => {
-    processingAllSimilarCards.value = true;
-    allSimilarPairs.value = [];
+  // ── Full-scan via Web Worker ──────────────────────────────────────────────────
+  /**
+   * Offloads the O(n²) scan to a dedicated Web Worker so the main thread
+   * (and Vue reactivity / UI) stays completely unblocked during processing.
+   *
+   * Progress is reported ~every 1 % of pairs processed via `scanProgress`.
+   */
+  const findAllSimilarCards = (cardsList: any[]): Promise<void> => {
+    return new Promise((resolve) => {
+      processingAllSimilarCards.value = true;
+      allSimilarPairs.value = [];
+      scanProgress.value = 0;
+      scanStats.value = { processed: 0, total: 0 };
 
-    // Allow UI to update
-    await new Promise((r) => setTimeout(r, 100));
+      const worker = new Worker("/workers/cardSimilarity.worker.js");
 
-    try {
-      const processedPairs = new Set<string>();
-      const similarPairs = [];
+      worker.onmessage = (event) => {
+        const data = event.data as {
+          type: string;
+          progress?: number;
+          processed?: number;
+          total?: number;
+          pairs?: any[];
+          message?: string;
+        };
 
-      let totalPairs = 0;
-      let filteredByLength = 0;
-
-      for (let i = 0; i < cardsList.length; i++) {
-        const card1 = cardsList[i];
-
-        if (i % 100 === 0) {
-          // just yield to event loop briefly
-          await new Promise((r) => setTimeout(r, 0));
+        if (data.type === "progress") {
+          scanProgress.value = data.progress ?? 0;
+          scanStats.value = {
+            processed: data.processed ?? 0,
+            total: data.total ?? 0,
+          };
+          return;
         }
 
-        for (let j = i + 1; j < cardsList.length; j++) {
-          const card2 = cardsList[j];
-          totalPairs++;
+        if (data.type === "result") {
+          allSimilarPairs.value = data.pairs ?? [];
+          processingAllSimilarCards.value = false;
+          scanProgress.value = 1;
+          worker.terminate();
 
-          const pairKey = [card1.$id, card2.$id].sort().join("-");
-          if (processedPairs.has(pairKey)) continue;
-
-          const lengthDiff = Math.abs(card1.text.length - card2.text.length);
-          const maxLength = Math.max(card1.text.length, card2.text.length);
-          if (lengthDiff / maxLength > 0.3) {
-            filteredByLength++;
-            continue;
-          }
-
-          const similarity = compareTwoStrings(
-            card1.text.toLowerCase(),
-            card2.text.toLowerCase(),
-          );
-
-          if (similarity >= similarityThreshold.value) {
-            similarPairs.push({
-              card1,
-              card2,
-              similarity,
-              similarityScore: Math.round(similarity * 100),
+          if (allSimilarPairs.value.length > 0) {
+            showAllSimilarCardsModal.value = true;
+            notify({
+              title: "Similar Cards Found",
+              description: `Found ${allSimilarPairs.value.length} pairs of similar cards.`,
+              color: "success",
             });
-            processedPairs.add(pairKey);
+          } else {
+            notify({
+              title: "No Similar Cards",
+              description:
+                "No similar cards were found above the similarity threshold.",
+              color: "info",
+            });
           }
+
+          resolve();
+          return;
         }
-      }
 
-      allSimilarPairs.value = similarPairs.sort(
-        (a, b) => b.similarity - a.similarity,
-      );
+        if (data.type === "error") {
+          console.error("Worker scan error:", data.message);
+          notify({
+            title: "Scan Error",
+            description: data.message || "Failed to scan for similar cards.",
+            color: "error",
+          });
+          processingAllSimilarCards.value = false;
+          worker.terminate();
+          resolve();
+        }
+      };
 
-      console.debug(
-        `Length prefiltering: ${filteredByLength}/${totalPairs} pairs skipped (${Math.round((filteredByLength / totalPairs) * 100)}% reduction)`,
-      );
-      console.debug(
-        `Found ${similarPairs.length} similar pairs out of ${totalPairs - filteredByLength} compared (${Math.round((similarPairs.length / (totalPairs - filteredByLength)) * 100)}% match rate)`,
-      );
-
-      if (allSimilarPairs.value.length > 0) {
-        showAllSimilarCardsModal.value = true;
-
+      worker.onerror = (err) => {
+        console.error("Worker crashed:", err);
         notify({
-          title: "Similar Cards Found",
-          description: `Found ${allSimilarPairs.value.length} pairs of similar cards.`,
-          color: "success",
+          title: "Scan Error",
+          description: "The scan worker encountered an unexpected error.",
+          color: "error",
         });
-      } else {
-        notify({
-          title: "No Similar Cards",
-          description:
-            "No similar cards were found above the similarity threshold.",
-          color: "info",
-        });
-      }
-    } catch (err) {
-      console.error("Failed to find all similar cards:", err);
-      notify({
-        title: "Error",
-        description: "Failed to find all similar cards.",
-        color: "error",
+        processingAllSimilarCards.value = false;
+        worker.terminate();
+        resolve();
+      };
+
+      // Kick off the scan — only the plain card data is transferred (no Vue proxies)
+      worker.postMessage({
+        type: "scan",
+        cards: JSON.parse(JSON.stringify(cardsList)),
+        threshold: similarityThreshold.value,
       });
-    } finally {
-      processingAllSimilarCards.value = false;
-    }
+    });
   };
 
   return {
@@ -169,6 +177,8 @@ export const useCardSimilarity = () => {
     showAllSimilarCardsModal,
     selectedCard,
     similarityThreshold,
+    scanProgress,
+    scanStats,
     findSimilarCards,
     findAllSimilarCards,
   };
