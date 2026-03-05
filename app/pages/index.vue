@@ -77,11 +77,13 @@
             {{ t("try_me") }}
           </UButton>
           <UButton
-            :disabled="isSpeaking"
-            :loading="isSpeaking"
             class="text-xl py-2 px-4 cursor-pointer"
             color="primary"
-            icon="i-solar-user-speak-bold-duotone"
+            :icon="
+              isSpeaking
+                ? 'i-solar-stop-bold'
+                : 'i-solar-user-speak-bold-duotone'
+            "
             variant="subtle"
             @click="handleSpeakClick"
           />
@@ -156,6 +158,7 @@ let speechService = {
   speak: (provider: TTSProvider, text: string) => {
     // `Speaking with ${provider} speech: ${text}`);
   },
+  stop: () => {},
   isSpeaking: ref(false),
 };
 
@@ -185,6 +188,10 @@ const speak = (text: string) => {
 };
 
 const handleSpeakClick = () => {
+  if (isSpeaking.value) {
+    speechService.stop();
+    return;
+  }
   if (!blackCard.value || !whiteCard.value) return;
   const mergedText = mergeCardText(blackCard.value.text, whiteCard.value.text);
   if (!mergedText) return;
@@ -216,23 +223,22 @@ const fetchNewCards = async () => {
     await playSfx(SFX.cardThrow, { pitch: [0.8, 1.2], volume: 0.75 });
   }
 
-  setTimeout(() => {
+  setTimeout(async () => {
     if (isClient.value) {
       vibrate();
     }
 
-    fetchRandomCard("black", 1)
-      .then((card: any) => {
-        blackCard.value = card;
-        randomCard.value = card;
-        blackCardFlipped.value = false;
+    const [black, white] = await Promise.all([
+      fetchRandomCard("black", 1),
+      fetchRandomCard("white"),
+    ]);
 
-        return fetchRandomCard("white");
-      })
-      .then((card: any) => {
-        whiteCard.value = card;
-        whiteCardFlipped.value = false;
-      });
+    blackCard.value = black;
+    randomCard.value = black;
+    blackCardFlipped.value = false;
+
+    whiteCard.value = white;
+    whiteCardFlipped.value = false;
 
     setTimeout(() => {
       isFetching.value = false;

@@ -155,5 +155,18 @@ export function useSpeech(options: TTSOptions = {}) {
     playNext();
   };
 
-  return { speak, isSpeaking };
+  const stop = () => {
+    // Clear any pending items
+    queue.value = [];
+    // Stop API-based audio
+    if (audio) {
+      audio.pause();
+      audio.src = "";
+    }
+    // Stop browser speech
+    browserSpeech.stop();
+    isSpeaking.value = false;
+  };
+
+  return { speak, stop, isSpeaking };
 }
