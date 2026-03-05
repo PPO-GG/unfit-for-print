@@ -91,6 +91,12 @@ export const seedCardsFromJson = async ({
   let failedCards = 0;
 
   // Create stats object for progress reporting
+  const logs: string[] = [];
+  const logLine = (msg: string) => {
+    console.log(msg);
+    logs.push(msg);
+  };
+
   const stats = {
     totalCards,
     totalPacks,
@@ -99,31 +105,36 @@ export const seedCardsFromJson = async ({
     insertedCards: 0,
     skippedDuplicates,
     skippedSimilar,
-    skippedLongText, // Add counter for cards skipped due to text > 255 chars
+    skippedLongText,
     failedCards,
     currentPack: "",
     currentCardType: "",
     errors,
     warnings,
+    logs,
   };
 
   // Fetch existing cards (we'll need to do this in batches for large collections)
   try {
-    console.log("Fetching existing white cards...");
+    logLine("Fetching existing white cards...");
+    if (onProgress) onProgress(0, { ...stats });
     const existingWhiteCards = await fetchAllCards(
       databases,
       databaseId,
       whiteCollection,
     );
-    console.log(`Found ${existingWhiteCards.length} existing white cards`);
+    logLine(`Found ${existingWhiteCards.length} existing white cards`);
+    if (onProgress) onProgress(0, { ...stats });
 
-    console.log("Fetching existing black cards...");
+    logLine("Fetching existing black cards...");
+    if (onProgress) onProgress(0, { ...stats });
     const existingBlackCards = await fetchAllCards(
       databases,
       databaseId,
       blackCollection,
     );
-    console.log(`Found ${existingBlackCards.length} existing black cards`);
+    logLine(`Found ${existingBlackCards.length} existing black cards`);
+    if (onProgress) onProgress(0, { ...stats });
 
     // Determine starting point (for resume functionality)
     let startPackIndex = 0;
@@ -134,7 +145,7 @@ export const seedCardsFromJson = async ({
       startPackIndex = resumeFrom.packIndex;
       startCardIndex = resumeFrom.cardIndex;
       startCardType = resumeFrom.cardType;
-      console.log(
+      logLine(
         `Resuming from pack ${startPackIndex}, ${startCardType} card ${startCardIndex}`,
       );
       warnings.push(
@@ -172,7 +183,10 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
-          const card = pack.white[cardIndex];
+          const rawCard = pack.white[cardIndex];
+          // Normalize: CAH JSON stores white cards as plain strings OR { text } objects
+          const card =
+            typeof rawCard === "string" ? { text: rawCard } : rawCard;
           if (!card.text) {
             warnings.push(
               `Skipped white card with no text in pack "${packName}"`,
@@ -250,11 +264,16 @@ export const seedCardsFromJson = async ({
           }
 
           try {
-            const newCard = await tables.createRow({ databaseId: databaseId, tableId: whiteCollection, rowId: "unique()", data: {
+            const newCard = await tables.createRow({
+              databaseId: databaseId,
+              tableId: whiteCollection,
+              rowId: "unique()",
+              data: {
                 text: card.text,
                 pack: packName,
                 active: true,
-              } });
+              },
+            });
 
             // Add to our local cache of existing cards
             existingWhiteCards.push(newCard);
@@ -387,12 +406,17 @@ export const seedCardsFromJson = async ({
           }
 
           try {
-            const newCard = await tables.createRow({ databaseId: databaseId, tableId: blackCollection, rowId: "unique()", data: {
+            const newCard = await tables.createRow({
+              databaseId: databaseId,
+              tableId: blackCollection,
+              rowId: "unique()",
+              data: {
                 text: card.text,
                 pick: card.pick || 1,
                 pack: packName,
                 active: true,
-              } });
+              },
+            });
 
             // Add to our local cache of existing cards
             existingBlackCards.push(newCard);
@@ -452,13 +476,13 @@ export const seedCardsFromJson = async ({
   stats.failedCards = failedCards;
 
   const message = `Seeding complete. Added ${stats.insertedCards} cards. Skipped ${skippedDuplicates} exact duplicates, ${skippedSimilar} similar cards, and ${skippedLongText} cards with text > 255 characters.`;
-  console.log(message);
+  logLine(message);
 
   if (warnings.length > 0) {
-    console.log(`Warnings: ${warnings.length}`);
-    warnings.slice(0, 5).forEach((warning) => console.log(` - ${warning}`));
+    logLine(`Warnings: ${warnings.length}`);
+    warnings.slice(0, 5).forEach((warning) => logLine(` - ${warning}`));
     if (warnings.length > 5) {
-      console.log(` ... and ${warnings.length - 5} more warnings`);
+      logLine(` ... and ${warnings.length - 5} more warnings`);
     }
   }
 
@@ -484,11 +508,15 @@ async function fetchAllCards(
   let hasMore = true;
 
   while (hasMore) {
-    const response = await tables.listRows({ databaseId: databaseId, tableId: collectionId, queries: [
-      // Appwrite uses Query.limit and Query.offset for pagination
-      Query.limit(limit),
-      Query.offset(offset),
-    ] });
+    const response = await tables.listRows({
+      databaseId: databaseId,
+      tableId: collectionId,
+      queries: [
+        // Appwrite uses Query.limit and Query.offset for pagination
+        Query.limit(limit),
+        Query.offset(offset),
+      ],
+    });
 
     allCards = [...allCards, ...response.rows];
 

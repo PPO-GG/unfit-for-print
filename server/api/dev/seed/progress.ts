@@ -37,10 +37,21 @@ export default defineEventHandler(async (event) => {
     message: "SSE connection established. Monitoring progress...",
   });
 
-  // Check if there's any existing progress data for this session
+  // If there's already stored progress data for this session, replay it.
+  // This handles the race where the job finishes before the SSE client connects.
   const existingData = getProgressData(sessionId);
   if (Object.keys(existingData).length > 0) {
-    await sendEvent("progress", existingData);
+    const { _lastEvent, ...eventData } = existingData;
+    const replayEventName = _lastEvent || "progress";
+
+    await sendEvent(replayEventName, eventData);
+
+    // If the job already reached a terminal state, close immediately.
+    if (replayEventName === "complete" || replayEventName === "error") {
+      cleanupProgressData(sessionId);
+      await eventStream.close();
+      return eventStream.send();
+    }
   }
 
   // Set up event listeners for this session

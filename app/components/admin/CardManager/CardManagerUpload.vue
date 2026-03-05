@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { useCardImporter } from "~/composables/useCardImporter";
+import { ref, watch, nextTick } from "vue";
 
 const emit = defineEmits(["upload-complete"]);
+
+const logTerminalRef = ref<HTMLElement | null>(null);
 
 const {
   uploadState,
@@ -22,6 +25,17 @@ const {
     emit("upload-complete");
   },
 });
+
+// Auto-scroll the log terminal to the bottom whenever new lines appear
+watch(
+  () => seedingStats.value.logs.length,
+  async () => {
+    await nextTick();
+    if (logTerminalRef.value) {
+      logTerminalRef.value.scrollTop = logTerminalRef.value.scrollHeight;
+    }
+  },
+);
 </script>
 
 <template>
@@ -101,7 +115,7 @@ const {
           </span>
           <span>{{ Math.round(uploadProgress * 100) }}%</span>
         </div>
-        <UProgress :value="uploadProgress" color="primary" />
+        <UProgress :value="uploadProgress * 100" :max="100" color="primary" />
         <div
           v-if="seedingStats.totalCards > 0"
           class="text-xs text-gray-400 grid grid-cols-2 gap-x-4 gap-y-1 mt-2"
@@ -176,6 +190,42 @@ const {
               </div>
             </template>
           </UAccordion>
+        </div>
+      </div>
+
+      <!-- Live log terminal -->
+      <div
+        v-if="showProgress && seedingStats.logs.length > 0"
+        class="mt-4 rounded-lg overflow-hidden border border-slate-700"
+      >
+        <div
+          class="flex items-center gap-2 px-3 py-2 bg-slate-800 border-b border-slate-700"
+        >
+          <span class="w-2.5 h-2.5 rounded-full bg-red-500" />
+          <span class="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+          <span class="w-2.5 h-2.5 rounded-full bg-green-400" />
+          <span class="ml-2 text-xs text-slate-400 font-mono">seed output</span>
+        </div>
+        <div
+          ref="logTerminalRef"
+          class="bg-slate-950 font-mono text-xs text-green-400 p-3 max-h-48 overflow-y-auto space-y-0.5 leading-relaxed"
+        >
+          <div
+            v-for="(line, i) in seedingStats.logs"
+            :key="i"
+            :class="{
+              'text-yellow-300':
+                line.startsWith(' -') || line.startsWith('Warnings'),
+              'text-red-400':
+                line.toLowerCase().includes('error') ||
+                line.toLowerCase().includes('failed'),
+              'text-slate-400':
+                line.startsWith('Fetching') || line.startsWith('Found'),
+              'text-green-300': line.startsWith('Seeding complete'),
+            }"
+          >
+            <span class="text-slate-600 select-none">› </span>{{ line }}
+          </div>
         </div>
       </div>
 

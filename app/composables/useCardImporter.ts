@@ -1,8 +1,15 @@
 import { ref, reactive } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
+import { useUserStore } from "~/stores/userStore";
 
 export const useCardImporter = (options?: { onComplete?: () => void }) => {
   const { notify } = useNotifications();
+  const userStore = useUserStore();
+
+  const authHeaders = () => ({
+    Authorization: `Bearer ${userStore.session?.$id}`,
+    "x-appwrite-user-id": userStore.user?.$id ?? "",
+  });
 
   const uploadState = reactive({
     file: null as File | null,
@@ -35,14 +42,18 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
     position: null as string | null,
     warnings: [] as string[],
     errors: [] as string[],
+    logs: [] as string[],
   });
 
   const resumePosition = ref<string | null>(null);
   const showResumePrompt = ref(false);
+  // Tracks whether the SSE stream completed cleanly — prevents onerror false-fire on close
+  let _completed = false;
 
   const handleFileChange = (e: Event) => {
     const target = e.target as HTMLInputElement;
     uploadState.file = target.files?.[0] || null;
+    if (uploadState.file) parseJsonFile();
   };
 
   const parseJsonFile = async () => {
@@ -116,7 +127,9 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
       position: null,
       warnings: [],
       errors: [],
+      logs: [],
     };
+    _completed = false;
 
     try {
       const payload: Record<string, unknown> = {
@@ -132,6 +145,7 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...authHeaders(),
         },
         body: JSON.stringify(payload),
       });
@@ -161,7 +175,7 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
 
       eventSource.addEventListener("progress", (event) => {
         const data = JSON.parse(event.data);
-        uploadProgress.value = data.progress;
+        uploadProgress.value = data.progress ?? uploadProgress.value;
 
         if (data.totalCards) seedingStats.value.totalCards = data.totalCards;
         if (data.totalPacks) seedingStats.value.totalPacks = data.totalPacks;
@@ -184,12 +198,26 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
         if (data.position) seedingStats.value.position = data.position;
         if (data.warnings) seedingStats.value.warnings = data.warnings;
         if (data.errors) seedingStats.value.errors = data.errors;
+        // Accumulate new log lines (server sends cumulative array; diff against current length)
+        if (Array.isArray(data.logs)) {
+          const existing = seedingStats.value.logs.length;
+          const newLines = data.logs.slice(existing);
+          if (newLines.length) seedingStats.value.logs.push(...newLines);
+        }
       });
 
       eventSource.addEventListener("complete", (event) => {
         const data = JSON.parse(event.data);
         uploadProgress.value = 1;
+        _completed = true;
         eventSource.close();
+
+        // Flush any final log lines from the complete payload
+        if (Array.isArray(data.stats?.logs)) {
+          const existing = seedingStats.value.logs.length;
+          const newLines = data.stats.logs.slice(existing);
+          if (newLines.length) seedingStats.value.logs.push(...newLines);
+        }
 
         notify({
           title: "Upload Complete",
@@ -197,19 +225,12 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
           color: "success",
         });
 
-        if (data.warnings && data.warnings.length > 0) {
-          // console.log(
-          //   `Seeding completed with ${data.warnings.length} warnings:`,
-          //   data.warnings,
-          // );
-        }
-
+        // Reset form so a new file can be uploaded; keep showProgress/logs visible
         showPreview.value = false;
-        setTimeout(() => {
-          showProgress.value = false;
-        }, 1000);
-
         uploading.value = false;
+        uploadState.file = null;
+        uploadState.fileContent = null;
+
         if (options?.onComplete) {
           options.onComplete();
         }
@@ -238,16 +259,16 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
         uploading.value = false;
       });
 
-      eventSource.onerror = (err) => {
-        console.error("EventSource error:", err);
-        eventSource.close();
+      eventSource.onerror = () => {
+        // Ignore close events that happen right after a clean complete
+        if (_completed) return;
 
+        eventSource.close();
         notify({
           title: "Connection Error",
           description: "Lost connection to the server",
           color: "error",
         });
-
         uploading.value = false;
         showProgress.value = false;
       };

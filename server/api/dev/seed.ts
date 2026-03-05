@@ -15,11 +15,17 @@ const cardPackSchema = {
       white: {
         type: "array",
         items: {
-          type: "object",
-          required: ["text"],
-          properties: {
-            text: { type: "string" },
-          },
+          // White cards may be plain strings OR { text: string } objects
+          oneOf: [
+            { type: "string" },
+            {
+              type: "object",
+              required: ["text"],
+              properties: {
+                text: { type: "string" },
+              },
+            },
+          ],
         },
       },
       black: {
