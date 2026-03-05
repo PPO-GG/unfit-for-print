@@ -1,5 +1,8 @@
 <template>
-  <div class="relative min-h-screen subpixel-antialiased cursor-default">
+  <div
+    class="relative min-h-screen subpixel-antialiased cursor-default"
+    :style="{ '--ui-header-height': `${headerSize.height}px` }"
+  >
     <!-- Background behind everything -->
     <ScrollingBackground :gap="12" :scale="0.5" :speedPx="15" />
 
