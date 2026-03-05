@@ -387,6 +387,33 @@ export const useLobby = () => {
     // Remove from Y.Doc
     mutations.removePlayer(userId, playerName);
 
+    // Clean up the Appwrite player doc so the username is freed for rejoin.
+    // Without this, the join flow's name-uniqueness check finds the stale
+    // doc and incorrectly blocks the player from rejoining the same lobby.
+    try {
+      const res = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwritePlayerCollectionId,
+        queries: [
+          Query.equal("userId", userId),
+          Query.equal("lobbyId", lobbyId),
+          Query.limit(1),
+        ],
+      });
+      if (res.total > 0 && res.rows[0]) {
+        await tables.deleteRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwritePlayerCollectionId,
+          rowId: res.rows[0].$id,
+        });
+      }
+    } catch (err) {
+      console.warn(
+        "[useLobby] Failed to delete Appwrite player doc on leave:",
+        err,
+      );
+    }
+
     // Check remaining human players
     const playersMap = lobbyDoc.doc.value ? lobbyDoc.getPlayers() : null;
     const remainingHumans: Array<{ id: string; data: any }> = [];
@@ -581,22 +608,111 @@ export const useLobby = () => {
 
   // ── Promote to Host ───────────────────────────────────────────────────
 
-  const promoteToHost = async (_lobbyId: string, newHostPlayer: Player) => {
+  const promoteToHost = async (lobbyId: string, newHostPlayer: Player) => {
+    const playersMap = lobbyDoc.getPlayers();
+
+    // Capture the current host BEFORE the transaction so we can demote them.
+    const currentHostId = lobbyDoc.getMeta().get("hostUserId");
+
     lobbyDoc.doc.value?.transact(() => {
+      // 1. Update meta so all clients derive the correct isHost value
       lobbyDoc.getMeta().set("hostUserId", newHostPlayer.userId);
 
-      // Update the new host's player record
-      const raw = lobbyDoc.getPlayers().get(newHostPlayer.userId);
-      if (raw) {
+      // 2. Promote the new host's player record
+      const rawNew = playersMap.get(newHostPlayer.userId);
+      if (rawNew) {
         try {
-          const p = JSON.parse(raw);
+          const p = JSON.parse(rawNew);
           p.isHost = true;
-          lobbyDoc.getPlayers().set(newHostPlayer.userId, JSON.stringify(p));
+          playersMap.set(newHostPlayer.userId, JSON.stringify(p));
         } catch {
           /* ignore */
         }
       }
+
+      // 3. Demote the OLD host's player record so they no longer appear as host
+      if (currentHostId && currentHostId !== newHostPlayer.userId) {
+        const rawOld = playersMap.get(currentHostId);
+        if (rawOld) {
+          try {
+            const p = JSON.parse(rawOld);
+            p.isHost = false;
+            playersMap.set(currentHostId, JSON.stringify(p));
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     });
+
+    // 4. Sync the new hostUserId to the Appwrite lobby registry.
+    //    This keeps server-side checks (requireHost) and discovery queries accurate.
+    //    Fire-and-forget — Y.Doc is the authority; Appwrite is a best-effort mirror.
+    if (lobbyId) {
+      const { tables } = getAppwrite();
+      const config = getConfig();
+      try {
+        await tables.updateRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteLobbyCollectionId,
+          rowId: lobbyId,
+          data: { hostUserId: newHostPlayer.userId },
+        });
+      } catch (err) {
+        console.warn(
+          "[useLobby] Failed to sync new hostUserId to Appwrite lobby:",
+          err,
+        );
+      }
+
+      // 5. Update Appwrite player shims so requireHost can verify via DB as well.
+      try {
+        // Promote the new host's shim
+        const newHostRes = await tables.listRows({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwritePlayerCollectionId,
+          queries: [
+            Query.equal("userId", newHostPlayer.userId),
+            Query.equal("lobbyId", lobbyId),
+            Query.limit(1),
+          ],
+        });
+        if (newHostRes.total > 0 && newHostRes.rows[0]) {
+          await tables.updateRow({
+            databaseId: config.public.appwriteDatabaseId,
+            tableId: config.public.appwritePlayerCollectionId,
+            rowId: newHostRes.rows[0].$id,
+            data: { isHost: true },
+          });
+        }
+
+        // Demote the old host's shim
+        if (currentHostId && currentHostId !== newHostPlayer.userId) {
+          const oldHostRes = await tables.listRows({
+            databaseId: config.public.appwriteDatabaseId,
+            tableId: config.public.appwritePlayerCollectionId,
+            queries: [
+              Query.equal("userId", currentHostId),
+              Query.equal("lobbyId", lobbyId),
+              Query.limit(1),
+            ],
+          });
+          if (oldHostRes.total > 0 && oldHostRes.rows[0]) {
+            await tables.updateRow({
+              databaseId: config.public.appwriteDatabaseId,
+              tableId: config.public.appwritePlayerCollectionId,
+              rowId: oldHostRes.rows[0].$id,
+              data: { isHost: false },
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "[useLobby] Failed to sync isHost to Appwrite player shims:",
+          err,
+        );
+      }
+    }
   };
 
   // ── Reset Game State ──────────────────────────────────────────────────
