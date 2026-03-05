@@ -52,7 +52,7 @@ onMounted(async () => {
         });
 
         if (avatarData?.discordUserId && avatarData?.avatar) {
-          // Persist to Appwrite prefs so it survives across sessions
+          // Persist avatar to Appwrite prefs so it survives across sessions
           const currentPrefs = await account.getPrefs();
           await account.updatePrefs({
             ...currentPrefs,
@@ -60,9 +60,16 @@ onMounted(async () => {
             avatar: avatarData.avatar,
             avatarUrl: avatarData.avatarUrl,
           });
+
+          // Sync the Discord @handle as the Appwrite display name
+          if (avatarData.discordUsername) {
+            await account.updateName({ name: avatarData.discordUsername });
+          }
+
           console.log(
-            "[Auth Callback] Discord avatar persisted to prefs:",
+            "[Auth Callback] Discord identity persisted:",
             avatarData.avatarUrl,
+            avatarData.discordUsername,
           );
         }
       } catch (avatarErr) {

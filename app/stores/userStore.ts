@@ -98,45 +98,52 @@ export const useUserStore = defineStore("user", {
             provider: session.provider,
           };
 
-          // Discord avatar: prefer the persisted full CDN URL from prefs.
-          // If missing, call the server-side admin endpoint to fetch it
-          // (the admin SDK holds the provider refresh token, so it always
-          // works — unlike the short-lived client access token).
-          if (!this.user!.prefs?.avatarUrl) {
-            try {
-              const avatarData = await $fetch("/api/auth/discord-avatar", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${this.session!.$id}`,
-                  "x-appwrite-user-id": this.user!.$id,
-                },
-                body: { userId: this.user!.$id },
-              });
+          // Always re-fetch Discord identity so username and avatar stay
+          // fresh across logins even if the user changed them on Discord.
+          try {
+            const avatarData = await $fetch("/api/auth/discord-avatar", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${this.session!.$id}`,
+                "x-appwrite-user-id": this.user!.$id,
+              },
+              body: { userId: this.user!.$id },
+            });
 
-              if (avatarData?.avatarUrl) {
-                // Persist for future page loads so we skip this call next time
-                this.user!.prefs.avatarUrl = avatarData.avatarUrl;
-                this.user!.prefs.avatar = avatarData.avatar ?? undefined;
-                this.user!.prefs.discordUserId =
-                  avatarData.discordUserId ?? undefined;
-
-                // Write back to Appwrite prefs so it survives across devices
-                try {
-                  await account.updatePrefs({
-                    ...this.user!.prefs,
-                    avatarUrl: avatarData.avatarUrl,
-                    avatar: avatarData.avatar ?? undefined,
-                    discordUserId: avatarData.discordUserId ?? undefined,
-                  });
-                } catch {
-                  // Non-fatal — we still have it in memory for this session
-                  console.warn("[userStore] Failed to persist avatar prefs");
-                }
+            // Sync Discord @handle to Appwrite display name if it changed.
+            const freshName = avatarData?.discordUsername ?? null;
+            if (freshName && freshName !== this.user!.name) {
+              try {
+                await account.updateName({ name: freshName });
+                this.user!.name = freshName;
+                console.log("[userStore] Discord username updated:", freshName);
+              } catch {
+                console.warn("[userStore] Failed to update Appwrite name");
               }
-            } catch {
-              // Non-fatal — avatar just won't be available this session
-              console.warn("[userStore] Discord avatar fetch failed");
             }
+
+            if (avatarData?.avatarUrl) {
+              this.user!.prefs.avatarUrl = avatarData.avatarUrl;
+              this.user!.prefs.avatar = avatarData.avatar ?? undefined;
+              this.user!.prefs.discordUserId =
+                avatarData.discordUserId ?? undefined;
+
+              // Write back to Appwrite prefs so it survives across devices
+              try {
+                await account.updatePrefs({
+                  ...this.user!.prefs,
+                  avatarUrl: avatarData.avatarUrl,
+                  avatar: avatarData.avatar ?? undefined,
+                  discordUserId: avatarData.discordUserId ?? undefined,
+                });
+              } catch {
+                // Non-fatal — we still have it in memory for this session
+                console.warn("[userStore] Failed to persist avatar prefs");
+              }
+            }
+          } catch {
+            // Non-fatal — stale avatar/name is acceptable for this session
+            console.warn("[userStore] Discord identity refresh failed");
           }
 
           // Mark as verified so subsequent callers skip the SDK round-trip

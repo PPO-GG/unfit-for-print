@@ -5,8 +5,9 @@ import { Query } from "node-appwrite";
  *
  * Uses the admin SDK to:
  *   1. Fetch the user's Discord identity (providerUid + providerAccessToken)
- *   2. Call Discord /users/@me with the provider token to get avatar hash
- *   3. Return { discordUserId, avatar } so the client can persist to prefs
+ *   2. Call Discord /users/@me with the provider token to get avatar hash + username
+ *   3. Return { discordUserId, avatar, avatarUrl, discordUsername } so the
+ *      client can persist to prefs and keep the Appwrite display name in sync.
  *
  * Body: { userId: string }
  *
@@ -50,11 +51,17 @@ export default defineEventHandler(async (event) => {
 
     if (!discordIdentity) {
       console.log("[discord-avatar] No Discord identity found for", userId);
-      return { discordUserId: null, avatar: null, avatarUrl: null };
+      return {
+        discordUserId: null,
+        avatar: null,
+        avatarUrl: null,
+        discordUsername: null,
+      };
     }
 
     const discordUserId = discordIdentity.providerUid;
     let avatarHash: string | null = null;
+    let discordUsername: string | null = null;
 
     // Try using the provider access token to fetch from Discord API
     if (discordIdentity.providerAccessToken) {
@@ -67,10 +74,12 @@ export default defineEventHandler(async (event) => {
 
         if (res.ok) {
           const discordUser = await res.json();
-          avatarHash = discordUser.avatar;
-          console.log("[discord-avatar] Got avatar from Discord API:", {
+          avatarHash = discordUser.avatar ?? null;
+          discordUsername = discordUser.username ?? null;
+          console.log("[discord-avatar] Got identity from Discord API:", {
             discordUserId,
             avatarHash,
+            discordUsername,
           });
         } else {
           console.warn(
@@ -98,6 +107,7 @@ export default defineEventHandler(async (event) => {
       discordUserId,
       avatar: avatarHash,
       avatarUrl,
+      discordUsername,
     };
   } catch (err: any) {
     console.error("[discord-avatar] Error:", err.message || err);
