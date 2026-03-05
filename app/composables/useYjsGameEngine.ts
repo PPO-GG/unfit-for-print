@@ -403,6 +403,12 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
   // Replaces: POST /api/game/next-round
 
   const nextRound = (): { success: boolean; reason?: string } => {
+    // Only the host advances rounds — prevents two clients racing into this
+    // simultaneously (e.g., both see roundEnd and fire the transition at once).
+    const isHostUser = getMeta().get("hostUserId") === myId();
+    if (!isHostUser)
+      return { success: false, reason: "Only the host can advance rounds" };
+
     const ydoc = requireDoc();
     const state = readGameState();
     const cards = readCards();
@@ -478,8 +484,12 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       c.set("blackDeck", JSON.stringify(blackDeck));
       c.set("discardBlack", JSON.stringify(discardBlack));
 
-      // Refill player hands (draw from deck only — no discard recycling)
-      const whiteDeck = [...cards.whiteDeck];
+      // Refill player hands (draw from deck only — no discard recycling).
+      // IMPORTANT: Read whiteDeck fresh from the Y.Doc *inside* this transaction
+      // so we always operate on the current committed deck state. Reading from the
+      // outer `cards` snapshot (captured before transact) would allow two clients
+      // to draw from the same stale deck, producing duplicate/missing cards.
+      const whiteDeck = safeParseJson<CardId[]>(c.get("whiteDeck"), []);
       const numCards = safeParseJson<number>(
         lobbyDoc.getSettings().get("cardsPerPlayer"),
         10,
