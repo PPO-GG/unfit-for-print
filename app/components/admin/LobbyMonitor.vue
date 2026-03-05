@@ -2,8 +2,8 @@
 import { ref, onMounted, computed } from "vue";
 import { getAppwrite } from "~/utils/appwrite";
 import { Query } from "appwrite";
-import type { Databases } from "appwrite";
 import { useNotifications } from "~/composables/useNotifications";
+import { useUserStore } from "~/stores/userStore";
 import type { GameSettings } from "~/types/gamesettings";
 import type { Lobby } from "~/types/lobby";
 import { resolveId } from "~/utils/resolveId";
@@ -51,19 +51,21 @@ interface TeleportalStatus {
   timestamp: number;
 }
 
-const { databases, tables } = getAppwrite();
-
-function getDb(): Databases {
-  if (!databases) throw new Error("Databases not initialized");
-  return databases;
-}
+const { tables } = getAppwrite();
 
 const config = useRuntimeConfig();
 const { notify } = useNotifications();
+const userStore = useUserStore();
+
+// Auth headers required by requireAuth() on the server.
+// Mirrors the pattern used in UserManager.vue and other admin components.
+const authHeaders = () => ({
+  Authorization: `Bearer ${userStore.session?.$id}`,
+  "x-appwrite-user-id": userStore.user?.$id ?? "",
+});
 
 const DB_ID = config.public.appwriteDatabaseId;
 const LOBBY_COL = config.public.appwriteLobbyCollectionId;
-const PLAYER_COL = config.public.appwritePlayerCollectionId;
 
 const lobbies = ref<LobbyWithName[]>([]);
 const playersByLobby = ref<Record<string, any[]>>({});
@@ -224,8 +226,9 @@ const forceGcAll = async () => {
 };
 
 const checkActiveLobbies = async () => {
-  if (!databases) return;
+  if (!tables) return;
   loading.value = true;
+  const PLAYER_COL = config.public.appwritePlayerCollectionId;
   try {
     // 1. Fetch all lobbies, ordered by creation date
     const lobbyRes = await tables.listRows({
@@ -311,16 +314,19 @@ const checkActiveLobbies = async () => {
 };
 
 // Mark a lobby as completed
+// Uses the server-side admin API to bypass Appwrite document-level permissions.
 const markLobbyCompleted = async (lobby: LobbyWithName) => {
   try {
-    const updated = await getDb().updateDocument(DB_ID, LOBBY_COL, lobby.$id, {
-      status: "complete",
+    await $fetch("/api/admin/lobby/update-status", {
+      method: "POST",
+      headers: authHeaders(),
+      body: { lobbyId: lobby.$id, status: "complete" },
     });
 
     // Update in local list
-    const index = lobbies.value.findIndex((l) => l.$id === updated.$id);
+    const index = lobbies.value.findIndex((l) => l.$id === lobby.$id);
     if (index !== -1) {
-      (lobbies.value[index] as any).status = updated.status;
+      (lobbies.value[index] as any).status = "complete";
     }
 
     notify({
@@ -328,17 +334,19 @@ const markLobbyCompleted = async (lobby: LobbyWithName) => {
       description: `Lobby "${lobby.lobbyName || "Unnamed"}" marked as completed`,
       color: "success",
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Failed to update lobby:", err);
     notify({
       title: "Update Failed",
-      description: "Could not mark lobby as completed",
+      description:
+        err?.data?.statusMessage || "Could not mark lobby as completed",
       color: "error",
     });
   }
 };
 
-// Delete a lobby
+// Delete a lobby (cascade: players → chat → settings → lobby)
+// Uses the server-side admin API to bypass Appwrite document-level permissions.
 const deleteLobby = async (lobby: LobbyWithName) => {
   if (
     !confirm(
@@ -349,34 +357,11 @@ const deleteLobby = async (lobby: LobbyWithName) => {
   }
 
   try {
-    // First delete all players in this lobby
-    const playersInLobby = playersByLobby.value[lobby.$id] || [];
-    for (const player of playersInLobby) {
-      await getDb().deleteDocument(DB_ID, PLAYER_COL, player.$id);
-    }
-
-    // Delete associated game chat messages
-    const GAMECHAT_COL = config.public.appwriteGamechatCollectionId;
-    // When querying with Query.equal, Appwrite will match both string values and relationship IDs
-    const chatMessages = await getDb().listDocuments(DB_ID, GAMECHAT_COL, [
-      Query.equal("lobbyId", lobby.$id),
-    ]);
-    for (const message of chatMessages.documents) {
-      await getDb().deleteDocument(DB_ID, GAMECHAT_COL, message.$id);
-    }
-
-    // Delete associated game settings
-    const GAMESETTINGS_COL = config.public.appwriteGameSettingsCollectionId;
-    // When querying with Query.equal, Appwrite will match both string values and relationship IDs
-    const gameSettings = await getDb().listDocuments(DB_ID, GAMESETTINGS_COL, [
-      Query.equal("lobbyId", lobby.$id),
-    ]);
-    for (const setting of gameSettings.documents) {
-      await getDb().deleteDocument(DB_ID, GAMESETTINGS_COL, setting.$id);
-    }
-
-    // Then delete the lobby
-    await getDb().deleteDocument(DB_ID, LOBBY_COL, lobby.$id);
+    await $fetch("/api/admin/lobby/delete", {
+      method: "POST",
+      headers: authHeaders(),
+      body: { lobbyId: lobby.$id },
+    });
 
     // Remove from local lists
     lobbies.value = lobbies.value.filter((l) => l.$id !== lobby.$id);
@@ -387,11 +372,11 @@ const deleteLobby = async (lobby: LobbyWithName) => {
       description: `Lobby "${lobby.lobbyName || "Unnamed"}" and all associated data were deleted`,
       color: "success",
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Failed to delete lobby:", err);
     notify({
       title: "Delete Failed",
-      description: "Could not delete the lobby",
+      description: err?.data?.statusMessage || "Could not delete the lobby",
       color: "error",
     });
   }
