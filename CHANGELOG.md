@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.7.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.6.0...v3.7.0) (2026-04-02)
+
+
+### ✨ Features
+
+* **admin:** replace native confirm/fetch with modal dialog and server proxy for Discord Activity ([98664bb](https://github.com/PPO-GG/unfit-for-print/commit/98664bb5e68adbf0cfb43f9d8c7627846ca6cc2c))
+* **legal:** add Terms of Service and Privacy Policy as dedicated pages ([bba29ff](https://github.com/PPO-GG/unfit-for-print/commit/bba29ffd4675ee652c112e0698a52f6cf73c80b1))
+
+
+### 🐛 Bug Fixes
+
+* **deps:** add pnpm overrides to resolve 22 dependabot security alerts ([30afb0b](https://github.com/PPO-GG/unfit-for-print/commit/30afb0b250ae7b44d6f7a20c7f1a5959b49b66a8))
+* **discord:** add debug logging to SDK close() for troubleshooting ([a44b3b6](https://github.com/PPO-GG/unfit-for-print/commit/a44b3b6fdab0fe9a02a613b281b23d90de6a271f))
+
 ## [3.6.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.5.0...v3.6.0) (2026-04-02)
 
 
