@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
+    "@discord/embedded-app-sdk": "^2.4.1",
     "@elevenlabs/elevenlabs-js": "^2.36.0",
     "@fontsource/inter": "^5.2.6",
     "@nuxt/fonts": "^0.14.0",
