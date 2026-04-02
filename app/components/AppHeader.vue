@@ -134,7 +134,7 @@ const isAdmin = useIsAdmin();
 
 <template class="">
   <header
-    class="fixed top-0 left-0 right-0 z-50 flex w-full h-16 items-center p-4 backdrop-blur-2xl dark:bg-slate-900/50 bg-slate-200 shadow-md text-2xl font-medium border-b-2 border-slate-700/50 transition-all duration-250 linear"
+    class="fixed top-0 left-0 right-0 z-50 flex w-full h-16 items-center p-4"
   >
     <!-- Mobile Menu Button -->
     <UButton
@@ -181,17 +181,6 @@ const isAdmin = useIsAdmin();
       </UFieldGroup>
     </ClientOnly>
 
-    <div class="flex-1 flex">
-      <ClientOnly>
-        <NuxtLink class="cursor-pointer" to="/">
-          <img
-            alt="Unfit For Print Logo"
-            class="mx-auto w-10 h-auto"
-            src="/img/ufp2.svg"
-          />
-        </NuxtLink>
-      </ClientOnly>
-    </div>
     <ClientOnly>
       <nav
         class="flex items-center gap-2 justify-end not-lg:hidden ml-auto align-middle"
@@ -204,7 +193,7 @@ const isAdmin = useIsAdmin();
                 :color="item.color"
                 :icon="item.icon"
                 :to="item.to"
-                class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+                class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
                 size="xl"
                 variant="subtle"
               >
@@ -214,7 +203,7 @@ const isAdmin = useIsAdmin();
           </ClientOnly>
           <UButton
             :loading="isJoining"
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
             color="success"
             icon="i-solar-hand-shake-line-duotone"
             variant="subtle"
@@ -230,7 +219,7 @@ const isAdmin = useIsAdmin();
                 : 'i-solar-add-square-bold-duotone'
             "
             :loading="isCreating"
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
             color="warning"
             variant="subtle"
             @click="checkForActiveLobbyAndCreate"
@@ -249,7 +238,7 @@ const isAdmin = useIsAdmin();
           <ClientOnly>
             <UButton
               v-if="isAdmin"
-              class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+              class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
               color="error"
               icon="i-solar-shield-star-bold-duotone"
               to="/admin"
@@ -259,7 +248,7 @@ const isAdmin = useIsAdmin();
           </ClientOnly>
           <UButton
             v-if="isDiscordActivity"
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
             color="error"
             icon="i-solar-close-square-bold-duotone"
             variant="subtle"
@@ -268,7 +257,7 @@ const isAdmin = useIsAdmin();
           </UButton>
           <UButton
             v-else
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
             color="error"
             icon="i-solar-logout-3-bold-duotone"
             variant="subtle"
@@ -279,7 +268,7 @@ const isAdmin = useIsAdmin();
 
         <template v-else-if="!isDiscordActivity">
           <UButton
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
             color="secondary"
             icon="i-logos-discord-icon"
             variant="subtle"
