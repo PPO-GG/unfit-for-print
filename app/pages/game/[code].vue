@@ -58,6 +58,12 @@ const {
 const { getGameSettings, createDefaultGameSettings } = useGameSettings();
 const { initSessionIfNeeded } = useJoinLobby();
 
+// ─── Discord Activity Layout ───────────────────────────────────────────────
+const { isDiscordActivity } = useDiscordSDK();
+if (isDiscordActivity.value) {
+  setPageLayout("activity");
+}
+
 // ─── Reactive State from Y.Doc ──────────────────────────────────────────────
 // All game state is derived from useLobbyReactive() — no Appwrite subscriptions.
 const {
@@ -169,6 +175,16 @@ watch(isComplete, (complete) => {
       clearTimeout(delayedCompleteTimeout);
       delayedCompleteTimeout = null;
     }
+  }
+});
+
+// ─── Host Promotion Re-fetch ────────────────────────────────────────────────
+// If a player joins early (before the host creates GameSettings) or fails to
+// fetch them on load, their gameSettings refs will be null. If they are later
+// promoted to host, they need the settings to be loaded so the Sidebar displays them.
+watch(isHost, async (newIsHost) => {
+  if (newIsHost && (!gameSettings.value || !gameSettings.value.$id)) {
+    await ensureGameSettings();
   }
 });
 
