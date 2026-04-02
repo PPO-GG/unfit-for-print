@@ -94,7 +94,11 @@ export function useDiscordSDK() {
   }
 
   function close() {
-    if (!sdkInstance) return;
+    console.log("[Discord SDK] close() called, sdkInstance:", !!sdkInstance);
+    if (!sdkInstance) {
+      console.warn("[Discord SDK] Cannot close — SDK not initialized");
+      return;
+    }
     sdkInstance.close(1000, "User closed activity");
   }
 
