@@ -474,6 +474,10 @@ async function handleDelete(submissionId: string) {
   try {
     await $fetch("/api/admin/submissions/delete", {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${userStore.session!.$id}`,
+        "x-appwrite-user-id": userStore.user!.$id,
+      },
       body: { submissionId },
     });
     submissions.value = submissions.value.filter((s) => s.$id !== submissionId);
