@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.6.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.5.0...v3.6.0) (2026-04-02)
+
+
+### ✨ Features
+
+* **admin:** move submission deletion to server API route and pin vite ([d8fd0fd](https://github.com/PPO-GG/unfit-for-print/commit/d8fd0fd4c5fb483ba74fe736f502f4b1540a8db6))
+* Discord Activity (Embedded App) integration ([3f035ed](https://github.com/PPO-GG/unfit-for-print/commit/3f035ed51e21947480e4663fb33b487dba1c638a))
+* **discord-activity:** add activity entry page with auto-lobby creation ([7c477b0](https://github.com/PPO-GG/unfit-for-print/commit/7c477b0b3a561add2533ced225146b161112bd7f))
+* **discord-activity:** add CSP frame-ancestors for Discord iframe ([6f2b553](https://github.com/PPO-GG/unfit-for-print/commit/6f2b5538cae8540184043aa6528df7486456291e))
+* **discord-activity:** add minimal activity layout for Discord iframe ([9a6df5e](https://github.com/PPO-GG/unfit-for-print/commit/9a6df5e586d32d04c85802e741951d4f563bb483))
+* **discord-activity:** add server auth bridge (Discord code → Appwrite session) ([c9f32a0](https://github.com/PPO-GG/unfit-for-print/commit/c9f32a0749ff316af364e315a8a7a932e1a6fd4d))
+* **discord-activity:** add useDiscordSDK composable ([3e00fd9](https://github.com/PPO-GG/unfit-for-print/commit/3e00fd9cacc9af71da53612974310ba46bdcd327))
+* **discord-activity:** dynamic layout switching and Activity-mode guards ([076170e](https://github.com/PPO-GG/unfit-for-print/commit/076170e271ce6c34973daded754b82dee99828a7))
+* **discord-activity:** install embedded app SDK and add config ([e22592f](https://github.com/PPO-GG/unfit-for-print/commit/e22592f7d72fe9ac91c2013e7d0bfac63f688fef))
+* **discord-activity:** redirect Discord iframe from / to /activity ([054b930](https://github.com/PPO-GG/unfit-for-print/commit/054b9302984a3cf11fb8e40c228d7ac954e98f75))
+* **discord:** improve activity UX — auth-only splash, close button, no auto-lobby ([a7d459a](https://github.com/PPO-GG/unfit-for-print/commit/a7d459adf55bedd74da2498bb17bbcc4911f3fb6))
+
+
+### 🐛 Bug Fixes
+
+* **discord-activity:** handle retry after auth, revert aggressive session guard ([271cd17](https://github.com/PPO-GG/unfit-for-print/commit/271cd17b3a1dc2d93b685376070844667e5679b1))
+* **discord-activity:** skip auto session fetch in Activity mode to prevent 401s ([c4b2efe](https://github.com/PPO-GG/unfit-for-print/commit/c4b2efef59c3f78dad19005f63ccd4459d0dacef))
+* **discord-activity:** SSR-safe dynamic import, scoped CSP, clean config ([c3edbd5](https://github.com/PPO-GG/unfit-for-print/commit/c3edbd5d532a298596a68ced79d1a21a8cf8f397))
+* **game:** update GameSettings permissions on host transfer ([fac3dcf](https://github.com/PPO-GG/unfit-for-print/commit/fac3dcfaf00ad92ac4214dcfbc3a82ba29aa49f4))
+* **license:** change license from CC BY-SA 4.0 to CC BY-NC-SA 4.0 ([352b539](https://github.com/PPO-GG/unfit-for-print/commit/352b539ee5318a920b32f9a0246399e33a3c4dd4))
+* **security:** patch Dependabot alerts — bump dompurify, add pnpm overrides ([f70fe51](https://github.com/PPO-GG/unfit-for-print/commit/f70fe51e90d1c34a363a83a6341493e053a95a32))
+
+
+### 📖 Documentation
+
+* **privacy:** remove inactive Rybbit analytics, update date ([ebbf8b9](https://github.com/PPO-GG/unfit-for-print/commit/ebbf8b98a3fcb9dfe188b00d3e34d6a2a7a3b8a2))
+* rewrite README with updated features, tech stack, and correct license ([7f8f9af](https://github.com/PPO-GG/unfit-for-print/commit/7f8f9afbd62346dbb12ede01ed740f56bbde5b7b))
+
 ## [3.5.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.4.0...v3.5.0) (2026-03-05)
 
 
