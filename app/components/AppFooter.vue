@@ -49,15 +49,24 @@ const { t } = useI18n();
         <VoiceSwitcher />
         <LanguageSwitcher />
         <ThemeSwitcher />
-        <UTooltip :text="t('nav.privacy_policy')" arrow class="cursor-pointer">
-          <!-- Call the store action on click -->
+        <UTooltip text="Terms of Service" arrow class="cursor-pointer">
           <UButton
+            to="/legal/termsofservice"
+            class="rounded-full"
+            color="neutral"
+            icon="i-solar-document-text-line-duotone"
+            size="xl"
+            variant="ghost"
+          />
+        </UTooltip>
+        <UTooltip :text="t('nav.privacy_policy')" arrow class="cursor-pointer">
+          <UButton
+            to="/legal/privacypolicy"
             class="rounded-full"
             color="neutral"
             icon="i-solar-shield-check-line-duotone"
             size="xl"
             variant="ghost"
-            @click="uiStore.togglePolicyModal(true)"
           />
         </UTooltip>
       </div>
