@@ -101,7 +101,14 @@ export function useGameSettings() {
       maxPoints: 10,
       numPlayerCards: 10,
       maxPick: 3,
-      cardPacks: ["CAH Base Set"],
+      cardPacks: [
+        "CAH Base Set",
+        "Absurd Box Expansion",
+        "CAH: Blue Box Expansion",
+        "CAH: Green Box Expansion",
+        "CAH: Red Box Expansion",
+        "Unfit Labs",
+      ],
       isPrivate: options?.isPrivate || false,
       password: options?.password,
       lobbyId, // This will be converted to a relationship by Appwrite if the collection is configured for relationships
