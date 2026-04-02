@@ -83,7 +83,19 @@
       "node-forge": ">=1.4.0",
       "js-yaml": ">=4.1.1",
       "glob@>=10": ">=10.5.0",
-      "vite": ">=7.3.1"
+      "vite": ">=7.3.1",
+      "lodash": ">=4.18.0",
+      "brace-expansion@<2": ">=1.1.13",
+      "unhead": ">=2.1.11",
+      "simple-git": ">=3.32.3",
+      "tar": ">=7.5.11",
+      "svgo": ">=4.0.1",
+      "serialize-javascript": ">=7.0.3",
+      "minimatch@<4": ">=3.1.5 <4",
+      "minimatch@>=5 <6": ">=5.1.8 <6",
+      "minimatch@>=9 <10": ">=9.0.7 <10",
+      "minimatch@>=10": ">=10.2.3",
+      "rollup": ">=4.59.0"
     }
   },
   "devDependencies": {
