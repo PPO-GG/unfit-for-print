@@ -1,6 +1,11 @@
 import { ref, readonly } from "vue";
 
 let sdkInstance: any = null;
+let cachedAuthResult: {
+  userId: string;
+  secret: string;
+  discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
+} | null = null;
 
 const isDiscordActivity = ref(false);
 const isReady = ref(false);
@@ -45,6 +50,11 @@ export function useDiscordSDK() {
     secret: string;
     discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
   }> {
+    // If already authenticated, return cached result
+    if (isAuthenticated.value && cachedAuthResult) {
+      return cachedAuthResult;
+    }
+
     if (!sdkInstance) {
       throw new Error("Discord SDK not initialized. Call init() first.");
     }
@@ -74,11 +84,13 @@ export function useDiscordSDK() {
     isAuthenticated.value = true;
     discordUser.value = authData.discordUser;
 
-    return {
+    cachedAuthResult = {
       userId: authData.userId,
       secret: authData.secret,
       discordUser: authData.discordUser,
     };
+
+    return cachedAuthResult;
   }
 
   function getSdk(): any | null {

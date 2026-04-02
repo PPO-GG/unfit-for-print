@@ -63,16 +63,6 @@ export const useUserStore = defineStore("user", {
     async fetchUserSession() {
       if (import.meta.server) return;
 
-      // In Discord Activity mode, skip auto-fetch — the activity page
-      // handles auth explicitly via useDiscordSDK before calling this.
-      if (
-        typeof window !== "undefined" &&
-        !this.isLoggedIn &&
-        new URLSearchParams(window.location.search).has("frame_id")
-      ) {
-        return;
-      }
-
       // Already verified this page load — skip redundant SDK calls
       if (
         typeof window !== "undefined" &&

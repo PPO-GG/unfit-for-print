@@ -40,18 +40,20 @@ async function launch() {
     statusText.value = "Signing you in...";
     const authData = await authenticate();
 
-    // 3. Create Appwrite session on the client
-    const { account } = useAppwrite();
-    await account.createSession({
-      userId: authData.userId,
-      secret: authData.secret,
-    });
+    // 3. Create Appwrite session on the client (skip if already logged in from prior attempt)
+    if (!userStore.isLoggedIn) {
+      const { account } = useAppwrite();
+      await account.createSession({
+        userId: authData.userId,
+        secret: authData.secret,
+      });
 
-    // 4. Hydrate user store
-    await userStore.fetchUserSession();
+      // 4. Hydrate user store
+      await userStore.fetchUserSession();
 
-    if (!userStore.user) {
-      throw new Error("Failed to establish session");
+      if (!userStore.user) {
+        throw new Error("Failed to establish session");
+      }
     }
 
     // 5. Check for existing active lobby
