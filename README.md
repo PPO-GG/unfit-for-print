@@ -1,127 +1,69 @@
 <div align="center">
 <img src="https://unfit.cards/img/ufp2.svg" alt="UNFIT FOR PRINT Logo" width="300">
-</div>
-
-![Appwrite](https://img.shields.io/badge/Appwrite-%23FD366E.svg?style=flat&logo=appwrite&logoColor=white)  
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/PPO-GG/unfit-for-print/release.yml)  
-![GitHub License](https://img.shields.io/github/license/PPO-GG/unfit-for-print)  
-![GitHub package.json version (branch)](https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print/main)  
 
 # UNFIT FOR PRINT
 
-## About the Game
+**A party game for hideous people.**
 
-**UNFIT FOR PRINT - A PARTY GAME FOR HIDEOUS PEOPLE**
-is a Cards Against Humanity clone developed by **MYND** at **[PPO.GG](https://ppo.gg)**. It provides feature rich gameplay, Pretty (decent) visuals, and lots of features not found in any other Cards Against Humanity clones.
+[![Appwrite](https://img.shields.io/badge/Appwrite-%23FD366E.svg?style=flat&logo=appwrite&logoColor=white)](https://appwrite.io)
+[![Build](https://img.shields.io/github/actions/workflow/status/PPO-GG/unfit-for-print/release.yml)](https://github.com/PPO-GG/unfit-for-print/actions)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Version](https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print/main)](https://github.com/PPO-GG/unfit-for-print/releases)
 
-###### *We are not affiliated with Cards Against Humanity, we just love their game.*
+[Play Now](https://unfit.cards) | [Report a Bug](https://github.com/PPO-GG/unfit-for-print/issues)
 
----
-## Screenshots
-
-<div align="center">
-<img src="https://console.ppo.gg/v1/storage/buckets/6831670e0005cf04762c/files/685c566000229ae5c35a/preview?project=682eb1b9000cb3845772&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbklkIjoiNjg1YzU3NzAzZTVjZDg4YmE4ZjUiLCJyZXNvdXJjZUlkIjoiNjgzMTY3MGUwMDA1Y2YwNDc2MmM6Njg1YzU2NjAwMDIyOWFlNWMzNWEiLCJyZXNvdXJjZVR5cGUiOiJmaWxlcyIsInJlc291cmNlSW50ZXJuYWxJZCI6IjE6NCIsImV4cCI6OS4yMjMzNzIwMzg2MDU2NThlKzE4fQ.caloDTHv-FNBLxO-Sa0Pc_0LmFErainfrXMwI7zca-0" alt="Unfit For Print Homepage Screenshot" height="auto">
-<img src="https://console.ppo.gg/v1/storage/buckets/6831670e0005cf04762c/files/685c565c00213ebc4ad1/preview?project=682eb1b9000cb3845772&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbklkIjoiNjg1YzU3YzcxMzc1MDhhMWIzZWEiLCJyZXNvdXJjZUlkIjoiNjgzMTY3MGUwMDA1Y2YwNDc2MmM6Njg1YzU2NWMwMDIxM2ViYzRhZDEiLCJyZXNvdXJjZVR5cGUiOiJmaWxlcyIsInJlc291cmNlSW50ZXJuYWxJZCI6IjE6MyIsImV4cCI6OS4yMjMzNzIwMzg2MDU2NThlKzE4fQ.vwVAEbEQ-Cn6cM814MVF4YPft4JstjkHV3D4myy90lE" alt="Unfit For Print Game Screenshot" height="auto">
-<img src="https://console.ppo.gg/v1/storage/buckets/6831670e0005cf04762c/files/685c56570020bfe5ee8c/preview?project=682eb1b9000cb3845772&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbklkIjoiNjg1YzU3ZTgxY2RkODIyM2JkZTYiLCJyZXNvdXJjZUlkIjoiNjgzMTY3MGUwMDA1Y2YwNDc2MmM6Njg1YzU2NTcwMDIwYmZlNWVlOGMiLCJyZXNvdXJjZVR5cGUiOiJmaWxlcyIsInJlc291cmNlSW50ZXJuYWxJZCI6IjE6MiIsImV4cCI6OS4yMjMzNzIwMzg2MDU2NThlKzE4fQ.LN81NVWDA9S6PhlGR8K-nfU7j9LlrifT_MIK7-KL-hY" alt="Unfit For Print Game Screenshot" height="auto">
 </div>
 
 ---
-## How to Play
 
-### Game Setup
+Unfit for Print is a Cards Against Humanity-style game built for the browser. Create a lobby, invite your friends, and take turns being terrible. Made by **MYND** at **[PPO.GG](https://ppo.gg)**.
 
-1. **Create or Join a Lobby**: Start by creating a new lobby or joining an existing one using a lobby code.
-2. **Invite Friends**: Share your lobby code with friends so they can join your game.
-3. **Configure Settings**: The host can customize game settings including:
-   - Maximum points to win
-   - Cards per player
-   - Card packs to include
-   - Privacy settings
+> _Not affiliated with Cards Against Humanity - we just love their game._
 
-### Gameplay
+## Screenshots
 
-1. **Roles**: Each round, one player is designated as the "Judge" (rotates each round).
-2. **Black Card**: The Judge reveals a black card with a prompt or fill-in-the-blank statement.
-3. **White Cards**: Other players select one or more white cards from their hand to respond to the black card.
-4. **Judging**: The Judge reviews all submissions (anonymously) and selects the funniest or most outrageous response.
-5. **Scoring**: The player with the winning submission earns a point.
-6. **New Round**: A new Judge is selected, and a new black card is drawn.
-7. **Game End**: The first player to reach the point limit (default: 10 points) wins the game.
-
-### Player Types
-
-- **Participants**: Active players who submit cards and can win rounds
-- **Spectators**: Observers who can watch the game but don't participate
-- **Host**: The player who created the lobby and has special privileges
+<div align="center">
+<img src="https://api.ppo.gg/v1/storage/buckets/6831670e0005cf04762c/files/685c566000229ae5c35a/preview?project=682eb1b9000cb3845772&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbklkIjoiNjg1YzU3NzAzZTVjZDg4YmE4ZjUiLCJyZXNvdXJjZUlkIjoiNjgzMTY3MGUwMDA1Y2YwNDc2MmM6Njg1YzU2NjAwMDIyOWFlNWMzNWEiLCJyZXNvdXJjZVR5cGUiOiJmaWxlcyIsInJlc291cmNlSW50ZXJuYWxJZCI6IjE6NCIsImV4cCI6OS4yMjMzNzIwMzg2MDU2NThlKzE4fQ.caloDTHv-FNBLxO-Sa0Pc_0LmFErainfrXMwI7zca-0" alt="Unfit For Print Homepage" height="auto">
+<img src="https://api.ppo.gg/v1/storage/buckets/6831670e0005cf04762c/files/685c565c00213ebc4ad1/preview?project=682eb1b9000cb3845772&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbklkIjoiNjg1YzU3YzcxMzc1MDhhMWIzZWEiLCJyZXNvdXJjZUlkIjoiNjgzMTY3MGUwMDA1Y2YwNDc2MmM6Njg1YzU2NWMwMDIxM2ViYzRhZDEiLCJyZXNvdXJjZVR5cGUiOiJmaWxlcyIsInJlc291cmNlSW50ZXJuYWxJZCI6IjE6MyIsImV4cCI6OS4yMjMzNzIwMzg2MDU2NThlKzE4fQ.vwVAEbEQ-Cn6cM814MVF4YPft4JstjkHV3D4myy90lE" alt="Unfit For Print Gameplay" height="auto">
+<img src="https://console.ppo.gg/v1/storage/buckets/6831670e0005cf04762c/files/685c56570020bfe5ee8c/preview?project=682eb1b9000cb3845772&token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbklkIjoiNjg1YzU3ZTgxY2RkODIyM2JkZTYiLCJyZXNvdXJjZUlkIjoiNjgzMTY3MGUwMDA1Y2YwNDc2MmM6Njg1YzU2NTcwMDIwYmZlNWVlOGMiLCJyZXNvdXJjZVR5cGUiOiJmaWxlcyIsInJlc291cmNlSW50ZXJuYWxJZCI6IjE6MiIsImV4cCI6OS4yMjMzNzIwMzg2MDU2NThlKzE4fQ.LN81NVWDA9S6PhlGR8K-nfU7j9LlrifT_MIK7-KL-hY" alt="Unfit For Print Judging" height="auto">
+</div>
 
 ## Features
 
-### Core Gameplay
+- **Real-time multiplayer** - game state syncs instantly across all players via CRDTs
+- **Rotating judge** - everyone takes turns picking the funniest (or most horrible) answer
+- **Public & private lobbies** - share a code or browse open games
+- **In-game chat** - talk trash while you play
+- **Spectator mode** - watch without playing, jump in when you're ready
+- **Submission timers** - keep rounds moving, AFK players get skipped automatically
+- **Text-to-speech** - have cards read aloud for extra laughs
+- **Discord Activity** - play directly inside a Discord voice channel
+- **9 languages** - English, Spanish, French, German, Portuguese, Russian, Japanese, Korean, and Chinese
+- **Sound effects** - audio cues to keep the energy up
+- **Rejoin on disconnect** - drop out and come back without losing your spot
+- **Card packs** - pick which decks to play with each game
 
-- **Real-time Card Play**: Submit cards and see results instantly
-- **Rotating Judge System**: Everyone gets a turn to be the Judge
-- **Multiple Card Selection**: Some black cards require multiple white cards
+New to the game? Check out the [About page](https://unfit.cards/about) for a full walkthrough.
 
-### Social Features
+## Tech Stack
 
-- **Lobby System**: Create private or public game rooms
-- **Chat System**: In-game chat to communicate with other players
-- **Player Management**: Kick players or convert spectators to participants
+| Layer     | Tech                                           |
+| --------- | ---------------------------------------------- |
+| Framework | Nuxt 4 + Vue 3 Composition API                 |
+| UI        | Nuxt UI v4, Tailwind CSS 4                     |
+| Real-time | Yjs CRDTs + custom Teleportal WebSocket server |
+| Backend   | Appwrite (self-hosted) + Nitro server routes   |
+| Auth      | Discord OAuth2 + anonymous sessions            |
+| Hosting   | Cloudflare Workers                             |
+| i18n      | @nuxtjs/i18n (9 locales)                       |
+| Testing   | Vitest                                         |
 
-### Customization
+## Contributing
 
-- **Game Settings**: Customize point limits, cards per player, and more
-- **Card Packs**: Choose from different themed card packs
-- **Player Profiles**: Customize your name and avatar
+Found a bug? Have an idea? [Open an issue](https://github.com/PPO-GG/unfit-for-print/issues)
 
-### Technical Features
+_Still in active development. Things might break, things might not work as intended._
 
-- **Responsive Design**: Play on desktop or mobile devices (*work in progress, need to adjust layout a bit*)
-- **Real-time Updates**: See game state changes instantly
-- **Persistent Sessions**: Rejoin games if you get disconnected
-- **Sound Effects**: Sound effects to enhance the gameplay experience (*work in progress, need to add more sounds*)
+## License
 
-## Game Flow
-
-1. **Lobby Phase**:
-   - Players join the lobby
-   - Host configures game settings
-   - Game starts when ready (minimum 3 players)
-
-1. **Submission Phase**:
-   - Judge waits while other players select cards
-   - Players choose from their hand to respond to the black card
-
-1. **Judging Phase**:
-   - All submissions are revealed (anonymously)
-   - Judge reviews and selects the winner
-   - Winning player and card are highlighted (*work in progress*)
-
-1. **Round End**:
-   - Points are awarded
-   - Brief countdown to next round
-   - New Judge is selected
-
-1. **Game End**:
-   - Final scores are displayed
-   - Winner is celebrated
-   - Players can return to lobby for another game
-
-## Technical Implementation
-
-UNFIT FOR PRINT is built using modern web technologies:
-
-- **Frontend**: Nuxt 3 for a responsive and interactive UI
-- **Backend**: Appwrite Server functions for game logic
-- **Database**: Appwrite for real-time data storage and synchronization
-- **Authentication**: Support for anonymous play and Discord login
-
-## Community and Support
-
-- **Report Issues**: Help improve the game by reporting bugs
-- **Suggest Features**: Share your ideas for new features or card content
-- **Join the Community**: Connect with other players on Discord
-
----  
-
-This game is still in development, expect features missing, gameplay bugs, and UI issues.
+This project is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) - see the [LICENSE](LICENSE) file for details.
