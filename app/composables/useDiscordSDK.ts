@@ -1,7 +1,6 @@
 import { ref, readonly } from "vue";
-import { DiscordSDK } from "@discord/embedded-app-sdk";
 
-let sdkInstance: DiscordSDK | null = null;
+let sdkInstance: any = null;
 
 const isDiscordActivity = ref(false);
 const isReady = ref(false);
@@ -24,7 +23,7 @@ if (import.meta.client) {
 export function useDiscordSDK() {
   const config = useRuntimeConfig();
 
-  async function init(): Promise<DiscordSDK> {
+  async function init(): Promise<any> {
     if (sdkInstance) return sdkInstance;
 
     const clientId = config.public.discordClientId as string;
@@ -32,6 +31,7 @@ export function useDiscordSDK() {
       throw new Error("Discord client ID not configured");
     }
 
+    const { DiscordSDK } = await import("@discord/embedded-app-sdk");
     sdkInstance = new DiscordSDK(clientId);
     await sdkInstance.ready();
     isReady.value = true;
@@ -81,7 +81,7 @@ export function useDiscordSDK() {
     };
   }
 
-  function getSdk(): DiscordSDK | null {
+  function getSdk(): any | null {
     return sdkInstance;
   }
 
