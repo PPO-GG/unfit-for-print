@@ -10,6 +10,7 @@ const isAdmin = useIsAdmin();
 
 <template>
   <div>
+    <ClientOnly>
     <div v-if="isAdmin" class="p-6 max-w-7xl mx-auto space-y-10">
       <!-- Header -->
       <div>
@@ -166,5 +167,6 @@ const isAdmin = useIsAdmin();
         </div>
       </section>
     </div>
+    </ClientOnly>
   </div>
 </template>
