@@ -1,6 +1,6 @@
 {
   "name": "unfit-for-print",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "A Card Game",
   "author": "Dylan Roberson <mynd@ppo.gg>",
   "homepage": "https://unfit.cards",
@@ -82,7 +82,8 @@
       "yaml": ">=2.8.3",
       "node-forge": ">=1.4.0",
       "js-yaml": ">=4.1.1",
-      "glob@>=10": ">=10.5.0"
+      "glob@>=10": ">=10.5.0",
+      "vite": ">=7.3.1"
     }
   },
   "devDependencies": {

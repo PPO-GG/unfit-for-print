@@ -472,10 +472,9 @@ async function handleDelete(submissionId: string) {
   }
 
   try {
-    await tables.deleteRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteSubmissionCollectionId,
-      rowId: submissionId,
+    await $fetch("/api/admin/submissions/delete", {
+      method: "POST",
+      body: { submissionId },
     });
     submissions.value = submissions.value.filter((s) => s.$id !== submissionId);
     useToast().add({
