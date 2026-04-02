@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
+const { confirm } = useConfirm();
 
 // Auth header helper
 const authHeaders = () => ({
@@ -64,7 +65,12 @@ const removeUserFromTeam = async (
 };
 
 const deleteUser = async (userId: string) => {
-  const confirmed = confirm("Are you sure you want to delete this user?");
+  const confirmed = await confirm({
+    title: "Delete User",
+    message: "Are you sure you want to delete this user?",
+    confirmButtonText: "Delete",
+    confirmButtonColor: "error",
+  });
   if (!confirmed) return;
 
   try {

@@ -7,6 +7,7 @@
         <InstallPwaBanner />
       </template>
     </ClientOnly>
+    <ConfirmDialog />
     <NuxtLayout>
       <div
         v-if="isDev"

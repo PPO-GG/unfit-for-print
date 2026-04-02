@@ -13,6 +13,7 @@ import { useUserStore } from "~/stores/userStore";
 const { databases, tables } = getAppwrite();
 const config = useRuntimeConfig();
 const { notify } = useNotifications();
+const { confirm } = useConfirm();
 const userStore = useUserStore();
 
 // Auth headers for admin API calls (matches UserManager pattern)
@@ -438,11 +439,13 @@ const togglePackActive = async (pack: string, setActive: boolean) => {
 };
 
 const deleteCard = async (card: any) => {
-  if (
-    !confirm(`Are you sure you want to delete this card?\n\n"${card.text}"`)
-  ) {
-    return;
-  }
+  const confirmed = await confirm({
+    title: "Delete Card",
+    message: `Are you sure you want to delete this card?\n\n"${card.text}"`,
+    confirmButtonText: "Delete",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
 
   try {
     await tables.deleteRow({
@@ -881,11 +884,13 @@ const handleAllSimilarCardAction = async () => {
       cardToKeep.value === "card1" ? currentPair.card1 : currentPair.card2;
 
     // Confirm deletion
-    if (
-      !confirm(
-        `Are you sure you want to delete this card?\n\n"${cardToDelete.text}"\n\nAnd keep:\n"${cardToKeepObj.text}"`,
-      )
-    ) {
+    const confirmed = await confirm({
+      title: "Delete Duplicate Card",
+      message: `Are you sure you want to delete this card?\n\n"${cardToDelete.text}"\n\nAnd keep:\n"${cardToKeepObj.text}"`,
+      confirmButtonText: "Delete",
+      confirmButtonColor: "error",
+    });
+    if (!confirmed) {
       loading.value = false;
       return;
     }

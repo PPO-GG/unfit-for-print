@@ -1,11 +1,11 @@
 <template>
   <ClientOnly>
     <UModal
-      :open="modelValue"
-      @update:open="emit('update:modelValue', $event)"
+      :open="isOpen"
+      @update:open="onModalClose"
       :prevent-close="true"
-      :title="title"
-      :description="message"
+      :title="options.title"
+      :description="options.message"
       class="flex items-center justify-center"
     >
       <UCard
@@ -19,32 +19,32 @@
             <h3
               class="text-base font-semibold leading-6 text-gray-900 dark:text-white"
             >
-              {{ title }}
+              {{ options.title }}
             </h3>
           </div>
         </template>
 
-        <div class="py-4 text-sm text-gray-500 dark:text-gray-400">
-          {{ message }}
+        <div class="py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-pre-line">
+          {{ options.message }}
         </div>
 
         <template #footer>
           <div class="flex justify-end gap-3">
             <UButton
-              :color="cancelButtonColor"
+              :color="options.cancelButtonColor"
               variant="soft"
               class="p-3"
-              @click="handleCancel"
+              @click="onCancel"
             >
-              {{ cancelButtonText }}
+              {{ options.cancelButtonText }}
             </UButton>
             <UButton
-              :color="confirmButtonColor"
+              :color="options.confirmButtonColor"
               variant="soft"
               class="p-3"
-              @click="handleConfirm"
+              @click="onConfirm"
             >
-              {{ confirmButtonText }}
+              {{ options.confirmButtonText }}
             </UButton>
           </div>
         </template>
@@ -54,47 +54,9 @@
 </template>
 
 <script lang="ts" setup>
-type ButtonColor =
-  | "success"
-  | "error"
-  | "info"
-  | "warning"
-  | "neutral"
-  | "primary"
-  | "secondary";
+const { isOpen, options, onConfirm, onCancel } = useConfirm();
 
-const props = withDefaults(
-  defineProps<{
-    modelValue?: boolean;
-    title?: string;
-    message?: string;
-    confirmButtonText?: string;
-    confirmButtonColor?: ButtonColor;
-    cancelButtonText?: string;
-    cancelButtonColor?: ButtonColor;
-  }>(),
-  {
-    modelValue: false,
-    title: "Confirm",
-    message: "Are you sure you want to proceed?",
-    confirmButtonText: "Confirm",
-    confirmButtonColor: "error",
-    cancelButtonText: "Cancel",
-    cancelButtonColor: "neutral",
-  },
-);
-
-// Emits
-const emit = defineEmits(["confirm", "cancel", "update:modelValue"]);
-
-// Methods
-function handleConfirm() {
-  emit("update:modelValue", false);
-  emit("confirm");
-}
-
-function handleCancel() {
-  emit("update:modelValue", false);
-  emit("cancel");
+function onModalClose(open: boolean) {
+  if (!open) onCancel();
 }
 </script>

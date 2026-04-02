@@ -1,12 +1,14 @@
 import { ref } from 'vue';
 
+type ButtonColor = 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning' | 'neutral';
+
 export interface ConfirmOptions {
   title?: string;
   message?: string;
   confirmButtonText?: string;
-  confirmButtonColor?: string;
+  confirmButtonColor?: ButtonColor;
   cancelButtonText?: string;
-  cancelButtonColor?: string;
+  cancelButtonColor?: ButtonColor;
 }
 
 // Create a composable that manages the confirm dialog state
@@ -20,7 +22,7 @@ export function useConfirm() {
     confirmButtonText: 'Confirm',
     confirmButtonColor: 'primary',
     cancelButtonText: 'Cancel',
-    cancelButtonColor: 'gray'
+    cancelButtonColor: 'neutral'
   }));
 
   function confirm(opts: Partial<ConfirmOptions> = {}): Promise<boolean> {

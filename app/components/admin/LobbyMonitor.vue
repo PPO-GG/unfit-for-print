@@ -55,6 +55,7 @@ const { tables } = getAppwrite();
 
 const config = useRuntimeConfig();
 const { notify } = useNotifications();
+const { confirm } = useConfirm();
 const userStore = useUserStore();
 
 // Auth headers required by requireAuth() on the server.
@@ -82,7 +83,7 @@ const teleportalLobbies = ref<TeleportalLobby[]>([]);
 const teleportalLoading = ref(false);
 const teleportalError = ref<string | null>(null);
 
-// Derive the HTTP base URL from the WS-based lobbyTeleportalUrl
+// Derive the HTTP base URL from the WS-based lobbyTeleportalUrl (display only)
 const teleportalHttpUrl = computed(() => {
   const wsUrl = config.public.lobbyTeleportalUrl || "ws://localhost:1235";
   return wsUrl.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
@@ -139,7 +140,8 @@ const fetchTeleportalStatus = async () => {
   teleportalError.value = null;
   try {
     const response = await $fetch<TeleportalStatus>(
-      `${teleportalHttpUrl.value}/status`,
+      "/api/admin/teleportal/status",
+      { headers: authHeaders() },
     );
     teleportalStatus.value = response;
 
@@ -167,16 +169,18 @@ const fetchTeleportalStatus = async () => {
 
 // Force-remove a single Teleportal lobby
 const forceRemoveLobby = async (docId: string) => {
-  if (
-    !confirm(
-      `Force-remove lobby "${docId}"?\n\nThis will disconnect all players and destroy the game state immediately.`,
-    )
-  ) {
-    return;
-  }
+  const confirmed = await confirm({
+    title: "Force-Remove Lobby",
+    message: `Force-remove lobby "${docId}"?\n\nThis will disconnect all players and destroy the game state immediately.`,
+    confirmButtonText: "Remove",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
   try {
-    await $fetch(`${teleportalHttpUrl.value}/gc/${encodeURIComponent(docId)}`, {
+    await $fetch("/api/admin/teleportal/gc", {
       method: "DELETE",
+      headers: authHeaders(),
+      body: { docId },
     });
     notify({
       title: "Lobby Removed",
@@ -197,17 +201,17 @@ const forceRemoveLobby = async (docId: string) => {
 
 // Force GC ALL Teleportal lobbies
 const forceGcAll = async () => {
-  if (
-    !confirm(
-      `Force GC ALL lobbies?\n\nThis will disconnect ALL players from ALL games immediately.`,
-    )
-  ) {
-    return;
-  }
+  const confirmed = await confirm({
+    title: "Force GC All Lobbies",
+    message: "Force GC ALL lobbies?\n\nThis will disconnect ALL players from ALL games immediately.",
+    confirmButtonText: "Force GC All",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
   try {
     const result = await $fetch<{ flushed: number; remaining: number }>(
-      `${teleportalHttpUrl.value}/gc`,
-      { method: "POST" },
+      "/api/admin/teleportal/gc-all",
+      { method: "DELETE", headers: authHeaders() },
     );
     notify({
       title: "All Lobbies Flushed",
@@ -348,13 +352,13 @@ const markLobbyCompleted = async (lobby: LobbyWithName) => {
 // Delete a lobby (cascade: players → chat → settings → lobby)
 // Uses the server-side admin API to bypass Appwrite document-level permissions.
 const deleteLobby = async (lobby: LobbyWithName) => {
-  if (
-    !confirm(
-      `Are you sure you want to delete this lobby?\n\n"${lobby.lobbyName || "Unnamed Lobby"}"\n\nThis will also delete all associated players, game chat messages, and game settings. This cannot be undone.`,
-    )
-  ) {
-    return;
-  }
+  const confirmed = await confirm({
+    title: "Delete Lobby",
+    message: `Are you sure you want to delete this lobby?\n\n"${lobby.lobbyName || "Unnamed Lobby"}"\n\nThis will also delete all associated players, game chat messages, and game settings. This cannot be undone.`,
+    confirmButtonText: "Delete",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
 
   try {
     await $fetch("/api/admin/lobby/delete", {
