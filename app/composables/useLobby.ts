@@ -712,6 +712,28 @@ export const useLobby = () => {
           err,
         );
       }
+
+      // 6. Update GameSettings permissions in Appwrite so the new host can save settings
+      //    We only update permissions, not the data. This allows the new host full access.
+      try {
+        const documentId = `settings-${lobbyId}`;
+        await tables.updateRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteGameSettingsCollectionId,
+          rowId: documentId,
+          data: {},
+          permissions: [
+            Permission.read(Role.any()),
+            Permission.update(Role.user(newHostPlayer.userId)),
+            Permission.delete(Role.user(newHostPlayer.userId)),
+          ],
+        });
+      } catch (err) {
+        console.warn(
+          "[useLobby] Failed to update GameSettings permissions for new host:",
+          err,
+        );
+      }
     }
   };
 

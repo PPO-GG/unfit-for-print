@@ -155,7 +155,7 @@ export default defineNuxtConfig({
       // a live connection for real-time multiplayer state.
       globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2,webp}"],
       navigateFallback: "/",
-      navigateFallbackDenylist: [/^\/api\//, /^\/auth\//],
+      navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/activity/],
     },
     client: {
       installPrompt: true,
@@ -192,6 +192,7 @@ export default defineNuxtConfig({
     // Server-only secrets
     appwriteApiKey: process.env.NUXT_APPWRITE_API_KEY,
     elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
+    discordClientSecret: process.env.DISCORD_CLIENT_SECRET,
 
     // Client-side (game-specific collection IDs)
     public: {
@@ -226,6 +227,9 @@ export default defineNuxtConfig({
       lobbyTeleportalUrl:
         process.env.NUXT_PUBLIC_LOBBY_TELEPORTAL_URL ||
         "wss://teleportal.unfit.cards",
+
+      // Discord Activity
+      discordClientId: process.env.DISCORD_CLIENT_ID || "",
     },
   },
 });

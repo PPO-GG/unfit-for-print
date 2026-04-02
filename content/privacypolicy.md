@@ -1,5 +1,5 @@
 # Privacy Policy
-_Last Updated: June 23rd 2025_
+_Last Updated: April 2nd 2026_
 
 This Privacy Policy explains how PPO.GG collects, uses, and protects your information when you play **Unfit for Print**. By using our game, you agree to the terms outlined below.
 
@@ -54,19 +54,10 @@ We retain your data only for as long as necessary to fulfill the purposes for wh
 | Chat messages       | Deleted when the lobby ends              |    
 | Lobby settings      | Deleted when the session expires         |    
 | Discord login info  | Stored until you log out or manually delete your account |    
-| Analytics (Rybbit)  | Aggregated and anonymized                |    
-    
 ---    
 ## Analytics
 
-We use an on-premises instance of [Rybbit](https://www.rybbit.io/) for privacy-friendly analytics. Rybbit helps us understand how our game is used without compromising your privacy:
-
-* **No cookies:** We do not use cookies for analytics.
-* **No personal data:** Rybbit does not collect any personally identifiable information.
-* **GDPR & CCPA compliant:** Our analytics adhere to major privacy regulations.
-* **Self-hosted and under our control:** We manage our analytics server, ensuring your data remains private.
-
-You will not encounter a cookie banner, and you will not be tracked across the web.
+We do not currently use any analytics or tracking tools. You will not encounter a cookie banner, and you will not be tracked across the web.
     
 ---    
 ## Chat and Game Data
@@ -111,6 +102,5 @@ If you have any questions or concerns about this Privacy Policy or our data prac
 
 <div style="align-items: center;"> 
 	<a href="https://appwrite.io" style="width: auto; height: 32px;"><img src="https://appwrite.io/assets/logotype/black.svg" alt="Appwrite Logo" style="width: auto; height: 32px;"></a>
-	<a href="https://rybbit.io" style="width: auto; height: 32px;"><img src="https://www.rybbit.io/rybbit-text.svg" alt="Rybbit Logo" style="width: auto; height: 32px;"></a>
     <a href="https://ppo.gg" style="width: auto; height: 32px;"><img src="https://ppo.gg/img/ppo_logo.svg" alt="PPO.GG Logo" style="width: auto; height: 32px;"></a>
 </div>

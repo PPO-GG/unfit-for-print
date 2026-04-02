@@ -2,8 +2,10 @@
   <UApp>
     <NuxtPwaManifest />
     <ClientOnly>
-      <CustomCursor />
-      <InstallPwaBanner />
+      <template v-if="!isDiscordActivity">
+        <CustomCursor />
+        <InstallPwaBanner />
+      </template>
     </ClientOnly>
     <NuxtLayout>
       <div
@@ -23,6 +25,7 @@
 import { useHead, useRuntimeConfig } from "#imports";
 const isDev = import.meta.env.DEV;
 const config = useRuntimeConfig();
+const { isDiscordActivity } = useDiscordSDK();
 
 // Named CSS transition — enter/leave keyframes are defined in main.css
 const pageTransition = {
