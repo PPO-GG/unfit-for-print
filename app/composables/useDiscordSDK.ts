@@ -93,6 +93,11 @@ export function useDiscordSDK() {
     return cachedAuthResult;
   }
 
+  function close() {
+    if (!sdkInstance) return;
+    sdkInstance.close(1000, "User closed activity");
+  }
+
   function getSdk(): any | null {
     return sdkInstance;
   }
@@ -104,6 +109,7 @@ export function useDiscordSDK() {
     discordUser: readonly(discordUser),
     init,
     authenticate,
+    close,
     getSdk,
   };
 }

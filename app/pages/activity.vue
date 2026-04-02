@@ -16,13 +16,11 @@
 
 <script lang="ts" setup>
 import { useUserStore } from "~/stores/userStore";
-import { useLobby } from "~/composables/useLobby";
 
 definePageMeta({ layout: "activity" });
 
 const router = useRouter();
 const userStore = useUserStore();
-const { createLobby, getActiveLobbyForUser } = useLobby();
 const { init, authenticate } = useDiscordSDK();
 
 const statusText = ref("Connecting to Discord...");
@@ -37,7 +35,7 @@ async function launch() {
     await init();
 
     // 2. Authenticate (Discord → Appwrite session)
-    statusText.value = "Signing you in...";
+    statusText.value = "Logging you in automatically...";
     const authData = await authenticate();
 
     // 3. Create Appwrite session on the client (skip if already logged in from prior attempt)
@@ -56,21 +54,8 @@ async function launch() {
       }
     }
 
-    // 5. Check for existing active lobby
-    statusText.value = "Setting up your game...";
-    const existingLobby = await getActiveLobbyForUser(userStore.user.$id);
-
-    if (existingLobby) {
-      statusText.value = "Rejoining your game...";
-      await router.replace(`/game/${existingLobby.code}`);
-      return;
-    }
-
-    // 6. Create new lobby
-    const displayName = `${authData.discordUser.username}'s Game`;
-    const lobby = await createLobby(userStore.user.$id, displayName);
-    statusText.value = "Game created! Joining...";
-    await router.replace(`/game/${lobby.code}`);
+    // 5. Redirect to homepage — user can create/join games from there
+    await router.replace("/");
   } catch (err: any) {
     console.error("[Discord Activity] Launch failed:", err);
     error.value = err?.message || "Something went wrong. Please try again.";

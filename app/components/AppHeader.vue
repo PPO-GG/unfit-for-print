@@ -11,6 +11,7 @@ import { useIsAdmin } from "~/composables/useAdminCheck";
 import { useLobbyActions } from "~/composables/useLobbyActions";
 
 const route = useRoute();
+const { isDiscordActivity, close: closeActivity } = useDiscordSDK();
 const userStore = useUserStore();
 const uiStore = useUiStore();
 const { notify } = useNotifications();
@@ -257,6 +258,16 @@ const isAdmin = useIsAdmin();
             </UButton>
           </ClientOnly>
           <UButton
+            v-if="isDiscordActivity"
+            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
+            color="error"
+            icon="i-solar-close-square-bold-duotone"
+            variant="subtle"
+            @click="closeActivity"
+            >{{ t("nav.close_activity") }}
+          </UButton>
+          <UButton
+            v-else
             class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
             color="error"
             icon="i-solar-logout-3-bold-duotone"
@@ -266,7 +277,7 @@ const isAdmin = useIsAdmin();
           </UButton>
         </div>
 
-        <template v-else>
+        <template v-else-if="!isDiscordActivity">
           <UButton
             class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none"
             color="secondary"
@@ -404,6 +415,18 @@ const isAdmin = useIsAdmin();
               </ClientOnly>
 
               <UButton
+                v-if="isDiscordActivity"
+                block
+                class="mb-2 text-xl py-3 border-2 dark:border-none"
+                color="error"
+                icon="i-solar-close-square-bold-duotone"
+                variant="soft"
+                @click="closeActivity"
+              >
+                {{ t("nav.close_activity") }}
+              </UButton>
+              <UButton
+                v-else
                 block
                 class="mb-2 text-xl py-3 border-2 dark:border-none"
                 color="error"
@@ -415,7 +438,7 @@ const isAdmin = useIsAdmin();
               </UButton>
             </template>
 
-            <template v-else>
+            <template v-else-if="!isDiscordActivity">
               <USeparator class="my-2" />
               <UButton
                 block
