@@ -1,30 +1,22 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import type { Player } from "~/types/player";
-
 interface Props {
   round: number;
-  players: Player[];
-  judgeId: string | null;
-  submissions: Record<string, string[]>;
-  myAvatar: string;
   phase: string;
+  myAvatar: string;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits<{
   "toggle-sidebar": [];
 }>();
 
-const activePlayers = computed(() =>
-  props.players.filter((p) => p.playerType === "player" || !p.playerType),
-);
-
-function dotColor(player: Player): string {
-  if (player.userId === props.judgeId) return "#a78bfa"; // purple — judge
-  if (props.submissions[player.userId]) return "#4ade80"; // green — submitted
-  return "#475569"; // gray — waiting
-}
+const phaseLabels: Record<string, string> = {
+  submitting: "Submitting",
+  "submitting-complete": "Submitting",
+  judging: "Judging",
+  roundEnd: "Round Over",
+  complete: "Game Over",
+};
 </script>
 
 <template>
@@ -35,21 +27,13 @@ function dotColor(player: Player): string {
       aria-label="Open menu"
       @click="emit('toggle-sidebar')"
     >
-      <Icon name="i-solar-hamburger-menu-broken" class="w-5 h-5 text-slate-400" />
+      <Icon name="i-solar-hamburger-menu-broken" class="w-6 h-6 text-slate-400" />
     </button>
 
-    <!-- Center: round + player dots -->
+    <!-- Center: round + phase -->
     <div class="center-info">
       <span class="round-label">Round {{ round }}</span>
-      <div class="player-dots">
-        <span
-          v-for="player in activePlayers"
-          :key="player.userId"
-          class="dot"
-          :style="{ backgroundColor: dotColor(player) }"
-          :title="player.name"
-        />
-      </div>
+      <span class="phase-label">{{ phaseLabels[phase] || phase }}</span>
     </div>
 
     <!-- User avatar -->
@@ -58,9 +42,9 @@ function dotColor(player: Player): string {
         v-if="myAvatar"
         :src="myAvatar"
         alt="You"
-        class="w-6 h-6 rounded-full"
+        class="w-7 h-7 rounded-full"
       />
-      <div v-else class="w-6 h-6 rounded-full bg-slate-700" />
+      <div v-else class="w-7 h-7 rounded-full bg-slate-700" />
     </div>
   </div>
 </template>
@@ -70,54 +54,48 @@ function dotColor(player: Player): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.875rem;
-  height: 2.5rem;
+  padding: 0.625rem 1rem;
+  height: 3rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
 }
 
 .hamburger-btn {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   border: none;
   cursor: pointer;
 }
 
 .center-info {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.125rem;
+  gap: 0.5rem;
 }
 
 .round-label {
-  font-size: 0.6875rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.03em;
+}
+
+.phase-label {
+  font-size: 0.8125rem;
   font-weight: 600;
   color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.player-dots {
-  display: flex;
-  gap: 0.25rem;
-  align-items: center;
-}
-
-.dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  transition: background-color 0.3s ease;
+  padding: 0.125rem 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0.375rem;
 }
 
 .avatar-slot {
-  width: 1.75rem;
+  width: 2.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
