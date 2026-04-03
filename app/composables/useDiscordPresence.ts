@@ -1,5 +1,6 @@
 // app/composables/useDiscordPresence.ts
 
+import { watch, onScopeDispose, type Ref } from "vue";
 import type { GameState } from "~/types/game";
 
 interface PresenceInput {
@@ -84,4 +85,57 @@ export function mapGameStateToActivity(input: PresenceInput): DiscordActivity {
   }
 
   return activity;
+}
+
+interface UseDiscordPresenceOptions {
+  phase: Ref<string>;
+  round: Ref<number>;
+  playerCount: Ref<number>;
+}
+
+export function useDiscordPresence(options: UseDiscordPresenceOptions) {
+  const { isDiscordActivity, getSdk } = useDiscordSDK();
+
+  if (!isDiscordActivity.value) return;
+
+  let startTimestamp: number | null = null;
+
+  function updatePresence() {
+    const sdk = getSdk();
+    if (!sdk) return;
+
+    const phase = options.phase.value;
+    const round = options.round.value;
+    const playerCount = options.playerCount.value;
+
+    // Set start timestamp on first transition out of waiting
+    if (phase !== "waiting" && startTimestamp == null) {
+      startTimestamp = Math.floor(Date.now() / 1000);
+    }
+
+    const activity = mapGameStateToActivity({
+      phase,
+      round,
+      playerCount,
+      startTimestamp,
+    });
+
+    sdk.commands.setActivity({ activity }).catch((err: unknown) => {
+      console.warn("[Discord Presence] setActivity failed:", err);
+    });
+  }
+
+  // Watch all three reactive inputs
+  watch(
+    [options.phase, options.round, options.playerCount],
+    updatePresence,
+    { immediate: true },
+  );
+
+  // Clear presence on scope disposal (navigating away from game page)
+  onScopeDispose(() => {
+    const sdk = getSdk();
+    if (!sdk) return;
+    sdk.commands.setActivity({ activity: null }).catch(() => {});
+  });
 }
