@@ -82,13 +82,13 @@ const slots = computed(() =>
 }
 
 .slot-number {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: white;
   flex-shrink: 0;
@@ -96,7 +96,7 @@ const slots = computed(() =>
 
 .slot-text {
   color: #e2e8f0;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -107,7 +107,7 @@ const slots = computed(() =>
 
 .slot-placeholder {
   color: #475569;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-style: italic;
 }
 

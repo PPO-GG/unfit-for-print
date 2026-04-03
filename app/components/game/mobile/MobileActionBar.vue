@@ -139,9 +139,9 @@ const variantClasses: Record<ButtonVariant, string> = {
   display: block;
   width: 100%;
   border-radius: 0.75rem;
-  font-size: 0.8125rem;
+  font-size: 1rem;
   font-weight: 600;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
   border: none;
   transition: background-color 0.15s ease;
   text-align: center;

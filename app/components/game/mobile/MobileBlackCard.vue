@@ -55,7 +55,8 @@ const hasBlanks = computed(() =>
               v-else-if="seg.type === 'blank' && selectedTexts[seg.index]"
               class="mobile-black-card__fill"
               :style="{ color: FILL_COLORS[seg.index] || FILL_COLORS[0] }"
-            >{{ selectedTexts[seg.index] }}</span>
+              >{{ selectedTexts[seg.index] }}</span
+            >
             <span
               v-else-if="seg.type === 'blank'"
               class="mobile-black-card__blank"
@@ -97,17 +98,17 @@ const hasBlanks = computed(() =>
   right: 0.625rem;
   background: rgba(255, 255, 255, 0.12);
   color: white;
-  font-size: 0.625rem;
+  font-size: 0.8125rem;
   font-weight: 700;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.375rem;
   letter-spacing: 0.05em;
 }
 
 .card-text {
   color: white;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: 1.7rem;
+  font-weight: 400;
   line-height: 1.35;
   margin: 0;
 }
@@ -133,7 +134,7 @@ const hasBlanks = computed(() =>
 
 .waiting-text {
   color: #64748b;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   margin: 0.5rem 0 0;
 }
 </style>
