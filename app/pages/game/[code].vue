@@ -580,12 +580,13 @@ const handleSettingsUpdate = (newSettings: GameSettingsType) => {
 };
 
 const ensureGameSettings = async () => {
+  if (!lobby.value?.$id) return;
   if (!gameSettings.value || !gameSettings.value.$id) {
     try {
-      const settings = await getGameSettings(lobby.value!.$id);
+      const settings = await getGameSettings(lobby.value.$id);
       if (!settings && isHost.value) {
         gameSettings.value = await createDefaultGameSettings(
-          lobby.value!.$id,
+          lobby.value.$id,
           `${userStore.user?.name || "Anonymous"}'s Game`,
           userStore.user?.$id,
         );
