@@ -71,14 +71,14 @@ export function useDiscordSDK() {
         response_type: "code",
         state: "",
         prompt: "none",
-        scope: ["identify"],
+        scope: ["identify", "rpc.activities.write"],
       }));
     } catch {
       ({ code } = await sdkInstance.commands.authorize({
         client_id: clientId,
         response_type: "code",
         state: "",
-        scope: ["identify"],
+        scope: ["identify", "rpc.activities.write"],
       }));
     }
 
