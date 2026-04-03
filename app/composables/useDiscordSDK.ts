@@ -43,7 +43,7 @@ export function useDiscordSDK() {
     await sdkInstance.ready();
 
     // Route external requests through Discord's proxy to satisfy CSP
-    patchUrlMappings([{ prefix: "/api", target: "api.ppo.gg" }]);
+    patchUrlMappings([{ prefix: "/appwrite", target: "api.ppo.gg" }]);
 
     isReady.value = true;
     isDiscordActivity.value = true;
