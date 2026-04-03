@@ -14,22 +14,44 @@
       <div
         class="text-2xl rounded-xl xl:p-4 lg:p-2 shadow-lg w-full mx-auto flex justify-between items-center border-2 border-slate-500 bg-slate-600"
       >
-        <!-- Desktop: Lobby Code label + button -->
+        <!-- Desktop: Lobby Code or Invite Friends -->
         <span class="items-center hidden sm:flex">
-          {{ t("lobby.lobby_code") }}:
-          <UButton
-            class="text-slate-100 text-2xl ml-2"
-            color="info"
-            icon="i-solar-copy-bold-duotone"
-            variant="subtle"
-          >
-            {{ lobby.code }}
-          </UButton>
+          <template v-if="isInDiscordActivity">
+            <UButton
+              class="text-slate-100 text-xl ml-2"
+              color="primary"
+              icon="i-solar-users-group-rounded-bold-duotone"
+              variant="subtle"
+              @click="handleInviteFriends"
+            >
+              Invite Friends
+            </UButton>
+          </template>
+          <template v-else>
+            {{ t("lobby.lobby_code") }}:
+            <UButton
+              class="text-slate-100 text-2xl ml-2"
+              color="info"
+              icon="i-solar-copy-bold-duotone"
+              variant="subtle"
+            >
+              {{ lobby.code }}
+            </UButton>
+          </template>
         </span>
 
-        <!-- Mobile: Just the icon -->
+        <!-- Mobile: Invite or Copy icon -->
         <span class="flex sm:hidden">
           <UButton
+            v-if="isInDiscordActivity"
+            aria-label="Invite Friends"
+            color="primary"
+            icon="i-solar-users-group-rounded-bold-duotone"
+            variant="subtle"
+            @click="handleInviteFriends"
+          />
+          <UButton
+            v-else
             aria-label="{{ t('lobby.copy_lobby_code') }}"
             color="info"
             icon="i-solar-copy-bold-duotone"
@@ -141,6 +163,17 @@ import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import type { GameSettings } from "~/types/gamesettings";
 import { useNotifications } from "~/composables/useNotifications";
+
+const { isDiscordActivity, inviteFriends } = useDiscordSDK();
+const isInDiscordActivity = isDiscordActivity.value;
+
+async function handleInviteFriends() {
+  try {
+    await inviteFriends();
+  } catch (err) {
+    console.error("Failed to open invite dialog:", err);
+  }
+}
 import { resolveId } from "~/utils/resolveId";
 
 const { t } = useI18n();

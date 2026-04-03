@@ -93,6 +93,11 @@ export function useDiscordSDK() {
     return cachedAuthResult;
   }
 
+  async function inviteFriends() {
+    if (!sdkInstance) throw new Error("Discord SDK not initialized");
+    await sdkInstance.commands.openInviteDialog();
+  }
+
   function close() {
     console.log("[Discord SDK] close() called, sdkInstance:", !!sdkInstance);
     if (!sdkInstance) {
@@ -113,6 +118,7 @@ export function useDiscordSDK() {
     discordUser: readonly(discordUser),
     init,
     authenticate,
+    inviteFriends,
     close,
     getSdk,
   };

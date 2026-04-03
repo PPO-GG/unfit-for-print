@@ -56,6 +56,23 @@ export const useLobby = () => {
     }
   };
 
+  const getLobbyByInstanceId = async (
+    instanceId: string,
+  ): Promise<Lobby | null> => {
+    const { tables } = getAppwrite();
+    const config = getConfig();
+    try {
+      const result = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwriteLobbyCollectionId,
+        queries: [Query.equal("discordInstanceId", instanceId), Query.limit(1)],
+      });
+      return result.rows[0] ? (result.rows[0] as unknown as Lobby) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
@@ -121,6 +138,7 @@ export const useLobby = () => {
     lobbyName?: string,
     isPrivate?: boolean,
     _password?: string,
+    discordInstanceId?: string,
   ) => {
     const { tables } = getAppwrite();
     const config = getConfig();
@@ -139,10 +157,11 @@ export const useLobby = () => {
 
     try {
       // Create minimal Appwrite registry doc (discovery only)
-      const lobbyData = {
+      const lobbyData: Record<string, unknown> = {
         hostUserId,
         code: lobbyCode,
         status: "waiting",
+        ...(discordInstanceId ? { discordInstanceId } : {}),
       };
 
       const permissions = [
@@ -910,6 +929,7 @@ export const useLobby = () => {
     createLobby,
     joinLobby,
     getLobbyByCode,
+    getLobbyByInstanceId,
     leaveLobby,
     isInLobby,
 

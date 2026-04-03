@@ -333,9 +333,25 @@
           "array": false,
           "size": 16384,
           "default": null
+        },
+        {
+          "key": "discordInstanceId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
         }
       ],
-      "indexes": []
+      "indexes": [
+        {
+          "key": "idx_discordInstanceId",
+          "type": "unique",
+          "status": "available",
+          "attributes": ["discordInstanceId"],
+          "orders": ["ASC"]
+        }
+      ]
     },
     {
       "$id": "68073604000a8fda6636",
@@ -805,9 +821,25 @@
           "array": false,
           "size": 16384,
           "default": null
+        },
+        {
+          "key": "discordInstanceId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
         }
       ],
-      "indexes": []
+      "indexes": [
+        {
+          "key": "idx_discordInstanceId",
+          "type": "unique",
+          "status": "available",
+          "attributes": ["discordInstanceId"],
+          "orders": ["ASC"]
+        }
+      ]
     },
     {
       "$id": "682f74c3002e6e839dcf",

@@ -7,4 +7,5 @@ export interface Lobby extends Models.Row {
   code: string;
   hostUserId: string;
   status: "waiting" | "playing" | "complete";
+  discordInstanceId?: string;
 }
