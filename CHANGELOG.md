@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.8.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.7.0...v3.8.0) (2026-04-03)
+
+
+### ✨ Features
+
+* **discord:** add Discord Activity lobby flow with instance-based lobby matching ([fbe0468](https://github.com/PPO-GG/unfit-for-print/commit/fbe0468bf12594aef8684026a83e5b29ef44b568))
+* **discord:** add pure mapping function for rich presence activity ([ed15556](https://github.com/PPO-GG/unfit-for-print/commit/ed15556412581039fa5c393c5b1a0141a5ab095f))
+* **discord:** add rpc.activities.write scope for rich presence ([fb6cdf7](https://github.com/PPO-GG/unfit-for-print/commit/fb6cdf77e988b1a3fb37fe9aeddd26903e6f68c1))
+* **discord:** add useDiscordPresence composable with reactive watch ([8e3f596](https://github.com/PPO-GG/unfit-for-print/commit/8e3f596e9ee0d2ab80e155eb71e5d1dedf0e578e))
+* **discord:** wire up rich presence in game page ([fad8dcb](https://github.com/PPO-GG/unfit-for-print/commit/fad8dcb11945dc0f3a2f90970d758daadcbd63e7))
+* **mobile:** add mobile game layout with phase-driven UX ([d32e658](https://github.com/PPO-GG/unfit-for-print/commit/d32e65894e18480ed60e6c160c1882edb5247b47))
+* **mobile:** add player strip with scores and replace status bar dots with phase label ([f899463](https://github.com/PPO-GG/unfit-for-print/commit/f899463c759b4bd48a2bf3ef20be8ad02721f83f))
+* **mobile:** merge winner screens into unified view and add card flip SFX ([5b1c179](https://github.com/PPO-GG/unfit-for-print/commit/5b1c179e8d7c2f700ea68ce87889e20c8f5ffd77))
+
+
+### 🐛 Bug Fixes
+
+* **admin:** wrap admin page in ClientOnly for SSR compatibility ([8018475](https://github.com/PPO-GG/unfit-for-print/commit/8018475dd9cf99e9e8731678dd5289d9b866e33c))
+* **ci:** pass Discord client ID to build step ([90ce14e](https://github.com/PPO-GG/unfit-for-print/commit/90ce14e9a172a8dcaf83db948c0f795cab2f093b))
+* **discord:** align client ID env var with NUXT_PUBLIC_ convention ([a7b363f](https://github.com/PPO-GG/unfit-for-print/commit/a7b363f045a83f9e576823b716a63061a6edb86e))
+* **discord:** fall back to consent dialog when silent auth fails in DMs ([580e497](https://github.com/PPO-GG/unfit-for-print/commit/580e49779ef9c52009f761b1f9e62658f9ba4288))
+* **discord:** patch URL mappings to proxy Appwrite requests through Discord CSP ([7a41294](https://github.com/PPO-GG/unfit-for-print/commit/7a4129456f66288d210cee1aa5f25b964f948842))
+* **discord:** redirect Activity iframe to /activity and skip eager session fetch ([2219edc](https://github.com/PPO-GG/unfit-for-print/commit/2219edc358e864785729769241119107c3a858ea))
+* **game:** add null guard for lobby ID in ensureGameSettings ([5cae13b](https://github.com/PPO-GG/unfit-for-print/commit/5cae13b1904ea85fb2049e06f8327f309f9bf24a))
+* **labs:** add auth headers to submission delete request ([a11ebbe](https://github.com/PPO-GG/unfit-for-print/commit/a11ebbe2ccf91bf6527affffc1cb4f901d1fe62e))
+
+
+### ♻️ Refactors
+
+* **discord:** type-narrow phase and export DiscordActivity interface ([c9414aa](https://github.com/PPO-GG/unfit-for-print/commit/c9414aaf6f543c267ad568b798aff842a030813a))
+* **ui:** migrate ConfirmDialog to Nuxt UI v4 UModal slots API ([9b7b93d](https://github.com/PPO-GG/unfit-for-print/commit/9b7b93dbce0ca37da8ccc3cab0960ef31743d626))
+* **ui:** simplify AppHeader layout and move blur to nav buttons ([d8c7d0c](https://github.com/PPO-GG/unfit-for-print/commit/d8c7d0c82b56bace1d04a39724330d411aadc702))
+
 ## [3.7.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.6.0...v3.7.0) (2026-04-02)
 
 
