@@ -229,7 +229,7 @@ export default defineNuxtConfig({
         "wss://teleportal.unfit.cards",
 
       // Discord Activity
-      discordClientId: process.env.DISCORD_CLIENT_ID || "",
+      discordClientId: process.env.NUXT_PUBLIC_DISCORD_CLIENT_ID || "",
     },
   },
 });
