@@ -62,13 +62,25 @@ export function useDiscordSDK() {
     const clientId = config.public.discordClientId as string;
 
     // Step 1: Get authorization code from Discord
-    const { code } = await sdkInstance.commands.authorize({
-      client_id: clientId,
-      response_type: "code",
-      state: "",
-      prompt: "none",
-      scope: ["identify"],
-    });
+    // Try silent auth first; fall back to consent dialog (needed for DMs
+    // where the user hasn't individually authorized the app yet)
+    let code: string;
+    try {
+      ({ code } = await sdkInstance.commands.authorize({
+        client_id: clientId,
+        response_type: "code",
+        state: "",
+        prompt: "none",
+        scope: ["identify"],
+      }));
+    } catch {
+      ({ code } = await sdkInstance.commands.authorize({
+        client_id: clientId,
+        response_type: "code",
+        state: "",
+        scope: ["identify"],
+      }));
+    }
 
     // Step 2: Exchange code for tokens via our backend
     const authData = await $fetch("/api/auth/discord-activity", {
