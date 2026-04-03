@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.8.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.8.0...v3.8.1) (2026-04-03)
+
+
+### 🐛 Bug Fixes
+
+* **discord:** preserve query params when redirecting to Activity page ([4aa74a0](https://github.com/PPO-GG/unfit-for-print/commit/4aa74a05e11389b95de2268722b397504434b67b))
+
 ## [3.8.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.7.0...v3.8.0) (2026-04-03)
 
 
