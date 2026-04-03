@@ -9,5 +9,6 @@ export interface AuthUser extends Models.User<Models.Preferences> {
     discordUserId?: string;
     name?: string;
     email?: string;
+    activeDecoration?: string;
   };
 }
