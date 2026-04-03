@@ -36,9 +36,15 @@ export function useDiscordSDK() {
       throw new Error("Discord client ID not configured");
     }
 
-    const { DiscordSDK } = await import("@discord/embedded-app-sdk");
+    const { DiscordSDK, patchUrlMappings } = await import(
+      "@discord/embedded-app-sdk"
+    );
     sdkInstance = new DiscordSDK(clientId);
     await sdkInstance.ready();
+
+    // Route external requests through Discord's proxy to satisfy CSP
+    patchUrlMappings([{ prefix: "/api", target: "api.ppo.gg" }]);
+
     isReady.value = true;
     isDiscordActivity.value = true;
 
