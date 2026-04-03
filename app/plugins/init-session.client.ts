@@ -4,6 +4,10 @@ import { useUserStore } from "~/stores/userStore";
 export default defineNuxtPlugin(() => {
   const userStore = useUserStore();
 
+  // Discord Activity handles its own auth flow in activity.vue
+  const { isDiscordActivity } = useDiscordSDK();
+  if (isDiscordActivity.value) return;
+
   // Skip if already verified (e.g. after OAuth callback redirect)
   if (
     typeof window !== "undefined" &&
