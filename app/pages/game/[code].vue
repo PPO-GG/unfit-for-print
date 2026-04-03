@@ -747,7 +747,10 @@ function handleResetGame() {
         color="neutral"
         variant="ghost"
         size="xl"
-        class="xl:hidden absolute left-6 translate-y-[50%] z-10"
+        :class="[
+          'xl:hidden absolute left-6 translate-y-[50%] z-10',
+          isPlaying && 'max-[767px]:hidden',
+        ]"
         aria-label="Open menu"
         @click="isSidebarOpen = true"
       />
@@ -881,6 +884,7 @@ function handleResetGame() {
             :lobby="lobby || {}"
             :players="players"
             @leave="handleLeave"
+            @toggle-sidebar="isSidebarOpen = true"
           />
         </ClientOnly>
 

@@ -16,11 +16,14 @@ import {
   TTS_PROVIDERS,
   getProviderFromVoiceId,
 } from "~/constants/ttsProviders";
+import MobileGameLayout from "~/components/game/mobile/MobileGameLayout.vue";
+import { useBreakpoints } from "@vueuse/core";
 
 const { t } = useI18n();
 const props = defineProps<{ lobby: Lobby; players: Player[] }>();
 const emit = defineEmits<{
   (e: "leave"): void;
+  (e: "toggle-sidebar"): void;
 }>();
 
 // ─── Y.Doc Reactive State ───────────────────────────────────────────────────
@@ -118,6 +121,11 @@ const isParticipant = computed(() => {
 const isSpectator = computed(() => {
   return currentPlayer.value?.playerType === "spectator";
 });
+
+// ── Mobile breakpoint detection ──
+const breakpoints = useBreakpoints({ md: 768 });
+const isMobile = breakpoints.smaller("md");
+const myAvatar = computed(() => currentPlayer.value?.avatar || "");
 
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string): string => {
@@ -363,6 +371,20 @@ function handleLeave() {
   leaveLobby(props.lobby.$id, myId);
   emit("leave");
 }
+
+/** Mobile "Continue" button — skip the 5s auto-advance wait */
+function handleMobileContinue() {
+  if (!isHost.value || isComplete.value) return;
+  if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
+  hasTriggeredNextRound = true;
+  const ok = tryStartNextRound();
+  if (ok) {
+    winnerSelected.value = false;
+  } else {
+    hasTriggeredNextRound = false;
+    startStalePhaseWatchdog();
+  }
+}
 </script>
 <template>
   <div
@@ -372,8 +394,41 @@ function handleLeave() {
       class="fixed w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none"
     ></div>
 
-    <!-- Main Content -->
-    <div class="min-h-screen flex flex-col">
+    <!-- Mobile Layout -->
+    <MobileGameLayout
+      v-if="isMobile"
+      :phase="state?.phase || 'submitting'"
+      :black-card="blackCard"
+      :my-hand="myHand"
+      :my-submission="mySubmission"
+      :submissions="submissions"
+      :revealed-cards="revealedCards"
+      :scores="state?.scores || {}"
+      :my-id="myId"
+      :is-judge="isJudge"
+      :is-host="isHost"
+      :is-participant="isParticipant"
+      :is-spectator="isSpectator"
+      :players="props.players"
+      :judge-id="judgeId"
+      :card-texts="cardTexts"
+      :effective-round-winner="effectiveRoundWinner"
+      :confirmed-round-winner="confirmedRoundWinner"
+      :winner-selected="winnerSelected"
+      :winning-cards="state?.winningCards || []"
+      :round="state?.round || 1"
+      :reading-aloud="readingAloud"
+      :my-avatar="myAvatar"
+      @select-cards="handleCardSubmit"
+      @reveal-card="revealCard"
+      @select-winner="handleSelectWinner"
+      @read-aloud="handleReadAloud"
+      @toggle-sidebar="emit('toggle-sidebar')"
+      @continue="handleMobileContinue"
+    />
+
+    <!-- Desktop Layout -->
+    <div v-else class="min-h-screen flex flex-col">
       <GameHeader
         :state="state as any"
         :is-submitting="isSubmitting"
