@@ -26,3 +26,5 @@ logs
 .vscode
 CLAUDE.md
 .claude/settings.local.json
+.worktrees
+.superpowers
