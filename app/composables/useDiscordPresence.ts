@@ -1,13 +1,15 @@
 // app/composables/useDiscordPresence.ts
 
+import type { GameState } from "~/types/game";
+
 interface PresenceInput {
-  phase: string;
+  phase: GameState["phase"];
   round: number;
   playerCount: number;
   startTimestamp: number | null;
 }
 
-interface DiscordActivity {
+export interface DiscordActivity {
   type: number;
   details: string;
   state: string;
