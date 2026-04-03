@@ -84,6 +84,13 @@ const {
 // expected by useDynamicFavicon, useAutoReturn, useSpectatorConversion.
 const state = computed(() => reactive.gameState.value);
 
+// ─── Discord Rich Presence ──────────────────────────────────────────────────
+useDiscordPresence({
+  phase: computed(() => reactive.gameState.value?.phase ?? "waiting"),
+  round: computed(() => reactive.gameState.value?.round ?? 0),
+  playerCount: computed(() => reactive.playerList.value?.length ?? 0),
+});
+
 // ─── Sync players from Y.Doc ────────────────────────────────────────────────
 watch(
   () => reactive.playerList.value,
