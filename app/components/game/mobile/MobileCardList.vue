@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useParallax } from "@vueuse/core";
 import type { CardTexts } from "~/types/gamecards";
+import { SFX } from "~/config/sfx.config";
 
 interface Props {
   mode: "select" | "judge";
@@ -69,11 +70,15 @@ function handleSelectTap(cardId: string) {
   // Trigger bounce
   justTapped.value.add(cardId);
   setTimeout(() => {
-    justTapped.value = new Set([...justTapped.value].filter((id) => id !== cardId));
+    justTapped.value = new Set(
+      [...justTapped.value].filter((id) => id !== cardId),
+    );
   }, 300);
 }
 
 // ── Judge mode helpers ─────────────────────────────────────────────────────────
+
+const { playSfx } = useSfx();
 
 const submissionEntries = computed(() =>
   Object.entries(props.submissions).map(([playerId, cardIds]) => ({
@@ -86,6 +91,7 @@ const submissionEntries = computed(() =>
 function handleSubmissionTap(playerId: string, revealed: boolean) {
   if (!props.isJudge) return;
   if (!revealed) {
+    playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
     emit("reveal", playerId);
   } else if (props.allRevealed) {
     emit("pick-winner", playerId);
@@ -101,7 +107,10 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
         v-for="cardId in cards"
         :key="cardId"
         data-testid="select-card"
-        :class="['select-card', justTapped.has(cardId) && 'select-card--bounce']"
+        :class="[
+          'select-card',
+          justTapped.has(cardId) && 'select-card--bounce',
+        ]"
         :style="{ ...cardStyle(cardId), transform: tiltTransform }"
         @click="handleSelectTap(cardId)"
       >
@@ -126,7 +135,11 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
         :key="entry.playerId"
         data-testid="submission-group"
         class="submission-group"
-        :class="entry.revealed ? 'submission-group--revealed' : 'submission-group--hidden'"
+        :class="
+          entry.revealed
+            ? 'submission-group--revealed'
+            : 'submission-group--hidden'
+        "
         :style="entry.revealed ? { transform: tiltTransform } : {}"
         @click="handleSubmissionTap(entry.playerId, entry.revealed)"
       >
@@ -165,9 +178,15 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
 }
 
 @keyframes card-tap-bounce {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.05) rotate(1.5deg); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.05) rotate(1.5deg);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .select-card:active {
@@ -180,22 +199,24 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
   border-radius: 0.75rem; /* 12px */
   outline: 4px solid rgba(0, 0, 0, 0.15);
   outline-offset: -4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 0 60px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 0 60px rgba(0, 0, 0, 0.12);
   margin-bottom: 0.625rem;
   position: relative;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-              box-shadow 0.2s ease;
+  transition:
+    transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    box-shadow 0.2s ease;
 }
 
 /* ── Select card text ─────────────────────────────────────────────────────── */
 .select-card .card-text {
   color: #1a1a1a;
-  font-size: 0.9375rem; /* 15px */
-  font-weight: 500;
-  line-height: 1.4;
+  font-size: 1.5rem; /* 15px */
+  line-height: 1.5;
   margin: 0;
   padding: 0.875rem 1rem;
 }
@@ -205,13 +226,13 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  width: 1.375rem;
-  height: 1.375rem;
+  width: 1.625rem;
+  height: 1.625rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: white;
   z-index: 2;
@@ -233,7 +254,7 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
 
 .submission-group--hidden .reveal-hint {
   color: rgba(245, 158, 11, 0.8);
-  font-size: 0.875rem;
+  font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
   letter-spacing: 0.025em;
@@ -255,8 +276,7 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
 
 .submission-card .card-text {
   color: #1a1a1a;
-  font-size: 0.9375rem; /* 15px */
-  font-weight: 500;
+  font-size: 1.5rem;
   line-height: 1.4;
   margin: 0;
 }

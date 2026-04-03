@@ -2,6 +2,12 @@
 import { ref, computed, watch } from "vue";
 import type { Player } from "~/types/player";
 import type { CardTexts } from "~/types/gamecards";
+import MobileStatusBar from "~/components/game/mobile/MobileStatusBar.vue";
+import MobilePlayerStrip from "~/components/game/mobile/MobilePlayerStrip.vue";
+import MobileBlackCard from "~/components/game/mobile/MobileBlackCard.vue";
+import MobileSelectionSlots from "~/components/game/mobile/MobileSelectionSlots.vue";
+import MobileCardList from "~/components/game/mobile/MobileCardList.vue";
+import MobileActionBar from "~/components/game/mobile/MobileActionBar.vue";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -83,27 +89,27 @@ const playersWaiting = computed(() => {
 
 // Whether the middle area shows the hand selection UI
 const showHandSelection = computed(
-  () =>
-    props.phase === "submitting" &&
-    !props.isJudge &&
-    !hasSubmitted.value,
+  () => props.phase === "submitting" && !props.isJudge && !hasSubmitted.value,
 );
 
-// Whether we're in the winner celebration state
-const showWinnerCelebration = computed(
-  () =>
-    (props.phase === "roundEnd" || props.phase === "complete") &&
-    props.winnerSelected &&
-    !!props.confirmedRoundWinner,
+// Unified winner screen — shown as soon as a winner is picked
+const showWinner = computed(
+  () => !!props.effectiveRoundWinner || !!props.confirmedRoundWinner,
 );
 
-// Winner name resolved from players list
+// Winner name resolved from players list (works for both highlight + celebration)
 const winnerName = computed(() => {
-  if (!props.confirmedRoundWinner) return null;
-  return (
-    props.players.find((p) => p.userId === props.confirmedRoundWinner)?.name ??
-    null
-  );
+  const id = props.confirmedRoundWinner || props.effectiveRoundWinner;
+  if (!id) return null;
+  return props.players.find((p) => p.userId === id)?.name ?? null;
+});
+
+// Winner's cards — prefer winningCards (from confirmed state), fall back to submissions
+const winnerCards = computed(() => {
+  if (props.winningCards.length > 0) return props.winningCards;
+  const id = props.effectiveRoundWinner;
+  if (!id) return [];
+  return props.submissions[id] ?? [];
 });
 
 // Revealed count for judging status line
@@ -173,12 +179,19 @@ watch(
     <!-- ── Status Bar ────────────────────────────────────────────────────── -->
     <MobileStatusBar
       :round="round"
-      :players="players"
-      :judge-id="judgeId"
-      :submissions="submissions"
-      :my-avatar="myAvatar"
       :phase="phase"
+      :my-avatar="myAvatar"
       @toggle-sidebar="emit('toggle-sidebar')"
+    />
+
+    <!-- ── Player Strip ─────────────────────────────────────────────────── -->
+    <MobilePlayerStrip
+      :players="players"
+      :scores="scores"
+      :judge-id="judgeId"
+      :my-id="myId"
+      :submissions="submissions"
+      :phase="phase"
     />
 
     <!-- ── Black Card (pinned) ───────────────────────────────────────────── -->
@@ -192,7 +205,6 @@ watch(
 
     <!-- ── Middle Area ───────────────────────────────────────────────────── -->
     <div class="middle-area">
-
       <!-- SUBMITTING — non-judge, not yet submitted: selection slots + hand -->
       <template v-if="showHandSelection">
         <MobileSelectionSlots
@@ -218,10 +230,15 @@ watch(
       <!-- SUBMITTING — non-judge, already submitted -->
       <template v-else-if="phase === 'submitting' && !isJudge && hasSubmitted">
         <div class="center-state">
-          <Icon name="i-solar-check-circle-bold" class="state-icon state-icon--green" />
+          <Icon
+            name="i-solar-check-circle-bold"
+            class="state-icon state-icon--green"
+          />
           <p class="state-title">Cards submitted!</p>
           <p v-if="playersWaiting > 0" class="state-subtitle">
-            Waiting for {{ playersWaiting }} player{{ playersWaiting > 1 ? "s" : "" }}…
+            Waiting for {{ playersWaiting }} player{{
+              playersWaiting > 1 ? "s" : ""
+            }}…
           </p>
         </div>
       </template>
@@ -229,10 +246,14 @@ watch(
       <!-- SUBMITTING — judge view -->
       <template v-else-if="phase === 'submitting' && isJudge">
         <div class="center-state">
-          <Icon name="i-solar-gavel-bold" class="state-icon state-icon--purple" />
+          <Icon
+            name="i-solar-gavel-bold"
+            class="state-icon state-icon--purple"
+          />
           <p class="state-title">Waiting for players...</p>
           <p v-if="playersWaiting > 0" class="state-subtitle">
-            {{ playersWaiting }} player{{ playersWaiting > 1 ? "s" : "" }} still submitting
+            {{ playersWaiting }} player{{ playersWaiting > 1 ? "s" : "" }} still
+            submitting
           </p>
         </div>
       </template>
@@ -257,14 +278,14 @@ watch(
         />
       </template>
 
-      <!-- ROUND END / COMPLETE — winner celebration -->
-      <template v-else-if="showWinnerCelebration">
-        <div class="winner-celebration">
+      <!-- WINNER — unified screen from the moment a winner is picked -->
+      <template v-else-if="showWinner">
+        <div class="winner-screen">
           <p class="winner-label">Winner!</p>
           <p v-if="winnerName" class="winner-name">{{ winnerName }}</p>
           <div class="winning-cards">
             <div
-              v-for="cardId in winningCards"
+              v-for="cardId in winnerCards"
               :key="cardId"
               class="winning-card"
             >
@@ -273,7 +294,6 @@ watch(
           </div>
         </div>
       </template>
-
     </div>
 
     <!-- ── Action Bar (bottom) ───────────────────────────────────────────── -->
@@ -322,8 +342,8 @@ watch(
 }
 
 .state-icon {
-  width: 3rem;
-  height: 3rem;
+  width: 3.5rem;
+  height: 3.5rem;
   margin-bottom: 0.25rem;
 }
 
@@ -337,30 +357,30 @@ watch(
 
 .state-title {
   color: #e2e8f0;
-  font-size: 1.125rem;
+  font-size: 1.375rem;
   font-weight: 700;
   margin: 0;
 }
 
 .state-subtitle {
   color: #64748b;
-  font-size: 0.8125rem;
+  font-size: 1rem;
   margin: 0;
 }
 
 /* ── Judging hint ─────────────────────────────────────────────────────────── */
 .judging-hint {
   color: #f59e0b;
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 600;
   text-align: center;
-  padding: 0.5rem 1rem 0.25rem;
+  padding: 0.625rem 1rem 0.375rem;
   margin: 0;
   flex-shrink: 0;
 }
 
-/* ── Winner celebration ───────────────────────────────────────────────────── */
-.winner-celebration {
+/* ── Winner screen ────────────────────────────────────────────────────────── */
+.winner-screen {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -368,6 +388,18 @@ watch(
   justify-content: center;
   gap: 0.75rem;
   padding: 1.5rem 1rem 6rem;
+  animation: winner-fade-in 0.4s ease-out;
+}
+
+@keyframes winner-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .winner-label {
@@ -381,7 +413,7 @@ watch(
 
 .winner-name {
   color: #e2e8f0;
-  font-size: 1rem;
+  font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
 }
@@ -406,7 +438,7 @@ watch(
 
 .winning-card__text {
   color: #1a1a1a;
-  font-size: 0.9375rem;
+  font-size: 1.5rem;
   font-weight: 500;
   line-height: 1.4;
   margin: 0;
