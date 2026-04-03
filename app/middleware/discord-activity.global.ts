@@ -9,6 +9,6 @@ export default defineNuxtRouteMiddleware((to) => {
     to.path !== "/activity" &&
     !to.path.startsWith("/game/")
   ) {
-    return navigateTo("/activity", { replace: true });
+    return navigateTo({ path: "/activity", query: to.query }, { replace: true });
   }
 });
