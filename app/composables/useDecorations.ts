@@ -18,7 +18,7 @@ export function useDecorations() {
   const fetchOwned = async () => {
     loading.value = true;
     try {
-      const data = await $fetch<OwnedDecoration[]>("/api/decorations");
+      const data = await $fetch<OwnedDecoration[]>("/api/decorations/list");
       ownedDecorations.value = data;
     } catch (err) {
       console.error("Failed to fetch decorations:", err);
