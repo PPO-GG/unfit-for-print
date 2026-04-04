@@ -217,6 +217,8 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_APPWRITE_SUBMISSION_COLLECTION_ID,
       appwriteReportsCollectionId:
         process.env.NUXT_PUBLIC_APPWRITE_REPORTS_COLLECTION_ID,
+      appwriteUserDecorationsCollectionId:
+        process.env.NUXT_PUBLIC_APPWRITE_USER_DECORATIONS_COLLECTION_ID,
       baseUrl:
         process.env.NUXT_PUBLIC_BASE_URL ||
         process.env.DEPLOY_URL ||

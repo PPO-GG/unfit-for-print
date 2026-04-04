@@ -925,6 +925,66 @@
         }
       ],
       "indexes": []
+    },
+    {
+      "$id": "userDecorations",
+      "$permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "read(\"any\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "userDecorations",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "array": false,
+          "size": 48,
+          "default": null
+        },
+        {
+          "key": "decorationId",
+          "type": "string",
+          "required": true,
+          "array": false,
+          "size": 64,
+          "default": null
+        },
+        {
+          "key": "acquiredAt",
+          "type": "datetime",
+          "required": true,
+          "array": false,
+          "format": "",
+          "default": null
+        },
+        {
+          "key": "source",
+          "type": "string",
+          "required": true,
+          "array": false,
+          "size": 32,
+          "default": null
+        }
+      ],
+      "indexes": [
+        {
+          "key": "userId_idx",
+          "type": "key",
+          "attributes": ["userId"],
+          "orders": ["ASC"]
+        },
+        {
+          "key": "userId_decorationId_idx",
+          "type": "unique",
+          "attributes": ["userId", "decorationId"],
+          "orders": ["ASC", "ASC"]
+        }
+      ]
     }
   ]
 }
