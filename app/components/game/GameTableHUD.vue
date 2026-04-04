@@ -97,11 +97,16 @@ function getPositionColorClass(position: number): string {
     <!-- My Score Widget -->
     <div v-if="currentPlayer && isParticipant" class="my-score-widget">
       <div class="my-score-avatar">
-        <UAvatar
-          :src="currentPlayer.avatar || undefined"
-          :alt="currentPlayer.name"
+        <AvatarDecoration
+          :decoration-id="currentPlayer?.activeDecoration"
           size="sm"
-        />
+        >
+          <UAvatar
+            :src="currentPlayer.avatar || undefined"
+            :alt="currentPlayer.name"
+            size="sm"
+          />
+        </AvatarDecoration>
       </div>
       <div class="my-score-info">
         <span class="my-score-name">{{ currentPlayer.name }}</span>

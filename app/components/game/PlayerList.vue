@@ -198,24 +198,29 @@ function getPlayerStatus(
       >
         <!-- Avatar -->
         <div class="avatar-wrap">
-          <UAvatar
-            v-if="getPlayerAvatarUrl(player)"
-            :src="getPlayerAvatarUrl(player) ?? undefined"
+          <AvatarDecoration
+            :decoration-id="player.activeDecoration"
             size="sm"
-            class="player-avatar"
-          />
-          <UAvatar
-            v-else-if="player.playerType === 'bot'"
-            size="sm"
-            icon="i-mdi-robot"
-            class="player-avatar avatar--bot"
-          />
-          <UAvatar
-            v-else
-            size="sm"
-            icon="i-solar-user-bold-duotone"
-            class="player-avatar"
-          />
+          >
+            <UAvatar
+              v-if="getPlayerAvatarUrl(player)"
+              :src="getPlayerAvatarUrl(player) ?? undefined"
+              size="sm"
+              class="player-avatar"
+            />
+            <UAvatar
+              v-else-if="player.playerType === 'bot'"
+              size="sm"
+              icon="i-mdi-robot"
+              class="player-avatar avatar--bot"
+            />
+            <UAvatar
+              v-else
+              size="sm"
+              icon="i-solar-user-bold-duotone"
+              class="player-avatar"
+            />
+          </AvatarDecoration>
 
           <!-- Host crown overlay -->
           <span v-if="player.userId === hostUserId" class="crown-badge">

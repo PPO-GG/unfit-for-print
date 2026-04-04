@@ -324,12 +324,17 @@ watch(
           <Icon name="solar:check-circle-bold" />
         </div>
 
-        <UAvatar
-          :src="player.avatar || undefined"
-          :alt="player.name"
-          size="xl"
-          class="!w-16 !h-16 text-[1.35rem]"
-        />
+        <AvatarDecoration
+          :decoration-id="player.activeDecoration"
+          size="lg"
+        >
+          <UAvatar
+            :src="player.avatar || undefined"
+            :alt="player.name"
+            size="xl"
+            class="!w-16 !h-16 text-[1.35rem]"
+          />
+        </AvatarDecoration>
       </div>
 
       <!-- Seat Name -->
@@ -370,11 +375,16 @@ watch(
       ]"
     >
       <div class="relative">
-        <UAvatar
-          :src="player.avatar || undefined"
-          :alt="player.name"
+        <AvatarDecoration
+          :decoration-id="player.activeDecoration"
           size="sm"
-        />
+        >
+          <UAvatar
+            :src="player.avatar || undefined"
+            :alt="player.name"
+            size="sm"
+          />
+        </AvatarDecoration>
         <!-- Position badge (overflow) -->
         <div
           v-if="getPlayerPosition(player.userId)"

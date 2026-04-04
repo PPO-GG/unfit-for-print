@@ -46,18 +46,23 @@ function hasSubmitted(userId: string): boolean {
           phase === 'submitting' && hasSubmitted(player.userId) && 'player-chip--submitted',
         ]"
       >
-        <div class="avatar-wrapper">
-          <img
-            v-if="player.avatar"
-            :src="player.avatar"
-            :alt="player.name"
-            class="avatar"
-          />
-          <div v-else class="avatar avatar--placeholder" />
-          <span v-if="player.userId === judgeId" class="judge-badge">
-            <Icon name="i-solar-gavel-bold" class="w-2.5 h-2.5" />
-          </span>
-        </div>
+        <AvatarDecoration
+          :decoration-id="player.activeDecoration"
+          size="xs"
+        >
+          <div class="avatar-wrapper">
+            <img
+              v-if="player.avatar"
+              :src="player.avatar"
+              :alt="player.name"
+              class="avatar"
+            />
+            <div v-else class="avatar avatar--placeholder" />
+            <span v-if="player.userId === judgeId" class="judge-badge">
+              <Icon name="i-solar-gavel-bold" class="w-2.5 h-2.5" />
+            </span>
+          </div>
+        </AvatarDecoration>
         <span class="player-name">{{ player.name.split(' ')[0] }}</span>
         <span class="player-score">{{ scores[player.userId] ?? 0 }}</span>
       </div>

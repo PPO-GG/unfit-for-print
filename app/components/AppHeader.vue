@@ -54,6 +54,13 @@ const navItems = [
     color: "primary" as const,
     authRequired: true,
   },
+  {
+    labelKey: "nav.profile",
+    to: "/profile",
+    icon: "i-solar-user-bold-duotone",
+    color: "secondary" as const,
+    authRequired: true,
+  },
 ];
 
 watch(
@@ -301,12 +308,17 @@ const isAdmin = useIsAdmin();
             <div class="flex items-center justify-between gap-2">
               <!-- Avatar + Welcome Message -->
               <div class="flex items-center gap-2">
-                <img
-                  v-if="avatarUrl"
-                  :src="avatarUrl"
-                  alt="avatar"
-                  class="w-10 h-10 rounded-full"
-                />
+                <AvatarDecoration
+                  :decoration-id="userStore.user?.prefs?.activeDecoration"
+                  size="sm"
+                >
+                  <img
+                    v-if="avatarUrl"
+                    :src="avatarUrl"
+                    alt="avatar"
+                    class="w-10 h-10 rounded-full"
+                  />
+                </AvatarDecoration>
                 <span
                   v-if="isAuthenticatedUser(userStore.user)"
                   class="text-xl"
