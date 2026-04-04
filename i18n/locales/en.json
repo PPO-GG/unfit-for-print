@@ -175,6 +175,14 @@
   "notification.logout_failed": "Logout failed",
   "notification.redirecting": "Redirecting to your active game",
   "profile.your_profile": "Your Profile",
+  "profile.your_decorations": "Your Decorations",
+  "profile.locked_decorations": "Locked Decorations",
+  "profile.no_decorations": "You don't own any decorations yet.",
+  "profile.equipped": "Equipped",
+  "profile.click_to_equip": "Click to equip",
+  "profile.click_to_unequip": "Click to unequip",
+  "profile.locked": "Locked",
+  "profile.support_to_unlock": "Support the game to unlock",
   "tagline": "A PARTY GAME FOR HIDEOUS PEOPLE",
   "try_me": "Try Me!"
 }
