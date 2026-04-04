@@ -21,6 +21,7 @@ export interface LobbyInitPayload {
   hostUserId: string;
   hostName: string;
   hostAvatar: string;
+  hostActiveDecoration?: string;
   settings: {
     maxPoints: number;
     cardsPerPlayer: number;
@@ -42,6 +43,7 @@ export interface PlayerPayload {
   joinedAt: string;
   provider: string;
   playerType: "player" | "spectator" | "bot";
+  activeDecoration?: string;
 }
 
 // ─── Game Start Payload (returned by server after card fetch) ────────────────
@@ -139,6 +141,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
           joinedAt: new Date().toISOString(),
           provider: "appwrite",
           playerType: "player",
+          activeDecoration: payload.hostActiveDecoration || "",
         } satisfies PlayerPayload),
       );
 

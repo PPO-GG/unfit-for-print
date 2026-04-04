@@ -189,12 +189,14 @@ export const useLobby = () => {
       const avatarUrl = user
         ? getUserAvatarUrl(user as any, session?.provider)
         : null;
+      const activeDecoration = user?.prefs?.activeDecoration || "";
 
       mutations.initializeLobby({
         code: lobbyCode,
         hostUserId,
         hostName: user?.name ?? "Anonymous",
         hostAvatar: avatarUrl || "",
+        hostActiveDecoration: activeDecoration,
         settings: {
           maxPoints: 10,
           cardsPerPlayer: 10,
@@ -298,6 +300,7 @@ export const useLobby = () => {
     const existingPlayer = lobbyDoc.getPlayers().get(rawUser.$id);
     if (!existingPlayer) {
       const avatarUrl = getUserAvatarUrl(rawUser as any, session.provider);
+      const activeDecoration = enrichedUser.prefs?.activeDecoration || "";
 
       mutations.addPlayer({
         userId: rawUser.$id,
@@ -308,6 +311,7 @@ export const useLobby = () => {
         joinedAt: new Date().toISOString(),
         provider: session.provider,
         playerType,
+        activeDecoration,
       });
 
       // Compatibility shim: create Appwrite player doc so server-side
@@ -329,6 +333,7 @@ export const useLobby = () => {
             joinedAt: new Date().toISOString(),
             provider: session.provider,
             playerType,
+            activeDecoration,
           },
           permissions: [
             Permission.read(Role.any()),

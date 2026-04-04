@@ -379,6 +379,7 @@ export function useLobbyReactive(lobbyDoc: LobbyDocResult) {
       joinedAt: p.joinedAt,
       provider: p.provider,
       playerType: p.playerType,
+      activeDecoration: p.activeDecoration,
     }));
   });
 
