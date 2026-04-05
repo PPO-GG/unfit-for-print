@@ -3,6 +3,7 @@
 // merges them into a unified response for the admin lobby monitor.
 
 import { Query } from "node-appwrite";
+import { createError } from "h3";
 
 export interface UnifiedStatusResponse {
   server: {
@@ -27,33 +28,41 @@ export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> 
   const LOBBY_COL = config.public.appwriteLobbyCollectionId as string;
   const GAMESETTINGS_COL = config.public.appwriteGameSettingsCollectionId as string;
 
-  // Fetch all three sources in parallel
-  const [teleportal, lobbiesRes, settingsRes] = await Promise.all([
-    $fetch<any>(`${url}/status`),
-    databases.listDocuments(DB_ID, LOBBY_COL, [
-      Query.orderDesc("$createdAt"),
-      Query.limit(500),
-    ]),
-    databases.listDocuments(DB_ID, GAMESETTINGS_COL, [
-      Query.limit(500),
-    ]),
-  ]);
+  try {
+    // Fetch all three sources in parallel
+    const [teleportal, lobbiesRes, settingsRes] = await Promise.all([
+      $fetch<any>(`${url}/status`),
+      databases.listDocuments(DB_ID, LOBBY_COL, [
+        Query.orderDesc("$createdAt"),
+        Query.limit(500),
+      ]),
+      databases.listDocuments(DB_ID, GAMESETTINGS_COL, [
+        Query.limit(500),
+      ]),
+    ]);
 
-  const lobbies = mergeLobbies(
-    teleportal.documents ?? {},
-    lobbiesRes.documents,
-    settingsRes.documents,
-  );
+    const lobbies = mergeLobbies(
+      teleportal.documents ?? {},
+      lobbiesRes.documents,
+      settingsRes.documents,
+    );
 
-  return {
-    server: {
-      version: teleportal.version,
-      uptime: teleportal.uptime,
-      activeClients: teleportal.activeClients,
-      activeDocuments: teleportal.activeDocuments,
-      idleDocTtlSec: teleportal.idleDocTtlSec,
-      memoryUsage: teleportal.memoryUsage,
-    },
-    lobbies,
-  };
+    return {
+      server: {
+        version: teleportal.version,
+        uptime: teleportal.uptime,
+        activeClients: teleportal.activeClients,
+        activeDocuments: teleportal.activeDocuments,
+        idleDocTtlSec: teleportal.idleDocTtlSec,
+        memoryUsage: teleportal.memoryUsage,
+      },
+      lobbies,
+    };
+  } catch (err: any) {
+    console.error("[admin/teleportal/status] Fetch failed:", err);
+    throw createError({
+      statusCode: 500,
+      statusMessage: err?.message || "Failed to fetch lobby status",
+    });
+  }
 });
