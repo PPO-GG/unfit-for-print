@@ -5,17 +5,34 @@ export interface DecorationRegistryEntry {
   component: () => Promise<{ default: Component }>;
 }
 
+/** Positioning config for image-overlay decorations (hats, glasses, etc.) */
+export interface AttachmentConfig {
+  anchor: "top-center" | "top-left" | "top-right" | "center" | "bottom-center";
+  offsetX: number; // fraction of avatar size (-1.0 to 1.0)
+  offsetY: number; // fraction of avatar size (-1.0 to 1.0)
+  scale: number; // relative to avatar (0.1 to 2.0)
+  rotation: number; // degrees (-180 to 180)
+  zLayer: "above" | "below"; // render above or behind the avatar
+  clipped: boolean; // mask to the avatar circle (inset mode)
+}
+
+/** Decoration type discriminator */
+export type DecorationType = "effect" | "attachment";
+
 /** DB catalog — all business metadata from the decorations collection */
 export interface DecorationCatalogEntry {
   $id: string;
   decorationId: string;
   name: string;
   description: string;
-  type: string;
+  type: DecorationType;
   rarity: string;
+  category: string;
   enabled: boolean;
   freeForAll: boolean;
   discordSkuId: string | null;
   price: number;
   sortOrder: number;
+  imageFileId: string | null;
+  attachment: AttachmentConfig | null;
 }

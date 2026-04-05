@@ -1001,11 +1001,14 @@
         { "key": "description", "type": "string", "required": true, "array": false, "size": 512, "default": null },
         { "key": "type", "type": "string", "required": true, "array": false, "size": 32, "default": null },
         { "key": "rarity", "type": "string", "required": true, "array": false, "size": 32, "default": null },
-        { "key": "enabled", "type": "boolean", "required": true, "array": false, "default": false },
-        { "key": "freeForAll", "type": "boolean", "required": true, "array": false, "default": false },
+        { "key": "category", "type": "string", "required": false, "array": false, "size": 32, "default": "custom" },
+        { "key": "enabled", "type": "boolean", "required": true, "array": false, "default": null },
+        { "key": "freeForAll", "type": "boolean", "required": true, "array": false, "default": null },
         { "key": "discordSkuId", "type": "string", "required": false, "array": false, "size": 64, "default": null },
-        { "key": "price", "type": "float", "required": true, "array": false, "default": 0 },
-        { "key": "sortOrder", "type": "integer", "required": true, "array": false, "default": 999 }
+        { "key": "price", "type": "double", "required": true, "array": false, "default": null },
+        { "key": "sortOrder", "type": "integer", "required": true, "array": false, "default": null },
+        { "key": "imageFileId", "type": "string", "required": false, "array": false, "size": 64, "default": null },
+        { "key": "attachment", "type": "string", "required": false, "array": false, "size": 2048, "default": null }
       ],
       "indexes": [
         { "key": "decorationId_idx", "type": "unique", "attributes": ["decorationId"], "orders": ["ASC"] },
