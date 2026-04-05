@@ -100,6 +100,7 @@ export default defineNuxtConfig({
   components: [
     { path: "~/components/game", prefix: "" },
     { path: "~/components/lobby", prefix: "" },
+    { path: "~/components/decorations", prefix: "" },
     { path: "~/components/", prefix: "" },
   ],
   css: ["~/assets/css/main.css"],
@@ -193,6 +194,8 @@ export default defineNuxtConfig({
     appwriteApiKey: process.env.NUXT_APPWRITE_API_KEY,
     elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
     discordClientSecret: process.env.DISCORD_CLIENT_SECRET,
+    discordPublicKey: process.env.DISCORD_PUBLIC_KEY,
+    discordApplicationId: process.env.DISCORD_APPLICATION_ID,
 
     // Client-side (game-specific collection IDs)
     public: {
@@ -217,8 +220,8 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_APPWRITE_SUBMISSION_COLLECTION_ID,
       appwriteReportsCollectionId:
         process.env.NUXT_PUBLIC_APPWRITE_REPORTS_COLLECTION_ID,
-      appwriteUserDecorationsCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_USER_DECORATIONS_COLLECTION_ID,
+      appwriteUserDecorationsCollectionId: "userdecorations",
+      appwriteDecorationsCollectionId: "decorations",
       baseUrl:
         process.env.NUXT_PUBLIC_BASE_URL ||
         process.env.DEPLOY_URL ||

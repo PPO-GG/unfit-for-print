@@ -985,6 +985,32 @@
           "orders": ["ASC", "ASC"]
         }
       ]
+    },
+    {
+      "$id": "decorations",
+      "$permissions": [
+        "read(\"any\")"
+      ],
+      "databaseId": "682f6e7600320fde48dd",
+      "name": "decorations",
+      "enabled": true,
+      "documentSecurity": false,
+      "attributes": [
+        { "key": "decorationId", "type": "string", "required": true, "array": false, "size": 64, "default": null },
+        { "key": "name", "type": "string", "required": true, "array": false, "size": 128, "default": null },
+        { "key": "description", "type": "string", "required": true, "array": false, "size": 512, "default": null },
+        { "key": "type", "type": "string", "required": true, "array": false, "size": 32, "default": null },
+        { "key": "rarity", "type": "string", "required": true, "array": false, "size": 32, "default": null },
+        { "key": "enabled", "type": "boolean", "required": true, "array": false, "default": false },
+        { "key": "freeForAll", "type": "boolean", "required": true, "array": false, "default": false },
+        { "key": "discordSkuId", "type": "string", "required": false, "array": false, "size": 64, "default": null },
+        { "key": "price", "type": "float", "required": true, "array": false, "default": 0 },
+        { "key": "sortOrder", "type": "integer", "required": true, "array": false, "default": 999 }
+      ],
+      "indexes": [
+        { "key": "decorationId_idx", "type": "unique", "attributes": ["decorationId"], "orders": ["ASC"] },
+        { "key": "enabled_idx", "type": "key", "attributes": ["enabled"], "orders": ["ASC"] }
+      ]
     }
   ]
 }

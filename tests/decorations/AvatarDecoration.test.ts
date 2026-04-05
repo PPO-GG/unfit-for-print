@@ -11,17 +11,11 @@ vi.mock("~/utils/decorations", () => ({
         Promise.resolve({
           default: defineComponent({
             name: "TestDecoration",
-            props: { size: String },
-            setup(props, { slots }) {
-              return () =>
-                h("div", { class: "test-decoration" }, slots.default?.());
+            setup(_, { slots }) {
+              return () => h("div", { class: "test-decoration" }, slots.default?.());
             },
           }),
         }),
-      name: "Test",
-      description: "Test decoration",
-      type: "ring",
-      rarity: "common",
     },
   },
 }));
@@ -29,7 +23,7 @@ vi.mock("~/utils/decorations", () => ({
 describe("AvatarDecoration", () => {
   it("renders slot directly when no decorationId", () => {
     const wrapper = mount(AvatarDecoration, {
-      props: { size: "sm" },
+      props: {},
       slots: { default: '<img src="avatar.png" />' },
     });
     expect(wrapper.find("img").exists()).toBe(true);
@@ -38,7 +32,7 @@ describe("AvatarDecoration", () => {
 
   it("renders slot directly when decorationId is not in registry", () => {
     const wrapper = mount(AvatarDecoration, {
-      props: { decorationId: "nonexistent", size: "sm" },
+      props: { decorationId: "nonexistent" },
       slots: { default: '<img src="avatar.png" />' },
     });
     expect(wrapper.find("img").exists()).toBe(true);
@@ -46,7 +40,7 @@ describe("AvatarDecoration", () => {
 
   it("renders decoration component when valid decorationId", async () => {
     const wrapper = mount(AvatarDecoration, {
-      props: { decorationId: "test-decoration", size: "sm" },
+      props: { decorationId: "test-decoration" },
       slots: { default: '<img src="avatar.png" />' },
     });
     // Wait for async component to resolve
