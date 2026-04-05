@@ -9,6 +9,7 @@ export default defineConfig({
     environment: "jsdom",
     include: ["tests/**/*.test.ts"],
     exclude: ["node_modules", "dist", ".nuxt", ".output"],
+    setupFiles: ["tests/server/setup.ts"],
   },
   resolve: {
     alias: {
