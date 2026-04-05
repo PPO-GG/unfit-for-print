@@ -3,18 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
 import { useUserStore } from "~/stores/userStore";
 import type { UnifiedLobby } from "~~/server/utils/mergeLobbies";
-
-interface UnifiedStatusResponse {
-  server: {
-    version: string;
-    uptime: number;
-    activeClients: number;
-    activeDocuments: number;
-    idleDocTtlSec: number;
-    memoryUsage: { rss: string; heapUsed: string };
-  };
-  lobbies: UnifiedLobby[];
-}
+import type { UnifiedStatusResponse } from "~~/server/api/admin/teleportal/status.get";
 
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
@@ -166,12 +155,14 @@ const fullCleanup = async (lobby: UnifiedLobby) => {
     confirmButtonColor: "error",
   });
   if (!confirmed) return;
+  let gcDone = false;
   try {
     await $fetch("/api/admin/teleportal/gc", {
       method: "DELETE",
       headers: authHeaders(),
       body: { docId: lobby.teleportal.docId },
     });
+    gcDone = true;
     await $fetch("/api/admin/lobby/delete", {
       method: "POST",
       headers: authHeaders(),
@@ -180,7 +171,12 @@ const fullCleanup = async (lobby: UnifiedLobby) => {
     notify({ title: "Full Cleanup Done", description: `${lobby.code} removed from both systems`, color: "success" });
     await fetchStatus();
   } catch (err: any) {
-    notify({ title: "Cleanup Failed", description: err?.message || "Partial cleanup may have occurred", color: "error" });
+    notify({
+      title: gcDone ? "Registry Delete Failed (GC succeeded)" : "GC Failed",
+      description: err?.message || "Check lobby state manually",
+      color: "error",
+    });
+    await fetchStatus();
   }
 };
 
@@ -236,13 +232,25 @@ const manualRefresh = async () => {
   if (autoRefreshEnabled.value) startAutoRefresh();
 };
 
+// Pause auto-refresh when tab is hidden
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopAutoRefresh();
+  } else if (autoRefreshEnabled.value) {
+    fetchStatus();
+    startAutoRefresh();
+  }
+}
+
 onMounted(async () => {
   await fetchStatus();
   if (autoRefreshEnabled.value) startAutoRefresh();
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 });
 
 onUnmounted(() => {
   stopAutoRefresh();
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
 });
 </script>
 
