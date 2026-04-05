@@ -12,7 +12,9 @@
 
 import * as Y from "yjs";
 import { ref, shallowRef, readonly, type Ref, type ShallowRef } from "vue";
-import { Provider, FallbackConnection } from "teleportal/providers";
+import { Provider, websocket } from "teleportal/providers";
+
+const { WebSocketConnection } = websocket;
 
 // ─── Y.Doc Map Keys ─────────────────────────────────────────────────────────
 // Centralized constants for all shared type names within the lobby Y.Doc.
@@ -134,9 +136,10 @@ export function useLobbyDoc(): LobbyDocResult {
     // Yield to event loop before heavy Provider.create()
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // Create connection with keepalive — lobbies can have idle periods
-    // (e.g., players reading cards, thinking) so we need a generous timeout.
-    const connection = new FallbackConnection({
+    // Create WebSocket-only connection — the Teleportal server only supports
+    // WebSocket transport, so using FallbackConnection would just produce
+    // noisy 404 errors when it tries the HTTP/SSE fallback on brief disconnects.
+    const connection = new WebSocketConnection({
       url: wsUrl.toString(),
       heartbeatInterval: 15_000, // Ping every 15s to keep alive
       messageReconnectTimeout: 60_000, // 60s timeout (more generous than Rundown's 45s — games have idle phases)
