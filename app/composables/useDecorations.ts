@@ -79,6 +79,7 @@ export function useDecorations() {
   const allDecorations = computed(() =>
     catalog.value.map((entry) => ({
       ...entry,
+      id: entry.decorationId,
       component: decorationRegistry[entry.decorationId]?.component ?? null,
       owned: entry.freeForAll || isOwned(entry.decorationId),
       active: activeDecorationId.value === entry.decorationId,
@@ -89,15 +90,15 @@ export function useDecorations() {
     const entry = catalog.value.find((d) => d.decorationId === decorationId);
     if (!entry?.discordSkuId) return;
 
-    const { isDiscordActivity } = useDiscordSDK();
+    const { isDiscordActivity, getSdk } = useDiscordSDK();
     const clientId = useRuntimeConfig().public.discordClientId as string;
     const storeUrl = `https://discord.com/application-directory/${clientId}/store/${entry.discordSkuId}`;
 
     if (isDiscordActivity.value) {
-      const { getSdk } = useDiscordSDK();
       const sdk = getSdk();
       if (sdk) {
-        sdk.commands.openExternalLink({ url: storeUrl });
+        // Use openPremiumDialog to trigger native Discord in-app purchase flow
+        sdk.commands.openPremiumDialog({ sku_id: entry.discordSkuId });
       }
     } else {
       window.open(storeUrl, "_blank");

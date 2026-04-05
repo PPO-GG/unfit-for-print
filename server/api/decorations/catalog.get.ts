@@ -21,6 +21,7 @@ export default defineEventHandler(async () => {
     description: doc.description,
     type: doc.type,
     rarity: doc.rarity,
+    enabled: doc.enabled,
     freeForAll: doc.freeForAll,
     discordSkuId: doc.discordSkuId || null,
     price: doc.price,
