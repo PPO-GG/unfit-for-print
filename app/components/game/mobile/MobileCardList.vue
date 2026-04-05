@@ -15,6 +15,7 @@ interface Props {
   revealedCards: Record<string, boolean>;
   isJudge: boolean;
   allRevealed: boolean;
+  readingAloud?: boolean;
   // Shared
   cardTexts: CardTexts;
 }
@@ -24,6 +25,7 @@ const emit = defineEmits<{
   select: [cardId: string];
   reveal: [playerId: string];
   "pick-winner": [playerId: string];
+  "read-aloud": [text: string];
 }>();
 
 // ── Pick color palette (shared with MobileSelectionSlots) ──────────────────────
@@ -97,6 +99,15 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
     emit("pick-winner", playerId);
   }
 }
+
+function readAloud(playerId: string) {
+  const cardIds = props.submissions[playerId] ?? [];
+  const text = cardIds
+    .map((id) => props.cardTexts[id]?.text ?? "")
+    .filter(Boolean)
+    .join(" ");
+  if (text) emit("read-aloud", text);
+}
 </script>
 
 <template>
@@ -158,6 +169,18 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
           >
             <p class="card-text">{{ cardTexts[cardId]?.text }}</p>
           </div>
+          <button
+            v-if="isJudge"
+            class="speak-btn"
+            :class="{ 'speak-btn--speaking': readingAloud }"
+            :disabled="readingAloud"
+            @click.stop="readAloud(entry.playerId)"
+          >
+            <Icon
+              :name="readingAloud ? 'svg-spinners:pulse-rings-multiple' : 'solar:user-speak-bold-duotone'"
+              class="speak-btn-icon"
+            />
+          </button>
         </template>
       </div>
     </template>
@@ -264,6 +287,7 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
 .submission-group--revealed {
   padding: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .submission-card {
@@ -279,5 +303,48 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
   font-size: 1.5rem;
   line-height: 1.4;
   margin: 0;
+}
+
+/* ── Speak button ─────────────────────────────────────────────────────────── */
+.speak-btn {
+  position: absolute;
+  bottom: 0.35rem;
+  right: 0.35rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.12);
+  border: none;
+  color: rgba(245, 158, 11, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.speak-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.3);
+  color: rgba(245, 158, 11, 1);
+}
+
+.speak-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.speak-btn--speaking {
+  animation: speak-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes speak-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.speak-btn-icon {
+  width: 1rem;
+  height: 1rem;
 }
 </style>
