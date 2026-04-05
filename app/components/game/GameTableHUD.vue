@@ -99,7 +99,6 @@ function getPositionColorClass(position: number): string {
       <div class="my-score-avatar">
         <AvatarDecoration
           :decoration-id="currentPlayer?.activeDecoration"
-          size="sm"
         >
           <UAvatar
             :src="currentPlayer.avatar || undefined"

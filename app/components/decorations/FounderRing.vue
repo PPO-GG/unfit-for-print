@@ -1,29 +1,26 @@
 <template>
-  <div
-    class="founder-ring"
-    :style="{ width: `${config.containerPx}px`, height: `${config.containerPx}px` }"
-  >
+  <div class="founder-ring">
     <div class="founder-ring__glow" />
     <div
       class="founder-ring__border"
-      :style="{ borderWidth: config.borderWidth }"
+      :style="{ borderWidth: `${borderPx}px`, inset: `-${borderPx}px` }"
     />
-    <div class="founder-ring__avatar">
+    <div ref="avatarEl" class="founder-ring__avatar">
       <slot />
     </div>
     <div class="founder-ring__orbit">
       <svg
-        v-for="(sparkle, i) in config.sparkles"
+        v-for="(s, i) in cwSparkles"
         :key="`cw-${i}`"
         class="founder-ring__sparkle"
         :style="{
-          left: `${sparkle.x}%`,
-          top: `${sparkle.y}%`,
-          width: `${sparkle.w}px`,
-          height: `${sparkle.w}px`,
-          animationDuration: `${sparkle.dur}s`,
-          animationDelay: `${sparkle.delay}s`,
-          color: toneColor(sparkle.tone),
+          left: `${s.x}%`,
+          top: `${s.y}%`,
+          width: `${s.w}px`,
+          height: `${s.w}px`,
+          animationDuration: `${s.dur}s`,
+          animationDelay: `${s.delay}s`,
+          color: TONE_COLORS[s.tone],
         }"
         viewBox="0 0 24 24"
         fill="currentColor"
@@ -34,17 +31,17 @@
     </div>
     <div class="founder-ring__orbit founder-ring__orbit--reverse">
       <svg
-        v-for="(sparkle, i) in config.reverseSparkles"
+        v-for="(s, i) in ccwSparkles"
         :key="`ccw-${i}`"
         class="founder-ring__sparkle"
         :style="{
-          left: `${sparkle.x}%`,
-          top: `${sparkle.y}%`,
-          width: `${sparkle.w}px`,
-          height: `${sparkle.w}px`,
-          animationDuration: `${sparkle.dur}s`,
-          animationDelay: `${sparkle.delay}s`,
-          color: toneColor(sparkle.tone),
+          left: `${s.x}%`,
+          top: `${s.y}%`,
+          width: `${s.w}px`,
+          height: `${s.w}px`,
+          animationDuration: `${s.dur}s`,
+          animationDelay: `${s.delay}s`,
+          color: TONE_COLORS[s.tone],
         }"
         viewBox="0 0 24 24"
         fill="currentColor"
@@ -57,131 +54,87 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-type DecorationSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 type SparkTone = 'yellow' | 'amber' | 'white'
 
-interface Sparkle {
-  x: number
-  y: number
-  w: number
-  tone: SparkTone
-  dur: number
-  delay: number
+const TONE_COLORS: Record<SparkTone, string> = {
+  yellow: '#fde047',
+  amber: '#fbbf24',
+  white: '#fef9c3',
 }
 
-interface SizeConfig {
-  containerPx: number
-  borderWidth: string
-  sparkles: Sparkle[]
-  reverseSparkles: Sparkle[]
-}
+// Canonical sparkle positions — evenly distributed around the orbit circle.
+// wMul varies size per sparkle for visual interest (applied to a sqrt-scaled base).
+const CW_TEMPLATES: { x: number; y: number; tone: SparkTone; dur: number; delay: number; wMul: number }[] = [
+  { x: 50,  y: 0,   tone: 'yellow', dur: 1.7, delay: 0.0, wMul: 0.85 },
+  { x: 79,  y: 8,   tone: 'amber',  dur: 2.0, delay: 0.3, wMul: 1.0  },
+  { x: 96,  y: 32,  tone: 'white',  dur: 1.9, delay: 0.6, wMul: 1.1  },
+  { x: 96,  y: 68,  tone: 'yellow', dur: 2.2, delay: 1.0, wMul: 0.85 },
+  { x: 79,  y: 92,  tone: 'amber',  dur: 1.8, delay: 0.4, wMul: 1.2  },
+  { x: 50,  y: 98,  tone: 'white',  dur: 2.4, delay: 0.9, wMul: 1.0  },
+  { x: 21,  y: 92,  tone: 'yellow', dur: 2.1, delay: 1.3, wMul: 0.85 },
+  { x: 21,  y: 8,   tone: 'amber',  dur: 2.0, delay: 0.2, wMul: 1.1  },
+  { x: 4,   y: 50,  tone: 'white',  dur: 1.9, delay: 0.8, wMul: 0.9  },
+]
 
-const props = withDefaults(
-  defineProps<{ size?: DecorationSize }>(),
-  { size: 'md' }
-)
+const CCW_TEMPLATES: typeof CW_TEMPLATES = [
+  { x: 4,   y: 68,  tone: 'amber',  dur: 2.7, delay: 0.1, wMul: 1.15 },
+  { x: 4,   y: 32,  tone: 'white',  dur: 1.9, delay: 0.6, wMul: 1.0  },
+  { x: 68,  y: 84,  tone: 'yellow', dur: 2.3, delay: 1.1, wMul: 1.1  },
+  { x: 32,  y: 84,  tone: 'yellow', dur: 2.6, delay: 0.1, wMul: 0.9  },
+]
 
-function toneColor(tone: SparkTone): string {
-  switch (tone) {
-    case 'yellow': return '#fde047'
-    case 'amber':  return '#fbbf24'
-    case 'white':  return '#fef9c3'
+// --- measure the slotted avatar ---
+const avatarEl = ref<HTMLElement | null>(null)
+const avatarPx = ref(48)
+let observer: ResizeObserver | null = null
+
+onMounted(() => {
+  if (!avatarEl.value) return
+  const measure = () => {
+    const w = avatarEl.value?.offsetWidth
+    if (w && w > 0) avatarPx.value = w
   }
+  measure()
+  observer = new ResizeObserver(measure)
+  observer.observe(avatarEl.value)
+})
+onUnmounted(() => observer?.disconnect())
+
+// --- derived decoration values ---
+const borderPx = computed(() => Math.max(2, Math.round(avatarPx.value * 0.03)))
+
+// sqrt scale keeps sparkles from getting oversized on large avatars
+const wBase = computed(() => 2 + Math.sqrt(avatarPx.value) * 0.5)
+
+function sparkleCounts(size: number): { cw: number; ccw: number } {
+  if (size < 40) return { cw: 4, ccw: 0 }
+  if (size < 64) return { cw: 5, ccw: 2 }
+  if (size < 100) return { cw: 7, ccw: 3 }
+  if (size < 160) return { cw: 8, ccw: 3 }
+  return { cw: 9, ccw: 4 }
 }
 
-const SIZE_CONFIGS: Record<DecorationSize, SizeConfig> = {
-  xs: {
-    containerPx: 48,
-    borderWidth: '2px',
-    sparkles: [
-      { x: 50,  y: 4,   w: 4, tone: 'yellow', dur: 1.7, delay: 0.0 },
-      { x: 96,  y: 50,  w: 5, tone: 'amber',  dur: 2.1, delay: 0.4 },
-      { x: 50,  y: 96,  w: 4, tone: 'white',  dur: 1.9, delay: 0.9 },
-      { x: 4,   y: 50,  w: 5, tone: 'yellow', dur: 2.4, delay: 1.3 },
-    ],
-    reverseSparkles: [],
-  },
-  sm: {
-    containerPx: 56,
-    borderWidth: '2px',
-    sparkles: [
-      { x: 50,  y: 3,   w: 4, tone: 'yellow', dur: 1.7, delay: 0.0 },
-      { x: 85,  y: 15,  w: 5, tone: 'amber',  dur: 2.0, delay: 0.3 },
-      { x: 97,  y: 50,  w: 6, tone: 'white',  dur: 1.9, delay: 0.7 },
-      { x: 85,  y: 85,  w: 4, tone: 'yellow', dur: 2.3, delay: 1.1 },
-      { x: 50,  y: 97,  w: 5, tone: 'amber',  dur: 1.8, delay: 0.5 },
-    ],
-    reverseSparkles: [
-      { x: 15,  y: 15,  w: 7, tone: 'white',  dur: 2.5, delay: 0.2 },
-      { x: 3,   y: 50,  w: 5, tone: 'yellow', dur: 2.1, delay: 0.8 },
-    ],
-  },
-  md: {
-    containerPx: 80,
-    borderWidth: '3px',
-    sparkles: [
-      { x: 50,  y: 2,   w: 5, tone: 'yellow', dur: 1.7, delay: 0.0 },
-      { x: 79,  y: 8,   w: 6, tone: 'amber',  dur: 2.0, delay: 0.3 },
-      { x: 96,  y: 32,  w: 7, tone: 'white',  dur: 1.9, delay: 0.6 },
-      { x: 96,  y: 68,  w: 5, tone: 'yellow', dur: 2.2, delay: 1.0 },
-      { x: 79,  y: 92,  w: 8, tone: 'amber',  dur: 1.8, delay: 0.4 },
-      { x: 50,  y: 98,  w: 6, tone: 'white',  dur: 2.4, delay: 0.9 },
-      { x: 21,  y: 92,  w: 5, tone: 'yellow', dur: 2.1, delay: 1.3 },
-    ],
-    reverseSparkles: [
-      { x: 4,   y: 68,  w: 7, tone: 'amber',  dur: 2.7, delay: 0.1 },
-      { x: 4,   y: 32,  w: 6, tone: 'white',  dur: 1.9, delay: 0.6 },
-      { x: 21,  y: 8,   w: 8, tone: 'yellow', dur: 2.3, delay: 1.1 },
-    ],
-  },
-  lg: {
-    containerPx: 120,
-    borderWidth: '3px',
-    sparkles: [
-      { x: 50,  y: 1,   w: 6,  tone: 'yellow', dur: 1.7, delay: 0.0 },
-      { x: 73,  y: 4,   w: 8,  tone: 'amber',  dur: 2.0, delay: 0.2 },
-      { x: 93,  y: 18,  w: 7,  tone: 'white',  dur: 1.9, delay: 0.5 },
-      { x: 99,  y: 43,  w: 9,  tone: 'yellow', dur: 2.2, delay: 0.8 },
-      { x: 93,  y: 68,  w: 6,  tone: 'amber',  dur: 1.8, delay: 1.1 },
-      { x: 73,  y: 86,  w: 10, tone: 'white',  dur: 2.5, delay: 0.3 },
-      { x: 50,  y: 99,  w: 7,  tone: 'yellow', dur: 2.1, delay: 0.7 },
-      { x: 27,  y: 86,  w: 8,  tone: 'amber',  dur: 1.9, delay: 1.4 },
-    ],
-    reverseSparkles: [
-      { x: 7,   y: 68,  w: 9,  tone: 'white',  dur: 2.6, delay: 0.1 },
-      { x: 1,   y: 43,  w: 7,  tone: 'yellow', dur: 2.0, delay: 0.5 },
-      { x: 7,   y: 18,  w: 8,  tone: 'amber',  dur: 2.8, delay: 1.0 },
-    ],
-  },
-  xl: {
-    containerPx: 200,
-    borderWidth: '3px',
-    sparkles: [
-      { x: 50,  y: 0,   w: 7,  tone: 'yellow', dur: 1.7, delay: 0.0 },
-      { x: 68,  y: 2,   w: 9,  tone: 'amber',  dur: 2.0, delay: 0.2 },
-      { x: 84,  y: 8,   w: 10, tone: 'white',  dur: 1.8, delay: 0.5 },
-      { x: 96,  y: 21,  w: 11, tone: 'yellow', dur: 2.2, delay: 0.8 },
-      { x: 100, y: 38,  w: 8,  tone: 'amber',  dur: 1.9, delay: 1.1 },
-      { x: 96,  y: 56,  w: 12, tone: 'white',  dur: 2.4, delay: 0.3 },
-      { x: 84,  y: 72,  w: 9,  tone: 'yellow', dur: 1.7, delay: 0.7 },
-      { x: 68,  y: 84,  w: 13, tone: 'amber',  dur: 2.1, delay: 1.2 },
-      { x: 50,  y: 100, w: 8,  tone: 'white',  dur: 1.9, delay: 0.4 },
-    ],
-    reverseSparkles: [
-      { x: 32,  y: 84,  w: 10, tone: 'yellow', dur: 2.6, delay: 0.1 },
-      { x: 16,  y: 72,  w: 8,  tone: 'amber',  dur: 2.0, delay: 0.6 },
-      { x: 4,   y: 56,  w: 11, tone: 'white',  dur: 2.8, delay: 1.0 },
-      { x: 0,   y: 38,  w: 7,  tone: 'yellow', dur: 2.3, delay: 1.5 },
-    ],
-  },
+const counts = computed(() => sparkleCounts(avatarPx.value))
+
+function materialise(templates: typeof CW_TEMPLATES, count: number) {
+  return templates.slice(0, count).map((t) => ({
+    x: t.x, y: t.y, tone: t.tone, dur: t.dur, delay: t.delay,
+    w: Math.max(3, Math.round(wBase.value * t.wMul)),
+  }))
 }
 
-const config = computed<SizeConfig>(() => SIZE_CONFIGS[props.size])
+const cwSparkles = computed(() => materialise(CW_TEMPLATES, counts.value.cw))
+const ccwSparkles = computed(() => materialise(CCW_TEMPLATES, counts.value.ccw))
 </script>
 
 <style scoped>
+@keyframes founder-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes founder-spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -202,14 +155,15 @@ const config = computed<SizeConfig>(() => SIZE_CONFIGS[props.size])
 
 .founder-ring {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  animation: founder-fade-in 0.4s ease-out;
 }
 
 .founder-ring__glow {
   position: absolute;
-  inset: 8%;
+  inset: -12%;
   border-radius: 50%;
   background: rgba(245, 158, 11, 0.2);
   filter: blur(12px);
@@ -218,7 +172,7 @@ const config = computed<SizeConfig>(() => SIZE_CONFIGS[props.size])
 
 .founder-ring__border {
   position: absolute;
-  inset: 10%;
+  /* inset set via inline style to -borderWidth */
   border-radius: 50%;
   border-style: solid;
   border-color: transparent;
@@ -239,7 +193,7 @@ const config = computed<SizeConfig>(() => SIZE_CONFIGS[props.size])
 
 .founder-ring__orbit {
   position: absolute;
-  inset: 0;
+  inset: -20%;
   border-radius: 50%;
   animation: founder-spin 10s linear infinite;
   z-index: 3;

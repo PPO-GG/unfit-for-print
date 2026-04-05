@@ -310,7 +310,6 @@ const isAdmin = useIsAdmin();
               <div class="flex items-center gap-2">
                 <AvatarDecoration
                   :decoration-id="userStore.user?.prefs?.activeDecoration"
-                  size="sm"
                 >
                   <img
                     v-if="avatarUrl"

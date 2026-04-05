@@ -83,6 +83,8 @@ export function useDecorations() {
       component: decorationRegistry[entry.decorationId]?.component ?? null,
       owned: entry.freeForAll || isOwned(entry.decorationId),
       active: activeDecorationId.value === entry.decorationId,
+      /** Full catalog entry for AvatarDecoration's attachment routing */
+      catalogEntry: entry,
     })),
   );
 

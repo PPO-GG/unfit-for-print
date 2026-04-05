@@ -200,7 +200,6 @@ function getPlayerStatus(
         <div class="avatar-wrap">
           <AvatarDecoration
             :decoration-id="player.activeDecoration"
-            size="sm"
           >
             <UAvatar
               v-if="getPlayerAvatarUrl(player)"

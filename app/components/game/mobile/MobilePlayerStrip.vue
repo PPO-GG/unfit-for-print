@@ -48,7 +48,6 @@ function hasSubmitted(userId: string): boolean {
       >
         <AvatarDecoration
           :decoration-id="player.activeDecoration"
-          size="xs"
         >
           <div class="avatar-wrapper">
             <img

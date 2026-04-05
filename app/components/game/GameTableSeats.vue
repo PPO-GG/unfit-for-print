@@ -326,7 +326,6 @@ watch(
 
         <AvatarDecoration
           :decoration-id="player.activeDecoration"
-          size="lg"
         >
           <UAvatar
             :src="player.avatar || undefined"
@@ -377,7 +376,6 @@ watch(
       <div class="relative">
         <AvatarDecoration
           :decoration-id="player.activeDecoration"
-          size="sm"
         >
           <UAvatar
             :src="player.avatar || undefined"
