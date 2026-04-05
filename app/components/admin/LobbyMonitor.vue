@@ -105,7 +105,9 @@ const gcLobby = async (lobby: UnifiedLobby) => {
     notify({ title: "Lobby Removed", description: `${lobby.code} GC'd from Teleportal`, color: "success" });
     await fetchStatus();
   } catch (err: any) {
-    notify({ title: "GC Failed", description: err?.message || "Could not remove lobby", color: "error" });
+    const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not remove lobby";
+    console.error("[LobbyMonitor] GC failed:", msg, err);
+    notify({ title: "GC Failed", description: msg, color: "error" });
   }
 };
 
@@ -127,7 +129,9 @@ const deleteLobby = async (lobby: UnifiedLobby) => {
     notify({ title: "Registry Deleted", description: `${lobby.code} removed from Appwrite`, color: "success" });
     await fetchStatus();
   } catch (err: any) {
-    notify({ title: "Delete Failed", description: err?.message || "Could not delete lobby", color: "error" });
+    const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not delete lobby";
+    console.error("[LobbyMonitor] Delete failed:", msg, err);
+    notify({ title: "Delete Failed", description: msg, color: "error" });
   }
 };
 
@@ -142,7 +146,9 @@ const markComplete = async (lobby: UnifiedLobby) => {
     notify({ title: "Marked Complete", description: `${lobby.code} status set to complete`, color: "success" });
     await fetchStatus();
   } catch (err: any) {
-    notify({ title: "Update Failed", description: err?.message || "Could not update status", color: "error" });
+    const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not update status";
+    console.error("[LobbyMonitor] Mark complete failed:", msg, err);
+    notify({ title: "Update Failed", description: msg, color: "error" });
   }
 };
 
@@ -171,9 +177,11 @@ const fullCleanup = async (lobby: UnifiedLobby) => {
     notify({ title: "Full Cleanup Done", description: `${lobby.code} removed from both systems`, color: "success" });
     await fetchStatus();
   } catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Check lobby state manually";
+    console.error("[LobbyMonitor] Full cleanup failed:", msg, err);
     notify({
       title: gcDone ? "Registry Delete Failed (GC succeeded)" : "GC Failed",
-      description: err?.message || "Check lobby state manually",
+      description: msg,
       color: "error",
     });
     await fetchStatus();
@@ -200,7 +208,9 @@ const gcAll = async () => {
     });
     await fetchStatus();
   } catch (err: any) {
-    notify({ title: "GC Failed", description: err?.message || "Could not flush lobbies", color: "error" });
+    const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not flush lobbies";
+    console.error("[LobbyMonitor] GC all failed:", msg, err);
+    notify({ title: "GC Failed", description: msg, color: "error" });
   }
 };
 
