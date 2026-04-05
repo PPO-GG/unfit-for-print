@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.9.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.9.0...v3.9.1) (2026-04-05)
+
+
+### 🐛 Bug Fixes
+
+* **api:** correct userDecorations collection ID casing ([993d942](https://github.com/PPO-GG/unfit-for-print/commit/993d942ac969f32c1fc9ebcb3a22d1314f38adf9))
+
 ## [3.9.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.8.0...v3.9.0) (2026-04-05)
 
 
