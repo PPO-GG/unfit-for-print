@@ -11,6 +11,11 @@ export function useDecorations() {
   const ownedDecorations = ref<OwnedDecoration[]>([]);
   const loading = ref(false);
 
+  const authHeaders = () => ({
+    Authorization: `Bearer ${userStore.session?.$id}`,
+    "x-appwrite-user-id": userStore.user?.$id ?? "",
+  });
+
   const activeDecorationId = computed(
     () => userStore.user?.prefs?.activeDecoration || null,
   );
@@ -18,7 +23,9 @@ export function useDecorations() {
   const fetchOwned = async () => {
     loading.value = true;
     try {
-      const data = await $fetch<OwnedDecoration[]>("/api/decorations/list");
+      const data = await $fetch<OwnedDecoration[]>("/api/decorations/list", {
+        headers: authHeaders(),
+      });
       ownedDecorations.value = data;
     } catch (err) {
       console.error("Failed to fetch decorations:", err);
@@ -33,6 +40,7 @@ export function useDecorations() {
   const equip = async (decorationId: string) => {
     await $fetch("/api/decorations/equip", {
       method: "POST",
+      headers: authHeaders(),
       body: { decorationId },
     });
     if (userStore.user?.prefs) {
@@ -43,6 +51,7 @@ export function useDecorations() {
   const unequip = async () => {
     await $fetch("/api/decorations/equip", {
       method: "POST",
+      headers: authHeaders(),
       body: { decorationId: null },
     });
     if (userStore.user?.prefs) {
@@ -51,9 +60,9 @@ export function useDecorations() {
   };
 
   const allDecorations = computed(() =>
-    Object.entries(decorationRegistry).map(([id, entry]) => ({
+    Object.entries(decorationRegistry).map(([id]) => ({
       id,
-      ...entry,
+      name: id,
       owned: isOwned(id),
       active: activeDecorationId.value === id,
     })),
