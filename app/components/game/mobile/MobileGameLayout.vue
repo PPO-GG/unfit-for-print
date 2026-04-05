@@ -273,8 +273,10 @@ watch(
           :revealed-cards="revealedCards"
           :is-judge="isJudge"
           :all-revealed="allRevealed"
+          :reading-aloud="readingAloud"
           @reveal="(pid) => emit('reveal-card', pid)"
           @pick-winner="(pid) => emit('select-winner', pid)"
+          @read-aloud="(text) => emit('read-aloud', text)"
         />
       </template>
 
