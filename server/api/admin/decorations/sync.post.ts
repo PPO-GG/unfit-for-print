@@ -47,13 +47,16 @@ export default defineEventHandler(async (event) => {
         decorationId: key,
         name,
         description: "",
-        type: "unknown",
+        type: "effect",
         rarity: "common",
+        category: "custom",
         enabled: false,
         freeForAll: false,
         discordSkuId: null,
         price: 0,
         sortOrder: 999,
+        imageFileId: null,
+        attachment: null,
       },
     });
     created.push(key);
