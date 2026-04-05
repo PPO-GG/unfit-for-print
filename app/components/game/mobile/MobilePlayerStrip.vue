@@ -72,6 +72,8 @@ function hasSubmitted(userId: string): boolean {
 <style scoped>
 .player-strip-container {
   flex-shrink: 0;
+  width: 100%;
+  min-width: 0;
   padding: 0.375rem 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
@@ -79,6 +81,8 @@ function hasSubmitted(userId: string): boolean {
 .player-strip {
   display: flex;
   gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
