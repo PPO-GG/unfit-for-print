@@ -44,6 +44,9 @@ importers:
       '@fontsource/inter':
         specifier: ^5.2.6
         version: 5.2.6
+      '@lottiefiles/dotlottie-web':
+        specifier: ^0.69.0
+        version: 0.69.0
       '@nuxt/fonts':
         specifier: ^0.14.0
         version: 0.14.0(@netlify/blobs@9.1.2)(db0@0.3.4(better-sqlite3@11.10.0))(ioredis@5.9.3)(magicast@0.5.2)(vite@7.3.1(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.44.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -1637,6 +1640,9 @@ packages:
 
   '@logtape/logtape@1.3.7':
     resolution: {integrity: sha512-YgF+q9op97oLLPwc7TcTNIllTArVtTwkwyKky6XVzAXQcBrvFXXtMuwJSryONAyOUSItrx994O/HABOrszZyFg==}
+
+  '@lottiefiles/dotlottie-web@0.69.0':
+    resolution: {integrity: sha512-dYGkMvg1bGOrSHxIKosPV3lJ+qLSEb83mTrO9qmq1gyhsztw/fDAEe2N9DZdjL6iuVZeLr3SrABuu6XmITiEdQ==}
 
   '@mapbox/node-pre-gyp@2.0.0':
     resolution: {integrity: sha512-llMXd39jtP0HpQLVI37Bf1m2ADlEb35GYSh1SDSLsBhR+5iCxiNGlT31yqbNtVHygHAtMy6dWFERpU2JgufhPg==}
@@ -10918,6 +10924,8 @@ snapshots:
   '@kwsites/promise-deferred@1.1.1': {}
 
   '@logtape/logtape@1.3.7': {}
+
+  '@lottiefiles/dotlottie-web@0.69.0': {}
 
   '@mapbox/node-pre-gyp@2.0.0':
     dependencies:

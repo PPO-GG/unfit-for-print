@@ -27,6 +27,7 @@
     "@discord/embedded-app-sdk": "^2.4.1",
     "@elevenlabs/elevenlabs-js": "^2.36.0",
     "@fontsource/inter": "^5.2.6",
+    "@lottiefiles/dotlottie-web": "^0.69.0",
     "@nuxt/fonts": "^0.14.0",
     "@nuxt/icon": "^2.2.1",
     "@nuxt/scripts": "^0.13.2",
