@@ -927,7 +927,7 @@
       "indexes": []
     },
     {
-      "$id": "userDecorations",
+      "$id": "userdecorations",
       "$permissions": [
         "read(\"users\")",
         "create(\"users\")",
