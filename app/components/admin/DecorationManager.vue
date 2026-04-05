@@ -214,6 +214,23 @@ function openCreate() {
   showEditModal.value = true;
 }
 
+async function deleteDecoration() {
+  if (!editingDecoration.value) return;
+  if (!confirm(`Delete "${editingDecoration.value.name}"? This cannot be undone.`)) return;
+  saving.value = true;
+  try {
+    await $fetch(`/api/admin/decorations/${editingDecoration.value.$id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    showEditModal.value = false;
+    await fetchCatalog();
+  } catch (err: any) {
+    alert(`Delete failed: ${err.data?.statusMessage || err.message || err}`);
+  }
+  saving.value = false;
+}
+
 async function saveEdit() {
   if (!isCreating.value && !editingDecoration.value) return;
   saving.value = true;
@@ -446,7 +463,7 @@ onMounted(fetchCatalog);
                 {{ decoration.decorationId }}
               </div>
               <UBadge
-                v-if="!decoration.hasComponent"
+                v-if="!decoration.hasComponent && decoration.type !== 'attachment'"
                 color="warning"
                 variant="subtle"
                 size="xs"
@@ -557,362 +574,297 @@ onMounted(fetchCatalog);
     </UCard>
 
     <!-- Edit Modal -->
-    <UModal v-model:open="showEditModal">
+    <UModal v-model:open="showEditModal" class="sm:max-w-5xl">
       <template #content>
         <div
           v-if="editingDecoration || isCreating"
-          class="p-6 space-y-6 max-h-[85vh] overflow-y-auto"
+          class="p-6 max-h-[90vh] overflow-y-auto"
         >
-          <h2 class="text-xl font-bold">
+          <h2 class="text-xl font-bold mb-6">
             {{ isCreating ? "Create Decoration" : "Edit Decoration" }}
           </h2>
 
-          <!-- Large Preview -->
-          <div
-            class="bg-slate-900 rounded-xl p-8 flex flex-col items-center gap-3"
-          >
-            <!-- Bespoke effect preview -->
-            <AvatarDecoration
-              v-if="editForm.type !== 'attachment'"
-              :decoration-id="editingDecoration?.decorationId"
-            >
-              <UAvatar class="size-32" />
-            </AvatarDecoration>
-
-            <!-- Live attachment preview -->
-            <template v-else-if="previewImageUrl">
-              <AvatarLottie
-                v-if="isLottieFormat"
-                :image-url="previewImageUrl"
-                :attachment="attachmentForm"
-              >
-                <UAvatar class="size-32" />
-              </AvatarLottie>
-              <AvatarAttachment
-                v-else
-                :image-url="previewImageUrl"
-                :attachment="attachmentForm"
-              >
-                <UAvatar class="size-32" />
-              </AvatarAttachment>
-            </template>
-
-            <!-- No image yet -->
-            <UAvatar v-else class="size-32" />
-
-            <div class="text-center">
-              <div class="font-bold text-lg">{{ editForm.name }}</div>
-              <div
-                :class="rarityColor(editForm.rarity)"
-                class="text-sm flex items-center gap-1 justify-center"
-              >
-                ★ {{ editForm.rarity }} · {{ editForm.type }}
-                <UIcon
-                  v-if="editForm.category"
-                  :name="categoryIcon(editForm.category)"
-                  class="text-slate-400"
-                />
-              </div>
-              <div class="text-xs text-slate-500 mt-1">
-                {{ editingDecoration?.decorationId ?? "New" }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Form -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1"
-                >Name</label
-              >
-              <UInput v-model="editForm.name" size="md" />
-            </div>
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1"
-                >Rarity</label
-              >
-              <USelectMenu
-                v-model="editForm.rarity"
-                :items="rarityOptions"
-                size="md"
-              />
-            </div>
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1"
-                >Category</label
-              >
-              <USelectMenu
-                v-model="editForm.category"
-                :items="categoryOptions"
-                placeholder="Category"
-                size="md"
-              />
-            </div>
-            <div class="col-span-2">
-              <label class="block text-xs uppercase text-slate-400 mb-1"
-                >Description</label
-              >
-              <UTextarea
-                v-model="editForm.description"
-                :rows="4"
-                size="md"
-                class="w-full"
-              />
-            </div>
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1"
-                >Type</label
-              >
-              <USelectMenu
-                v-model="editForm.type"
-                :items="typeOptions"
-                size="md"
-              />
-            </div>
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1"
-                >Sort Order</label
-              >
-              <UInput
-                v-model.number="editForm.sortOrder"
-                type="number"
-                size="md"
-              />
-            </div>
-
-            <div class="col-span-2 border-t border-slate-700 pt-4 flex gap-4">
-              <div class="flex items-center gap-3 flex-1">
-                <USwitch v-model="editForm.enabled" />
+          <div class="flex gap-6">
+            <!-- LEFT: Info -->
+            <div class="flex-1 min-w-0 space-y-4">
+              <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <div class="text-sm font-medium">Enabled</div>
-                  <div class="text-xs text-slate-500">Visible to users</div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Name</label>
+                  <UInput v-model="editForm.name" size="md" />
+                </div>
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Rarity</label>
+                  <USelectMenu v-model="editForm.rarity" :items="rarityOptions" size="md" />
+                </div>
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Category</label>
+                  <USelectMenu
+                    v-model="editForm.category"
+                    :items="categoryOptions"
+                    placeholder="Category"
+                    size="md"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Type</label>
+                  <USelectMenu v-model="editForm.type" :items="typeOptions" size="md" />
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Description</label>
+                  <UTextarea v-model="editForm.description" :rows="4" size="md" class="w-full" />
+                </div>
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Sort Order</label>
+                  <UInput v-model.number="editForm.sortOrder" type="number" size="md" />
                 </div>
               </div>
-              <div class="flex items-center gap-3 flex-1">
-                <USwitch v-model="editForm.freeForAll" />
+
+              <div class="border-t border-slate-700 pt-4 flex gap-4">
+                <div class="flex items-center gap-3 flex-1">
+                  <USwitch v-model="editForm.enabled" />
+                  <div>
+                    <div class="text-sm font-medium">Enabled</div>
+                    <div class="text-xs text-slate-500">Visible to users</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 flex-1">
+                  <USwitch v-model="editForm.freeForAll" />
+                  <div>
+                    <div class="text-sm font-medium">Free for All</div>
+                    <div class="text-xs text-slate-500">No purchase needed</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="border-t border-slate-700 pt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <div class="text-sm font-medium">Free for All</div>
-                  <div class="text-xs text-slate-500">No purchase needed</div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Discord SKU ID</label>
+                  <UInput v-model="editForm.discordSkuId" placeholder="Paste SKU ID" size="md" />
+                </div>
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Price (display)</label>
+                  <UInput v-model.number="editForm.price" type="number" step="0.01" size="md">
+                    <template #leading>$</template>
+                  </UInput>
                 </div>
               </div>
             </div>
 
-            <div
-              class="col-span-2 border-t border-slate-700 pt-4 grid grid-cols-2 gap-4"
-            >
-              <div>
-                <label class="block text-xs uppercase text-slate-400 mb-1"
-                  >Discord SKU ID</label
+            <!-- RIGHT: Preview + Attachment Editor -->
+            <div class="w-72 flex-shrink-0 space-y-4">
+              <!-- Large Preview -->
+              <div class="bg-slate-900 rounded-xl p-6 flex flex-col items-center gap-3">
+                <!-- Bespoke effect preview -->
+                <AvatarDecoration
+                  v-if="editForm.type !== 'attachment'"
+                  :decoration-id="editingDecoration?.decorationId"
                 >
-                <UInput
-                  v-model="editForm.discordSkuId"
-                  placeholder="Paste SKU ID"
-                  size="md"
-                />
-              </div>
-              <div>
-                <label class="block text-xs uppercase text-slate-400 mb-1"
-                  >Price (display)</label
-                >
-                <UInput
-                  v-model.number="editForm.price"
-                  type="number"
-                  step="0.01"
-                  size="md"
-                >
-                  <template #leading>$</template>
-                </UInput>
-              </div>
-            </div>
-          </div>
+                  <UAvatar class="size-32" />
+                </AvatarDecoration>
 
-          <!-- Attachment Editor (only when type === 'attachment') -->
-          <div
-            v-if="isAttachment"
-            class="border-t border-slate-700 pt-4 space-y-4"
-          >
-            <div class="flex items-center justify-between">
-              <h3
-                class="text-sm font-semibold uppercase tracking-wider text-slate-400"
-              >
-                Attachment Settings
-              </h3>
-              <UButton
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                @click="resetAttachment"
-              >
-                Reset Defaults
-              </UButton>
-            </div>
+                <!-- Live attachment preview -->
+                <template v-else-if="previewImageUrl">
+                  <AvatarLottie
+                    v-if="isLottieFormat"
+                    :image-url="previewImageUrl"
+                    :attachment="attachmentForm"
+                  >
+                    <UAvatar class="size-32" />
+                  </AvatarLottie>
+                  <AvatarAttachment
+                    v-else
+                    :image-url="previewImageUrl"
+                    :attachment="attachmentForm"
+                  >
+                    <UAvatar class="size-32" />
+                  </AvatarAttachment>
+                </template>
 
-            <!-- Image Upload -->
-            <div class="flex items-center gap-3">
-              <div class="flex-1">
-                <label class="block text-xs uppercase text-slate-400 mb-1"
-                  >Image</label
-                >
-                <div v-if="previewImageUrl" class="flex items-center gap-2">
-                  <!-- Thumbnail: neutral positioning — full preview above uses live attachmentForm -->
-                  <div class="w-10 h-10 rounded bg-slate-800 overflow-hidden flex-shrink-0">
-                    <AvatarLottie
-                      v-if="isLottieFormat"
-                      :image-url="previewImageUrl"
-                      :attachment="{ anchor: 'center', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, zLayer: 'above', clipped: false }"
-                    >
-                      <div class="w-10 h-10" />
-                    </AvatarLottie>
-                    <img
-                      v-else
-                      :src="previewImageUrl"
-                      class="w-full h-full object-contain p-1"
+                <!-- No image yet -->
+                <UAvatar v-else class="size-32" />
+
+                <div class="text-center">
+                  <div class="font-bold text-lg">{{ editForm.name }}</div>
+                  <div
+                    :class="rarityColor(editForm.rarity)"
+                    class="text-sm flex items-center gap-1 justify-center"
+                  >
+                    ★ {{ editForm.rarity }} · {{ editForm.type }}
+                    <UIcon
+                      v-if="editForm.category"
+                      :name="categoryIcon(editForm.category)"
+                      class="text-slate-400"
                     />
                   </div>
-                  <span class="text-xs text-slate-400 truncate flex-1">{{ imageFileId }}</span>
-                  <UBadge v-if="isLottieFormat" size="xs" color="info" variant="subtle">
-                    {{ imageFormat }}
-                  </UBadge>
-                  <UButton size="xs" color="error" variant="ghost" @click="removeImage">Remove</UButton>
-                </div>
-                <div v-else class="text-xs text-slate-500 italic">
-                  No image uploaded
+                  <div class="text-xs text-slate-500 mt-1">
+                    {{ editingDecoration?.decorationId ?? "New" }}
+                  </div>
                 </div>
               </div>
-              <div>
-                <input
-                  ref="imageInputRef"
-                  type="file"
-                  accept="image/png, image/webp, application/json, .json, .lottie"
-                  class="hidden"
-                  @change="uploadImage"
-                />
-                <UButton
-                  size="sm"
-                  variant="soft"
-                  :loading="uploading"
-                  @click="imageInputRef?.click()"
-                >
-                  Upload
-                </UButton>
-              </div>
-            </div>
 
-            <!-- Anchor -->
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1"
-                >Anchor</label
-              >
-              <USelectMenu
-                v-model="attachmentForm.anchor"
-                :items="anchorOptions"
-                value-key="value"
-                size="md"
-              />
-            </div>
+              <!-- Attachment Controls (only when type === 'attachment') -->
+              <div v-if="isAttachment" class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                    Attachment Settings
+                  </h3>
+                  <UButton size="xs" variant="ghost" color="neutral" @click="resetAttachment">
+                    Reset
+                  </UButton>
+                </div>
 
-            <!-- Offset X -->
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">
-                Offset X: {{ attachmentForm.offsetX.toFixed(2) }}
-              </label>
-              <input
-                v-model.number="attachmentForm.offsetX"
-                type="range"
-                min="-1"
-                max="1"
-                step="0.01"
-                class="w-full accent-indigo-500"
-              />
-            </div>
+                <!-- Image Upload -->
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Image</label>
+                  <input
+                    ref="imageInputRef"
+                    type="file"
+                    accept="image/png, image/webp, application/json, .json, .lottie"
+                    class="hidden"
+                    @change="uploadImage"
+                  />
+                  <div v-if="previewImageUrl" class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <div class="w-10 h-10 rounded bg-slate-800 overflow-hidden flex-shrink-0">
+                        <AvatarLottie
+                          v-if="isLottieFormat"
+                          :image-url="previewImageUrl"
+                          :attachment="{ anchor: 'center', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, zLayer: 'above', clipped: false }"
+                        >
+                          <div class="w-10 h-10" />
+                        </AvatarLottie>
+                        <img v-else :src="previewImageUrl" class="w-full h-full object-contain p-1" />
+                      </div>
+                      <span class="text-xs text-slate-400 truncate flex-1">{{ imageFileId }}</span>
+                      <UBadge v-if="isLottieFormat" size="xs" color="info" variant="subtle">
+                        {{ imageFormat }}
+                      </UBadge>
+                    </div>
+                    <div class="flex gap-2 justify-end">
+                      <UButton size="xs" variant="soft" :loading="uploading" @click="imageInputRef?.click()">Replace</UButton>
+                      <UButton size="xs" color="error" variant="ghost" @click="removeImage">Remove</UButton>
+                    </div>
+                  </div>
+                  <div v-else class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500 italic flex-1">No image uploaded</span>
+                    <UButton size="sm" variant="soft" :loading="uploading" @click="imageInputRef?.click()">
+                      Upload
+                    </UButton>
+                  </div>
+                </div>
 
-            <!-- Offset Y -->
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">
-                Offset Y: {{ attachmentForm.offsetY.toFixed(2) }}
-              </label>
-              <input
-                v-model.number="attachmentForm.offsetY"
-                type="range"
-                min="-1"
-                max="1"
-                step="0.01"
-                class="w-full accent-indigo-500"
-              />
-            </div>
+                <!-- Anchor -->
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">Anchor</label>
+                  <USelectMenu
+                    v-model="attachmentForm.anchor"
+                    :items="anchorOptions"
+                    value-key="value"
+                    size="md"
+                  />
+                </div>
 
-            <!-- Scale -->
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">
-                Scale: {{ attachmentForm.scale.toFixed(2) }}
-              </label>
-              <input
-                v-model.number="attachmentForm.scale"
-                type="range"
-                min="0.1"
-                max="2.0"
-                step="0.05"
-                class="w-full accent-indigo-500"
-              />
-            </div>
+                <!-- Offset X -->
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">
+                    Offset X: {{ attachmentForm.offsetX.toFixed(2) }}
+                  </label>
+                  <input
+                    v-model.number="attachmentForm.offsetX"
+                    type="range"
+                    min="-1"
+                    max="1"
+                    step="0.01"
+                    class="w-full accent-indigo-500"
+                  />
+                </div>
 
-            <!-- Rotation -->
-            <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">
-                Rotation: {{ attachmentForm.rotation }}°
-              </label>
-              <input
-                v-model.number="attachmentForm.rotation"
-                type="range"
-                min="-180"
-                max="180"
-                step="1"
-                class="w-full accent-indigo-500"
-              />
-            </div>
+                <!-- Offset Y -->
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">
+                    Offset Y: {{ attachmentForm.offsetY.toFixed(2) }}
+                  </label>
+                  <input
+                    v-model.number="attachmentForm.offsetY"
+                    type="range"
+                    min="-1"
+                    max="1"
+                    step="0.01"
+                    class="w-full accent-indigo-500"
+                  />
+                </div>
 
-            <!-- Z-Layer -->
-            <div class="flex items-center gap-4">
-              <label class="text-xs uppercase text-slate-400">Layer</label>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  value="above"
-                  v-model="attachmentForm.zLayer"
-                  class="accent-indigo-500"
-                />
-                <span class="text-sm">Above</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  value="below"
-                  v-model="attachmentForm.zLayer"
-                  class="accent-indigo-500"
-                />
-                <span class="text-sm">Below</span>
-              </label>
-            </div>
+                <!-- Scale -->
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">
+                    Scale: {{ attachmentForm.scale.toFixed(2) }}
+                  </label>
+                  <input
+                    v-model.number="attachmentForm.scale"
+                    type="range"
+                    min="0.1"
+                    max="2.0"
+                    step="0.05"
+                    class="w-full accent-indigo-500"
+                  />
+                </div>
 
-            <!-- Clipped (Inset) -->
-            <div class="flex items-center gap-3">
-              <USwitch v-model="attachmentForm.clipped" />
-              <div>
-                <div class="text-sm font-medium">Clipped (Inset)</div>
-                <div class="text-xs text-slate-500">
-                  Mask to the avatar circle — hides overflow
+                <!-- Rotation -->
+                <div>
+                  <label class="block text-xs uppercase text-slate-400 mb-1">
+                    Rotation: {{ attachmentForm.rotation }}°
+                  </label>
+                  <input
+                    v-model.number="attachmentForm.rotation"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    class="w-full accent-indigo-500"
+                  />
+                </div>
+
+                <!-- Z-Layer -->
+                <div class="flex items-center gap-4">
+                  <label class="text-xs uppercase text-slate-400">Layer</label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" value="above" v-model="attachmentForm.zLayer" class="accent-indigo-500" />
+                    <span class="text-sm">Above</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" value="below" v-model="attachmentForm.zLayer" class="accent-indigo-500" />
+                    <span class="text-sm">Below</span>
+                  </label>
+                </div>
+
+                <!-- Clipped (Inset) -->
+                <div class="flex items-center gap-3">
+                  <USwitch v-model="attachmentForm.clipped" />
+                  <div>
+                    <div class="text-sm font-medium">Clipped (Inset)</div>
+                    <div class="text-xs text-slate-500">Mask to the avatar circle</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="flex justify-end gap-2 pt-2">
-            <UButton variant="soft" @click="showEditModal = false"
-              >Cancel</UButton
+          <div class="flex justify-between pt-6 mt-2 border-t border-slate-700">
+            <UButton
+              v-if="!isCreating"
+              color="error"
+              variant="ghost"
+              :loading="saving"
+              @click="deleteDecoration"
             >
-            <UButton :loading="saving" @click="saveEdit">{{
-              isCreating ? "Create" : "Save Changes"
-            }}</UButton>
+              Delete
+            </UButton>
+            <div class="flex gap-2 ml-auto">
+              <UButton variant="soft" @click="showEditModal = false">Cancel</UButton>
+              <UButton :loading="saving" @click="saveEdit">{{
+                isCreating ? "Create" : "Save Changes"
+              }}</UButton>
+            </div>
           </div>
         </div>
       </template>
