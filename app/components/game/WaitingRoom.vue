@@ -254,9 +254,12 @@ const setupGameSettingsRealtime = () => {
   });
 };
 
-// Fetch game settings when the component is mounted
+// Fetch game settings when the component is mounted.
+// Skip when sidebarMoved is true — the parent [code].vue already owns settings
+// lifecycle and passes them via GameSidebarContent.  Running both paths
+// concurrently causes a 409 Conflict (deterministic document ID).
 onMounted(async () => {
-  if (props.lobby) {
+  if (props.lobby && !props.sidebarMoved) {
     try {
       // Try to get existing settings
       const settings = await getGameSettings(props.lobby.$id);
