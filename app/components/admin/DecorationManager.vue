@@ -246,8 +246,9 @@ onMounted(fetchCatalog);
           <tr
             v-for="decoration in catalog"
             :key="decoration.$id"
-            class="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
+            class="border-b border-slate-800 hover:bg-slate-800/50 transition-colors cursor-pointer"
             :class="{ 'opacity-50': !decoration.enabled }"
+            @click="openEdit(decoration)"
           >
             <td class="py-3 pl-2">
               <AvatarDecoration :decoration-id="decoration.decorationId">
@@ -285,7 +286,7 @@ onMounted(fetchCatalog);
               <span v-else class="text-slate-600">—</span>
             </td>
             <td class="py-3 text-right pr-2">
-              <UButton size="xs" variant="soft" @click="openEdit(decoration)">Edit</UButton>
+              <UButton size="xs" variant="soft" @click.stop="openEdit(decoration)">Edit</UButton>
             </td>
           </tr>
         </tbody>
