@@ -26,6 +26,10 @@ describe("detectImageFormat", () => {
     expect(detectImageFormat("application/octet-stream", "anim.lottie")).toBe("dotlottie");
   });
 
+  it("detects dotLottie from application/x-zip-compressed", () => {
+    expect(detectImageFormat("application/x-zip-compressed", "anim.lottie")).toBe("dotlottie");
+  });
+
   it("rejects octet-stream without .lottie extension", () => {
     expect(detectImageFormat("application/octet-stream", "file.bin")).toBeNull();
   });
@@ -67,6 +71,10 @@ describe("isValidLottieJson", () => {
   it("rejects random JSON object", () => {
     const invalid = Buffer.from(JSON.stringify({ name: "test", value: 42 }));
     expect(isValidLottieJson(invalid)).toBe(false);
+  });
+
+  it("rejects JSON array", () => {
+    expect(isValidLottieJson(Buffer.from("[1, 2, 3]"))).toBe(false);
   });
 });
 

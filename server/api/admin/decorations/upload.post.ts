@@ -9,6 +9,7 @@ const ALLOWED_TYPES = [
   "image/webp",
   "application/json",
   "application/zip",
+  "application/x-zip-compressed",
   "application/octet-stream",
 ];
 
@@ -20,7 +21,9 @@ export function detectImageFormat(
   if (mimeType === "image/webp") return "webp";
   if (mimeType === "application/json") return "lottie";
   if (
-    (mimeType === "application/zip" || mimeType === "application/octet-stream") &&
+    (mimeType === "application/zip" ||
+      mimeType === "application/x-zip-compressed" ||
+      mimeType === "application/octet-stream") &&
     filename.endsWith(".lottie")
   ) {
     return "dotlottie";
@@ -31,6 +34,7 @@ export function detectImageFormat(
 export function isValidLottieJson(buffer: Buffer): boolean {
   try {
     const json = JSON.parse(buffer.toString("utf-8"));
+    if (!json || typeof json !== "object" || Array.isArray(json)) return false;
     return (
       typeof json.v === "string" &&
       typeof json.fr === "number" &&
