@@ -2,6 +2,75 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.9.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.8.0...v3.9.0) (2026-04-05)
+
+
+### ✨ Features
+
+* **admin:** add dedicated /admin/lobbies page ([9eb81b7](https://github.com/PPO-GG/unfit-for-print/commit/9eb81b77553c24e69807a1f9e390f681026ab500))
+* **admin:** add mergeLobbies utility with tests for unified lobby monitor ([a9c0231](https://github.com/PPO-GG/unfit-for-print/commit/a9c02314b1cfbc62c7a3cd0d2e7dfd18d8d11fad))
+* **admin:** enhance status endpoint with server-side Teleportal+Appwrite merge ([e837eff](https://github.com/PPO-GG/unfit-for-print/commit/e837eff1181f28f66d0ffe019b7bf05a0ea0ab40))
+* **admin:** replace inline lobby monitor with link card to /admin/lobbies ([d036bd6](https://github.com/PPO-GG/unfit-for-print/commit/d036bd678910d4b1101b3168e7f371c73455ae25))
+* **admin:** rewrite LobbyMonitor as unified single-endpoint component ([60e53cd](https://github.com/PPO-GG/unfit-for-print/commit/60e53cd64685d0eac64417c36fddbbaa8eaf0160))
+* **decorations:** add admin catalog update API ([d8389c3](https://github.com/PPO-GG/unfit-for-print/commit/d8389c3584d58b70080b06a1d0d9145353669d55))
+* **decorations:** add admin decorations page with catalog table, edit modal, and grant/revoke ([69fa70b](https://github.com/PPO-GG/unfit-for-print/commit/69fa70b82d2d9204eda90d6f96a5e21dd4c4bd58))
+* **decorations:** add admin grant, revoke, and list APIs ([3dd9955](https://github.com/PPO-GG/unfit-for-print/commit/3dd99554504c81400c8c08e882404bc88fff16c5))
+* **decorations:** add admin sync API to register decorations in DB ([0221816](https://github.com/PPO-GG/unfit-for-print/commit/02218160dd92859ffa6b10bb06e071bb45d07cff))
+* **decorations:** add Appwrite collection, API routes, and useDecorations composable ([95547ef](https://github.com/PPO-GG/unfit-for-print/commit/95547efb17a65095d840bb3a2e4fe661b3e24623))
+* **decorations:** add AvatarAttachment, upload routes, and decoration utilities ([a2364a7](https://github.com/PPO-GG/unfit-for-print/commit/a2364a727a43782b28043f9331f9ce49c217e7bb))
+* **decorations:** add AvatarDecoration wrapper component ([4539bca](https://github.com/PPO-GG/unfit-for-print/commit/4539bca888c549f3bfb23c774948b390749c2440))
+* **decorations:** add category field to admin decoration manager ([43bee57](https://github.com/PPO-GG/unfit-for-print/commit/43bee5728855db56d4c3f2bb07fe840892166466))
+* **decorations:** add category field to schema, types, and server routes ([d27eefe](https://github.com/PPO-GG/unfit-for-print/commit/d27eefe0ca5f7ebe488e116d863be86a21abff29))
+* **decorations:** add decoration picker to profile page ([f19703a](https://github.com/PPO-GG/unfit-for-print/commit/f19703a0c9cc757f9028d4fb254491ea481628a1))
+* **decorations:** add Discord Ed25519 signature verification utility ([28e24f3](https://github.com/PPO-GG/unfit-for-print/commit/28e24f3384b52bd0e81d1c9c508ac511920e3223))
+* **decorations:** add Discord webhook endpoint for entitlement fulfillment ([52feffb](https://github.com/PPO-GG/unfit-for-print/commit/52feffbe0c3cc55a95b5189d4a35c4f16af09e75))
+* **decorations:** add display utility for rarity pips, colors, and category icons ([aa3e58f](https://github.com/PPO-GG/unfit-for-print/commit/aa3e58f36d19f93f5ad7fbcd4ee8147045db505a))
+* **decorations:** add Founder's Ring decoration component ([3896d18](https://github.com/PPO-GG/unfit-for-print/commit/3896d180d4cd323b0adfbefb174503e2125f778a))
+* **decorations:** add public catalog API endpoint ([4bf56a7](https://github.com/PPO-GG/unfit-for-print/commit/4bf56a727ed7ce7bc2e8a48f75d5c6188ae35379))
+* **decorations:** add Store & Cosmetics section to admin dashboard ([8fc83af](https://github.com/PPO-GG/unfit-for-print/commit/8fc83afdb99578f029901dc8d1395971cf3db07b))
+* **decorations:** add types, registry, and activeDecoration fields ([3fee419](https://github.com/PPO-GG/unfit-for-print/commit/3fee419ef30181433123ed1d222520c07e6e01bb))
+* **decorations:** allow equipping freeForAll decorations without ownership row ([352063b](https://github.com/PPO-GG/unfit-for-print/commit/352063bcedbb22a1edb86b87379496182ae3d2bc))
+* **decorations:** rarity pip stack + category icons, remove equipped badge, 3-line description ([4fd026e](https://github.com/PPO-GG/unfit-for-print/commit/4fd026e33ac151ba79c121c42661452e93f1bbe6))
+* **decorations:** rewrite useDecorations to fetch catalog from DB with freeForAll and purchase support ([c9d1b2c](https://github.com/PPO-GG/unfit-for-print/commit/c9d1b2c11173c2000b97126659230c23bd907e9c))
+* **decorations:** sync activeDecoration through Y.Doc and lobby join flow ([4343fbc](https://github.com/PPO-GG/unfit-for-print/commit/4343fbcc46b084e44965c1b25cdf44845e6ed484))
+* **decorations:** update profile page with catalog descriptions and purchase buttons ([0af50cd](https://github.com/PPO-GG/unfit-for-print/commit/0af50cd19b6bb6c561228c9c878237e67800b897))
+* **decorations:** wrap all avatar sites with AvatarDecoration ([4c625fe](https://github.com/PPO-GG/unfit-for-print/commit/4c625fee97b2e3c5268a01e8a748709edf858347))
+
+
+### 🐛 Bug Fixes
+
+* **admin:** add error handling to unified status endpoint ([d67e9f5](https://github.com/PPO-GG/unfit-for-print/commit/d67e9f5b7dc0a4e97cecf6f7d53e9ca0e82ad9b3))
+* **admin:** address review feedback - import shared type, fix partial cleanup, add tab visibility pause ([819b007](https://github.com/PPO-GG/unfit-for-print/commit/819b007a7ebf320f57cdf67383f9990ba6e73420))
+* **admin:** correct settingsMap type to Map&lt;string, string | null&gt; ([fc410a7](https://github.com/PPO-GG/unfit-for-print/commit/fc410a752a63e448f9fef1775d6264a079c99aac))
+* **admin:** improve error extraction in LobbyMonitor notifications ([940ecd9](https://github.com/PPO-GG/unfit-for-print/commit/940ecd92d9490408778b704e39331b7e6eae7fd0))
+* **api:** correct Teleportal GC HTTP methods and add error handling ([1f688dc](https://github.com/PPO-GG/unfit-for-print/commit/1f688dc27c1034351f8ccc0f3a207efd08de6b48))
+* **auth:** use server-side sessions for Discord Activity iframe auth ([07e15cf](https://github.com/PPO-GG/unfit-for-print/commit/07e15cfebcb6d00ccadb95cd1d54ee5159109ef7))
+* **decorations:** add fetch error display, clear grant fields after action, fix USelectMenu value-key ([990fd8b](https://github.com/PPO-GG/unfit-for-print/commit/990fd8b27f594f17c574c05ad0e12cfc2be1e128))
+* **decorations:** add id alias, fix startPurchase SDK call, add enabled to catalog projection ([2f8415d](https://github.com/PPO-GG/unfit-for-print/commit/2f8415dd0cdb7cab1ce87d86291e9749cf94df85))
+* **decorations:** add input validation to sync, Query.limit(1) to grant/revoke ([2dfa6d6](https://github.com/PPO-GG/unfit-for-print/commit/2dfa6d6c404cdce6c1ff53a7ceed2845379b4262))
+* **decorations:** add row click handler to open edit modal ([c4c3dcb](https://github.com/PPO-GG/unfit-for-print/commit/c4c3dcbf44a1c27ce4f07704b3aed9f2d8999b8f))
+* **decorations:** bridge allDecorations to not spread slimmed registry ([18520fe](https://github.com/PPO-GG/unfit-for-print/commit/18520fe28d99e8d4837c0576376dcf96ce2ed88d))
+* **decorations:** correct Discord webhook event type, add OAuth user lookup, add header validation ([7a5d7a4](https://github.com/PPO-GG/unfit-for-print/commit/7a5d7a4e204471151fe6efb748ac6a25063a741f))
+* **decorations:** remove redundant import, add aria-hidden to decorative corner icons ([380048c](https://github.com/PPO-GG/unfit-for-print/commit/380048cfd737faf964645333c2e1c954a67b74ac))
+* **decorations:** rename decorations index.get to list.get for Nitro compatibility ([54e5be5](https://github.com/PPO-GG/unfit-for-print/commit/54e5be502eb46bf6cdfb937fb39a0e8532ae1a4b))
+* **decorations:** restore appwrite.json defaults, add category to sync route ([084b94d](https://github.com/PPO-GG/unfit-for-print/commit/084b94d26fdec397a0bc27cc61ec4a2fb91d0473))
+* **decorations:** show category icon in admin modal preview ([b15426b](https://github.com/PPO-GG/unfit-for-print/commit/b15426b7e29e30fee248d3c6dd9a619fb5bfef01))
+* **discord:** preserve query params when redirecting to Activity page ([4aa74a0](https://github.com/PPO-GG/unfit-for-print/commit/4aa74a05e11389b95de2268722b397504434b67b))
+* **discord:** use /appwrite proxy prefix to avoid colliding with app API routes ([af7453d](https://github.com/PPO-GG/unfit-for-print/commit/af7453db6ea0a736786ed36f3e2d8e41fbab7e33))
+* **lobby:** self-heal orphaned player docs and clean up on teardown ([e54b675](https://github.com/PPO-GG/unfit-for-print/commit/e54b675cf906b395301dfb11c8db82601a30dd27))
+
+
+### ♻️ Refactors
+
+* **decorations:** replace fixed size configs with dynamic ResizeObserver sizing ([b865152](https://github.com/PPO-GG/unfit-for-print/commit/b8651525ead256cf5ca8cd459672194609803f15))
+* **decorations:** split types, slim registry, add catalog config ([60dad5f](https://github.com/PPO-GG/unfit-for-print/commit/60dad5f2a6b7391d6aa3daba9b542d19e5c51eaf))
+
+
+### 📖 Documentation
+
+* add avatar decoration system design spec ([6045008](https://github.com/PPO-GG/unfit-for-print/commit/60450083cd69907ad6368dd7905366bc09b61c87))
+* expand Terms of Service IP section with CC license attribution ([ba0570b](https://github.com/PPO-GG/unfit-for-print/commit/ba0570b5013a51c9bc7c8a3ccc2e992846e264f8))
+
 ## [3.8.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.7.0...v3.8.0) (2026-04-03)
 
 
