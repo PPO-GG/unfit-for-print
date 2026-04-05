@@ -504,6 +504,48 @@ export const useLobby = () => {
         );
       }
 
+      // Clean up game chat messages for this lobby
+      try {
+        const chatRes = await tables.listRows({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteGamechatCollectionId,
+          queries: [
+            Query.equal("lobbyId", lobbyId),
+            Query.limit(500),
+          ],
+        });
+        for (const msg of chatRes.rows) {
+          try {
+            await tables.deleteRow({
+              databaseId: config.public.appwriteDatabaseId,
+              tableId: config.public.appwriteGamechatCollectionId,
+              rowId: msg.$id,
+            });
+          } catch {
+            // Best-effort
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "[useLobby] Failed to clean up game chat on teardown:",
+          err,
+        );
+      }
+
+      // Clean up game settings for this lobby
+      try {
+        await tables.deleteRow({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwriteGameSettingsCollectionId,
+          rowId: `settings-${lobbyId}`,
+        });
+      } catch (err) {
+        console.warn(
+          "[useLobby] Failed to clean up game settings on teardown:",
+          err,
+        );
+      }
+
       // Clean up Appwrite lobby registry
       try {
         await tables.deleteRow({
