@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { rarityPips, rarityColorClass, categoryIcon } from '~/utils/decorationDisplay'
+
 definePageMeta({
   middleware: ["auth"],
 });
@@ -26,6 +28,10 @@ const ownedDecorations = computed(() =>
 );
 const lockedDecorations = computed(() =>
   allDecorations.value.filter((d) => !d.owned),
+);
+
+const activeCatalogEntry = computed(() =>
+  allDecorations.value.find((d) => d.active)?.catalogEntry ?? null,
 );
 
 const handleDecorationClick = async (
@@ -67,7 +73,7 @@ const avatarUrl = computed(() => {
     <!-- Profile Header -->
     <div class="flex flex-col items-center gap-4">
       <template v-if="hydrated">
-        <AvatarDecoration :decoration-id="activeDecorationId">
+        <AvatarDecoration :decoration-id="activeDecorationId" :catalog-entry="activeCatalogEntry">
           <UAvatar
             :src="avatarUrl ?? undefined"
             :alt="userStore.user?.name ?? 'User'"
@@ -125,7 +131,7 @@ const avatarUrl = computed(() => {
           class="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer"
           :class="
             decoration.active
-              ? 'border-amber-500 bg-amber-500/10'
+              ? 'border-amber-500 bg-amber-500/10 shadow-[0_0_0_1px_rgba(245,158,11,0.3),0_0_14px_rgba(245,158,11,0.15)]'
               : 'border-slate-700 hover:border-slate-500 bg-slate-800/50'
           "
           @click="
@@ -137,7 +143,28 @@ const avatarUrl = computed(() => {
             )
           "
         >
-          <AvatarDecoration :decoration-id="decoration.id">
+          <!-- Rarity pips — top left -->
+          <div
+            v-if="decoration.rarity"
+            class="absolute top-1.5 left-1.5 flex flex-col items-center gap-px leading-none"
+            :class="rarityColorClass(decoration.rarity)"
+          >
+            <span
+              v-for="n in rarityPips(decoration.rarity)"
+              :key="n"
+              class="text-[8px] leading-none"
+            >◆</span>
+          </div>
+
+          <!-- Category icon — top right -->
+          <div v-if="decoration.category" class="absolute top-1.5 right-1.5">
+            <UIcon
+              :name="categoryIcon(decoration.category)"
+              class="text-sm text-slate-500"
+            />
+          </div>
+
+          <AvatarDecoration :decoration-id="decoration.id" :catalog-entry="decoration.catalogEntry">
             <UAvatar
               :src="avatarUrl ?? undefined"
               :alt="userStore.user?.name ?? 'User'"
@@ -145,16 +172,9 @@ const avatarUrl = computed(() => {
             />
           </AvatarDecoration>
           <span class="text-sm font-medium">{{ decoration.name }}</span>
-          <p v-if="decoration.description" class="text-xs text-slate-500 mt-0.5 line-clamp-2">
+          <p v-if="decoration.description" class="text-xs text-slate-500 mt-0.5 line-clamp-3">
             {{ decoration.description }}
           </p>
-          <UBadge
-            v-if="decoration.active"
-            :label="t('profile.equipped')"
-            color="warning"
-            variant="subtle"
-            size="xs"
-          />
         </button>
       </div>
     </div>
@@ -171,8 +191,29 @@ const avatarUrl = computed(() => {
           :key="decoration.id"
           class="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-800 bg-slate-900/50"
         >
+          <!-- Rarity pips — top left -->
+          <div
+            v-if="decoration.rarity"
+            class="absolute top-1.5 left-1.5 flex flex-col items-center gap-px leading-none opacity-50"
+            :class="rarityColorClass(decoration.rarity)"
+          >
+            <span
+              v-for="n in rarityPips(decoration.rarity)"
+              :key="n"
+              class="text-[8px] leading-none"
+            >◆</span>
+          </div>
+
+          <!-- Category icon — top right -->
+          <div v-if="decoration.category" class="absolute top-1.5 right-1.5 opacity-50">
+            <UIcon
+              :name="categoryIcon(decoration.category)"
+              class="text-sm text-slate-500"
+            />
+          </div>
+
           <div class="relative">
-            <AvatarDecoration :decoration-id="decoration.id">
+            <AvatarDecoration :decoration-id="decoration.id" :catalog-entry="decoration.catalogEntry">
               <UAvatar
                 :src="avatarUrl ?? undefined"
                 :alt="userStore.user?.name ?? 'User'"
@@ -182,18 +223,14 @@ const avatarUrl = computed(() => {
               <UIcon name="i-solar-lock-bold" class="text-2xl text-slate-400" />
             </div>
           </div>
-          <span class="text-sm font-medium text-slate-500">{{
-            decoration.name
-          }}</span>
-          <p v-if="decoration.description" class="text-xs text-slate-500 mt-0.5 line-clamp-2">
+          <span class="text-sm font-medium text-slate-500">{{ decoration.name }}</span>
+          <p v-if="decoration.description" class="text-xs text-slate-500 mt-0.5 line-clamp-3">
             {{ decoration.description }}
           </p>
           <span v-if="decoration.discordSkuId && decoration.price > 0" class="text-xs text-slate-400">
             ${{ decoration.price.toFixed(2) }}
           </span>
-          <span v-else class="text-xs text-slate-400">
-            Coming soon
-          </span>
+          <span v-else class="text-xs text-slate-400">Coming soon</span>
           <UButton
             v-if="decoration.discordSkuId"
             size="xs"
