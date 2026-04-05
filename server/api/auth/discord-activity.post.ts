@@ -120,19 +120,23 @@ export default defineEventHandler(async (event) => {
     console.warn("[Discord Activity] Profile update failed (non-fatal):", err);
   }
 
-  // 5. Create Appwrite session token
-  let token;
+  // 5. Create Appwrite session server-side using admin SDK
+  // This avoids the client calling POST /v1/account/sessions/token directly,
+  // which fails in Discord Activity iframes due to proxy routing issues.
+  // The admin SDK returns session.secret (only populated with API key auth).
+  let sessionSecret: string;
   try {
-    token = await users.createToken(appwriteUserId);
+    const session = await users.createSession({ userId: appwriteUserId });
+    sessionSecret = session.secret;
   } catch (err) {
-    console.error("[Discord Activity] Token creation failed:", err);
-    throw createError({ statusCode: 500, message: "Failed to create session token" });
+    console.error("[Discord Activity] Session creation failed:", err);
+    throw createError({ statusCode: 500, message: "Failed to create session" });
   }
 
   // 6. Return credentials
   return {
     userId: appwriteUserId,
-    secret: token.secret,
+    secret: sessionSecret,
     accessToken,
     discordUser: {
       id: discordUserId,

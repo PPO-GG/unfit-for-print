@@ -42,13 +42,12 @@ async function launch() {
     statusText.value = "Logging you in...";
     const authData = await authenticate();
 
-    // 3. Create Appwrite session on the client
+    // 3. Establish Appwrite session on the client
+    // The server already created the session — we just set the session
+    // hash so the client SDK can authenticate subsequent requests.
     if (!userStore.isLoggedIn) {
-      const { account } = useAppwrite();
-      await account.createSession({
-        userId: authData.userId,
-        secret: authData.secret,
-      });
+      const { client } = useAppwrite();
+      client.setSession(authData.secret);
       await userStore.fetchUserSession();
 
       if (!userStore.user) {

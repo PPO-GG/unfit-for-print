@@ -3,6 +3,9 @@ import { defineNuxtRouteMiddleware, navigateTo } from '#app'
 import { useUserStore } from '~/stores/userStore'
 
 export default defineNuxtRouteMiddleware(async () => {
+  // Session can only be verified client-side (Appwrite SDK uses cookies)
+  if (import.meta.server) return
+
   const userStore = useUserStore()
 
   if (!userStore.isLoggedIn) {
