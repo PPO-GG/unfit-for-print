@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { DotLottie } from "@lottiefiles/dotlottie-web";
 import type { AttachmentConfig } from "~/types/decoration";
 
@@ -73,6 +73,7 @@ function initDotLottie() {
     src: props.imageUrl,
     autoplay: true,
     loop: true,
+    renderConfig: { autoResize: true },
   });
 }
 
@@ -93,7 +94,7 @@ onMounted(() => {
     observer = new ResizeObserver(measure);
     observer.observe(avatarEl.value);
   }
-  nextTick(() => initDotLottie());
+  initDotLottie();
 });
 
 onUnmounted(() => {
@@ -101,8 +102,17 @@ onUnmounted(() => {
   destroyDotLottie();
 });
 
-watch(avatarPx, () => {
-  dotLottie?.resize();
+// Reload animation when source URL changes
+watch(() => props.imageUrl, () => {
+  destroyDotLottie();
+  initDotLottie();
+});
+
+// Reinitialize when zLayer changes (v-if switches the active canvas)
+watch(activeCanvas, (newCanvas) => {
+  if (!newCanvas) return;
+  destroyDotLottie();
+  initDotLottie();
 });
 
 // ─── Anchor → CSS Position Mapping ──────────────────────────────────
