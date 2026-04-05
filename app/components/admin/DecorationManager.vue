@@ -3,6 +3,7 @@ import { decorationRegistry } from "~/utils/decorations";
 import type {
   DecorationCatalogEntry,
   AttachmentConfig,
+  ImageFormat,
 } from "~/types/decoration";
 import { DEFAULT_ATTACHMENT_CONFIG } from "~/utils/decorationDefaults";
 import { getDecorationImageUrl } from "~/utils/decorationImage";
@@ -62,7 +63,7 @@ const attachmentForm = reactive<AttachmentConfig>({
   ...DEFAULT_ATTACHMENT_CONFIG,
 });
 const imageFileId = ref<string | null>(null);
-const imageFormat = ref<string | null>(null);
+const imageFormat = ref<ImageFormat | null>(null);
 const uploading = ref(false);
 const imageInputRef = ref<HTMLInputElement | null>(null);
 
@@ -91,7 +92,7 @@ async function uploadImage(e: Event) {
   try {
     const form = new FormData();
     form.append("file", file);
-    const result = await $fetch<{ fileId: string; imageFormat: string }>(
+    const result = await $fetch<{ fileId: string; imageFormat: ImageFormat }>(
       "/api/admin/decorations/upload",
       { method: "POST", headers: authHeaders(), body: form },
     );
@@ -182,7 +183,7 @@ function openEdit(decoration: DecorationCatalogEntry) {
 
   // Load attachment state
   imageFileId.value = decoration.imageFileId || null;
-  imageFormat.value = (decoration as any).imageFormat || null;
+  imageFormat.value = decoration.imageFormat || null;
   if (decoration.attachment) {
     Object.assign(attachmentForm, decoration.attachment);
   } else {
@@ -753,19 +754,21 @@ onMounted(fetchCatalog);
                   >Image</label
                 >
                 <div v-if="previewImageUrl" class="flex items-center gap-2">
-                  <AvatarLottie
-                    v-if="isLottieFormat"
-                    :image-url="previewImageUrl"
-                    :attachment="{ anchor: 'center', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, zLayer: 'above', clipped: false }"
-                    class="w-10 h-10"
-                  >
-                    <div class="w-10 h-10" />
-                  </AvatarLottie>
-                  <img
-                    v-else
-                    :src="previewImageUrl"
-                    class="w-10 h-10 object-contain rounded bg-slate-800 p-1"
-                  />
+                  <!-- Thumbnail: neutral positioning — full preview above uses live attachmentForm -->
+                  <div class="w-10 h-10 rounded bg-slate-800 overflow-hidden flex-shrink-0">
+                    <AvatarLottie
+                      v-if="isLottieFormat"
+                      :image-url="previewImageUrl"
+                      :attachment="{ anchor: 'center', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, zLayer: 'above', clipped: false }"
+                    >
+                      <div class="w-10 h-10" />
+                    </AvatarLottie>
+                    <img
+                      v-else
+                      :src="previewImageUrl"
+                      class="w-full h-full object-contain p-1"
+                    />
+                  </div>
                   <span class="text-xs text-slate-400 truncate flex-1">{{ imageFileId }}</span>
                   <UBadge v-if="isLottieFormat" size="xs" color="info" variant="subtle">
                     {{ imageFormat }}
@@ -780,7 +783,7 @@ onMounted(fetchCatalog);
                 <input
                   ref="imageInputRef"
                   type="file"
-                  accept="image/png, image/webp, .lottie, .json"
+                  accept="image/png, image/webp, application/json, .json, .lottie"
                   class="hidden"
                   @change="uploadImage"
                 />
