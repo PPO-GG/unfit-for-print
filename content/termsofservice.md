@@ -54,9 +54,14 @@ We reserve the right to moderate, remove, or restrict content and users who viol
 
 ## Intellectual Property
 
-- The Unfit for Print name, logo, game design, and original card content are the property of PPO.GG.
+- The Unfit for Print name, logo, and game design are the property of PPO.GG.
+- The card library includes three categories of content:
+  - **Original cards** created by PPO.GG, which are the property of PPO.GG.
+  - **Cards Against Humanity content**, used under the [Creative Commons Attribution-NonCommercial-ShareAlike 2.0 Generic (CC BY-NC-SA 2.0)](https://creativecommons.org/licenses/by-nc-sa/2.0/) license. Cards Against Humanity is a trademark of Cards Against Humanity, LLC. Unfit for Print is not affiliated with or endorsed by Cards Against Humanity, LLC.
+  - **User-submitted cards**, which remain the property of the submitting user. By submitting cards, you grant PPO.GG a non-exclusive, royalty-free license to include them in the game.
+- The game and its content (including original and CAH-derived cards) are distributed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license, which satisfies the ShareAlike obligation of the upstream CC BY-NC-SA 2.0 license.
 - The Service's source code is available under the terms specified in the [GitHub repository](https://github.com/PPO-GG/unfit-for-print).
-- You may not use our trademarks, branding, or game content for commercial purposes without prior written consent.
+- You may not use our trademarks, branding, or original game content for commercial purposes without prior written consent.
 
 ---
 
