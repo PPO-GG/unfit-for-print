@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
     sortOrder: body.sortOrder ?? 999,
     imageFileId: body.imageFileId || null,
     attachment: body.attachment || null,
+    imageFormat: body.imageFormat || null,
   };
 
   const doc = await tables.createRow({

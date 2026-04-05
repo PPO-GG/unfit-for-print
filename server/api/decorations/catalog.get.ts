@@ -35,6 +35,7 @@ export default defineEventHandler(async () => {
       price: doc.price,
       sortOrder: doc.sortOrder,
       imageFileId: doc.imageFileId || null,
+      imageFormat: doc.imageFormat || null,
       attachment,
     };
   });

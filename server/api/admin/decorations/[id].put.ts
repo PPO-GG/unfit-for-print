@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const { DB, DECORATIONS } = getCollectionIds();
   const tables = getAdminTables();
 
-  const allowedFields = ["name", "description", "type", "rarity", "category", "enabled", "freeForAll", "discordSkuId", "price", "sortOrder", "imageFileId", "attachment"];
+  const allowedFields = ["name", "description", "type", "rarity", "category", "enabled", "freeForAll", "discordSkuId", "price", "sortOrder", "imageFileId", "attachment", "imageFormat"];
 
   const data: Record<string, any> = {};
   for (const field of allowedFields) {
