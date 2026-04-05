@@ -28,8 +28,8 @@ const lockedDecorations = computed(() =>
   allDecorations.value.filter((d) => !d.owned),
 );
 
-const activeCatalogEntry = computed(() =>
-  allDecorations.value.find((d) => d.active)?.catalogEntry ?? null,
+const activeCatalogEntry = computed(
+  () => allDecorations.value.find((d) => d.active)?.catalogEntry ?? null,
 );
 
 const handleDecorationClick = async (
@@ -71,7 +71,10 @@ const avatarUrl = computed(() => {
     <!-- Profile Header -->
     <div class="flex flex-col items-center gap-4">
       <template v-if="hydrated">
-        <AvatarDecoration :decoration-id="activeDecorationId" :catalog-entry="activeCatalogEntry">
+        <AvatarDecoration
+          :decoration-id="activeDecorationId"
+          :catalog-entry="activeCatalogEntry"
+        >
           <UAvatar
             :src="avatarUrl ?? undefined"
             :alt="userStore.user?.name ?? 'User'"
@@ -83,14 +86,6 @@ const avatarUrl = computed(() => {
           <h1 class="text-2xl font-bold">
             {{ userStore.user?.name ?? t("nav.welcome_guest") }}
           </h1>
-          <UBadge
-            :label="
-              isAuthenticatedUser(userStore.user) ? 'Discord' : 'Anonymous'
-            "
-            :color="isAuthenticatedUser(userStore.user) ? 'info' : 'neutral'"
-            variant="subtle"
-            class="mt-1"
-          />
         </div>
       </template>
       <template v-else>
@@ -126,7 +121,7 @@ const avatarUrl = computed(() => {
         <button
           v-for="decoration in ownedDecorations"
           :key="decoration.id"
-          class="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer"
+          class="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer backdrop-blur-xs"
           :class="
             decoration.active
               ? 'border-amber-500 bg-amber-500/10 shadow-[0_0_0_1px_rgba(245,158,11,0.3),0_0_14px_rgba(245,158,11,0.15)]'
@@ -144,34 +139,46 @@ const avatarUrl = computed(() => {
           <!-- Rarity pips — top left -->
           <div
             v-if="decoration.rarity"
-            class="absolute top-1.5 left-1.5 flex flex-col items-center gap-px leading-none"
+            class="absolute top-1.5 left-1.5 flex flex-row items-center gap-px leading-none -space-x-1"
             :class="rarityColorClass(decoration.rarity)"
             aria-hidden="true"
           >
             <span
               v-for="n in rarityPips(decoration.rarity)"
               :key="n"
-              class="text-[8px] leading-none"
-            >◆</span>
+              class="text-md leading-none"
+              >◆</span
+            >
           </div>
 
           <!-- Category icon — top right -->
-          <div v-if="decoration.category" class="absolute top-1.5 right-1.5" aria-hidden="true">
+          <div
+            v-if="decoration.category"
+            class="absolute top-1.5 right-1.5"
+            aria-hidden="true"
+          >
             <UIcon
               :name="categoryIcon(decoration.category)"
-              class="text-sm text-slate-500"
+              class="text-xl text-slate-500"
             />
           </div>
-
-          <AvatarDecoration :decoration-id="decoration.id" :catalog-entry="decoration.catalogEntry">
-            <UAvatar
-              :src="avatarUrl ?? undefined"
-              :alt="userStore.user?.name ?? 'User'"
-              class="size-24"
-            />
-          </AvatarDecoration>
-          <span class="text-sm font-medium">{{ decoration.name }}</span>
-          <p v-if="decoration.description" class="text-xs text-slate-500 mt-0.5 line-clamp-3">
+          <div class="relative mt-2">
+            <AvatarDecoration
+              :decoration-id="decoration.id"
+              :catalog-entry="decoration.catalogEntry"
+            >
+              <UAvatar
+                :src="avatarUrl ?? undefined"
+                :alt="userStore.user?.name ?? 'User'"
+                class="size-24"
+              />
+            </AvatarDecoration>
+          </div>
+          <span class="text-xl font-medium">{{ decoration.name }}</span>
+          <p
+            v-if="decoration.description"
+            class="text-md text-slate-300 mt-0.5 line-clamp-3"
+          >
             {{ decoration.description }}
           </p>
         </button>
@@ -188,57 +195,68 @@ const avatarUrl = computed(() => {
         <div
           v-for="decoration in lockedDecorations"
           :key="decoration.id"
-          class="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-800 bg-slate-900/50"
+          class="relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-slate-800 bg-slate-900/50 backdrop-blur-xs"
         >
           <!-- Rarity pips — top left -->
           <div
             v-if="decoration.rarity"
-            class="absolute top-1.5 left-1.5 flex flex-col items-center gap-px leading-none opacity-50"
+            class="absolute top-1.5 left-1.5 flex flex-row items-center gap-px leading-none opacity-50 -space-x-1"
             :class="rarityColorClass(decoration.rarity)"
             aria-hidden="true"
           >
             <span
               v-for="n in rarityPips(decoration.rarity)"
               :key="n"
-              class="text-[8px] leading-none"
-            >◆</span>
+              class="text-md leading-none"
+              >◆</span
+            >
           </div>
 
           <!-- Category icon — top right -->
-          <div v-if="decoration.category" class="absolute top-1.5 right-1.5 opacity-50" aria-hidden="true">
+          <div
+            v-if="decoration.category"
+            class="absolute top-1.5 right-1.5 opacity-50"
+            aria-hidden="true"
+          >
             <UIcon
               :name="categoryIcon(decoration.category)"
-              class="text-sm text-slate-500"
+              class="text-xl text-slate-500"
             />
           </div>
 
-          <div class="relative">
-            <AvatarDecoration :decoration-id="decoration.id" :catalog-entry="decoration.catalogEntry">
+          <div class="relative mt-2">
+            <AvatarDecoration
+              :decoration-id="decoration.id"
+              :catalog-entry="decoration.catalogEntry"
+            >
               <UAvatar
                 :src="avatarUrl ?? undefined"
                 :alt="userStore.user?.name ?? 'User'"
+                class="size-24"
               />
             </AvatarDecoration>
             <div class="absolute inset-0 flex items-center justify-center">
               <UIcon name="i-solar-lock-bold" class="text-2xl text-slate-400" />
             </div>
           </div>
-          <span class="text-sm font-medium text-slate-500">{{ decoration.name }}</span>
-          <p v-if="decoration.description" class="text-xs text-slate-500 mt-0.5 line-clamp-3">
+          <span class="text-xl font-medium text-slate-200 mt-2">{{
+            decoration.name
+          }}</span>
+          <p
+            v-if="decoration.description"
+            class="text-md text-slate-300 mt-0.5 text-center line-clamp-3"
+          >
             {{ decoration.description }}
           </p>
-          <span v-if="decoration.discordSkuId && decoration.price > 0" class="text-xs text-slate-400">
-            ${{ decoration.price.toFixed(2) }}
-          </span>
           <span v-else class="text-xs text-slate-400">Coming soon</span>
           <UButton
             v-if="decoration.discordSkuId"
-            size="xs"
+            size="xl"
             variant="soft"
-            class="mt-2"
+            class="mt-2 text-info-400"
             @click.stop="startPurchase(decoration.id)"
           >
-            Purchase on Discord
+            Purchase for ${{ decoration.price.toFixed(2) }}
           </UButton>
         </div>
       </div>
