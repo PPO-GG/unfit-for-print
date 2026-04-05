@@ -567,8 +567,9 @@ onMounted(fetchCatalog);
 
             <div class="text-center">
               <div class="font-bold text-lg">{{ editForm.name }}</div>
-              <div :class="rarityColor(editForm.rarity)" class="text-sm">
+              <div :class="rarityColor(editForm.rarity)" class="text-sm flex items-center gap-1 justify-center">
                 ★ {{ editForm.rarity }} · {{ editForm.type }}
+                <UIcon v-if="editForm.category" :name="categoryIcon(editForm.category)" class="text-slate-400" />
               </div>
               <div class="text-xs text-slate-500 mt-1">
                 {{ editingDecoration?.decorationId ?? 'New' }}
