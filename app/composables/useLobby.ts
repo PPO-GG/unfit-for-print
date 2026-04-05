@@ -98,7 +98,9 @@ export const useLobby = () => {
           rowId: playerDoc.lobbyId,
         });
       } catch (lookupErr: any) {
-        // Stale player doc pointing to a deleted lobby — clean slate
+        // Stale player doc pointing to a deleted lobby — clean slate.
+        // Self-heal by deleting the orphaned player doc so this 404
+        // doesn't recur on every subsequent page visit.
         if (
           lookupErr?.code === 404 ||
           lookupErr?.message?.includes("could not be found")
@@ -106,7 +108,21 @@ export const useLobby = () => {
           console.warn(
             "[useLobby] Stale player doc references missing lobby:",
             playerDoc.lobbyId,
+            "— deleting orphaned player doc",
+            playerDoc.$id,
           );
+          try {
+            await tables.deleteRow({
+              databaseId: config.public.appwriteDatabaseId,
+              tableId: config.public.appwritePlayerCollectionId,
+              rowId: playerDoc.$id,
+            });
+          } catch (cleanupErr) {
+            console.warn(
+              "[useLobby] Failed to delete stale player doc:",
+              cleanupErr,
+            );
+          }
           return null;
         }
         throw lookupErr;
@@ -459,7 +475,36 @@ export const useLobby = () => {
       // Disconnect Y.Doc — Teleportal will GC the doc
       lobbyDoc.disconnect();
 
-      // Clean up Appwrite registry
+      // Clean up all remaining Appwrite player docs for this lobby
+      // (e.g., bot player shims that would otherwise be orphaned).
+      try {
+        const allPlayers = await tables.listRows({
+          databaseId: config.public.appwriteDatabaseId,
+          tableId: config.public.appwritePlayerCollectionId,
+          queries: [
+            Query.equal("lobbyId", lobbyId),
+            Query.limit(100),
+          ],
+        });
+        for (const playerDoc of allPlayers.rows) {
+          try {
+            await tables.deleteRow({
+              databaseId: config.public.appwriteDatabaseId,
+              tableId: config.public.appwritePlayerCollectionId,
+              rowId: playerDoc.$id,
+            });
+          } catch {
+            // Best-effort: permissions may prevent deletion of other users' docs
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "[useLobby] Failed to clean up remaining player docs on teardown:",
+          err,
+        );
+      }
+
+      // Clean up Appwrite lobby registry
       try {
         await tables.deleteRow({
           databaseId: config.public.appwriteDatabaseId,
