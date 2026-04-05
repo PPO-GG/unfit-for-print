@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { rarityPips, rarityColorClass, categoryIcon } from '~/utils/decorationDisplay'
-
 definePageMeta({
   middleware: ["auth"],
 });
@@ -148,6 +146,7 @@ const avatarUrl = computed(() => {
             v-if="decoration.rarity"
             class="absolute top-1.5 left-1.5 flex flex-col items-center gap-px leading-none"
             :class="rarityColorClass(decoration.rarity)"
+            aria-hidden="true"
           >
             <span
               v-for="n in rarityPips(decoration.rarity)"
@@ -157,7 +156,7 @@ const avatarUrl = computed(() => {
           </div>
 
           <!-- Category icon — top right -->
-          <div v-if="decoration.category" class="absolute top-1.5 right-1.5">
+          <div v-if="decoration.category" class="absolute top-1.5 right-1.5" aria-hidden="true">
             <UIcon
               :name="categoryIcon(decoration.category)"
               class="text-sm text-slate-500"
@@ -196,6 +195,7 @@ const avatarUrl = computed(() => {
             v-if="decoration.rarity"
             class="absolute top-1.5 left-1.5 flex flex-col items-center gap-px leading-none opacity-50"
             :class="rarityColorClass(decoration.rarity)"
+            aria-hidden="true"
           >
             <span
               v-for="n in rarityPips(decoration.rarity)"
@@ -205,7 +205,7 @@ const avatarUrl = computed(() => {
           </div>
 
           <!-- Category icon — top right -->
-          <div v-if="decoration.category" class="absolute top-1.5 right-1.5 opacity-50">
+          <div v-if="decoration.category" class="absolute top-1.5 right-1.5 opacity-50" aria-hidden="true">
             <UIcon
               :name="categoryIcon(decoration.category)"
               class="text-sm text-slate-500"
