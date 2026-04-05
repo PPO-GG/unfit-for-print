@@ -13,6 +13,7 @@ const authHeaders = () => ({
 // State
 const catalog = ref<(DecorationCatalogEntry & { hasComponent: boolean })[]>([]);
 const loading = ref(false);
+const fetchError = ref<string | null>(null);
 const syncing = ref(false);
 const showEditModal = ref(false);
 const editingDecoration = ref<DecorationCatalogEntry | null>(null);
@@ -47,6 +48,7 @@ const editForm = reactive({
 
 async function fetchCatalog() {
   loading.value = true;
+  fetchError.value = null;
   try {
     const data = await $fetch<DecorationCatalogEntry[]>(
       "/api/admin/decorations/list",
@@ -58,6 +60,7 @@ async function fetchCatalog() {
     }));
   } catch (err: any) {
     console.error("Failed to fetch catalog:", err);
+    fetchError.value = err.data?.statusMessage || err.message || "Failed to load catalog";
   }
   loading.value = false;
 }
@@ -121,7 +124,7 @@ async function saveEdit() {
     showEditModal.value = false;
     await fetchCatalog();
   } catch (err: any) {
-    alert(`Save failed: ${err.message || err}`);
+    alert(`Save failed: ${err.data?.statusMessage || err.message || err}`);
   }
   saving.value = false;
 }
@@ -137,6 +140,7 @@ async function grantDecoration() {
     });
     alert("Decoration granted!");
     grantUserId.value = "";
+    grantDecorationId.value = "";
   } catch (err: any) {
     alert(`Grant failed: ${err.data?.statusMessage || err.message || err}`);
   }
@@ -154,6 +158,7 @@ async function revokeDecoration() {
     });
     alert("Decoration revoked!");
     grantUserId.value = "";
+    grantDecorationId.value = "";
   } catch (err: any) {
     alert(`Revoke failed: ${err.data?.statusMessage || err.message || err}`);
   }
@@ -222,6 +227,10 @@ onMounted(fetchCatalog);
 
       <div v-if="loading" class="flex justify-center py-8">
         <UIcon name="i-solar-refresh-bold-duotone" class="text-2xl animate-spin" />
+      </div>
+
+      <div v-else-if="fetchError" class="text-center py-8">
+        <p class="text-red-400">{{ fetchError }}</p>
       </div>
 
       <div v-else-if="catalog.length === 0" class="text-center py-8">
@@ -308,6 +317,7 @@ onMounted(fetchCatalog);
           <USelectMenu
             v-model="grantDecorationId"
             :items="catalog.map((d) => ({ label: d.name, value: d.decorationId }))"
+            value-key="value"
             placeholder="Select decoration"
             size="sm"
           />
