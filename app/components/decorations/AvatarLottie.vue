@@ -15,14 +15,14 @@
 -->
 
 <template>
-  <div class="avatar-lottie">
+  <div ref="rootEl" class="avatar-lottie">
     <!-- LAYER: Below avatar (z-1) -->
     <div
       v-if="attachment.zLayer === 'below'"
       class="avatar-lottie__overlay avatar-lottie__overlay--below"
       :class="{ 'avatar-lottie__overlay--clipped': attachment.clipped }"
     >
-      <canvas ref="canvasBelowEl" :style="canvasStyle" class="avatar-lottie__canvas" />
+      <canvas ref="canvasBelowEl" :width="imgSize" :height="imgSize" :style="canvasStyle" class="avatar-lottie__canvas" />
     </div>
 
     <!-- LAYER: Avatar slot (z-2) -->
@@ -36,7 +36,7 @@
       class="avatar-lottie__overlay avatar-lottie__overlay--above"
       :class="{ 'avatar-lottie__overlay--clipped': attachment.clipped }"
     >
-      <canvas ref="canvasAboveEl" :style="canvasStyle" class="avatar-lottie__canvas" />
+      <canvas ref="canvasAboveEl" :width="imgSize" :height="imgSize" :style="canvasStyle" class="avatar-lottie__canvas" />
     </div>
   </div>
 </template>
@@ -52,11 +52,13 @@ const props = defineProps<{
 }>();
 
 // ─── Avatar Measurement ──────────────────────────────────────────────
+const rootEl = ref<HTMLElement | null>(null);
 const avatarEl = ref<HTMLElement | null>(null);
 const canvasBelowEl = ref<HTMLCanvasElement | null>(null);
 const canvasAboveEl = ref<HTMLCanvasElement | null>(null);
 const avatarPx = ref(48);
-let observer: ResizeObserver | null = null;
+let resizeObserver: ResizeObserver | null = null;
+let intersectionObserver: IntersectionObserver | null = null;
 
 // ─── DotLottie Instance ─────────────────────────────────────────────
 let dotLottie: DotLottie | null = null;
@@ -73,7 +75,13 @@ function initDotLottie() {
     src: props.imageUrl,
     autoplay: true,
     loop: true,
-    renderConfig: { autoResize: true },
+    renderConfig: {
+      // Cap at 1x — prevents 2-3x overdraw on HiDPI displays.
+      devicePixelRatio: 1,
+      // Let dotlottie handle canvas resizes internally — safe now that we
+      // bind :width/:height so the initial buffer allocation is correct.
+      autoResize: true,
+    },
   });
 }
 
@@ -91,14 +99,28 @@ onMounted(() => {
       if (w && w > 0) avatarPx.value = w;
     };
     measure();
-    observer = new ResizeObserver(measure);
-    observer.observe(avatarEl.value);
+    resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(avatarEl.value);
   }
-  initDotLottie();
+
+  // Defer WASM init until the element is visible — avoids booting multiple
+  // DotLottie instances simultaneously when many decorations render off-screen.
+  intersectionObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) {
+        initDotLottie();
+        intersectionObserver?.disconnect();
+        intersectionObserver = null;
+      }
+    },
+    { rootMargin: "100px" },
+  );
+  if (rootEl.value) intersectionObserver.observe(rootEl.value);
 });
 
 onUnmounted(() => {
-  observer?.disconnect();
+  resizeObserver?.disconnect();
+  intersectionObserver?.disconnect();
   destroyDotLottie();
 });
 
@@ -133,21 +155,26 @@ const anchorPosition = computed(() => {
   }
 });
 
+// ─── Computed Canvas Size ───────────────────────────────────────────
+// Computed separately so canvas width/height attributes stay in sync with
+// the WASM buffer allocation — prevents dotlottie buffer size mismatch.
+const imgSize = computed(() => Math.round(avatarPx.value * props.attachment.scale));
+
 // ─── Computed Canvas Style ──────────────────────────────────────────
 const canvasStyle = computed(() => {
-  const { offsetX, offsetY, scale, rotation } = props.attachment;
+  const { offsetX, offsetY, rotation } = props.attachment;
   const anchor = anchorPosition.value;
   const px = avatarPx.value;
   const ox = offsetX * px;
   const oy = offsetY * px;
-  const imgSize = Math.round(px * scale);
+  const size = imgSize.value;
 
   return {
     position: "absolute" as const,
     top: anchor.top,
     left: anchor.left,
-    width: `${imgSize}px`,
-    height: `${imgSize}px`,
+    width: `${size}px`,
+    height: `${size}px`,
     transform: `translate(${anchor.translateBase}) translate(${ox}px, ${oy}px) rotate(${rotation}deg)`,
   };
 });
