@@ -12,7 +12,20 @@ export default defineEventHandler(async (event) => {
   }
 
   const url = getTeleportalHttpUrl();
-  return $fetch(`${url}/gc/${encodeURIComponent(body.docId)}`, {
-    method: "DELETE",
-  });
+  const target = `${url}/gc/${encodeURIComponent(body.docId)}`;
+
+  try {
+    const result = await $fetch(target, { method: "DELETE" });
+    return result;
+  } catch (err: any) {
+    console.error(
+      `[admin/teleportal/gc] Failed to GC ${body.docId}:`,
+      err?.data || err?.message || err,
+    );
+    throw createError({
+      statusCode: err?.statusCode || 502,
+      statusMessage:
+        err?.data?.error || err?.message || `Failed to GC lobby ${body.docId}`,
+    });
+  }
 });
