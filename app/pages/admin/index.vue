@@ -117,6 +117,44 @@ const isAdmin = useIsAdmin();
         </div>
       </section>
 
+      <!-- ── Store & Cosmetics Section ──────────────────────────────────────── -->
+      <section>
+        <h2
+          class="text-lg font-semibold uppercase tracking-widest text-slate-500 mb-3"
+        >
+          Store & Cosmetics
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <NuxtLink to="/admin/decorations" class="group block">
+            <UCard
+              class="h-full border border-transparent group-hover:border-violet-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(139,92,246,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-violet-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-600/30 transition-colors"
+                >
+                  <UIcon
+                    name="i-solar-star-rings-bold-duotone"
+                    class="text-2xl text-violet-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-violet-300 transition-colors"
+                  >
+                    Decorations
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    Manage avatar decorations, set pricing, link Discord SKUs,
+                    and grant to users
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </NuxtLink>
+        </div>
+      </section>
+
       <!-- ── Tools Section ────────────────────────────────────────────────────── -->
       <section>
         <h2
