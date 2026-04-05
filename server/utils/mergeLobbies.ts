@@ -57,7 +57,7 @@ export function mergeLobbies(
   appwriteSettings: Array<Record<string, any>>,
 ): UnifiedLobby[] {
   // Build settings lookup: lobbyId -> lobbyName
-  const settingsMap = new Map<string, string>();
+  const settingsMap = new Map<string, string | null>();
   for (const s of appwriteSettings) {
     const lobbyId =
       typeof s.lobbyId === "object" && s.lobbyId?.$id
