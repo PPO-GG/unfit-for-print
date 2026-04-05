@@ -126,23 +126,33 @@ const isAdmin = useIsAdmin();
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Lobby Monitor -->
-          <UCard
-            class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4"
-          >
-            <template #header>
-              <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-semibold">Active Lobbies</h2>
-                <UBadge
-                  icon="i-solar-info-square-bold-duotone"
-                  size="md"
-                  color="info"
-                  variant="solid"
-                  >Monitor active game lobbies and players</UBadge
+          <NuxtLink to="/admin/lobbies" class="group block">
+            <UCard
+              class="h-fit border border-transparent group-hover:border-emerald-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(16,185,129,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-600/30 transition-colors"
                 >
+                  <UIcon
+                    name="i-solar-server-minimalistic-bold-duotone"
+                    class="text-2xl text-emerald-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-emerald-300 transition-colors"
+                  >
+                    Lobby Monitor
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    Monitor active game lobbies, view live Teleportal state,
+                    and clean up orphaned data
+                  </p>
+                </div>
               </div>
-            </template>
-            <AdminLobbyMonitor />
-          </UCard>
+            </UCard>
+          </NuxtLink>
 
           <div class="space-y-6">
             <!-- Report Viewer -->
