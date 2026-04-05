@@ -54,6 +54,10 @@ const AvatarAttachmentComponent = defineAsyncComponent(
   () => import("~/components/decorations/AvatarAttachment.vue"),
 );
 
+const AvatarLottieComponent = defineAsyncComponent(
+  () => import("~/components/decorations/AvatarLottie.vue"),
+);
+
 // ─── Resolve: registry → prop → cache ────────────────────────────────
 const resolved = computed(() => {
   if (!props.decorationId) return null;
@@ -80,9 +84,12 @@ const resolved = computed(() => {
     catalog.imageFileId &&
     catalog.attachment
   ) {
+    const isLottie =
+      catalog.imageFormat === "lottie" || catalog.imageFormat === "dotlottie";
+
     return {
       type: "attachment" as const,
-      component: AvatarAttachmentComponent,
+      component: isLottie ? AvatarLottieComponent : AvatarAttachmentComponent,
       imageUrl: getDecorationImageUrl(catalog.imageFileId),
       attachment: catalog.attachment as AttachmentConfig,
     };
