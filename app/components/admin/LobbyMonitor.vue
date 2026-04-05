@@ -1,129 +1,68 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
 import { useUserStore } from "~/stores/userStore";
-import type { GameSettings } from "~/types/gamesettings";
-import type { Lobby } from "~/types/lobby";
-import { resolveId } from "~/utils/resolveId";
+import type { UnifiedLobby } from "~~/server/utils/mergeLobbies";
 
-// Extended Lobby type that includes the lobbyName property
-type LobbyWithName = Lobby & {
-  lobbyName?: string | null;
-};
-
-// Teleportal live lobby types
-interface TeleportalPlayer {
-  id: string;
-  name: string;
-  avatar?: string;
-  isBot?: boolean;
+interface UnifiedStatusResponse {
+  server: {
+    version: string;
+    uptime: number;
+    activeClients: number;
+    activeDocuments: number;
+    idleDocTtlSec: number;
+    memoryUsage: { rss: string; heapUsed: string };
+  };
+  lobbies: UnifiedLobby[];
 }
 
-interface TeleportalLobby {
-  docId: string;
-  lobbyCode: string;
-  clients: number;
-  idleSec: number;
-  players: TeleportalPlayer[];
-  meta: Record<string, any>;
-  phase?: string;
-}
-
-interface TeleportalStatus {
-  version: string;
-  uptime: number;
-  activeClients: number;
-  activeDocuments: number;
-  idleDocTtlSec: number;
-  documents: Record<
-    string,
-    {
-      clients: number;
-      idleSec: number;
-      players: TeleportalPlayer[];
-      meta: Record<string, any>;
-      phase?: string;
-    }
-  >;
-  memoryUsage: { rss: string; heapUsed: string };
-  timestamp: number;
-}
-
-const { tables } = getAppwrite();
-
-const config = useRuntimeConfig();
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
 const userStore = useUserStore();
 
-// Auth headers required by requireAuth() on the server.
-// Mirrors the pattern used in UserManager.vue and other admin components.
 const authHeaders = () => ({
   Authorization: `Bearer ${userStore.session?.$id}`,
   "x-appwrite-user-id": userStore.user?.$id ?? "",
 });
 
-const DB_ID = config.public.appwriteDatabaseId;
-const LOBBY_COL = config.public.appwriteLobbyCollectionId;
-
-const lobbies = ref<LobbyWithName[]>([]);
-const playersByLobby = ref<Record<string, any[]>>({});
-const loading = ref(true);
+// ── State ─────────────────────────────────────────────────────────────────
+const status = ref<UnifiedStatusResponse | null>(null);
+const loading = ref(false);
+const error = ref<string | null>(null);
 const searchTerm = ref("");
-const statusFilter = ref<string | null>(null);
-const totalLobbies = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(5);
+const sourceFilter = ref<"all" | "live" | "orphaned">("all");
+const autoRefreshEnabled = ref(true);
 
-// ── Teleportal Live State ──────────────────────────────────────────────────
-const teleportalStatus = ref<TeleportalStatus | null>(null);
-const teleportalLobbies = ref<TeleportalLobby[]>([]);
-const teleportalLoading = ref(false);
-const teleportalError = ref<string | null>(null);
+const REFRESH_INTERVAL = 10_000;
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
-// Derive the HTTP base URL from the WS-based lobbyTeleportalUrl (display only)
-const teleportalHttpUrl = computed(() => {
-  const wsUrl = config.public.lobbyTeleportalUrl || "ws://localhost:1235";
-  return wsUrl.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
-});
-
-// Status options for filter
-const statusOptions = ["waiting", "active", "complete"];
-
-// Filtered lobbies based on search term and status
+// ── Computed ──────────────────────────────────────────────────────────────
 const filteredLobbies = computed(() => {
-  if (!searchTerm.value && !statusFilter.value) return lobbies.value;
+  if (!status.value) return [];
+  let list = status.value.lobbies;
 
-  return lobbies.value.filter((lobby) => {
-    const matchesSearch =
-      !searchTerm.value ||
-      (lobby.lobbyName?.toLowerCase() || "").includes(
-        searchTerm.value.toLowerCase(),
-      ) ||
-      lobby.$id.toLowerCase().includes(searchTerm.value.toLowerCase());
+  // Source filter
+  if (sourceFilter.value === "live") {
+    list = list.filter((l) => l.hasLiveDoc);
+  } else if (sourceFilter.value === "orphaned") {
+    list = list.filter((l) => !l.hasLiveDoc || !l.hasRegistry);
+  }
 
-    const matchesStatus =
-      !statusFilter.value || lobby.status === statusFilter.value;
+  // Search
+  if (searchTerm.value) {
+    const term = searchTerm.value.toLowerCase();
+    list = list.filter(
+      (l) =>
+        l.code.toLowerCase().includes(term) ||
+        l.registry?.lobbyName?.toLowerCase().includes(term) ||
+        l.teleportal?.meta?.lobbyName?.toLowerCase().includes(term),
+    );
+  }
 
-    return matchesSearch && matchesStatus;
-  });
+  return list;
 });
 
-// Paginated lobbies
-const paginatedLobbies = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  return filteredLobbies.value.slice(start, end);
-});
-
-// Total pages for pagination
-const totalPages = computed(() => {
-  return Math.ceil(filteredLobbies.value.length / pageSize.value);
-});
-
-// Format uptime nicely
+// ── Helpers ───────────────────────────────────────────────────────────────
 function formatUptime(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
@@ -133,45 +72,37 @@ function formatUptime(seconds: number): string {
   return `${secs}s`;
 }
 
-// ── Teleportal Fetch ─────────────────────────────────────────────────────────
+function lobbyName(lobby: UnifiedLobby): string {
+  return (
+    lobby.registry?.lobbyName ||
+    lobby.teleportal?.meta?.lobbyName ||
+    lobby.code
+  );
+}
 
-const fetchTeleportalStatus = async () => {
-  teleportalLoading.value = true;
-  teleportalError.value = null;
+// ── Fetch ─────────────────────────────────────────────────────────────────
+const fetchStatus = async () => {
+  loading.value = true;
+  error.value = null;
   try {
-    const response = await $fetch<TeleportalStatus>(
+    status.value = await $fetch<UnifiedStatusResponse>(
       "/api/admin/teleportal/status",
       { headers: authHeaders() },
     );
-    teleportalStatus.value = response;
-
-    // Convert documents map to sorted array
-    const lobbiesArr: TeleportalLobby[] = [];
-    for (const [docId, details] of Object.entries(response.documents || {})) {
-      lobbiesArr.push({
-        docId,
-        lobbyCode: docId.replace(/^lobby-/, ""),
-        ...details,
-      });
-    }
-    // Sort by client count descending, then by idle time ascending
-    lobbiesArr.sort((a, b) => b.clients - a.clients || a.idleSec - b.idleSec);
-    teleportalLobbies.value = lobbiesArr;
   } catch (err: any) {
-    console.error("[Admin] Failed to fetch Teleportal status:", err);
-    teleportalError.value = err?.message || "Failed to connect";
-    teleportalStatus.value = null;
-    teleportalLobbies.value = [];
+    console.error("[LobbyMonitor] Fetch failed:", err);
+    error.value = err?.message || "Failed to fetch lobby data";
   } finally {
-    teleportalLoading.value = false;
+    loading.value = false;
   }
 };
 
-// Force-remove a single Teleportal lobby
-const forceRemoveLobby = async (docId: string) => {
+// ── Actions ───────────────────────────────────────────────────────────────
+const gcLobby = async (lobby: UnifiedLobby) => {
+  if (!lobby.teleportal) return;
   const confirmed = await confirm({
     title: "Force-Remove Lobby",
-    message: `Force-remove lobby "${docId}"?\n\nThis will disconnect all players and destroy the game state immediately.`,
+    message: `Force-remove lobby "${lobbyName(lobby)}"?\n\nThis will disconnect all players and destroy the game state immediately.`,
     confirmButtonText: "Remove",
     confirmButtonColor: "error",
   });
@@ -180,27 +111,80 @@ const forceRemoveLobby = async (docId: string) => {
     await $fetch("/api/admin/teleportal/gc", {
       method: "DELETE",
       headers: authHeaders(),
-      body: { docId },
+      body: { docId: lobby.teleportal.docId },
     });
-    notify({
-      title: "Lobby Removed",
-      description: `${docId} was force-removed from the Teleportal server`,
-      color: "success",
-    });
-    // Refresh the list
-    await fetchTeleportalStatus();
+    notify({ title: "Lobby Removed", description: `${lobby.code} GC'd from Teleportal`, color: "success" });
+    await fetchStatus();
   } catch (err: any) {
-    console.error("[Admin] Failed to remove lobby:", err);
-    notify({
-      title: "Remove Failed",
-      description: err?.message || "Could not remove lobby",
-      color: "error",
-    });
+    notify({ title: "GC Failed", description: err?.message || "Could not remove lobby", color: "error" });
   }
 };
 
-// Force GC ALL Teleportal lobbies
-const forceGcAll = async () => {
+const deleteLobby = async (lobby: UnifiedLobby) => {
+  if (!lobby.registry) return;
+  const confirmed = await confirm({
+    title: "Delete Registry Entry",
+    message: `Delete Appwrite records for "${lobbyName(lobby)}"?\n\nThis cascade-deletes players, chat, settings, and the lobby document. Cannot be undone.`,
+    confirmButtonText: "Delete",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
+  try {
+    await $fetch("/api/admin/lobby/delete", {
+      method: "POST",
+      headers: authHeaders(),
+      body: { lobbyId: lobby.registry.lobbyId },
+    });
+    notify({ title: "Registry Deleted", description: `${lobby.code} removed from Appwrite`, color: "success" });
+    await fetchStatus();
+  } catch (err: any) {
+    notify({ title: "Delete Failed", description: err?.message || "Could not delete lobby", color: "error" });
+  }
+};
+
+const markComplete = async (lobby: UnifiedLobby) => {
+  if (!lobby.registry) return;
+  try {
+    await $fetch("/api/admin/lobby/update-status", {
+      method: "POST",
+      headers: authHeaders(),
+      body: { lobbyId: lobby.registry.lobbyId, status: "complete" },
+    });
+    notify({ title: "Marked Complete", description: `${lobby.code} status set to complete`, color: "success" });
+    await fetchStatus();
+  } catch (err: any) {
+    notify({ title: "Update Failed", description: err?.message || "Could not update status", color: "error" });
+  }
+};
+
+const fullCleanup = async (lobby: UnifiedLobby) => {
+  if (!lobby.teleportal || !lobby.registry) return;
+  const confirmed = await confirm({
+    title: "Full Cleanup",
+    message: `Full cleanup for "${lobbyName(lobby)}"?\n\nThis will GC the live Teleportal doc AND delete all Appwrite records. Cannot be undone.`,
+    confirmButtonText: "Full Cleanup",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
+  try {
+    await $fetch("/api/admin/teleportal/gc", {
+      method: "DELETE",
+      headers: authHeaders(),
+      body: { docId: lobby.teleportal.docId },
+    });
+    await $fetch("/api/admin/lobby/delete", {
+      method: "POST",
+      headers: authHeaders(),
+      body: { lobbyId: lobby.registry.lobbyId },
+    });
+    notify({ title: "Full Cleanup Done", description: `${lobby.code} removed from both systems`, color: "success" });
+    await fetchStatus();
+  } catch (err: any) {
+    notify({ title: "Cleanup Failed", description: err?.message || "Partial cleanup may have occurred", color: "error" });
+  }
+};
+
+const gcAll = async () => {
   const confirmed = await confirm({
     title: "Force GC All Lobbies",
     message: "Force GC ALL lobbies?\n\nThis will disconnect ALL players from ALL games immediately.",
@@ -218,606 +202,388 @@ const forceGcAll = async () => {
       description: `${result.flushed} lobby(s) removed, ${result.remaining} client(s) remain`,
       color: "success",
     });
-    await fetchTeleportalStatus();
+    await fetchStatus();
   } catch (err: any) {
-    console.error("[Admin] Failed to GC all:", err);
-    notify({
-      title: "GC Failed",
-      description: err?.message || "Could not flush lobbies",
-      color: "error",
-    });
+    notify({ title: "GC Failed", description: err?.message || "Could not flush lobbies", color: "error" });
   }
 };
 
-const checkActiveLobbies = async () => {
-  if (!tables) return;
-  loading.value = true;
-  const PLAYER_COL = config.public.appwritePlayerCollectionId;
-  try {
-    // 1. Fetch all lobbies, ordered by creation date
-    const lobbyRes = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: LOBBY_COL,
-      queries: [Query.orderDesc("$createdAt"), Query.limit(100)],
-    });
+// ── Auto-Refresh ──────────────────────────────────────────────────────────
+function startAutoRefresh() {
+  stopAutoRefresh();
+  refreshTimer = setInterval(fetchStatus, REFRESH_INTERVAL);
+}
 
-    // Store the raw lobbies temporarily
-    const rawLobbies = lobbyRes.rows;
-    totalLobbies.value = lobbyRes.total;
-
-    // 2. Fetch game settings for all lobbies
-    const GAMESETTINGS_COL = config.public.appwriteGameSettingsCollectionId;
-    const settingsRes = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: GAMESETTINGS_COL,
-      queries: [
-        Query.limit(1000), // or adjust as needed
-      ],
-    });
-
-    // Create a map of lobbyId to settings
-    const settingsMap: Record<string, GameSettings> = {};
-    for (const setting of settingsRes.rows) {
-      // Handle case where lobbyId is a relationship object
-      const lobbyIdKey = resolveId(setting.lobbyId);
-      settingsMap[lobbyIdKey] = setting as unknown as GameSettings;
-    }
-
-    // 3. Merge lobby names into lobby objects
-    lobbies.value = rawLobbies.map((lobby: any) => {
-      // First try direct lookup
-      let settings = settingsMap[lobby.$id];
-
-      // If settings not found by exact match, try to find by string comparison
-      if (!settings) {
-        const matchingSettings = settingsRes.rows.find(
-          (s: any) => String(s.lobbyId) === String(lobby.$id),
-        );
-        if (matchingSettings) {
-          settings = matchingSettings as unknown as GameSettings;
-        }
-      }
-
-      return {
-        ...lobby,
-        lobbyName: settings?.lobbyName || null,
-      } as unknown as LobbyWithName;
-    });
-
-    // 4. For each lobby, fetch players
-    const allPlayersRes = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: PLAYER_COL,
-      queries: [
-        Query.limit(1000), // or page through if more
-      ],
-    });
-
-    const playersMap: Record<string, any[]> = {};
-    for (const player of allPlayersRes.rows) {
-      const lobbyIdKey = player.lobbyId as string;
-      if (!lobbyIdKey) continue;
-      if (!playersMap[lobbyIdKey]) playersMap[lobbyIdKey] = [];
-      playersMap[lobbyIdKey].push(player);
-    }
-
-    playersByLobby.value = playersMap;
-
-    // Reset filters when refreshing
-    currentPage.value = 1;
-  } catch (err) {
-    console.error("Failed to load lobbies or players:", err);
-    notify({
-      title: "Error",
-      description: "Failed to load lobbies or players",
-      color: "error",
-    });
-  } finally {
-    loading.value = false;
+function stopAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
   }
-};
+}
 
-// Mark a lobby as completed
-// Uses the server-side admin API to bypass Appwrite document-level permissions.
-const markLobbyCompleted = async (lobby: LobbyWithName) => {
-  try {
-    await $fetch("/api/admin/lobby/update-status", {
-      method: "POST",
-      headers: authHeaders(),
-      body: { lobbyId: lobby.$id, status: "complete" },
-    });
-
-    // Update in local list
-    const index = lobbies.value.findIndex((l) => l.$id === lobby.$id);
-    if (index !== -1) {
-      (lobbies.value[index] as any).status = "complete";
-    }
-
-    notify({
-      title: "Lobby Marked Completed",
-      description: `Lobby "${lobby.lobbyName || "Unnamed"}" marked as completed`,
-      color: "success",
-    });
-  } catch (err: any) {
-    console.error("Failed to update lobby:", err);
-    notify({
-      title: "Update Failed",
-      description:
-        err?.data?.statusMessage || "Could not mark lobby as completed",
-      color: "error",
-    });
+function toggleAutoRefresh() {
+  autoRefreshEnabled.value = !autoRefreshEnabled.value;
+  if (autoRefreshEnabled.value) {
+    startAutoRefresh();
+  } else {
+    stopAutoRefresh();
   }
-};
+}
 
-// Delete a lobby (cascade: players → chat → settings → lobby)
-// Uses the server-side admin API to bypass Appwrite document-level permissions.
-const deleteLobby = async (lobby: LobbyWithName) => {
-  const confirmed = await confirm({
-    title: "Delete Lobby",
-    message: `Are you sure you want to delete this lobby?\n\n"${lobby.lobbyName || "Unnamed Lobby"}"\n\nThis will also delete all associated players, game chat messages, and game settings. This cannot be undone.`,
-    confirmButtonText: "Delete",
-    confirmButtonColor: "error",
-  });
-  if (!confirmed) return;
-
-  try {
-    await $fetch("/api/admin/lobby/delete", {
-      method: "POST",
-      headers: authHeaders(),
-      body: { lobbyId: lobby.$id },
-    });
-
-    // Remove from local lists
-    lobbies.value = lobbies.value.filter((l) => l.$id !== lobby.$id);
-    delete playersByLobby.value[lobby.$id];
-
-    notify({
-      title: "Lobby Deleted",
-      description: `Lobby "${lobby.lobbyName || "Unnamed"}" and all associated data were deleted`,
-      color: "success",
-    });
-  } catch (err: any) {
-    console.error("Failed to delete lobby:", err);
-    notify({
-      title: "Delete Failed",
-      description: err?.data?.statusMessage || "Could not delete the lobby",
-      color: "error",
-    });
-  }
-};
-
-// Reset filters
-const resetFilters = () => {
-  searchTerm.value = "";
-  statusFilter.value = null;
-  currentPage.value = 1;
+const manualRefresh = async () => {
+  await fetchStatus();
+  // Reset interval so we don't double-trigger right after manual refresh
+  if (autoRefreshEnabled.value) startAutoRefresh();
 };
 
 onMounted(async () => {
-  await Promise.all([checkActiveLobbies(), fetchTeleportalStatus()]);
+  await fetchStatus();
+  if (autoRefreshEnabled.value) startAutoRefresh();
 });
 
-// Watch for filter changes to reset pagination
-watch([searchTerm, statusFilter], () => {
-  currentPage.value = 1;
+onUnmounted(() => {
+  stopAutoRefresh();
 });
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- ═══ TELEPORTAL LIVE LOBBIES ═══════════════════════════════════════ -->
-    <div>
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <h3 class="text-lg font-semibold text-white">
-            Live Teleportal Lobbies
-          </h3>
-          <UBadge
-            v-if="teleportalStatus"
-            color="success"
-            variant="subtle"
-            size="xs"
-          >
-            v{{ teleportalStatus.version }}
+  <div class="space-y-4">
+    <!-- ═══ HEADER BAR ═══════════════════════════════════════════════════ -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <h3 class="text-lg font-semibold text-white">Unified Lobby Monitor</h3>
+        <UBadge v-if="status?.server" color="success" variant="subtle" size="xs">
+          v{{ status.server.version }}
+        </UBadge>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Server stats -->
+        <template v-if="status?.server">
+          <UBadge color="neutral" variant="subtle" size="md">
+            {{ status.server.activeClients }} client(s)
           </UBadge>
-        </div>
-        <div class="flex items-center gap-2">
-          <!-- Server stats -->
-          <template v-if="teleportalStatus">
-            <UBadge color="neutral" variant="subtle" size="xs">
-              {{ teleportalStatus.activeClients }} client(s)
-            </UBadge>
-            <UBadge color="neutral" variant="subtle" size="xs">
-              Up {{ formatUptime(teleportalStatus.uptime) }}
-            </UBadge>
-            <UBadge color="neutral" variant="subtle" size="xs">
-              {{ teleportalStatus.memoryUsage.rss }}
-            </UBadge>
-          </template>
+          <UBadge color="neutral" variant="subtle" size="md">
+            Up {{ formatUptime(status.server.uptime) }}
+          </UBadge>
+          <UBadge color="neutral" variant="subtle" size="md">
+            {{ status.server.memoryUsage.rss }}
+          </UBadge>
+        </template>
 
-          <UButton
-            color="error"
-            variant="soft"
-            size="xs"
-            icon="i-solar-trash-bin-minimalistic-bold-duotone"
-            @click="forceGcAll"
-            :disabled="!teleportalLobbies.length"
-            :tooltip="{ text: 'Force GC all lobbies' }"
-          >
-            GC All
-          </UButton>
-          <UButton
-            loading-auto
-            @click="fetchTeleportalStatus"
-            color="secondary"
-            variant="soft"
-            size="xs"
-            icon="i-solar-refresh-broken"
-          >
-            Refresh
-          </UButton>
-        </div>
-      </div>
-
-      <!-- Error State -->
-      <div
-        v-if="teleportalError"
-        class="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-center"
-      >
-        <UIcon
-          name="i-solar-shield-warning-bold-duotone"
-          class="h-8 w-8 mx-auto text-red-400 mb-2"
-        />
-        <p class="text-red-300 text-sm">{{ teleportalError }}</p>
-        <p class="text-red-400/60 text-xs mt-1">
-          Server: {{ teleportalHttpUrl }}
-        </p>
-      </div>
-
-      <!-- Loading -->
-      <div v-else-if="teleportalLoading && !teleportalStatus" class="space-y-3">
-        <div
-          v-for="i in 2"
-          :key="i"
-          class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50"
+        <UButton
+          color="error"
+          variant="soft"
+          size="xs"
+          icon="i-solar-trash-bin-minimalistic-bold-duotone"
+          @click="gcAll"
+          :disabled="!status?.lobbies.some((l) => l.hasLiveDoc)"
+          :tooltip="{ text: 'Force GC all lobbies' }"
         >
-          <div class="flex justify-between items-center">
-            <USkeleton class="h-5 w-40" />
-            <USkeleton class="h-6 w-20" />
-          </div>
-          <div class="flex gap-2 mt-3">
-            <USkeleton class="h-6 w-24" />
-            <USkeleton class="h-6 w-24" />
-          </div>
-        </div>
-      </div>
+          GC All
+        </UButton>
 
-      <!-- Empty State -->
-      <div
-        v-else-if="teleportalLobbies.length === 0"
-        class="bg-slate-800/30 border border-slate-700/30 rounded-lg p-6 text-center"
-      >
-        <UIcon
-          name="i-solar-server-minimalistic-line-duotone"
-          class="h-10 w-10 mx-auto text-gray-500 mb-2"
-        />
-        <p class="text-gray-400 text-sm">
-          No active lobbies on the Teleportal server.
-        </p>
-      </div>
-
-      <!-- Live Lobbies Grid -->
-      <div v-else class="space-y-3">
-        <div
-          v-for="lobby in teleportalLobbies"
-          :key="lobby.docId"
-          class="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 hover:border-slate-600/50 transition-colors"
+        <UButton
+          :color="autoRefreshEnabled ? 'success' : 'neutral'"
+          variant="soft"
+          size="xs"
+          @click="toggleAutoRefresh"
+          :tooltip="{ text: autoRefreshEnabled ? 'Auto-refresh ON (10s)' : 'Auto-refresh OFF' }"
         >
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="flex items-center gap-2">
-                <h4 class="text-lg font-mono font-semibold text-white">
-                  {{ lobby.lobbyCode }}
-                </h4>
-                <UBadge
-                  v-if="lobby.phase"
-                  :color="
-                    lobby.phase === 'lobby'
-                      ? 'info'
-                      : lobby.phase === 'playing' ||
-                          lobby.phase === 'judging' ||
-                          lobby.phase === 'submission'
-                        ? 'warning'
-                        : lobby.phase === 'roundEnd' ||
-                            lobby.phase === 'gameOver'
-                          ? 'success'
-                          : 'neutral'
-                  "
-                  size="xs"
-                >
-                  {{ lobby.phase }}
-                </UBadge>
-                <UBadge color="primary" variant="subtle" size="xs">
-                  {{ lobby.clients }} ws
-                </UBadge>
-                <UBadge
-                  v-if="lobby.idleSec > 30"
-                  color="warning"
-                  variant="subtle"
-                  size="xs"
-                >
-                  idle {{ lobby.idleSec }}s
-                </UBadge>
-              </div>
-              <p
-                v-if="lobby.meta.hostName || lobby.meta.lobbyName"
-                class="text-xs text-gray-400 mt-1"
-              >
-                <span v-if="lobby.meta.lobbyName">
-                  {{ lobby.meta.lobbyName }}
-                </span>
-                <span
-                  v-if="lobby.meta.lobbyName && lobby.meta.hostName"
-                  class="mx-1"
-                  >·</span
-                >
-                <span v-if="lobby.meta.hostName">
-                  Host: {{ lobby.meta.hostName }}
-                </span>
-              </p>
-            </div>
+          Auto {{ autoRefreshEnabled ? "●" : "○" }}
+        </UButton>
 
-            <div class="flex items-center gap-1">
-              <UButton
-                color="error"
-                variant="ghost"
-                icon="i-solar-trash-bin-trash-bold-duotone"
-                size="xs"
-                @click="forceRemoveLobby(lobby.docId)"
-                class="rounded-full"
-                :tooltip="{ text: 'Force remove this lobby' }"
-              />
-            </div>
-          </div>
+        <UButton
+          loading-auto
+          @click="manualRefresh"
+          color="secondary"
+          variant="soft"
+          size="xs"
+          icon="i-solar-refresh-broken"
+        >
+          Refresh
+        </UButton>
+      </div>
+    </div>
 
-          <!-- Players -->
-          <div class="mt-3">
-            <p
-              v-if="!lobby.players.length"
-              class="text-sm text-gray-500 italic"
-            >
-              No players synced yet
-            </p>
-            <ul v-else class="flex flex-wrap gap-2">
-              <li
-                v-for="player in lobby.players"
-                :key="player.id"
-                class="text-xs text-white bg-slate-700/70 px-2 py-1 rounded flex items-center gap-1.5"
-              >
-                <img
-                  v-if="player.avatar"
-                  :src="player.avatar"
-                  :alt="player.name"
-                  class="w-4 h-4 rounded-full"
-                />
-                <span>{{ player.name }}</span>
-                <UBadge
-                  v-if="player.isBot"
-                  color="warning"
-                  variant="subtle"
-                  size="xs"
-                >
-                  Bot
-                </UBadge>
-              </li>
-            </ul>
-          </div>
+    <!-- ═══ SEARCH & FILTER ══════════════════════════════════════════════ -->
+    <div class="flex flex-col sm:flex-row gap-3">
+      <UInput
+        v-model="searchTerm"
+        placeholder="Search by code or name..."
+        class="flex-1"
+        icon="i-solar-magnifer-broken"
+      />
+      <USelectMenu
+        :items="[
+          { label: 'All', value: 'all' },
+          { label: 'Live', value: 'live' },
+          { label: 'Orphaned / Ghost', value: 'orphaned' },
+        ]"
+        v-model="sourceFilter"
+        value-key="value"
+        class="w-48"
+      />
+    </div>
+
+    <!-- ═══ ERROR STATE ══════════════════════════════════════════════════ -->
+    <div
+      v-if="error"
+      class="bg-red-900/20 border border-red-500/30 rounded-lg p-4 text-center"
+    >
+      <UIcon
+        name="i-solar-shield-warning-bold-duotone"
+        class="h-8 w-8 mx-auto text-red-400 mb-2"
+      />
+      <p class="text-red-300 text-sm">{{ error }}</p>
+    </div>
+
+    <!-- ═══ LOADING STATE ════════════════════════════════════════════════ -->
+    <div v-else-if="loading && !status" class="space-y-3">
+      <div
+        v-for="i in 3"
+        :key="i"
+        class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50"
+      >
+        <div class="flex justify-between items-center">
+          <USkeleton class="h-5 w-40" />
+          <USkeleton class="h-6 w-20" />
+        </div>
+        <div class="flex gap-2 mt-3">
+          <USkeleton class="h-6 w-24" />
+          <USkeleton class="h-6 w-24" />
         </div>
       </div>
     </div>
 
-    <!-- ═══ APPWRITE DATABASE LOBBIES ═════════════════════════════════════ -->
-    <div>
-      <h3 class="text-lg font-semibold text-white mb-3">
-        Database Lobbies (Appwrite)
-      </h3>
+    <!-- ═══ EMPTY STATE ══════════════════════════════════════════════════ -->
+    <div
+      v-else-if="filteredLobbies.length === 0"
+      class="bg-slate-800/30 border border-slate-700/30 rounded-lg p-6 text-center"
+    >
+      <UIcon
+        name="i-solar-server-minimalistic-line-duotone"
+        class="h-10 w-10 mx-auto text-gray-500 mb-2"
+      />
+      <p class="text-gray-400 text-sm">
+        {{ searchTerm || sourceFilter !== 'all' ? 'No lobbies match your filters.' : 'No lobbies found.' }}
+      </p>
+    </div>
 
-      <!-- Search and Filter Controls -->
-      <div class="flex flex-col md:flex-row gap-4">
-        <div class="flex gap-4 flex-1">
-          <UInput
-            v-model="searchTerm"
-            placeholder="Search lobbies..."
-            class="flex-1"
-            icon="i-solar-magnifer-broken"
-          />
-          <USelectMenu
-            :items="statusOptions"
-            placeholder="Filter by status"
-            clearable
-            v-model="statusFilter as any"
-          />
-        </div>
-        <div class="flex gap-2">
-          <UButton
-            @click="resetFilters"
-            color="neutral"
-            variant="soft"
-            icon="i-solar-close-circle-line-duotone"
-            :disabled="!searchTerm && !statusFilter"
-          >
-            Clear
-          </UButton>
-          <UButton
-            loading-auto
-            @click="checkActiveLobbies"
-            color="secondary"
-            variant="soft"
-            icon="i-solar-refresh-broken"
-          >
-            Refresh
-          </UButton>
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div v-if="loading" class="space-y-3 mt-4">
-        <!-- Skeleton cards -->
-        <div
-          v-for="i in 5"
-          :key="i"
-          class="bg-slate-700 rounded p-4 flex justify-between items-center relative"
-        >
-          <div class="max-w-xl mb-4 w-full">
-            <USkeleton class="h-5 w-full" />
-            <USkeleton class="h-5 w-3/4 mt-2" />
-          </div>
-          <div class="flex gap-2 absolute left-0 bottom-0 m-2">
-            <span class="ml-2 flex items-center">
-              <USkeleton class="h-4 w-20" />
-            </span>
-            <span class="ml-2 flex items-center">
-              <USkeleton class="h-4 w-20" />
-            </span>
-          </div>
-          <div class="flex items-center gap-1">
-            <USkeleton class="h-8 w-8 rounded" />
-            <USkeleton class="h-8 w-8 rounded" />
-            <USkeleton class="h-8 w-8 rounded" />
-            <USkeleton class="h-8 w-8 rounded" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div v-else-if="!lobbies.length" class="text-center py-8">
-        <UIcon
-          name="i-solar-users-group-rounded-bold-duotone"
-          class="h-12 w-12 mx-auto text-gray-400 mb-2"
-        />
-        <p class="text-gray-400">No lobbies found.</p>
-      </div>
-
-      <!-- No Results State -->
-      <div v-else-if="filteredLobbies.length === 0" class="text-center py-8">
-        <p class="text-gray-400">No lobbies match your search criteria.</p>
-        <UButton
-          class="mt-2"
-          color="neutral"
-          variant="ghost"
-          @click="resetFilters"
-        >
-          Clear Filters
-        </UButton>
-      </div>
-
-      <!-- Lobbies List -->
-      <ul v-else class="space-y-4 mt-4">
-        <li
-          v-for="lobby in paginatedLobbies"
-          :key="lobby.$id"
-          class="bg-slate-800 p-4 rounded shadow"
-        >
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-2xl font-semibold">
-                  {{ lobby.lobbyName || "Unnamed Lobby" }}
-                </h3>
-                <UBadge
-                  class="text-sm text-white font-light"
-                  :color="
-                    lobby.status === 'complete'
-                      ? 'success'
-                      : lobby.status === 'playing'
-                        ? 'warning'
-                        : 'info'
-                  "
-                >
-                  {{ lobby.status }}
-                </UBadge>
-              </div>
-              <p class="text-sm text-gray-400">
-                Created: {{ new Date(lobby.$createdAt).toLocaleString() }}
-                <span class="mx-1">|</span>
-                ID: <span class="font-mono">{{ lobby.$id }}</span>
-              </p>
-            </div>
-            <div class="flex items-center gap-2">
-              <UBadge color="primary"
-                >{{ playersByLobby[lobby.$id]?.length || 0 }} players</UBadge
-              >
-              <div class="flex gap-1">
-                <UButton
-                  v-if="lobby.status !== 'complete'"
-                  color="warning"
-                  variant="ghost"
-                  icon="i-solar-check-circle-bold-duotone"
-                  size="xs"
-                  @click="markLobbyCompleted(lobby)"
-                  class="rounded-full"
-                  :tooltip="{ text: 'Mark as completed' }"
-                />
-                <UButton
-                  color="error"
-                  variant="ghost"
-                  icon="i-solar-trash-bin-trash-bold-duotone"
-                  size="xs"
-                  @click="deleteLobby(lobby)"
-                  class="rounded-full"
-                  :tooltip="{ text: 'Delete lobby' }"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Players List -->
-          <div class="mt-3">
-            <p
-              v-if="!playersByLobby[lobby.$id]?.length"
-              class="text-sm text-gray-400"
-            >
-              No players in this lobby.
-            </p>
-            <ul v-else class="flex flex-wrap gap-2">
-              <li
-                v-for="player in playersByLobby[lobby.$id] || []"
-                :key="player.$id"
-                class="text-xs text-white bg-slate-700 px-2 py-1 rounded flex items-center gap-1"
-              >
-                <span>{{ player.name }}</span>
-                <UBadge
-                  v-if="player.provider === 'discord'"
-                  color="info"
-                  size="xs"
-                  >Discord</UBadge
-                >
-                <UBadge v-else color="neutral" size="xs">Anonymous</UBadge>
-              </li>
-            </ul>
-          </div>
-        </li>
-      </ul>
-
-      <!-- Pagination -->
+    <!-- ═══ LOBBY LIST ═══════════════════════════════════════════════════ -->
+    <div v-else class="space-y-3">
       <div
-        v-if="filteredLobbies.length > pageSize"
-        class="flex justify-between items-center mt-4"
+        v-for="lobby in filteredLobbies"
+        :key="lobby.code"
+        class="bg-slate-800/50 border rounded-lg p-4 hover:border-slate-600/50 transition-colors"
+        :class="{
+          'border-slate-700/50': lobby.hasLiveDoc && lobby.hasRegistry,
+          'border-l-amber-500 border-l-3 border-slate-700/50': !lobby.hasLiveDoc && lobby.hasRegistry,
+          'border-l-red-500 border-l-3 border-slate-700/50': lobby.hasLiveDoc && !lobby.hasRegistry,
+        }"
       >
-        <div class="text-sm text-gray-400">
-          Showing {{ (currentPage - 1) * pageSize + 1 }}-{{
-            Math.min(currentPage * pageSize, filteredLobbies.length)
-          }}
-          of {{ filteredLobbies.length }} lobbies
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <!-- Lobby code -->
+              <h4 class="text-lg font-mono font-semibold text-white">
+                {{ lobby.code }}
+              </h4>
+
+              <!-- Phase badge (live only) -->
+              <UBadge
+                v-if="lobby.teleportal?.phase"
+                :color="
+                  lobby.teleportal.phase === 'lobby'
+                    ? 'info'
+                    : ['playing', 'judging', 'submission'].includes(lobby.teleportal.phase)
+                      ? 'warning'
+                      : ['roundEnd', 'gameOver'].includes(lobby.teleportal.phase)
+                        ? 'success'
+                        : 'neutral'
+                "
+                size="md"
+              >
+                {{ lobby.teleportal.phase }}
+              </UBadge>
+
+              <!-- WS count (live only) -->
+              <UBadge
+                v-if="lobby.teleportal"
+                color="primary"
+                variant="subtle"
+                size="md"
+              >
+                {{ lobby.teleportal.clients }} ws
+              </UBadge>
+
+              <!-- Round (live only) -->
+              <UBadge
+                v-if="lobby.teleportal?.round"
+                color="info"
+                variant="subtle"
+                size="md"
+              >
+                round {{ lobby.teleportal.round }}
+              </UBadge>
+
+              <!-- Live indicator -->
+              <UBadge
+                v-if="lobby.hasLiveDoc && lobby.hasRegistry"
+                color="success"
+                variant="subtle"
+                size="md"
+              >
+                ● live
+              </UBadge>
+
+              <!-- Registry status -->
+              <UBadge
+                v-if="lobby.registry"
+                :color="
+                  lobby.registry.status === 'complete'
+                    ? 'success'
+                    : lobby.registry.status === 'playing'
+                      ? 'warning'
+                      : 'info'
+                "
+                size="md"
+              >
+                {{ lobby.registry.status }}
+              </UBadge>
+
+              <!-- Idle warning (live only) -->
+              <UBadge
+                v-if="lobby.teleportal && lobby.teleportal.idleSec > 30"
+                color="warning"
+                variant="subtle"
+                size="md"
+              >
+                idle {{ lobby.teleportal.idleSec }}s
+              </UBadge>
+
+              <!-- Orphan/ghost warnings -->
+              <UBadge
+                v-if="!lobby.hasLiveDoc && lobby.hasRegistry"
+                color="warning"
+                size="md"
+              >
+                ⚠ orphaned
+              </UBadge>
+              <UBadge
+                v-if="lobby.hasLiveDoc && !lobby.hasRegistry"
+                color="error"
+                size="md"
+              >
+                ⚠ no registry
+              </UBadge>
+            </div>
+
+            <!-- Subtitle -->
+            <p class="text-xs text-gray-400 mt-1">
+              <span v-if="lobby.registry?.lobbyName || lobby.teleportal?.meta?.lobbyName">
+                {{ lobby.registry?.lobbyName || lobby.teleportal?.meta?.lobbyName }}
+              </span>
+              <span v-if="(lobby.registry?.lobbyName || lobby.teleportal?.meta?.lobbyName) && lobby.teleportal?.meta?.hostName" class="mx-1">·</span>
+              <span v-if="lobby.teleportal?.meta?.hostName">
+                Host: {{ lobby.teleportal.meta.hostName }}
+              </span>
+              <span v-if="lobby.registry?.createdAt">
+                <span class="mx-1">·</span>
+                Created {{ new Date(lobby.registry.createdAt).toLocaleString() }}
+              </span>
+            </p>
+          </div>
+
+          <!-- ── Actions ────────────────────────────────────────── -->
+          <div class="flex items-center gap-1 flex-shrink-0">
+            <!-- Mark Complete -->
+            <UButton
+              v-if="lobby.registry && lobby.registry.status !== 'complete'"
+              color="warning"
+              variant="ghost"
+              icon="i-solar-check-circle-bold-duotone"
+              size="xs"
+              @click="markComplete(lobby)"
+              class="rounded-full"
+              :tooltip="{ text: 'Mark as completed' }"
+            />
+            <!-- GC Teleportal doc -->
+            <UButton
+              v-if="lobby.hasLiveDoc"
+              color="error"
+              variant="ghost"
+              icon="i-solar-trash-bin-trash-bold-duotone"
+              size="xs"
+              @click="gcLobby(lobby)"
+              class="rounded-full"
+              :tooltip="{ text: 'GC Teleportal doc' }"
+            />
+            <!-- Delete Appwrite registry -->
+            <UButton
+              v-if="lobby.hasRegistry"
+              color="error"
+              variant="ghost"
+              icon="i-solar-trash-bin-minimalistic-bold-duotone"
+              size="xs"
+              @click="deleteLobby(lobby)"
+              class="rounded-full"
+              :tooltip="{ text: 'Delete Appwrite records' }"
+            />
+            <!-- Full cleanup (both) -->
+            <UButton
+              v-if="lobby.hasLiveDoc && lobby.hasRegistry"
+              color="error"
+              variant="soft"
+              size="xs"
+              @click="fullCleanup(lobby)"
+              :tooltip="{ text: 'Full cleanup (GC + delete)' }"
+            >
+              Full
+            </UButton>
+          </div>
         </div>
-        <UPagination
-          v-model:page="currentPage"
-          :total="filteredLobbies.length"
-          :page-count="totalPages"
-          :page-size="pageSize"
-          class="flex items-center gap-1"
-        />
+
+        <!-- ── Players (live only) ──────────────────────────────── -->
+        <div v-if="lobby.teleportal" class="mt-3">
+          <p
+            v-if="!lobby.teleportal.players.length"
+            class="text-sm text-gray-500 italic"
+          >
+            No players synced yet
+          </p>
+          <ul v-else class="flex flex-wrap gap-2">
+            <li
+              v-for="player in lobby.teleportal.players"
+              :key="player.id"
+              class="text-xs text-white bg-slate-700/70 px-2 py-1 rounded flex items-center gap-1.5"
+            >
+              <img
+                v-if="player.avatar"
+                :src="player.avatar"
+                :alt="player.name"
+                class="w-4 h-4 rounded-full"
+              />
+              <span>{{ player.name }}</span>
+              <UBadge
+                v-if="player.isBot"
+                color="warning"
+                variant="subtle"
+                size="md"
+              >
+                Bot
+              </UBadge>
+            </li>
+          </ul>
+        </div>
       </div>
+    </div>
+
+    <!-- ═══ SUMMARY ══════════════════════════════════════════════════════ -->
+    <div
+      v-if="status && filteredLobbies.length > 0"
+      class="text-xs text-gray-500 text-center"
+    >
+      Showing {{ filteredLobbies.length }} of {{ status.lobbies.length }} lobbies
     </div>
   </div>
 </template>
