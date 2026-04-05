@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { decorationRegistry } from "~/utils/decorations";
-import type { DecorationCatalogEntry } from "~/types/decoration";
+import type { DecorationCatalogEntry, AttachmentConfig } from "~/types/decoration";
+import { DEFAULT_ATTACHMENT_CONFIG } from "~/utils/decorationDefaults";
+import { getDecorationImageUrl } from "~/utils/decorationImage";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
@@ -17,6 +19,7 @@ const fetchError = ref<string | null>(null);
 const syncing = ref(false);
 const showEditModal = ref(false);
 const editingDecoration = ref<DecorationCatalogEntry | null>(null);
+const isCreating = ref(false);
 const saving = ref(false);
 
 // Grant/Revoke state
@@ -29,22 +32,85 @@ const stats = computed(() => ({
   total: catalog.value.length,
   enabled: catalog.value.filter((d) => d.enabled).length,
   free: catalog.value.filter((d) => d.freeForAll).length,
-  orphaned: catalog.value.filter((d) => !d.hasComponent).length,
+  orphaned: catalog.value.filter(
+    (d) => !d.hasComponent && d.type !== 'attachment',
+  ).length,
 }));
 
 const rarityOptions = ["common", "rare", "epic", "legendary"];
+const typeOptions = ["effect", "attachment"];
+const categoryOptions = ["hat", "face", "effect", "custom"];
 
 const editForm = reactive({
   name: "",
   description: "",
-  type: "",
+  type: "effect" as string,
   rarity: "",
+  category: "custom" as string,
   enabled: false,
   freeForAll: false,
   discordSkuId: "",
   price: 0,
   sortOrder: 999,
 });
+
+// ─── Attachment Editor State ───────────────────────────────────────
+const attachmentForm = reactive<AttachmentConfig>({
+  ...DEFAULT_ATTACHMENT_CONFIG,
+});
+const imageFileId = ref<string | null>(null);
+const uploading = ref(false);
+const imageInputRef = ref<HTMLInputElement | null>(null);
+
+const isAttachment = computed(() => editForm.type === 'attachment');
+const previewImageUrl = computed(() =>
+  imageFileId.value ? getDecorationImageUrl(imageFileId.value) : null,
+);
+
+const anchorOptions = [
+  { label: 'Top Center', value: 'top-center' },
+  { label: 'Top Left', value: 'top-left' },
+  { label: 'Top Right', value: 'top-right' },
+  { label: 'Center', value: 'center' },
+  { label: 'Bottom Center', value: 'bottom-center' },
+];
+
+async function uploadImage(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  uploading.value = true;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const result = await $fetch<{ fileId: string }>(
+      '/api/admin/decorations/upload',
+      { method: 'POST', headers: authHeaders(), body: form },
+    );
+    imageFileId.value = result.fileId;
+  } catch (err: any) {
+    alert(`Upload failed: ${err.data?.statusMessage || err.message || err}`);
+  }
+  uploading.value = false;
+  // Reset input so re-selecting the same file triggers change
+  if (input) input.value = '';
+}
+
+async function removeImage() {
+  if (!imageFileId.value) return;
+  try {
+    await $fetch(`/api/admin/decorations/upload/${imageFileId.value}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+  } catch { /* ignore — may already be deleted */ }
+  imageFileId.value = null;
+}
+
+function resetAttachment() {
+  Object.assign(attachmentForm, DEFAULT_ATTACHMENT_CONFIG);
+}
 
 async function fetchCatalog() {
   loading.value = true;
@@ -60,7 +126,8 @@ async function fetchCatalog() {
     }));
   } catch (err: any) {
     console.error("Failed to fetch catalog:", err);
-    fetchError.value = err.data?.statusMessage || err.message || "Failed to load catalog";
+    fetchError.value =
+      err.data?.statusMessage || err.message || "Failed to load catalog";
   }
   loading.value = false;
 }
@@ -89,38 +156,92 @@ async function syncRegistry() {
 }
 
 function openEdit(decoration: DecorationCatalogEntry) {
+  isCreating.value = false;
   editingDecoration.value = decoration;
   editForm.name = decoration.name;
   editForm.description = decoration.description;
-  editForm.type = decoration.type;
+  editForm.type = decoration.type || 'effect';
   editForm.rarity = decoration.rarity;
+  editForm.category = decoration.category || 'custom';
   editForm.enabled = decoration.enabled;
   editForm.freeForAll = decoration.freeForAll;
   editForm.discordSkuId = decoration.discordSkuId || "";
   editForm.price = decoration.price;
   editForm.sortOrder = decoration.sortOrder;
+
+  // Load attachment state
+  imageFileId.value = decoration.imageFileId || null;
+  if (decoration.attachment) {
+    Object.assign(attachmentForm, decoration.attachment);
+  } else {
+    resetAttachment();
+  }
+
+  showEditModal.value = true;
+}
+
+function openCreate() {
+  isCreating.value = true;
+  editingDecoration.value = null;
+  editForm.name = "New Attachment";
+  editForm.description = "";
+  editForm.type = "attachment";
+  editForm.rarity = "common";
+  editForm.category = "custom";
+  editForm.enabled = false;
+  editForm.freeForAll = false;
+  editForm.discordSkuId = "";
+  editForm.price = 0;
+  editForm.sortOrder = 999;
+
+  imageFileId.value = null;
+  resetAttachment();
+
   showEditModal.value = true;
 }
 
 async function saveEdit() {
-  if (!editingDecoration.value) return;
+  if (!isCreating.value && !editingDecoration.value) return;
   saving.value = true;
   try {
-    await $fetch(`/api/admin/decorations/${editingDecoration.value.$id}`, {
-      method: "PUT",
-      headers: authHeaders(),
-      body: {
-        name: editForm.name,
-        description: editForm.description,
-        type: editForm.type,
-        rarity: editForm.rarity,
-        enabled: editForm.enabled,
-        freeForAll: editForm.freeForAll,
-        discordSkuId: editForm.discordSkuId || null,
-        price: editForm.price,
-        sortOrder: editForm.sortOrder,
-      },
-    });
+    const body: Record<string, any> = {
+      name: editForm.name,
+      description: editForm.description,
+      type: editForm.type,
+      rarity: editForm.rarity,
+      category: editForm.category,
+      enabled: editForm.enabled,
+      freeForAll: editForm.freeForAll,
+      discordSkuId: editForm.discordSkuId || null,
+      price: editForm.price,
+      sortOrder: editForm.sortOrder,
+    };
+
+    // Include attachment data when type is 'attachment'
+    if (editForm.type === 'attachment') {
+      body.imageFileId = imageFileId.value || null;
+      body.attachment = JSON.stringify(attachmentForm);
+    } else {
+      body.imageFileId = null;
+      body.attachment = null;
+    }
+
+    if (isCreating.value) {
+      // Create new decoration
+      await $fetch('/api/admin/decorations', {
+        method: 'POST',
+        headers: authHeaders(),
+        body,
+      });
+    } else {
+      // Update existing decoration
+      await $fetch(`/api/admin/decorations/${editingDecoration.value!.$id}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body,
+      });
+    }
+
     showEditModal.value = false;
     await fetchCatalog();
   } catch (err: any) {
@@ -136,7 +257,10 @@ async function grantDecoration() {
     await $fetch("/api/admin/decorations/grant", {
       method: "POST",
       headers: authHeaders(),
-      body: { userId: grantUserId.value, decorationId: grantDecorationId.value },
+      body: {
+        userId: grantUserId.value,
+        decorationId: grantDecorationId.value,
+      },
     });
     alert("Decoration granted!");
     grantUserId.value = "";
@@ -154,7 +278,10 @@ async function revokeDecoration() {
     await $fetch("/api/admin/decorations/grant", {
       method: "DELETE",
       headers: authHeaders(),
-      body: { userId: grantUserId.value, decorationId: grantDecorationId.value },
+      body: {
+        userId: grantUserId.value,
+        decorationId: grantDecorationId.value,
+      },
     });
     alert("Decoration revoked!");
     grantUserId.value = "";
@@ -167,10 +294,14 @@ async function revokeDecoration() {
 
 function rarityColor(rarity: string) {
   switch (rarity) {
-    case "legendary": return "text-amber-400";
-    case "epic": return "text-purple-400";
-    case "rare": return "text-blue-400";
-    default: return "text-slate-400";
+    case "legendary":
+      return "text-amber-400";
+    case "epic":
+      return "text-purple-400";
+    case "rare":
+      return "text-blue-400";
+    default:
+      return "text-slate-400";
   }
 }
 
@@ -187,13 +318,23 @@ onMounted(fetchCatalog);
           Manage avatar decorations, pricing, and ownership
         </p>
       </div>
-      <UButton
-        icon="i-solar-refresh-bold-duotone"
-        :loading="syncing"
-        @click="syncRegistry"
-      >
-        Sync Registry
-      </UButton>
+      <div class="flex gap-2">
+        <UButton
+          icon="i-solar-add-circle-bold-duotone"
+          color="primary"
+          @click="openCreate"
+        >
+          New Attachment
+        </UButton>
+        <UButton
+          icon="i-solar-refresh-bold-duotone"
+          variant="soft"
+          :loading="syncing"
+          @click="syncRegistry"
+        >
+          Sync Registry
+        </UButton>
+      </div>
     </div>
 
     <!-- Stats -->
@@ -203,7 +344,9 @@ onMounted(fetchCatalog);
         <div class="text-2xl font-bold">{{ stats.total }}</div>
       </UCard>
       <UCard>
-        <div class="text-sm text-slate-400 uppercase tracking-wide">Enabled</div>
+        <div class="text-sm text-slate-400 uppercase tracking-wide">
+          Enabled
+        </div>
         <div class="text-2xl font-bold text-green-400">{{ stats.enabled }}</div>
       </UCard>
       <UCard>
@@ -211,8 +354,12 @@ onMounted(fetchCatalog);
         <div class="text-2xl font-bold text-purple-400">{{ stats.free }}</div>
       </UCard>
       <UCard>
-        <div class="text-sm text-slate-400 uppercase tracking-wide">Orphaned</div>
-        <div class="text-2xl font-bold text-amber-400">{{ stats.orphaned }}</div>
+        <div class="text-sm text-slate-400 uppercase tracking-wide">
+          Orphaned
+        </div>
+        <div class="text-2xl font-bold text-amber-400">
+          {{ stats.orphaned }}
+        </div>
       </UCard>
     </div>
 
@@ -221,12 +368,17 @@ onMounted(fetchCatalog);
       <template #header>
         <div class="flex justify-between items-center">
           <h2 class="text-xl font-semibold">Catalog</h2>
-          <span class="text-sm text-slate-400">{{ catalog.length }} decorations</span>
+          <span class="text-sm text-slate-400"
+            >{{ catalog.length }} decorations</span
+          >
         </div>
       </template>
 
       <div v-if="loading" class="flex justify-center py-8">
-        <UIcon name="i-solar-refresh-bold-duotone" class="text-2xl animate-spin" />
+        <UIcon
+          name="i-solar-refresh-bold-duotone"
+          class="text-2xl animate-spin"
+        />
       </div>
 
       <div v-else-if="fetchError" class="text-center py-8">
@@ -234,15 +386,20 @@ onMounted(fetchCatalog);
       </div>
 
       <div v-else-if="catalog.length === 0" class="text-center py-8">
-        <p class="text-slate-400">No decorations in database. Click "Sync Registry" to populate.</p>
+        <p class="text-slate-400">
+          No decorations in database. Click "Sync Registry" to populate.
+        </p>
       </div>
 
       <table v-else class="w-full text-sm">
         <thead>
-          <tr class="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-700">
+          <tr
+            class="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-700"
+          >
             <th class="pb-3 pl-2">Preview</th>
             <th class="pb-3">Name</th>
             <th class="pb-3">Type</th>
+            <th class="pb-3">Category</th>
             <th class="pb-3">Rarity</th>
             <th class="pb-3 text-center">Status</th>
             <th class="pb-3 text-center">Free</th>
@@ -260,42 +417,71 @@ onMounted(fetchCatalog);
             @click="openEdit(decoration)"
           >
             <td class="py-3 pl-2">
-              <AvatarDecoration :decoration-id="decoration.decorationId">
-                <UAvatar size="sm" />
+              <AvatarDecoration :decoration-id="decoration.decorationId" :catalog-entry="decoration">
+                <UAvatar size="md" />
               </AvatarDecoration>
             </td>
             <td class="py-3">
               <div class="font-semibold">{{ decoration.name }}</div>
-              <div class="text-xs text-slate-500">{{ decoration.decorationId }}</div>
-              <UBadge v-if="!decoration.hasComponent" color="warning" variant="subtle" size="xs" class="mt-1">
+              <div class="text-xs text-slate-500">
+                {{ decoration.decorationId }}
+              </div>
+              <UBadge
+                v-if="!decoration.hasComponent"
+                color="warning"
+                variant="subtle"
+                size="xs"
+                class="mt-1"
+              >
                 Orphaned — no component
               </UBadge>
             </td>
             <td class="py-3 text-slate-400">{{ decoration.type }}</td>
+            <td class="py-3 text-slate-400">{{ decoration.category || '—' }}</td>
             <td class="py-3">
-              <span :class="rarityColor(decoration.rarity)">★ {{ decoration.rarity }}</span>
+              <span :class="rarityColor(decoration.rarity)"
+                >★ {{ decoration.rarity }}</span
+              >
             </td>
             <td class="py-3 text-center">
-              <UBadge :color="decoration.enabled ? 'success' : 'error'" variant="subtle" size="xs">
+              <UBadge
+                :color="decoration.enabled ? 'success' : 'error'"
+                variant="subtle"
+                size="xs"
+              >
                 {{ decoration.enabled ? "Enabled" : "Disabled" }}
               </UBadge>
             </td>
             <td class="py-3 text-center">
-              <span v-if="decoration.freeForAll" class="text-purple-400 text-xs">✓ Free</span>
+              <span v-if="decoration.freeForAll" class="text-purple-400 text-xs"
+                >✓ Free</span
+              >
               <span v-else class="text-slate-600">—</span>
             </td>
             <td class="py-3">
-              <code v-if="decoration.discordSkuId" class="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400">
+              <code
+                v-if="decoration.discordSkuId"
+                class="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400"
+              >
                 {{ decoration.discordSkuId.slice(0, 8) }}…
               </code>
-              <span v-else class="text-xs text-slate-600 italic">Not linked</span>
+              <span v-else class="text-xs text-slate-600 italic"
+                >Not linked</span
+              >
             </td>
             <td class="py-3 text-right">
-              <span v-if="decoration.price > 0">${{ decoration.price.toFixed(2) }}</span>
+              <span v-if="decoration.price > 0"
+                >${{ decoration.price.toFixed(2) }}</span
+              >
               <span v-else class="text-slate-600">—</span>
             </td>
             <td class="py-3 text-right pr-2">
-              <UButton size="xs" variant="soft" @click.stop="openEdit(decoration)">Edit</UButton>
+              <UButton
+                size="xs"
+                variant="soft"
+                @click.stop="openEdit(decoration)"
+                >Edit</UButton
+              >
             </td>
           </tr>
         </tbody>
@@ -309,65 +495,146 @@ onMounted(fetchCatalog);
       </template>
       <div class="flex flex-col sm:flex-row gap-3 items-end">
         <div class="flex-1">
-          <label class="block text-xs uppercase text-slate-400 mb-1">User ID</label>
-          <UInput v-model="grantUserId" placeholder="Appwrite user ID" size="sm" />
-        </div>
-        <div class="flex-1">
-          <label class="block text-xs uppercase text-slate-400 mb-1">Decoration</label>
-          <USelectMenu
-            v-model="grantDecorationId"
-            :items="catalog.map((d) => ({ label: d.name, value: d.decorationId }))"
-            value-key="value"
-            placeholder="Select decoration"
-            size="sm"
+          <label class="block text-xs uppercase text-slate-400 mb-1"
+            >User ID</label
+          >
+          <UInput
+            v-model="grantUserId"
+            placeholder="Appwrite user ID"
+            size="md"
           />
         </div>
-        <UButton color="success" size="sm" :loading="granting" @click="grantDecoration">Grant</UButton>
-        <UButton color="error" size="sm" :loading="granting" @click="revokeDecoration">Revoke</UButton>
+        <div class="flex-1">
+          <label class="block text-xs uppercase text-slate-400 mb-1"
+            >Decoration</label
+          >
+          <USelectMenu
+            v-model="grantDecorationId"
+            :items="
+              catalog.map((d) => ({ label: d.name, value: d.decorationId }))
+            "
+            value-key="value"
+            placeholder="Select decoration"
+            size="md"
+          />
+        </div>
+        <UButton
+          color="success"
+          size="md"
+          :loading="granting"
+          @click="grantDecoration"
+          >Grant</UButton
+        >
+        <UButton
+          color="error"
+          size="md"
+          :loading="granting"
+          @click="revokeDecoration"
+          >Revoke</UButton
+        >
       </div>
     </UCard>
 
     <!-- Edit Modal -->
     <UModal v-model:open="showEditModal">
       <template #content>
-        <div v-if="editingDecoration" class="p-6 space-y-6">
-          <h2 class="text-xl font-bold">Edit Decoration</h2>
+        <div v-if="editingDecoration || isCreating" class="p-6 space-y-6 max-h-[85vh] overflow-y-auto">
+          <h2 class="text-xl font-bold">{{ isCreating ? 'Create Decoration' : 'Edit Decoration' }}</h2>
 
           <!-- Large Preview -->
-          <div class="bg-slate-900 rounded-xl p-8 flex flex-col items-center gap-3">
-            <AvatarDecoration :decoration-id="editingDecoration.decorationId">
-              <UAvatar size="3xl" />
+          <div
+            class="bg-slate-900 rounded-xl p-8 flex flex-col items-center gap-3"
+          >
+            <!-- Bespoke effect preview -->
+            <AvatarDecoration
+              v-if="editForm.type !== 'attachment'"
+              :decoration-id="editingDecoration?.decorationId"
+            >
+              <UAvatar class="size-32" />
             </AvatarDecoration>
+
+            <!-- Live attachment preview -->
+            <AvatarAttachment
+              v-else-if="previewImageUrl"
+              :image-url="previewImageUrl"
+              :attachment="attachmentForm"
+            >
+              <UAvatar class="size-32" />
+            </AvatarAttachment>
+
+            <!-- No image yet -->
+            <UAvatar v-else class="size-32" />
+
             <div class="text-center">
               <div class="font-bold text-lg">{{ editForm.name }}</div>
               <div :class="rarityColor(editForm.rarity)" class="text-sm">
                 ★ {{ editForm.rarity }} · {{ editForm.type }}
               </div>
-              <div class="text-xs text-slate-500 mt-1">{{ editingDecoration.decorationId }}</div>
+              <div class="text-xs text-slate-500 mt-1">
+                {{ editingDecoration?.decorationId ?? 'New' }}
+              </div>
             </div>
           </div>
 
           <!-- Form -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">Name</label>
-              <UInput v-model="editForm.name" size="sm" />
+              <label class="block text-xs uppercase text-slate-400 mb-1"
+                >Name</label
+              >
+              <UInput v-model="editForm.name" size="md" />
             </div>
             <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">Rarity</label>
-              <USelectMenu v-model="editForm.rarity" :items="rarityOptions" size="sm" />
+              <label class="block text-xs uppercase text-slate-400 mb-1"
+                >Rarity</label
+              >
+              <USelectMenu
+                v-model="editForm.rarity"
+                :items="rarityOptions"
+                size="md"
+              />
+            </div>
+            <div>
+              <label class="block text-xs uppercase text-slate-400 mb-1"
+                >Category</label
+              >
+              <USelectMenu
+                v-model="editForm.category"
+                :items="categoryOptions"
+                placeholder="Category"
+                size="md"
+              />
             </div>
             <div class="col-span-2">
-              <label class="block text-xs uppercase text-slate-400 mb-1">Description</label>
-              <UTextarea v-model="editForm.description" :rows="2" size="sm" />
+              <label class="block text-xs uppercase text-slate-400 mb-1"
+                >Description</label
+              >
+              <UTextarea
+                v-model="editForm.description"
+                :rows="4"
+                size="md"
+                class="w-full"
+              />
             </div>
             <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">Type</label>
-              <UInput v-model="editForm.type" placeholder="ring, aura, badge" size="sm" />
+              <label class="block text-xs uppercase text-slate-400 mb-1"
+                >Type</label
+              >
+              <USelectMenu
+                v-model="editForm.type"
+                :items="typeOptions"
+                size="md"
+              />
             </div>
             <div>
-              <label class="block text-xs uppercase text-slate-400 mb-1">Sort Order</label>
-              <UInput v-model.number="editForm.sortOrder" type="number" size="sm" />
+              <label class="block text-xs uppercase text-slate-400 mb-1"
+                >Sort Order</label
+              >
+              <UInput
+                v-model.number="editForm.sortOrder"
+                type="number"
+                size="md"
+              />
             </div>
 
             <div class="col-span-2 border-t border-slate-700 pt-4 flex gap-4">
@@ -387,23 +654,173 @@ onMounted(fetchCatalog);
               </div>
             </div>
 
-            <div class="col-span-2 border-t border-slate-700 pt-4 grid grid-cols-2 gap-4">
+            <div
+              class="col-span-2 border-t border-slate-700 pt-4 grid grid-cols-2 gap-4"
+            >
               <div>
-                <label class="block text-xs uppercase text-slate-400 mb-1">Discord SKU ID</label>
-                <UInput v-model="editForm.discordSkuId" placeholder="Paste SKU ID" size="sm" />
+                <label class="block text-xs uppercase text-slate-400 mb-1"
+                  >Discord SKU ID</label
+                >
+                <UInput
+                  v-model="editForm.discordSkuId"
+                  placeholder="Paste SKU ID"
+                  size="md"
+                />
               </div>
               <div>
-                <label class="block text-xs uppercase text-slate-400 mb-1">Price (display)</label>
-                <UInput v-model.number="editForm.price" type="number" step="0.01" size="sm">
+                <label class="block text-xs uppercase text-slate-400 mb-1"
+                  >Price (display)</label
+                >
+                <UInput
+                  v-model.number="editForm.price"
+                  type="number"
+                  step="0.01"
+                  size="md"
+                >
                   <template #leading>$</template>
                 </UInput>
               </div>
             </div>
           </div>
 
+          <!-- Attachment Editor (only when type === 'attachment') -->
+          <div v-if="isAttachment" class="border-t border-slate-700 pt-4 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Attachment Settings</h3>
+              <UButton size="xs" variant="ghost" color="neutral" @click="resetAttachment">
+                Reset Defaults
+              </UButton>
+            </div>
+
+            <!-- Image Upload -->
+            <div class="flex items-center gap-3">
+              <div class="flex-1">
+                <label class="block text-xs uppercase text-slate-400 mb-1">Image</label>
+                <div v-if="previewImageUrl" class="flex items-center gap-2">
+                  <img :src="previewImageUrl" class="w-10 h-10 object-contain rounded bg-slate-800 p-1" />
+                  <span class="text-xs text-slate-400 truncate flex-1">{{ imageFileId }}</span>
+                  <UButton size="xs" color="error" variant="ghost" @click="removeImage">Remove</UButton>
+                </div>
+                <div v-else class="text-xs text-slate-500 italic">No image uploaded</div>
+              </div>
+              <div>
+                <input
+                  ref="imageInputRef"
+                  type="file"
+                  accept="image/png, image/webp"
+                  class="hidden"
+                  @change="uploadImage"
+                />
+                <UButton
+                  size="sm"
+                  variant="soft"
+                  :loading="uploading"
+                  @click="imageInputRef?.click()"
+                >
+                  Upload
+                </UButton>
+              </div>
+            </div>
+
+            <!-- Anchor -->
+            <div>
+              <label class="block text-xs uppercase text-slate-400 mb-1">Anchor</label>
+              <USelectMenu
+                v-model="attachmentForm.anchor"
+                :items="anchorOptions"
+                value-key="value"
+                size="md"
+              />
+            </div>
+
+            <!-- Offset X -->
+            <div>
+              <label class="block text-xs uppercase text-slate-400 mb-1">
+                Offset X: {{ attachmentForm.offsetX.toFixed(2) }}
+              </label>
+              <input
+                v-model.number="attachmentForm.offsetX"
+                type="range"
+                min="-1" max="1" step="0.01"
+                class="w-full accent-indigo-500"
+              />
+            </div>
+
+            <!-- Offset Y -->
+            <div>
+              <label class="block text-xs uppercase text-slate-400 mb-1">
+                Offset Y: {{ attachmentForm.offsetY.toFixed(2) }}
+              </label>
+              <input
+                v-model.number="attachmentForm.offsetY"
+                type="range"
+                min="-1" max="1" step="0.01"
+                class="w-full accent-indigo-500"
+              />
+            </div>
+
+            <!-- Scale -->
+            <div>
+              <label class="block text-xs uppercase text-slate-400 mb-1">
+                Scale: {{ attachmentForm.scale.toFixed(2) }}
+              </label>
+              <input
+                v-model.number="attachmentForm.scale"
+                type="range"
+                min="0.1" max="2.0" step="0.05"
+                class="w-full accent-indigo-500"
+              />
+            </div>
+
+            <!-- Rotation -->
+            <div>
+              <label class="block text-xs uppercase text-slate-400 mb-1">
+                Rotation: {{ attachmentForm.rotation }}°
+              </label>
+              <input
+                v-model.number="attachmentForm.rotation"
+                type="range"
+                min="-180" max="180" step="1"
+                class="w-full accent-indigo-500"
+              />
+            </div>
+
+            <!-- Z-Layer -->
+            <div class="flex items-center gap-4">
+              <label class="text-xs uppercase text-slate-400">Layer</label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio" value="above"
+                  v-model="attachmentForm.zLayer"
+                  class="accent-indigo-500"
+                />
+                <span class="text-sm">Above</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio" value="below"
+                  v-model="attachmentForm.zLayer"
+                  class="accent-indigo-500"
+                />
+                <span class="text-sm">Below</span>
+              </label>
+            </div>
+
+            <!-- Clipped (Inset) -->
+            <div class="flex items-center gap-3">
+              <USwitch v-model="attachmentForm.clipped" />
+              <div>
+                <div class="text-sm font-medium">Clipped (Inset)</div>
+                <div class="text-xs text-slate-500">Mask to the avatar circle — hides overflow</div>
+              </div>
+            </div>
+          </div>
+
           <div class="flex justify-end gap-2 pt-2">
-            <UButton variant="soft" @click="showEditModal = false">Cancel</UButton>
-            <UButton :loading="saving" @click="saveEdit">Save Changes</UButton>
+            <UButton variant="soft" @click="showEditModal = false"
+              >Cancel</UButton
+            >
+            <UButton :loading="saving" @click="saveEdit">{{ isCreating ? 'Create' : 'Save Changes' }}</UButton>
           </div>
         </div>
       </template>
