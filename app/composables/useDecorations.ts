@@ -1,4 +1,5 @@
 import { decorationRegistry } from "~/utils/decorations";
+import type { DecorationCatalogEntry } from "~/types/decoration";
 
 interface OwnedDecoration {
   decorationId: string;
@@ -8,6 +9,7 @@ interface OwnedDecoration {
 
 export function useDecorations() {
   const userStore = useUserStore();
+  const catalog = ref<DecorationCatalogEntry[]>([]);
   const ownedDecorations = ref<OwnedDecoration[]>([]);
   const loading = ref(false);
 
@@ -19,6 +21,17 @@ export function useDecorations() {
   const activeDecorationId = computed(
     () => userStore.user?.prefs?.activeDecoration || null,
   );
+
+  const fetchCatalog = async () => {
+    try {
+      const data = await $fetch<DecorationCatalogEntry[]>(
+        "/api/decorations/catalog",
+      );
+      catalog.value = data;
+    } catch (err) {
+      console.error("Failed to fetch decoration catalog:", err);
+    }
+  };
 
   const fetchOwned = async () => {
     loading.value = true;
@@ -32,6 +45,10 @@ export function useDecorations() {
     } finally {
       loading.value = false;
     }
+  };
+
+  const fetchAll = async () => {
+    await Promise.all([fetchCatalog(), fetchOwned()]);
   };
 
   const isOwned = (decorationId: string) =>
@@ -60,21 +77,44 @@ export function useDecorations() {
   };
 
   const allDecorations = computed(() =>
-    Object.entries(decorationRegistry).map(([id]) => ({
-      id,
-      name: id,
-      owned: isOwned(id),
-      active: activeDecorationId.value === id,
+    catalog.value.map((entry) => ({
+      ...entry,
+      component: decorationRegistry[entry.decorationId]?.component ?? null,
+      owned: entry.freeForAll || isOwned(entry.decorationId),
+      active: activeDecorationId.value === entry.decorationId,
     })),
   );
 
+  const startPurchase = (decorationId: string) => {
+    const entry = catalog.value.find((d) => d.decorationId === decorationId);
+    if (!entry?.discordSkuId) return;
+
+    const { isDiscordActivity } = useDiscordSDK();
+    const clientId = useRuntimeConfig().public.discordClientId as string;
+    const storeUrl = `https://discord.com/application-directory/${clientId}/store/${entry.discordSkuId}`;
+
+    if (isDiscordActivity.value) {
+      const { getSdk } = useDiscordSDK();
+      const sdk = getSdk();
+      if (sdk) {
+        sdk.commands.openExternalLink({ url: storeUrl });
+      }
+    } else {
+      window.open(storeUrl, "_blank");
+    }
+  };
+
   return {
+    catalog,
     ownedDecorations,
     activeDecorationId,
     allDecorations,
     loading,
+    fetchCatalog,
     fetchOwned,
+    fetchAll,
     equip,
     unequip,
+    startPurchase,
   };
 }
