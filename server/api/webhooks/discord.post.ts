@@ -19,8 +19,12 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify Discord signature
-  const signature = getHeader(event, "x-signature-ed25519") ?? "";
-  const timestamp = getHeader(event, "x-signature-timestamp") ?? "";
+  const signature = getHeader(event, "x-signature-ed25519");
+  const timestamp = getHeader(event, "x-signature-timestamp");
+
+  if (!signature || !timestamp) {
+    throw createError({ statusCode: 400, statusMessage: "Missing required signature headers" });
+  }
 
   const isValid = await verifyDiscordSignature(
     rawBody,
@@ -34,13 +38,13 @@ export default defineEventHandler(async (event) => {
 
   const body = JSON.parse(rawBody);
 
-  // Handle PING (type 1) — required for Discord endpoint verification
-  if (body.type === 1) {
+  // Handle PING — no event wrapper
+  if (body.type === 1 && !body.event) {
     return { type: 1 };
   }
 
   // Handle ENTITLEMENT_CREATE events
-  if (body.type === 0 && body.event?.type === "ENTITLEMENT_CREATE") {
+  if (body.type === 1 && body.event?.type === "ENTITLEMENT_CREATE") {
     const entitlement = body.event.data;
     const discordUserId: string | undefined = entitlement?.user_id;
     const skuId: string | undefined = entitlement?.sku_id;
@@ -68,22 +72,40 @@ export default defineEventHandler(async (event) => {
 
     const decorationId: string = decorationResult.rows[0].decorationId;
 
-    // Look up Appwrite user by Discord label
+    // Look up Appwrite user by Discord ID — try OAuth identity first, then label fallback
     const { users } = useAppwriteAdmin();
-    const userResult = await users.list([
-      Query.contains("labels", [`discord:${discordUserId}`]),
-      Query.limit(1),
-    ]);
+    let userId: string | undefined;
 
-    if (userResult.total === 0) {
-      console.warn(
-        `[discord-webhook] No Appwrite user for Discord ID: ${discordUserId}`,
-      );
+    // Step 1: OAuth identity (web users — most common path)
+    try {
+      const identities = await users.listIdentities([
+        Query.equal("providerUid", discordUserId),
+        Query.equal("provider", "discord"),
+        Query.limit(1),
+      ]);
+      if (identities.total > 0) {
+        userId = identities.identities[0].userId;
+      }
+    } catch {
+      // listIdentities may not be available in all Appwrite versions — fall through
+    }
+
+    // Step 2: Label fallback (Discord Activity users)
+    if (!userId) {
+      const labeled = await users.list([
+        Query.contains("labels", [`discord:${discordUserId}`]),
+        Query.limit(1),
+      ]);
+      if (labeled.total > 0) {
+        userId = labeled.users[0].$id;
+      }
+    }
+
+    if (!userId) {
+      console.warn(`[discord-webhook] No Appwrite user for Discord ID: ${discordUserId}`);
       setResponseStatus(event, 204);
       return "";
     }
-
-    const userId: string = userResult.users[0].$id;
 
     // Grant the decoration — unique index handles idempotency
     try {
@@ -99,7 +121,6 @@ export default defineEventHandler(async (event) => {
         },
       });
     } catch (err: any) {
-      // Duplicate — user already owns it
       const isDuplicate =
         err?.code === 409 ||
         err?.type === "document_already_exists" ||
@@ -107,9 +128,7 @@ export default defineEventHandler(async (event) => {
       if (!isDuplicate) {
         throw err;
       }
-      console.info(
-        `[discord-webhook] User ${userId} already owns ${decorationId}`,
-      );
+      console.info(`[discord-webhook] User ${userId} already owns ${decorationId}`);
     }
 
     setResponseStatus(event, 204);
