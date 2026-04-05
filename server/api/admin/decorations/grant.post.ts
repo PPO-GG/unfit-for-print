@@ -1,0 +1,39 @@
+import { ID, Query } from "node-appwrite";
+
+export default defineEventHandler(async (event) => {
+  await assertAdmin(event);
+
+  const body = await readBody(event);
+  const { userId, decorationId } = body;
+
+  if (!userId || !decorationId) {
+    throw createError({ statusCode: 400, statusMessage: "userId and decorationId are required" });
+  }
+
+  const { DB, USER_DECORATIONS } = getCollectionIds();
+  const tables = getAdminTables();
+
+  const existing = await tables.listRows({
+    databaseId: DB,
+    tableId: USER_DECORATIONS,
+    queries: [Query.equal("userId", userId), Query.equal("decorationId", decorationId)],
+  });
+
+  if (existing.total > 0) {
+    throw createError({ statusCode: 409, statusMessage: "User already owns this decoration" });
+  }
+
+  await tables.createRow({
+    databaseId: DB,
+    tableId: USER_DECORATIONS,
+    rowId: ID.unique(),
+    data: {
+      userId,
+      decorationId,
+      acquiredAt: new Date().toISOString(),
+      source: "admin_grant",
+    },
+  });
+
+  return { success: true };
+});
