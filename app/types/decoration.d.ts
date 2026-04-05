@@ -16,6 +16,9 @@ export interface AttachmentConfig {
   clipped: boolean; // mask to the avatar circle (inset mode)
 }
 
+/** Format of the uploaded decoration file */
+export type ImageFormat = "png" | "webp" | "lottie" | "dotlottie";
+
 /** Decoration type discriminator */
 export type DecorationType = "effect" | "attachment";
 
@@ -34,5 +37,6 @@ export interface DecorationCatalogEntry {
   price: number;
   sortOrder: number;
   imageFileId: string | null;
+  imageFormat: ImageFormat | null;
   attachment: AttachmentConfig | null;
 }

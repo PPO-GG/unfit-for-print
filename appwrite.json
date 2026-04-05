@@ -1008,7 +1008,8 @@
         { "key": "price", "type": "float", "required": true, "array": false, "default": 0 },
         { "key": "sortOrder", "type": "integer", "required": true, "array": false, "default": 999 },
         { "key": "imageFileId", "type": "string", "required": false, "array": false, "size": 64, "default": null },
-        { "key": "attachment", "type": "string", "required": false, "array": false, "size": 2048, "default": null }
+        { "key": "attachment", "type": "string", "required": false, "array": false, "size": 2048, "default": null },
+        { "key": "imageFormat", "type": "string", "required": false, "array": false, "size": 16, "default": null }
       ],
       "indexes": [
         { "key": "decorationId_idx", "type": "unique", "attributes": ["decorationId"], "orders": ["ASC"] },
