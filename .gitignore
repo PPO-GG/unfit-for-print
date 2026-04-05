@@ -6,7 +6,7 @@
 .cache
 dist
 .agent
-
+.docs
 # Node dependencies
 node_modules
 
@@ -28,3 +28,4 @@ CLAUDE.md
 .claude/settings.local.json
 .worktrees
 .superpowers
+docs/
