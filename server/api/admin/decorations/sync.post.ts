@@ -13,6 +13,16 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const hasInvalidKey = registryKeys.some(
+    (k) => typeof k !== "string" || k.trim() === "" || k.length > 64,
+  );
+  if (hasInvalidKey) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Each registryKey must be a non-empty string ≤ 64 characters",
+    });
+  }
+
   const { DB, DECORATIONS } = getCollectionIds();
   const tables = getAdminTables();
 

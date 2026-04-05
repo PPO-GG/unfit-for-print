@@ -16,7 +16,11 @@ export default defineEventHandler(async (event) => {
   const existing = await tables.listRows({
     databaseId: DB,
     tableId: USER_DECORATIONS,
-    queries: [Query.equal("userId", userId), Query.equal("decorationId", decorationId)],
+    queries: [
+      Query.equal("userId", userId),
+      Query.equal("decorationId", decorationId),
+      Query.limit(1),
+    ],
   });
 
   if (existing.total === 0) {
