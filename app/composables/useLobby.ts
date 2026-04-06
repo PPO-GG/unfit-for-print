@@ -73,6 +73,42 @@ export const useLobby = () => {
     }
   };
 
+  const getLobbiesByChannelId = async (
+    discordChannelId: string,
+  ): Promise<Lobby[]> => {
+    const { tables } = getAppwrite();
+    const config = getConfig();
+    try {
+      const result = await tables.listRows({
+        databaseId: config.public.appwriteDatabaseId,
+        tableId: config.public.appwriteLobbyCollectionId,
+        queries: [
+          Query.equal("discordChannelId", discordChannelId),
+          Query.notEqual("status", "complete"),
+          Query.orderDesc("$createdAt"),
+          Query.limit(10),
+        ],
+      });
+      return result.rows as unknown as Lobby[];
+    } catch {
+      return [];
+    }
+  };
+
+  const updateLobbyPrivacy = async (
+    lobbyId: string,
+    vcOnly: boolean,
+  ): Promise<void> => {
+    const { tables } = getAppwrite();
+    const config = getConfig();
+    await tables.updateRow({
+      databaseId: config.public.appwriteDatabaseId,
+      tableId: config.public.appwriteLobbyCollectionId,
+      rowId: lobbyId,
+      data: { vcOnly },
+    });
+  };
+
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
@@ -83,7 +119,11 @@ export const useLobby = () => {
       const playerRes = await tables.listRows({
         databaseId: config.public.appwriteDatabaseId,
         tableId: config.public.appwritePlayerCollectionId,
-        queries: [Query.equal("userId", userId), Query.limit(1)],
+        queries: [
+          Query.equal("userId", userId),
+          Query.orderDesc("$createdAt"),
+          Query.limit(1),
+        ],
       });
 
       if (playerRes.total === 0) return null;
@@ -155,6 +195,8 @@ export const useLobby = () => {
     isPrivate?: boolean,
     _password?: string,
     discordInstanceId?: string,
+    discordChannelId?: string,
+    vcOnly?: boolean,
   ) => {
     const { tables } = getAppwrite();
     const config = getConfig();
@@ -172,12 +214,17 @@ export const useLobby = () => {
     const lobbyCode = randomValue.substring(0, 6).toUpperCase();
 
     try {
+      const displayName = lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
+
       // Create minimal Appwrite registry doc (discovery only)
       const lobbyData: Record<string, unknown> = {
         hostUserId,
         code: lobbyCode,
         status: "waiting",
+        lobbyName: displayName,
         ...(discordInstanceId ? { discordInstanceId } : {}),
+        ...(discordChannelId ? { discordChannelId } : {}),
+        ...(vcOnly !== undefined ? { vcOnly } : {}),
       };
 
       const permissions = [
@@ -196,9 +243,6 @@ export const useLobby = () => {
 
       // Connect to Teleportal Y.Doc and initialize the full structure
       await lobbyDoc.connect(lobbyCode);
-
-      const displayName =
-        lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
 
       const user = userStore.user;
       const session = userStore.session;
@@ -349,7 +393,6 @@ export const useLobby = () => {
             joinedAt: new Date().toISOString(),
             provider: session.provider,
             playerType,
-            activeDecoration,
           },
           permissions: [
             Permission.read(Role.any()),
@@ -500,48 +543,6 @@ export const useLobby = () => {
       } catch (err) {
         console.warn(
           "[useLobby] Failed to clean up remaining player docs on teardown:",
-          err,
-        );
-      }
-
-      // Clean up game chat messages for this lobby
-      try {
-        const chatRes = await tables.listRows({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteGamechatCollectionId,
-          queries: [
-            Query.equal("lobbyId", lobbyId),
-            Query.limit(500),
-          ],
-        });
-        for (const msg of chatRes.rows) {
-          try {
-            await tables.deleteRow({
-              databaseId: config.public.appwriteDatabaseId,
-              tableId: config.public.appwriteGamechatCollectionId,
-              rowId: msg.$id,
-            });
-          } catch {
-            // Best-effort
-          }
-        }
-      } catch (err) {
-        console.warn(
-          "[useLobby] Failed to clean up game chat on teardown:",
-          err,
-        );
-      }
-
-      // Clean up game settings for this lobby
-      try {
-        await tables.deleteRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteGameSettingsCollectionId,
-          rowId: `settings-${lobbyId}`,
-        });
-      } catch (err) {
-        console.warn(
-          "[useLobby] Failed to clean up game settings on teardown:",
           err,
         );
       }
@@ -714,6 +715,10 @@ export const useLobby = () => {
         /* ignore */
       }
     }
+
+    // Auto-skip before removing so the round can advance if needed
+    engine.skipPlayer(playerId);
+
     mutations.removePlayer(playerId, name);
   };
 
@@ -824,27 +829,6 @@ export const useLobby = () => {
         );
       }
 
-      // 6. Update GameSettings permissions in Appwrite so the new host can save settings
-      //    We only update permissions, not the data. This allows the new host full access.
-      try {
-        const documentId = `settings-${lobbyId}`;
-        await tables.updateRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteGameSettingsCollectionId,
-          rowId: documentId,
-          data: {},
-          permissions: [
-            Permission.read(Role.any()),
-            Permission.update(Role.user(newHostPlayer.userId)),
-            Permission.delete(Role.user(newHostPlayer.userId)),
-          ],
-        });
-      } catch (err) {
-        console.warn(
-          "[useLobby] Failed to update GameSettings permissions for new host:",
-          err,
-        );
-      }
     }
   };
 
@@ -1022,6 +1006,8 @@ export const useLobby = () => {
     joinLobby,
     getLobbyByCode,
     getLobbyByInstanceId,
+    getLobbiesByChannelId,
+    updateLobbyPrivacy,
     leaveLobby,
     isInLobby,
 
