@@ -60,7 +60,7 @@
                 t("game.settings.cards_per_player")
               }}</label>
               <UInput
-                v-model.number="localSettings.numPlayerCards"
+                v-model.number="localSettings.cardsPerPlayer"
                 type="number"
                 min="5"
                 max="20"
@@ -92,19 +92,6 @@
             <UCheckbox
               v-model="localSettings.isPrivate"
               :label="t('game.settings.is_private')"
-            />
-          </div>
-
-          <!-- Password (conditional) -->
-          <div v-if="localSettings.isPrivate" class="field-group">
-            <label class="field-label">{{
-              t("game.settings.lobby_password")
-            }}</label>
-            <UInput
-              v-model="localSettings.password"
-              :placeholder="t('game.settings.lobby_password')"
-              type="password"
-              class="settings-input"
             />
           </div>
 
@@ -161,8 +148,7 @@
 
 <script lang="ts" setup>
 import { onMounted, ref, watch } from "vue";
-import type { GameSettings } from "~/types/gamesettings";
-import { useGameSettings } from "~/composables/useGameSettings";
+import type { LobbySettings } from "~/composables/useLobbyReactive";
 import { useNotifications } from "~/composables/useNotifications";
 import { getAppwrite } from "~/utils/appwrite";
 import { Query } from "appwrite";
@@ -173,18 +159,16 @@ const { databases, tables } = getAppwrite();
 const config = useRuntimeConfig();
 
 const props = defineProps<{
-  settings: GameSettings;
+  settings: LobbySettings;
   isEditable: boolean;
-  lobbyId: string;
-  hostUserId?: string;
 }>();
 
 const emit = defineEmits<{
-  (e: "update:settings", settings: GameSettings): void;
+  (e: "update:settings", settings: LobbySettings): void;
 }>();
 
-const { saveGameSettings } = useGameSettings();
-const localSettings = ref<GameSettings>({ ...props.settings });
+const { mutations } = useLobby();
+const localSettings = ref<LobbySettings>({ ...props.settings });
 const expanded = ref(false);
 
 watch(
@@ -259,13 +243,16 @@ onMounted(async () => {
   }
 });
 
-const saveSettings = async () => {
+const saveSettings = () => {
   try {
-    await saveGameSettings(
-      props.lobbyId,
-      localSettings.value,
-      props.hostUserId,
-    );
+    mutations.updateSettings({
+      maxPoints: localSettings.value.maxPoints,
+      cardsPerPlayer: localSettings.value.cardsPerPlayer,
+      maxPick: localSettings.value.maxPick,
+      cardPacks: localSettings.value.cardPacks,
+      isPrivate: localSettings.value.isPrivate,
+      lobbyName: localSettings.value.lobbyName,
+    });
     emit("update:settings", localSettings.value);
     notify({
       title: t("game.settings.updated"),
@@ -285,14 +272,13 @@ const saveSettings = async () => {
 const readOnlyMap = {
   lobbyName: t("game.settings.lobby_name"),
   maxPoints: t("game.settings.points_to_win"),
-  numPlayerCards: t("game.settings.cards_per_player"),
+  cardsPerPlayer: t("game.settings.cards_per_player"),
   maxPick: t("game.settings.max_pick"),
   isPrivate: t("game.settings.is_private"),
-  password: t("game.settings.lobby_password"),
   cardPacks: t("game.settings.card_packs"),
 };
 
-const formatValue = (key: keyof GameSettings) => {
+const formatValue = (key: keyof LobbySettings) => {
   const value = props.settings[key];
   if (key === "isPrivate") return value ? "YES" : "NO";
   if (key === "maxPick")
