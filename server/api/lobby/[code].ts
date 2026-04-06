@@ -34,20 +34,8 @@ export default defineEventHandler(async (event) => {
 
   const lobby = res.rows[0]!;
 
-  // ── Enrich with lobby name from game settings ──────────────────────────
-  let lobbyName: string | null = null;
-  try {
-    const settingsRes = await tables.listRows({
-      databaseId: dbId,
-      tableId: config.public.appwriteGameSettingsCollectionId as string,
-      queries: [Query.equal("lobbyId", lobby.$id), Query.limit(1)],
-    });
-    if (settingsRes.total > 0 && settingsRes.rows[0]?.lobbyName) {
-      lobbyName = settingsRes.rows[0].lobbyName as string;
-    }
-  } catch {
-    // Non-critical — fall through with null
-  }
+  // ── Read lobbyName directly from lobby doc ─────────────────────────────────
+  const lobbyName = (lobby.lobbyName as string | null) ?? null;
 
   // ── Enrich with host display name from players collection ─────────────
   let hostName: string | null = null;
