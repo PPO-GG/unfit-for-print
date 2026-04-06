@@ -30,6 +30,23 @@ function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
   }
 }
 
+/** Merge chunked cardTexts keys (cardTexts_0, cardTexts_1, ...) from a Y.Map.
+ *  startGame splits card texts across multiple keys to stay under Teleportal's
+ *  ~64KB message limit. Falls back to the legacy flat "cardTexts" key. */
+function mergeCardTexts(c: { get(key: string): string | undefined }): CardTexts {
+  const numChunks = parseInt(c.get("cardTextsChunks") || "0", 10);
+  if (numChunks > 0) {
+    const merged: CardTexts = {};
+    for (let i = 0; i < numChunks; i++) {
+      Object.assign(merged, safeParseJson(c.get(`cardTexts_${i}`), {}));
+    }
+    // Also merge the flat key so replenished white cards are included
+    Object.assign(merged, safeParseJson(c.get("cardTexts"), {}));
+    return merged;
+  }
+  return safeParseJson<CardTexts>(c.get("cardTexts"), {});
+}
+
 /** Fisher-Yates shuffle (in-place) */
 function shuffle<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -446,11 +463,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         3,
       );
 
-      // Look up the card text from the embedded cardTexts
-      const cardTexts = safeParseJson<CardTexts>(
-        getCards().get("cardTexts"),
-        {},
-      );
+      // Look up the card text from the embedded cardTexts (chunked keys)
+      const cardTexts = mergeCardTexts(getCards());
 
       // Find next eligible black card (pick <= maxPick)
       let newBlackCardId: string | null = null;
@@ -809,10 +823,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
           lobbyDoc.getSettings().get("maxPick"),
           3,
         );
-        const cardTexts = safeParseJson<Record<string, any>>(
-          c.get("cardTexts"),
-          {},
-        );
+        const cardTexts = mergeCardTexts(c);
 
         // Find next eligible black card (pick <= maxPick)
         let nextBlackId: string | null = null;
