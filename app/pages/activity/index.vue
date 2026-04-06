@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen gap-4">
+  <div class="flex flex-col items-center justify-center h-screen gap-4">
     <img src="/img/ufp2.svg" alt="Unfit For Print" class="w-32 h-auto" />
 
     <div class="text-center">
