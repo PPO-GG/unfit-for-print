@@ -98,9 +98,10 @@ export default defineEventHandler(async (event) => {
     }
 
     // Build the full CDN URL if we have both pieces
+    const avatarExt = avatarHash?.startsWith("a_") ? "gif" : "png";
     const avatarUrl =
       discordUserId && avatarHash
-        ? `https://cdn.discordapp.com/avatars/${discordUserId}/${avatarHash}.png?size=128`
+        ? `https://cdn.discordapp.com/avatars/${discordUserId}/${avatarHash}.${avatarExt}?size=128`
         : null;
 
     return {

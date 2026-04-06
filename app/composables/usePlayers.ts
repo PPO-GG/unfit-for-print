@@ -54,7 +54,8 @@ export const usePlayers = () => {
     const discordUserId = user.prefs.discordUserId;
     const avatar = user.prefs.avatar;
     if (discordUserId && avatar) {
-      return `https://cdn.discordapp.com/avatars/${discordUserId}/${avatar}.png`;
+      const ext = avatar.startsWith("a_") ? "gif" : "png";
+      return `https://cdn.discordapp.com/avatars/${discordUserId}/${avatar}.${ext}`;
     }
 
     // Google avatar is stored as a full URL in prefs
