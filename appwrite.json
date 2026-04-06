@@ -341,6 +341,14 @@
           "array": false,
           "size": 255,
           "default": null
+        },
+        {
+          "key": "lobbyName",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
         }
       ],
       "indexes": [
@@ -625,139 +633,6 @@
       "indexes": []
     },
     {
-      "$id": "682f71970037cff8ed48",
-      "$permissions": [
-        "create(\"users\")",
-        "read(\"users\")",
-        "update(\"users\")",
-        "delete(\"users\")",
-        "create(\"guests\")",
-        "read(\"guests\")"
-      ],
-      "databaseId": "682f6e7600320fde48dd",
-      "name": "gamechat",
-      "enabled": true,
-      "documentSecurity": false,
-      "attributes": [
-        {
-          "key": "lobbyId",
-          "type": "string",
-          "required": false,
-          "array": false,
-          "size": 48,
-          "default": null
-        },
-        {
-          "key": "senderId",
-          "type": "string",
-          "required": false,
-          "array": false,
-          "size": 48,
-          "default": null
-        },
-        {
-          "key": "senderName",
-          "type": "string",
-          "required": false,
-          "array": false,
-          "size": 48,
-          "default": null
-        },
-        {
-          "key": "text",
-          "type": "string",
-          "required": false,
-          "array": false,
-          "size": 255,
-          "default": null
-        },
-        {
-          "key": "timeStamp",
-          "type": "datetime",
-          "required": false,
-          "array": false,
-          "format": "",
-          "default": null
-        }
-      ],
-      "indexes": [
-        {
-          "key": "lobbyId_timeStamp",
-          "type": "key",
-          "attributes": ["lobbyId", "timeStamp"],
-          "orders": ["ASC", "ASC"]
-        }
-      ]
-    },
-    {
-      "$id": "682f728c00354e3180b9",
-      "$permissions": ["read(\"any\")", "create(\"users\")"],
-      "databaseId": "682f6e7600320fde48dd",
-      "name": "gamesettings",
-      "enabled": true,
-      "documentSecurity": true,
-      "attributes": [
-        {
-          "key": "maxPoints",
-          "type": "integer",
-          "required": false,
-          "array": false,
-          "min": 1,
-          "max": 9223372036854775807,
-          "default": null
-        },
-        {
-          "key": "numPlayerCards",
-          "type": "integer",
-          "required": false,
-          "array": false,
-          "min": 1,
-          "max": 9223372036854775807,
-          "default": null
-        },
-        {
-          "key": "cardPacks",
-          "type": "string",
-          "required": false,
-          "array": true,
-          "size": 4096,
-          "default": null
-        },
-        {
-          "key": "isPrivate",
-          "type": "boolean",
-          "required": false,
-          "array": false,
-          "default": false
-        },
-        {
-          "key": "password",
-          "type": "string",
-          "required": false,
-          "array": false,
-          "size": 48,
-          "default": null
-        },
-        {
-          "key": "lobbyName",
-          "type": "string",
-          "required": false,
-          "array": false,
-          "size": 48,
-          "default": null
-        },
-        {
-          "key": "lobbyId",
-          "type": "string",
-          "required": false,
-          "array": false,
-          "size": 48,
-          "default": null
-        }
-      ],
-      "indexes": []
-    },
-    {
       "$id": "682f739000399dcb3559",
       "$permissions": [
         "read(\"any\")",
@@ -829,6 +704,29 @@
           "array": false,
           "size": 255,
           "default": null
+        },
+        {
+          "key": "discordChannelId",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 255,
+          "default": null
+        },
+        {
+          "key": "vcOnly",
+          "type": "boolean",
+          "required": false,
+          "array": false,
+          "default": false
+        },
+        {
+          "key": "lobbyName",
+          "type": "string",
+          "required": false,
+          "array": false,
+          "size": 48,
+          "default": null
         }
       ],
       "indexes": [
@@ -837,6 +735,13 @@
           "type": "unique",
           "status": "available",
           "attributes": ["discordInstanceId"],
+          "orders": ["ASC"]
+        },
+        {
+          "key": "idx_discordChannelId",
+          "type": "key",
+          "status": "available",
+          "attributes": ["discordChannelId"],
           "orders": ["ASC"]
         }
       ]
