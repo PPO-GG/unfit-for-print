@@ -8,7 +8,7 @@ const pkg = JSON.parse(
 
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
-  devtools: { enabled: false },
+  devtools: { enabled: true },
   ssr: true,
 
   // ─── Cloudflare Workers compatibility ──────────────────────────────
