@@ -1,25 +1,16 @@
 // middleware/discord-activity.global.ts
-// Keep Discord Activity users within the Activity flow.
-// Allowed routes: /activity (auth), /activity/hub (VC Hub), /game/* (gameplay)
+// Handles routing for Discord Activity sessions.
+// Activity users can navigate freely — the only redirect is skipping the
+// /activity init page when the user is already authenticated.
 export default defineNuxtRouteMiddleware((to) => {
   if (!import.meta.client) return;
 
   const { isDiscordActivity, isAuthenticated } = useDiscordSDK();
 
-  // Dev mode: allow direct access to Activity pages
-  if (!isDiscordActivity.value) {
-    if (import.meta.dev) return;
-    return;
-  }
+  if (!isDiscordActivity.value) return;
 
-  const allowed =
-    to.path === "/activity" ||
-    to.path === "/activity/hub" ||
-    to.path.startsWith("/game/");
-
-  if (!allowed) {
-    // If already authenticated, go to hub. Otherwise, go to auth flow.
-    const target = isAuthenticated.value ? "/activity/hub" : "/activity";
-    return navigateTo({ path: target, query: to.query }, { replace: true });
+  // Skip the auth/init flow if already authenticated — go straight to hub
+  if (to.path === "/activity" && isAuthenticated.value) {
+    return navigateTo("/activity/hub", { replace: true });
   }
 });
