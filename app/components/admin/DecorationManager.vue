@@ -809,6 +809,21 @@ onMounted(fetchCatalog);
                   />
                 </div>
 
+                <!-- Speed (Lottie only) -->
+                <div v-if="isLottieFormat">
+                  <label class="block text-xs uppercase text-slate-400 mb-1">
+                    Speed: {{ attachmentForm.speed.toFixed(2) }}×
+                  </label>
+                  <input
+                    v-model.number="attachmentForm.speed"
+                    type="range"
+                    min="0.1"
+                    max="3.0"
+                    step="0.05"
+                    class="w-full accent-indigo-500"
+                  />
+                </div>
+
                 <!-- Rotation -->
                 <div>
                   <label class="block text-xs uppercase text-slate-400 mb-1">

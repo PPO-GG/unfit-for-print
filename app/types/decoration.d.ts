@@ -11,6 +11,7 @@ export interface AttachmentConfig {
   offsetX: number; // fraction of avatar size (-1.0 to 1.0)
   offsetY: number; // fraction of avatar size (-1.0 to 1.0)
   scale: number; // relative to avatar (0.1 to 2.0)
+  speed: number; // playback speed multiplier for Lottie animations (0.1 to 3.0)
   rotation: number; // degrees (-180 to 180)
   zLayer: "above" | "below"; // render above or behind the avatar
   clipped: boolean; // mask to the avatar circle (inset mode)

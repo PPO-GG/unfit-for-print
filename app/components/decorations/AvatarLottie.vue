@@ -75,6 +75,7 @@ function initDotLottie() {
     src: props.imageUrl,
     autoplay: true,
     loop: true,
+    speed: props.attachment.speed ?? 1,
     renderConfig: {
       // Cap at 1x — prevents 2-3x overdraw on HiDPI displays.
       devicePixelRatio: 1,
@@ -136,6 +137,9 @@ watch(activeCanvas, (newCanvas) => {
   destroyDotLottie();
   initDotLottie();
 });
+
+// Update playback speed without reinitializing
+watch(() => props.attachment.speed, (s) => dotLottie?.setSpeed(s ?? 1));
 
 // ─── Anchor → CSS Position Mapping ──────────────────────────────────
 const anchorPosition = computed(() => {

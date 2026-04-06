@@ -6,6 +6,7 @@ export const DEFAULT_ATTACHMENT_CONFIG: AttachmentConfig = {
   offsetX: 0,
   offsetY: -0.35,
   scale: 0.6,
+  speed: 1,
   rotation: 0,
   zLayer: "above",
   clipped: false,
