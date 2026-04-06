@@ -231,11 +231,10 @@ const sendMessage = () => {
   const trimmed = newMessage.value.trim();
   if (!trimmed) return;
 
-  // Client-side sanitization: strip control chars, HTML tags, truncate
-  const stripped = trimmed
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
-    .replace(/<[^>]*>/g, "")
-    .substring(0, maxLength);
+  // Client-side sanitization: strip control chars, sanitize HTML, truncate
+  const stripped = sanitize(
+    trimmed.replace(/[\u0000-\u001F\u007F-\u009F]/g, ""),
+  ).substring(0, maxLength);
 
   if (!stripped) return;
 
