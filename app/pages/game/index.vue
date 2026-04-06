@@ -297,9 +297,7 @@ import { getAppwrite } from "~/utils/appwrite";
 import { Query } from "appwrite";
 import type { TablesDB } from "appwrite";
 import { useGetPlayerName } from "~/composables/useGetPlayerName";
-import type { GameSettings } from "~/types/gamesettings";
 import type { Lobby } from "~/types/lobby";
-import { resolveId } from "~/utils/resolveId";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 
@@ -314,7 +312,6 @@ const { getPlayerName, getPlayerNameSync, playerCache } = useGetPlayerName();
 
 const DB_ID = config.public.appwriteDatabaseId;
 const LOBBY_COL = config.public.appwriteLobbyCollectionId;
-const GAMESETTINGS_COL = config.public.appwriteGameSettingsCollectionId;
 
 type LobbyWithName = Lobby & {
   lobbyName?: string | null;
@@ -496,29 +493,15 @@ const fetchPublicLobbies = async () => {
       tableId: LOBBY_COL,
       queries: [
         Query.equal("status", "waiting"),
+        Query.notEqual("vcOnly", true),
         Query.orderDesc("$createdAt"),
         Query.limit(100),
       ],
     });
 
-    const settingsRes = await tables.listRows<GameSettings>({
-      databaseId: DB_ID,
-      tableId: GAMESETTINGS_COL,
-      queries: [Query.limit(1000)],
-    });
-
-    const settingsMap: Record<string, GameSettings> = {};
-    for (const setting of settingsRes.rows) {
-      const lobbyId = resolveId(setting.lobbyId);
-      settingsMap[lobbyId] = setting;
-    }
-
     const publicLobbies: LobbyWithName[] = [];
 
     for (const lobby of lobbyRes.rows) {
-      const settings = settingsMap[lobby.$id];
-      if (!settings || settings.isPrivate) continue;
-
       // Start fetching the host name in the background
       if (lobby.hostUserId) {
         getPlayerName(lobby.hostUserId).then((name) => {
@@ -533,7 +516,7 @@ const fetchPublicLobbies = async () => {
 
       publicLobbies.push({
         ...lobby,
-        lobbyName: settings.lobbyName || "Unnamed Lobby",
+        lobbyName: (lobby as any).lobbyName || "Unnamed Lobby",
       });
     }
 

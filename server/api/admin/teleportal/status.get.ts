@@ -26,17 +26,13 @@ export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> 
 
   const DB_ID = config.public.appwriteDatabaseId as string;
   const LOBBY_COL = config.public.appwriteLobbyCollectionId as string;
-  const GAMESETTINGS_COL = config.public.appwriteGameSettingsCollectionId as string;
 
   try {
-    // Fetch all three sources in parallel
-    const [teleportal, lobbiesRes, settingsRes] = await Promise.all([
+    // Fetch both sources in parallel
+    const [teleportal, lobbiesRes] = await Promise.all([
       $fetch<any>(`${url}/status`),
       databases.listDocuments(DB_ID, LOBBY_COL, [
         Query.orderDesc("$createdAt"),
-        Query.limit(500),
-      ]),
-      databases.listDocuments(DB_ID, GAMESETTINGS_COL, [
         Query.limit(500),
       ]),
     ]);
@@ -44,7 +40,8 @@ export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> 
     const lobbies = mergeLobbies(
       teleportal.documents ?? {},
       lobbiesRes.documents,
-      settingsRes.documents,
+      // Game settings are now in Y.Doc — no Appwrite collection to query
+      [],
     );
 
     return {
