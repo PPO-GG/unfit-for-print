@@ -7,5 +7,8 @@ export interface Lobby extends Models.Row {
   code: string;
   hostUserId: string;
   status: "waiting" | "playing" | "complete";
+  lobbyName?: string;
   discordInstanceId?: string;
+  discordChannelId?: string;
+  vcOnly?: boolean;
 }

@@ -516,7 +516,7 @@ const fetchPublicLobbies = async () => {
 
       publicLobbies.push({
         ...lobby,
-        lobbyName: (lobby as any).lobbyName || "Unnamed Lobby",
+        lobbyName: lobby.lobbyName || "Unnamed Lobby",
       });
     }
 
