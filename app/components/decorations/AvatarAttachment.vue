@@ -168,5 +168,6 @@ const imageStyle = computed(() => {
   object-fit: contain;
   pointer-events: none;
   user-select: none;
+  max-width: none; /* Override Tailwind preflight's img { max-width: 100% } which would clamp scale > 1 */
 }
 </style>
