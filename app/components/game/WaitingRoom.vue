@@ -96,7 +96,7 @@
         <p v-if="botError" class="text-red-400 text-xs">{{ botError }}</p>
       </div>
 
-      <LazyChatBox :lobbyId="props.lobby.$id" />
+      <LazyChatBox />
       <div v-if="players.length >= 3">
         <UButton
           v-if="isHost && !isStarting"

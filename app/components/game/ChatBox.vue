@@ -35,27 +35,11 @@
       </div>
     </Transition>
 
-    <!-- ─── Error banner ──────────────────────────── -->
-    <div v-if="errorMessage" class="chat-error">
-      <Icon name="solar:danger-triangle-bold-duotone" />
-      {{ errorMessage }}
-    </div>
-
     <!-- ─── Messages feed ─────────────────────────── -->
     <div class="chat-feed-wrap">
       <div ref="chatContainer" class="chat-feed" @scroll="handleScroll">
-        <!-- Load older -->
-        <button
-          v-if="hasMore"
-          class="load-older-btn"
-          :disabled="loadingMore"
-          @click="loadOlderMessages"
-        >
-          {{ loadingMore ? t("chat.loading") : t("chat.load_more") }}
-        </button>
-
         <!-- Empty state -->
-        <div v-if="messages.length === 0" class="chat-empty">
+        <div v-if="reactive.chat.value.length === 0" class="chat-empty">
           <Icon name="solar:chat-round-bold-duotone" class="chat-empty-icon" />
           <span>{{ t("chat.no_messages") }}</span>
         </div>
@@ -63,21 +47,18 @@
         <!-- Message rows -->
         <TransitionGroup name="chat-msg" tag="div" class="chat-messages">
           <div
-            v-for="msg in messages"
-            :key="msg.$id"
+            v-for="msg in reactive.chat.value"
+            :key="msg.id"
             class="chat-row"
             :class="{
-              'chat-row--system': msg.senderId === 'system',
-              'chat-row--mine': msg.senderId === currentUserId,
+              'chat-row--system': msg.isSystem,
+              'chat-row--mine': msg.userId === currentUserId.value,
             }"
           >
             <!-- System message -->
-            <template v-if="msg.senderId === 'system'">
+            <template v-if="msg.isSystem">
               <span class="sys-pill">
-                <Icon
-                  name="solar:server-square-bold-duotone"
-                  class="sys-icon"
-                />
+                <Icon name="solar:server-square-bold-duotone" class="sys-icon" />
                 SERVER
               </span>
               <span class="sys-text">{{ safeText(msg.text) }}</span>
@@ -87,9 +68,9 @@
             <template v-else>
               <span
                 class="name-pill"
-                :style="{ '--name-color': uidToHSLColor(msg.senderId) }"
+                :style="{ '--name-color': uidToHSLColor(msg.userId) }"
               >
-                {{ msg.senderName }}
+                {{ msg.name }}
               </span>
               <span class="msg-text">{{ safeText(msg.text) }}</span>
             </template>
@@ -109,7 +90,6 @@
     <!-- ─── Input bar ────────────────────────────── -->
     <div class="chat-input-bar">
       <textarea
-        ref="chatInput"
         v-model="newMessage"
         class="chat-textarea"
         :placeholder="t('chat.placeholder')"
@@ -142,15 +122,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { getAppwrite } from "~/utils/appwrite";
-import { useUserStore } from "~/stores/userStore";
+import { computed, nextTick, ref, watch } from "vue";
 import { Filter } from "bad-words";
-import { Query, type Models } from "appwrite";
 import { useBrowserSpeech } from "~/composables/useBrowserSpeech";
 import { useSpeech } from "~/composables/useSpeech";
 import { useUserPrefsStore } from "~/stores/userPrefsStore";
-import { resolveId } from "~/utils/resolveId";
 import { SFX } from "~/config/sfx.config";
 
 const elevenLabsVoiceId = "NuIlfu52nTXRM2NXDrjS";
@@ -160,12 +136,21 @@ const prefs = useUserPrefsStore();
 const { t } = useI18n();
 const maxLength = 255;
 const { playSfx } = useSfx();
-const autoResize = (e: Event) => {
-  const target = e.target as HTMLTextAreaElement;
-  target.style.height = "auto";
-  target.style.height = `${target.scrollHeight}px`;
-  nextTick(() => (target.scrollTop = target.scrollHeight));
-};
+const { sanitize } = useSanitize();
+
+const { reactive, lobbyDoc } = useLobby();
+const chat = useLobbyChat(lobbyDoc);
+
+const userStore = useUserStore();
+const currentUserId = computed(() => userStore.user?.$id);
+
+const newMessage = ref("");
+const chatContainer = ref<HTMLDivElement | null>(null);
+const isAtBottom = ref(true);
+const showSettings = ref(false);
+
+const isMessageEmpty = computed(() => !newMessage.value.trim());
+const filter = new Filter();
 
 const speak = (text: string) => {
   if (prefs.ttsVoice === elevenLabsVoiceId) {
@@ -175,172 +160,24 @@ const speak = (text: string) => {
   }
 };
 
-interface ChatMessage extends Models.Document {
-  lobbyId: string;
-  senderId: string;
-  senderName: string;
-  text: string;
-  timeStamp: string;
-  type?: "user" | "system";
-}
-
-const props = withDefaults(
-  defineProps<{
-    lobbyId?: string;
-  }>(),
-  {
-    lobbyId: "",
-  },
-);
-const { sanitize } = useSanitize();
-const { databases, tables, client } = getAppwrite();
-const userStore = useUserStore();
-const config = useRuntimeConfig();
-const dbId = config.public.appwriteDatabaseId;
-const messagesCollectionId = config.public.appwriteGamechatCollectionId;
-
-const messages = ref<ChatMessage[]>([]);
-const newMessage = ref("");
-const safeText = (text: string) => sanitize(text);
-const chatContainer = ref<HTMLDivElement | null>(null);
-const isAtBottom = ref(true);
-const errorMessage = ref<string | null>(null);
-const showSettings = ref(false);
-const currentUserId = computed(() => userStore.user?.$id);
-
-// Track optimistically-inserted message IDs so the Realtime echo can be deduped
-const optimisticIds = new Set<string>();
-
-const isMessageEmpty = computed(() => !newMessage.value.trim());
-const hasMore = ref(false);
-const loadingMore = ref(false);
-const MESSAGES_PER_PAGE = 100;
-
-const filter = new Filter();
-
 function uidToHSLColor(uid: string): string {
   let hash = 0;
   for (let i = 0; i < uid.length; i++) {
     hash = uid.charCodeAt(i) + ((hash << 5) - hash);
   }
-
-  const hue = hash % 360;
-  const saturation = 65;
-  const lightness = 55;
-
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  return `hsl(${hash % 360}, 65%, 55%)`;
 }
 
-const applyFilters = (doc: any): ChatMessage => {
-  const text = Array.isArray(doc.text) ? doc.text.join(" ") : doc.text;
-  const safe = sanitize(text);
-  return {
-    ...doc,
-    text: prefs.chatProfanityFilter ? filter.clean(safe) : safe,
-  };
+const safeText = (text: string) => {
+  const sanitized = sanitize(text);
+  return prefs.chatProfanityFilter ? filter.clean(sanitized) : sanitized;
 };
 
-const loadMessages = async () => {
-  try {
-    errorMessage.value = null;
-
-    if (!props.lobbyId) {
-      errorMessage.value = t("chat.error_loading_messages");
-      return () => {};
-    }
-
-    // Load the latest N messages (descending), then reverse for display
-    const res = await tables.listRows({
-      databaseId: dbId,
-      tableId: messagesCollectionId,
-      queries: [
-        Query.equal("lobbyId", props.lobbyId),
-        Query.orderDesc("timeStamp"),
-        Query.limit(MESSAGES_PER_PAGE),
-      ],
-    });
-
-    hasMore.value = res.total > res.rows.length;
-    messages.value = res.rows.reverse().map(applyFilters) as ChatMessage[];
-
-    return client.subscribe(
-      `databases.${dbId}.collections.${messagesCollectionId}.documents`,
-      (e: any) => {
-        if (e.events.includes("databases.*.collections.*.documents.*.create")) {
-          const doc = e.payload as ChatMessage;
-          const docLobbyId = resolveId(doc.lobbyId);
-
-          if (props.lobbyId && docLobbyId === props.lobbyId) {
-            // Dedup: skip if this message was already optimistically inserted
-            if (optimisticIds.has(doc.$id)) {
-              optimisticIds.delete(doc.$id);
-              return;
-            }
-
-            // Race-condition guard: if the realtime echo arrives before $fetch
-            // returns, optimisticIds won't have the real ID yet. Detect this by
-            // checking for a pending optimistic message from the same sender.
-            if (doc.senderId === userStore.user?.$id) {
-              const pendingIdx = messages.value.findIndex(
-                (m) =>
-                  m.$id.startsWith("__optimistic_") &&
-                  m.senderId === doc.senderId,
-              );
-              if (pendingIdx !== -1) {
-                // Replace the optimistic placeholder with the real message
-                const safeDoc = applyFilters(doc);
-                messages.value.splice(pendingIdx, 1, safeDoc);
-                // Mark as handled so the later $fetch dedup also skips it
-                optimisticIds.add(doc.$id);
-                return;
-              }
-            }
-
-            const safeDoc = applyFilters(doc);
-            messages.value.push(safeDoc);
-            if (safeDoc.senderId !== userStore.user?.$id) {
-              playSfx(SFX.chatReceive);
-            }
-
-            if (prefs.ttsEnabled) {
-              if (safeDoc.text && safeDoc.text.length > 0) {
-                speak(`${safeDoc.senderName} says: ${safeDoc.text}`);
-              }
-            }
-          }
-        }
-      },
-    );
-  } catch (error) {
-    errorMessage.value = t("chat.error_loading_messages");
-    return () => {};
-  }
-};
-
-const loadOlderMessages = async () => {
-  if (loadingMore.value || !hasMore.value || !props.lobbyId) return;
-  loadingMore.value = true;
-
-  try {
-    const res = await tables.listRows({
-      databaseId: dbId,
-      tableId: messagesCollectionId,
-      queries: [
-        Query.equal("lobbyId", props.lobbyId),
-        Query.orderDesc("timeStamp"),
-        Query.limit(MESSAGES_PER_PAGE),
-        Query.offset(messages.value.length),
-      ],
-    });
-
-    const olderMessages = res.rows.reverse().map(applyFilters) as ChatMessage[];
-    messages.value = [...olderMessages, ...messages.value];
-    hasMore.value = messages.value.length < res.total;
-  } catch (error) {
-    console.error("Failed to load older messages:", error);
-  } finally {
-    loadingMore.value = false;
-  }
+const autoResize = (e: Event) => {
+  const target = e.target as HTMLTextAreaElement;
+  target.style.height = "auto";
+  target.style.height = `${target.scrollHeight}px`;
+  nextTick(() => (target.scrollTop = target.scrollHeight));
 };
 
 const scrollToBottom = () => {
@@ -362,108 +199,51 @@ const handleScroll = () => {
   checkIfAtBottom();
 };
 
-watch(messages, () => {
-  nextTick(() => {
-    if (chatContainer.value && isAtBottom.value) {
-      scrollToBottom();
+// Auto-scroll when messages change (if already at bottom)
+watch(
+  () => reactive.chat.value.length,
+  () => {
+    nextTick(() => {
+      if (isAtBottom.value) scrollToBottom();
+    });
+  },
+);
+
+// Sound + TTS for incoming messages from other players
+watch(
+  () => reactive.chat.value.length,
+  (newCount, oldCount) => {
+    if (newCount > oldCount) {
+      const newMessages = reactive.chat.value.slice(oldCount);
+      for (const msg of newMessages) {
+        if (msg.userId !== currentUserId.value) {
+          playSfx(SFX.chatReceive);
+          if (prefs.ttsEnabled && msg.text) {
+            speak(`${msg.name} says: ${msg.text}`);
+          }
+        }
+      }
     }
-  });
-});
+  },
+);
 
-const chatInput = ref<HTMLTextAreaElement | null>(null);
+const sendMessage = () => {
+  const trimmed = newMessage.value.trim();
+  if (!trimmed) return;
 
-const sendMessage = async () => {
-  const trimmedMessage = newMessage.value.trim();
-  if (!trimmedMessage) return;
+  // Client-side sanitization: strip control chars, HTML tags, truncate
+  const stripped = trimmed
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+    .replace(/<[^>]*>/g, "")
+    .substring(0, maxLength);
 
-  const stripWeirdUnicode = (str: string) =>
-    str.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+  if (!stripped) return;
 
-  const safeMessage = sanitize(stripWeirdUnicode(trimmedMessage));
-  if (!safeMessage) return;
-
-  const truncatedMessage = safeMessage.substring(0, maxLength);
-  const userId = userStore.user?.$id || "anonymous";
-  const senderName =
-    userStore.user?.name || userStore.user?.prefs?.name || "Anonymous";
-
-  // ── Optimistic insert: show message immediately ────────────────
-  const optimisticId = `__optimistic_${Date.now()}_${Math.random()}`;
-  const optimisticMsg: ChatMessage = {
-    $id: optimisticId,
-    lobbyId: props.lobbyId,
-    senderId: userId,
-    senderName,
-    text: prefs.chatProfanityFilter
-      ? filter.clean(truncatedMessage)
-      : truncatedMessage,
-    timeStamp: new Date().toISOString(),
-    // Satisfy Models.Document shape with stubs
-    $collectionId: "",
-    $databaseId: "",
-    $createdAt: "",
-    $updatedAt: "",
-    $permissions: [],
-    $sequence: 0,
-  };
-  messages.value.push(optimisticMsg);
+  chat.sendMessage(stripped);
   newMessage.value = "";
   playSfx(SFX.chatSend);
-
-  await nextTick(() => {
-    scrollToBottom();
-  });
-
-  // ── Send to server ─────────────────────────────────────────────
-  try {
-    errorMessage.value = null;
-    const result = await $fetch("/api/chat/send", {
-      method: "POST",
-      body: {
-        lobbyId: props.lobbyId,
-        userId,
-        text: truncatedMessage,
-      },
-    });
-
-    // Replace the optimistic ID with the real server ID so the
-    // Realtime echo can be deduplicated.
-    const idx = messages.value.findIndex((m) => m.$id === optimisticId);
-    const msg = messages.value[idx];
-    if (idx !== -1 && msg) {
-      msg.$id = result.messageId;
-    }
-    optimisticIds.add(result.messageId);
-  } catch (error: any) {
-    // Remove the optimistic message on failure
-    const idx = messages.value.findIndex((m) => m.$id === optimisticId);
-    if (idx !== -1) messages.value.splice(idx, 1);
-
-    if (error?.data?.statusMessage) {
-      errorMessage.value = `${t("chat.error_sending")}: ${error.data.statusMessage}`;
-    } else if (error?.message) {
-      errorMessage.value = `${t("chat.error_sending")}: ${error.message}`;
-    } else {
-      errorMessage.value = t("chat.error_sending");
-    }
-  }
+  nextTick(() => scrollToBottom());
 };
-
-let unsubscribe: (() => void) | null = null;
-
-onMounted(() => {
-  nextTick(() => {
-    scrollToBottom();
-  });
-
-  loadMessages().then((unsub) => {
-    unsubscribe = unsub;
-  });
-});
-
-onUnmounted(() => {
-  if (unsubscribe) unsubscribe();
-});
 </script>
 
 <style scoped>

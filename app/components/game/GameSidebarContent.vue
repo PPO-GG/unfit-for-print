@@ -285,7 +285,7 @@ const canStart = computed(() => playerCount.value >= minPlayers);
     <!-- ═══════════════════════════════════════ -->
     <!-- 5. CHAT                                 -->
     <!-- ═══════════════════════════════════════ -->
-    <ChatBox v-if="joinedLobby" :lobby-id="lobby?.$id || ''" />
+    <ChatBox v-if="joinedLobby" />
 
     <!-- ═══════════════════════════════════════ -->
     <!-- 6. GAME SETTINGS                        -->
