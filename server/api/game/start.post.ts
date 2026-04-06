@@ -5,7 +5,7 @@ import { Query } from "node-appwrite";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId, documentId, settings, userId } = body;
+  const { lobbyId, settings, userId } = body;
 
   if (!lobbyId) {
     throw createError({
@@ -17,37 +17,12 @@ export default defineEventHandler(async (event) => {
   // Auth: Only the lobby host can start the game
   await verifyHost(userId, lobbyId);
 
-  const { DB, LOBBY, PLAYER, WHITE_CARDS, BLACK_CARDS, GAMESETTINGS } =
-    getCollectionIds();
+  const { DB, LOBBY, PLAYER, WHITE_CARDS, BLACK_CARDS } = getCollectionIds();
   const databases = getAdminDatabases();
   const tables = getAdminTables();
 
   try {
-    // --- Resolve Game Settings ---
-    // Priority: client-provided settings > Appwrite fetch by documentId > null
-    let gameSettings = settings || null;
-
-    // If client-provided settings are missing numPlayerCards, try fetching
-    // the canonical Appwrite settings document as a fallback.
-    const needsFetch =
-      !gameSettings ||
-      gameSettings.numPlayerCards === undefined ||
-      gameSettings.numPlayerCards === null;
-
-    if (needsFetch && documentId) {
-      try {
-        const fetched = await tables.getRow({
-          databaseId: DB,
-          tableId: GAMESETTINGS,
-          rowId: documentId,
-        });
-        // Merge: keep client-provided fields, fill gaps from Appwrite
-        gameSettings = { ...fetched, ...gameSettings };
-      } catch (err: any) {
-        console.error("[startGame] Failed to fetch settings:", err.message);
-        // Non-fatal: fall through with whatever settings we have
-      }
-    }
+    const gameSettings = settings || null;
 
     // --- Load lobby + players (filtered to this lobby only) ---
     const lobby = await tables.getRow({
@@ -79,16 +54,6 @@ export default defineEventHandler(async (event) => {
       await fetchAllIds(WHITE_CARDS, databases, DB, gameSettings?.cardPacks),
     );
     const CARDS_PER_PLAYER = gameSettings?.numPlayerCards || 10;
-    console.log("[startGame] Settings resolved:", {
-      hasSettings: !!gameSettings,
-      numPlayerCards: gameSettings?.numPlayerCards,
-      numPlayerCardsType: typeof gameSettings?.numPlayerCards,
-      CARDS_PER_PLAYER,
-      cardPacks: gameSettings?.cardPacks,
-      settingsKeys: gameSettings ? Object.keys(gameSettings) : "null",
-      hadDocumentId: !!documentId,
-      hadClientSettings: !!settings,
-    });
     const EXTRA_WHITES = 300;
     const totalWhites = playerCount * CARDS_PER_PLAYER + EXTRA_WHITES;
 
