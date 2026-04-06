@@ -136,6 +136,8 @@
         :lobby-code="lobby.code"
         :players="players"
         :is-host="isHost"
+        :is-starting="isStarting"
+        @start-game="startGameWrapper"
       />
       <GameSettings
         v-if="lobbyReactive.settings.value && !sidebarMoved"

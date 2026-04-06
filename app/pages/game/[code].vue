@@ -478,7 +478,6 @@ onMounted(async () => {
     if (typeof sessionStorage !== "undefined") {
       sessionStorage.setItem(ACTIVE_GAME_KEY, code);
     }
-
   } catch (err) {
     console.error(err);
     notify({
@@ -547,6 +546,7 @@ const startGameWrapper = async () => {
   try {
     isStarting.value = true;
     const s = reactive.settings.value;
+    if (!s) return;
     await startGame(lobby.value.$id, {
       maxPoints: s.maxPoints,
       numPlayerCards: s.cardsPerPlayer,
@@ -650,7 +650,7 @@ function handleResetGame() {
         class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-900/90 backdrop-blur-sm"
       >
         <Icon
-          name="svg-spinners:blocks-shuffle-3"
+          name="svg-spinners:pulse-rings-multiple"
           size="64px"
           class="text-white"
         />
@@ -949,10 +949,6 @@ function handleResetGame() {
 
 /* ─── Toggle button ───────────────────────────────────────── */
 .sidebar-toggle-btn {
-  backdrop-filter: blur(8px);
-  background: rgba(10, 10, 24, 0.85) !important;
-  border: 1px solid rgba(139, 92, 246, 0.35) !important;
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
   transition: all 0.2s ease;
 }
 

@@ -7,6 +7,11 @@ const props = defineProps<{
   lobbyCode: string;
   players: Player[];
   isHost: boolean;
+  isStarting?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: "start-game"): void;
 }>();
 
 const config = useRuntimeConfig();
@@ -91,15 +96,12 @@ const floatingCards = ref(
       <!-- Logo -->
       <div class="hero-logo-wrap">
         <img
-          src="/img/unfit_logo_alt.png"
+          src="/img/unfit_logo.png"
           alt="Unfit for Print"
           class="hero-logo"
         />
         <div class="hero-logo-glow" />
       </div>
-
-      <!-- Tagline -->
-      <p class="hero-tagline">{{ t("tagline") }}</p>
 
       <!-- Player Count Ring -->
       <div class="hero-ring-section">
@@ -186,14 +188,24 @@ const floatingCards = ref(
           }}</span>
         </template>
         <template v-else-if="isHost">
-          <Icon
-            name="solar:play-circle-bold-duotone"
-            class="status-icon status-icon--ready"
-          />
-          <span class="status-text status-text--ready">{{
-            t("lobby.start_game")
-          }}</span>
-          <span class="status-hint">{{ t("lobby.invite_friends") }}</span>
+          <UButton
+            v-if="!isStarting"
+            icon="i-solar-play-bold"
+            color="success"
+            class="w-full h-16 text-lg items-center justify-center"
+            @click="emit('start-game')"
+          >
+            {{ t("lobby.start_game") }}
+          </UButton>
+          <UButton
+            v-else
+            :loading="true"
+            disabled
+            color="success"
+            class="w-full h-16 text-lg items-center justify-center"
+          >
+            {{ t("lobby.starting_game") }}
+          </UButton>
         </template>
         <template v-else>
           <Icon
@@ -292,7 +304,7 @@ const floatingCards = ref(
 }
 
 .hero-logo {
-  width: 160px;
+  width: 200px;
   height: auto;
   filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.3));
   animation: logo-breathe 4s ease-in-out infinite;
@@ -420,9 +432,9 @@ const floatingCards = ref(
 }
 
 .ring-text {
-  font-size: 0.7rem;
-  letter-spacing: 0.2em;
-  color: #64748b;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  color: #ffffff;
 }
 
 /* ─── Lobby Code ────────────────────────────────────────────────── */
@@ -435,9 +447,9 @@ const floatingCards = ref(
 }
 
 .hero-code-label {
-  font-size: 0.65rem;
-  letter-spacing: 0.2em;
-  color: #64748b;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  color: #ffffff;
 }
 
 .hero-code-row {
