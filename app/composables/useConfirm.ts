@@ -15,7 +15,7 @@ export interface ConfirmOptions {
 export function useConfirm() {
   // Use nuxt's useState to make this state available globally
   const isOpen = useState('confirm-dialog-open', () => false);
-  const resolvePromise = ref<((value: boolean) => void) | null>(null);
+  const resolvePromise = useState<((value: boolean) => void) | null>('confirm-dialog-resolve', () => null);
   const options = useState<ConfirmOptions>('confirm-dialog-options', () => ({
     title: 'Confirm',
     message: 'Are you sure you want to proceed?',
