@@ -94,9 +94,14 @@
         </div>
 
         <!-- Actions -->
-        <button class="btn btn--create" @click="handleCreate" :disabled="creating">
+        <button v-if="hostedLobby" class="btn btn--resume" @click="router.replace(`/game/${hostedLobby.code}`)">
+          Resume My Game
+        </button>
+        <button v-else class="btn btn--create" @click="handleCreate" :disabled="creating">
           {{ creating ? 'Creating...' : 'Create New Game' }}
         </button>
+
+        <div v-if="createError" class="create-error">{{ createError }}</div>
 
         <button class="btn btn--invite" @click="inviteFriends">
           Invite Friends
@@ -145,11 +150,13 @@ const {
   joinLobby,
   getLobbiesByChannelId,
   updateLobbyPrivacy,
+  getActiveLobbyForUser,
 } = useLobby()
 
 const channelLobbies = ref<Lobby[]>([])
 const loading = ref(true)
 const creating = ref(false)
+const createError = ref<string | null>(null)
 const nudgeUser = ref<string | null>(null)
 const recentJoins = ref(new Set<string>())
 let nudgeTimeout: ReturnType<typeof setTimeout> | null = null
@@ -194,6 +201,7 @@ async function handleCreate() {
   const userId = userStore.user?.$id
   if (!userId || creating.value) return
 
+  createError.value = null
   creating.value = true
   try {
     const sdk = getSdk()
@@ -211,6 +219,15 @@ async function handleCreate() {
     }
   } catch (err: any) {
     console.error('[VC Hub] Failed to create lobby:', err)
+    // If they already have an active lobby elsewhere, redirect them there
+    if (err?.message?.includes('already have an active lobby')) {
+      const existing = await getActiveLobbyForUser(userId).catch(() => null)
+      if (existing) {
+        await router.replace(`/game/${existing.code}`)
+        return
+      }
+    }
+    createError.value = err?.message ?? 'Failed to create game. Please try again.'
   } finally {
     creating.value = false
   }
@@ -480,6 +497,19 @@ onUnmounted(() => {
   box-shadow: 0 0 16px rgba(22, 163, 74, 0.25);
 }
 .btn--create:hover { box-shadow: 0 0 24px rgba(22, 163, 74, 0.4); }
+.btn--resume {
+  background: #0284c7;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(2, 132, 199, 0.25);
+}
+.btn--resume:hover { box-shadow: 0 0 24px rgba(2, 132, 199, 0.4); }
+.create-error {
+  font-size: 0.8rem;
+  color: #f87171;
+  text-align: center;
+  padding: 8px 4px 0;
+  margin-top: -4px;
+}
 .btn--invite {
   background: #5865f2;
   color: #fff;
