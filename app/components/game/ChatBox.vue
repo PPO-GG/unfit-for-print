@@ -52,7 +52,7 @@
             class="chat-row"
             :class="{
               'chat-row--system': msg.isSystem,
-              'chat-row--mine': msg.userId === currentUserId.value,
+              'chat-row--mine': msg.userId === currentUserId,
             }"
           >
             <!-- System message -->
