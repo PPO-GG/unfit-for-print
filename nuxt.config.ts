@@ -73,7 +73,6 @@ export default defineNuxtConfig({
   },
   routeRules: {
     "/": { prerender: true },
-    "/profile": { ssr: false },
   },
   vite: {
     optimizeDeps: {
