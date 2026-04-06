@@ -55,8 +55,5 @@ export default defineEventHandler(async (event) => {
     rowId: botRes.rows[0]!.$id,
   });
 
-  // --- Send system chat message server-side ---
-  await sendSystemChatMessage(lobbyId, `${botName} left the lobby`);
-
   return { success: true };
 });

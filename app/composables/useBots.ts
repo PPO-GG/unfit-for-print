@@ -98,6 +98,7 @@ export function useBots(
         headers: authHeaders(),
         body: {
           lobbyId: lobby.value.$id,
+          activeBotUserIds: botPlayers.value.map((b) => b.userId),
         },
       });
 

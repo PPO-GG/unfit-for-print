@@ -10,7 +10,7 @@ const MAX_BOTS_PER_LOBBY = 5;
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
-  const { lobbyId } = body;
+  const { lobbyId, activeBotUserIds } = body;
 
   if (!lobbyId) {
     throw createError({
@@ -39,11 +39,26 @@ export default defineEventHandler(async (event) => {
     queries: [
       Query.equal("lobbyId", lobbyId),
       Query.equal("playerType", "bot"),
-      Query.limit(MAX_BOTS_PER_LOBBY + 1),
+      Query.limit(100),
     ],
   });
 
-  if (existingBots.total >= MAX_BOTS_PER_LOBBY) {
+  // If the client sent its authoritative bot list (from Y.Doc), prune any
+  // Appwrite bot docs that aren't in that list — these are orphans left behind
+  // by a previous session that didn't clean up properly.
+  if (Array.isArray(activeBotUserIds) && activeBotUserIds.length < existingBots.rows.length) {
+    const activeSet = new Set(activeBotUserIds);
+    const orphans = existingBots.rows.filter((r: any) => !activeSet.has(r.userId));
+    await Promise.all(
+      orphans.map((r: any) =>
+        tables.deleteRow({ databaseId: DB, tableId: PLAYER, rowId: r.$id }),
+      ),
+    );
+    // Recompute list after pruning
+    existingBots.rows = existingBots.rows.filter((r: any) => activeSet.has(r.userId));
+  }
+
+  if (existingBots.rows.length >= MAX_BOTS_PER_LOBBY) {
     throw createError({
       statusCode: 400,
       statusMessage: `Maximum of ${MAX_BOTS_PER_LOBBY} bots per lobby`,
@@ -87,9 +102,6 @@ export default defineEventHandler(async (event) => {
     },
     permissions: ['read("any")', 'update("any")', 'delete("any")'],
   });
-
-  // --- Send system chat message server-side (no client round-trip) ---
-  await sendSystemChatMessage(lobbyId, `${botName} joined the lobby`);
 
   return {
     success: true,
