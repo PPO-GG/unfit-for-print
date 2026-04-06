@@ -4,26 +4,17 @@
     <JoinLobbyForm @joined="handleJoined" />
 
     <!-- Only shown for logged-in users -->
-    <UButton v-if="showIfAuthenticated" @click="showCreate = true">
+    <UButton v-if="showIfAuthenticated" :loading="isCreating" @click="checkForActiveLobbyAndCreate">
       {{ t('modal.create_lobby') }}
     </UButton>
-
-    <!-- Create lobby dialog -->
-    <CreateLobbyDialog v-model="showCreate" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { useUserAccess } from '~/composables/useUserUtils';
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const { showIfAuthenticated } = useUserAccess();
-const showCreate = ref(false);
-
-const handleJoined = (code: string) => {
-  useRouter().push(`/game/${code}`);
-};
+const { isCreating, checkForActiveLobbyAndCreate, handleJoined } = useLobbyActions();
 </script>

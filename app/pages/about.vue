@@ -7,7 +7,6 @@ const {
   isJoining,
   isCreating,
   showJoin,
-  showCreate,
   checkForActiveLobbyAndJoin,
   checkForActiveLobbyAndCreate,
   handleJoined,
@@ -461,10 +460,5 @@ const navLinks = [
       </template>
     </UModal>
 
-    <UModal v-model:open="showCreate" :title="t('modal.create_lobby')">
-      <template #body>
-        <CreateLobbyDialog @created="handleJoined" />
-      </template>
-    </UModal>
   </div>
 </template>

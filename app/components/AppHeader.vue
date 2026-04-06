@@ -22,7 +22,6 @@ const {
   isJoining,
   isCreating,
   showJoin,
-  showCreate,
   checkForActiveLobbyAndJoin,
   checkForActiveLobbyAndCreate,
   handleJoined,
@@ -503,9 +502,4 @@ const isAdmin = useIsAdmin();
     </template>
   </UModal>
 
-  <UModal v-model:open="showCreate" :title="t('modal.create_lobby')">
-    <template #body>
-      <CreateLobbyDialog @created="handleJoined" />
-    </template>
-  </UModal>
 </template>

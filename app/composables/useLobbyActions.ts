@@ -10,7 +10,7 @@ import { useNotifications } from "~/composables/useNotifications";
  * consumers (e.g. AppHeader + about.vue) are fully independent.
  */
 export function useLobbyActions() {
-  const { getActiveLobbyForUser } = useLobby();
+  const { getActiveLobbyForUser, createLobby } = useLobby();
   const router = useRouter();
   const userStore = useUserStore();
   const { notify } = useNotifications();
@@ -19,7 +19,6 @@ export function useLobbyActions() {
   const isJoining = ref(false);
   const isCreating = ref(false);
   const showJoin = ref(false);
-  const showCreate = ref(false);
 
   const checkForActiveLobbyAndJoin = async (): Promise<void> => {
     try {
@@ -49,13 +48,9 @@ export function useLobbyActions() {
   };
 
   const checkForActiveLobbyAndCreate = async (): Promise<void> => {
+    if (!userStore.user?.$id) return;
     try {
       isCreating.value = true;
-
-      if (!userStore.user) {
-        showCreate.value = true;
-        return;
-      }
 
       const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
       if (activeLobby) {
@@ -66,26 +61,19 @@ export function useLobbyActions() {
           duration: 2000,
         });
         await router.push(`/game/${activeLobby.code}`);
-      } else {
-        showCreate.value = true;
-      }
-    } catch (error: unknown) {
-      // Gracefully handle uninitialised collections (e.g. first-run environments)
-      if (
-        error instanceof Error &&
-        "code" in error &&
-        error.code === 404 &&
-        error.message?.includes(
-          "Collection with the requested ID could not be found",
-        )
-      ) {
-        console.warn("Collections not initialized, showing create dialog");
-        showCreate.value = true;
         return;
       }
 
-      console.error("Error checking for active lobby:", error);
-      showCreate.value = true;
+      const lobby = await createLobby(userStore.user.$id);
+      if (!lobby?.code) throw new Error("Invalid lobby response");
+      await router.push(`/game/${lobby.code}?creator=true`);
+    } catch (error: unknown) {
+      console.error("Error creating lobby:", error);
+      notify({
+        title: t("modal.error_create_lobby"),
+        description: error instanceof Error ? error.message : "Unknown error",
+        color: "error",
+      });
     } finally {
       isCreating.value = false;
     }
@@ -111,7 +99,6 @@ export function useLobbyActions() {
     isJoining,
     isCreating,
     showJoin,
-    showCreate,
     checkForActiveLobbyAndJoin,
     checkForActiveLobbyAndCreate,
     handleJoined,
