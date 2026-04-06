@@ -48,7 +48,6 @@ function useYMapReactive<T>(
 
     try {
       const ymap = getMap();
-
       // Initial read
       const snapshot = Object.fromEntries(ymap.entries());
       data.value = parser(snapshot);
@@ -204,9 +203,11 @@ function parseMeta(raw: Record<string, any>): LobbyMeta {
   };
 }
 
-interface LobbySettings {
+export interface LobbySettings {
   maxPoints: number;
   cardsPerPlayer: number;
+  maxPick: number;
+  password?: string;
   cardPacks: string[];
   isPrivate: boolean;
   lobbyName: string;
@@ -217,6 +218,8 @@ function parseSettings(raw: Record<string, any>): LobbySettings {
   return {
     maxPoints: raw.maxPoints ?? 10,
     cardsPerPlayer: raw.cardsPerPlayer ?? 10,
+    maxPick: raw.maxPick ?? 3,
+    password: raw.password ?? undefined,
     cardPacks: safeParseJson(raw.cardPacks, []),
     isPrivate: raw.isPrivate ?? false,
     lobbyName: raw.lobbyName ?? "",
@@ -233,12 +236,27 @@ interface LobbyCards {
 }
 
 function parseCards(raw: Record<string, any>): LobbyCards {
+  // Card texts are split into chunked keys (cardTexts_0, cardTexts_1, ...)
+  // to keep each Y.Doc update under Teleportal's ~64KB message limit.
+  // Merge all chunks back into a single object.
+  let cardTexts: Record<string, any> = {};
+  const numChunks = parseInt(raw.cardTextsChunks || "0", 10);
+  if (numChunks > 0) {
+    for (let i = 0; i < numChunks; i++) {
+      const chunk = safeParseJson(raw[`cardTexts_${i}`], {});
+      Object.assign(cardTexts, chunk);
+    }
+  } else {
+    // Legacy fallback: single cardTexts key
+    cardTexts = safeParseJson(raw.cardTexts, {});
+  }
+
   return {
     whiteDeck: safeParseJson(raw.whiteDeck, []),
     blackDeck: safeParseJson(raw.blackDeck, []),
     discardWhite: safeParseJson(raw.discardWhite, []),
     discardBlack: safeParseJson(raw.discardBlack, []),
-    cardTexts: safeParseJson(raw.cardTexts, {}),
+    cardTexts,
   };
 }
 
