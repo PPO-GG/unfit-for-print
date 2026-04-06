@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { Player } from "~/types/player";
-import type { GameSettings } from "~/types/gamesettings";
 import type { GameState } from "~/types/game";
+import type { LobbySettings } from "~/composables/useLobbyReactive";
 
 const { t } = useI18n();
 
@@ -12,7 +12,7 @@ const props = defineProps<{
   >;
   players: Player[];
   state: GameState | null;
-  gameSettings: GameSettings | null;
+  gameSettings: LobbySettings | null;
   isHost: boolean;
   isStarting: boolean;
   isWaiting: boolean;
@@ -30,7 +30,6 @@ const emit = defineEmits<{
   (e: "convert-spectator", playerId: string): void;
   (e: "skip-player", playerId: string): void;
   (e: "skip-judge"): void;
-  (e: "update:settings", settings: GameSettings): void;
   (e: "close"): void;
 }>();
 
@@ -293,11 +292,8 @@ const canStart = computed(() => playerCount.value >= minPlayers);
     <!-- ═══════════════════════════════════════ -->
     <GameSettings
       v-if="gameSettings"
-      :host-user-id="lobby?.hostUserId || ''"
       :is-editable="isHost"
-      :lobby-id="lobby?.$id || ''"
       :settings="gameSettings"
-      @update:settings="emit('update:settings', $event)"
     />
 
     <!-- ═══════════════════════════════════════ -->
