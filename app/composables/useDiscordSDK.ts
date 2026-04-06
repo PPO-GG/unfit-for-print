@@ -164,7 +164,9 @@ export function useDiscordSDK() {
 
   async function inviteFriends() {
     if (!sdkInstance) throw new Error("Discord SDK not initialized");
-    await sdkInstance.commands.openInviteDialog();
+    // openInviteDialog() is broken on Discord's backend (max_age > 604800 error).
+    // shareLink() opens a native share modal for the activity instead.
+    await sdkInstance.commands.shareLink({ message: "" });
   }
 
   function close() {

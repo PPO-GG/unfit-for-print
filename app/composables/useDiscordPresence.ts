@@ -136,6 +136,6 @@ export function useDiscordPresence(options: UseDiscordPresenceOptions) {
   onScopeDispose(() => {
     const sdk = getSdk();
     if (!sdk) return;
-    sdk.commands.setActivity({ activity: null }).catch(() => {});
+    sdk.commands.setActivity({}).catch(() => {});
   });
 }
