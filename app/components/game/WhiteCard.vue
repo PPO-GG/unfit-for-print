@@ -1,7 +1,7 @@
 <template>
   <div
     v-bind="$attrs"
-    class="card-scaler select-none justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none justify-center flex items-center w-[clamp(10rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
     :class="flat ? '' : 'perspective-[800px]'"
   >
     <div

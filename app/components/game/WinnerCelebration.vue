@@ -244,7 +244,7 @@ watch(
 
 .winner-overlay-content {
   text-align: center;
-  max-width: 700px;
+  max-width: min(95vw, 1000px);
   width: 100%;
   padding: 2rem;
   display: flex;
@@ -284,10 +284,16 @@ watch(
 
 .winner-answers {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
+}
+
+/* Scale down white cards in the winner overlay so multiple cards fit side by side */
+.winner-answers :deep(.card-scaler) {
+  width: clamp(7rem, 10vw, 12rem);
 }
 
 .winner-subtitle {

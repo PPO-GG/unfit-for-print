@@ -1,6 +1,6 @@
 <template>
   <div
-    class="card-scaler select-none perspective-[800px] justify-center flex items-center w-[clamp(6rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none perspective-[800px] justify-center flex items-center w-[clamp(10rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
   >
     <div
       ref="card"

@@ -6,7 +6,7 @@
       <img
         src="/img/ufp2.svg"
         alt="Unfit For Print Logo"
-        class="mx-auto w-32 md:w-64 h-auto drop-shadow-xl drop-shadow-black/25"
+        class="mx-auto w-16 sm:w-24 md:w-32 lg:w-48 h-auto drop-shadow-xl drop-shadow-black/25"
       />
     </div>
     <div class="flex justify-center gap-6">
