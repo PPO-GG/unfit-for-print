@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, onBeforeUnmount, ref, watch, computed, toRaw } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
@@ -7,13 +7,10 @@ import { useNotifications } from "~/composables/useNotifications";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
-import { useGameSettings } from "~/composables/useGameSettings";
-
 import { useAutoReturn } from "~/composables/useAutoReturn";
 import { useSpectatorConversion } from "~/composables/useSpectatorConversion";
 import { useSfx } from "~/composables/useSfx";
 import GameOver from "~/components/game/GameOver.vue";
-import type { GameSettings as GameSettingsType } from "~/types/gamesettings";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import { useI18n } from "vue-i18n";
@@ -36,7 +33,6 @@ const loading = ref(true);
 const showJoinModal = ref(false);
 const joinedLobby = ref(false);
 const isStarting = ref(false);
-const gameSettings = ref<GameSettingsType | null>(null);
 const isSidebarOpen = ref(false);
 const selfLeaving = ref(false);
 const copied = ref(false);
@@ -55,7 +51,6 @@ const {
   engine,
   mutations,
 } = useLobby();
-const { getGameSettings, createDefaultGameSettings } = useGameSettings();
 const { initSessionIfNeeded } = useJoinLobby();
 
 // ─── Discord Activity Layout ───────────────────────────────────────────────
@@ -182,16 +177,6 @@ watch(isComplete, (complete) => {
       clearTimeout(delayedCompleteTimeout);
       delayedCompleteTimeout = null;
     }
-  }
-});
-
-// ─── Host Promotion Re-fetch ────────────────────────────────────────────────
-// If a player joins early (before the host creates GameSettings) or fails to
-// fetch them on load, their gameSettings refs will be null. If they are later
-// promoted to host, they need the settings to be loaded so the Sidebar displays them.
-watch(isHost, async (newIsHost) => {
-  if (newIsHost && (!gameSettings.value || !gameSettings.value.$id)) {
-    await ensureGameSettings();
   }
 });
 
@@ -494,21 +479,6 @@ onMounted(async () => {
       sessionStorage.setItem(ACTIVE_GAME_KEY, code);
     }
 
-    // Fetch game settings from Appwrite (still needed for start-game flow)
-    try {
-      const settings = await getGameSettings(fetchedLobby.$id);
-      if (!settings && isHost.value) {
-        gameSettings.value = await createDefaultGameSettings(
-          fetchedLobby.$id,
-          `${userStore.user?.name || "Anonymous"}'s Game`,
-          userStore.user?.$id,
-        );
-      } else if (settings) {
-        gameSettings.value = settings;
-      }
-    } catch (err) {
-      console.error("Failed to load game settings:", err);
-    }
   } catch (err) {
     console.error(err);
     notify({
@@ -516,7 +486,7 @@ onMounted(async () => {
       color: "error",
       icon: "i-mdi-alert-circle",
     });
-    await router.replace("/");
+    await router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
   } finally {
     loading.value = false;
   }
@@ -567,70 +537,24 @@ const handleLeave = async () => {
     sessionStorage.removeItem(ACTIVE_GAME_KEY);
   }
   await leaveLobby(lobby.value.$id, userStore.user.$id);
-  return router.replace("/");
-};
-
-const handleSettingsUpdate = (newSettings: GameSettingsType) => {
-  gameSettings.value = newSettings;
-
-  // Sync the updated Appwrite settings into the Y.Doc so all clients
-  // and downstream consumers (nextRound, reshufflePlayerCards) use
-  // the correct values for cardsPerPlayer, cardPacks, maxPoints, etc.
-  mutations.updateSettings({
-    maxPoints: newSettings.maxPoints,
-    cardsPerPlayer: newSettings.numPlayerCards,
-    maxPick: newSettings.maxPick,
-    cardPacks: newSettings.cardPacks,
-    isPrivate: newSettings.isPrivate,
-    lobbyName: newSettings.lobbyName,
-  });
-};
-
-const ensureGameSettings = async () => {
-  if (!lobby.value?.$id) return;
-  if (!gameSettings.value || !gameSettings.value.$id) {
-    try {
-      const settings = await getGameSettings(lobby.value.$id);
-      if (!settings && isHost.value) {
-        gameSettings.value = await createDefaultGameSettings(
-          lobby.value.$id,
-          `${userStore.user?.name || "Anonymous"}'s Game`,
-          userStore.user?.$id,
-        );
-      } else if (settings) {
-        gameSettings.value = settings;
-      } else {
-        throw new Error("Could not initialize game settings");
-      }
-    } catch (err) {
-      console.error("Failed to initialize game settings:", err);
-      notify({
-        title: t("lobby.settings_error"),
-        description: t("lobby.settings_init_error"),
-        color: "error",
-        icon: "i-mdi-alert-circle",
-      });
-    }
-  }
+  // Discord Activity users return to VC Hub; others go home
+  return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
 };
 
 const startGameWrapper = async () => {
   if (!lobby.value) return;
-  if (!gameSettings.value || !gameSettings.value.$id) {
-    console.error("Game settings not properly initialized");
-    notify({
-      title: t("lobby.cant_start_game"),
-      description: t("lobby.settings_init_error"),
-      color: "error",
-      icon: "i-mdi-alert-circle",
-    });
-    return;
-  }
 
   try {
     isStarting.value = true;
-    await ensureGameSettings();
-    await startGame(lobby.value.$id, { ...toRaw(gameSettings.value) });
+    const s = reactive.settings.value;
+    await startGame(lobby.value.$id, {
+      maxPoints: s.maxPoints,
+      numPlayerCards: s.cardsPerPlayer,
+      cardPacks: s.cardPacks,
+      isPrivate: s.isPrivate,
+      lobbyName: s.lobbyName,
+      maxPick: s.maxPick,
+    });
   } catch (err) {
     console.error("Failed to start game:", err);
     isStarting.value = false;
@@ -810,7 +734,7 @@ function handleResetGame() {
             :lobby="lobby"
             :players="players"
             :state="state"
-            :game-settings="gameSettings"
+            :game-settings="reactive.settings.value"
             :is-host="isHost"
             :is-starting="isStarting"
             :is-waiting="isWaiting"
@@ -824,7 +748,6 @@ function handleResetGame() {
             @skip-player="handleSkipPlayer"
             @skip-judge="handleSkipJudge"
             @reset-game="handleResetGame"
-            @update:settings="handleSettingsUpdate"
           />
         </div>
       </aside>
@@ -845,7 +768,7 @@ function handleResetGame() {
               :lobby="lobby"
               :players="players"
               :state="state"
-              :game-settings="gameSettings"
+              :game-settings="reactive.settings.value"
               :is-host="isHost"
               :is-starting="isStarting"
               :is-waiting="isWaiting"
@@ -859,7 +782,6 @@ function handleResetGame() {
               @skip-player="handleSkipPlayer"
               @skip-judge="handleSkipJudge"
               @reset-game="handleResetGame"
-              @update:settings="handleSettingsUpdate"
               @close="isSidebarOpen = false"
             />
           </div>
