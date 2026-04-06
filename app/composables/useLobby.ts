@@ -658,7 +658,6 @@ export const useLobby = () => {
       method: "POST",
       body: {
         lobbyId,
-        documentId: gameSettings?.$id,
         settings: gameSettings
           ? {
               ...gameSettings,
