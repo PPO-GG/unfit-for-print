@@ -214,7 +214,8 @@ export const useLobby = () => {
     const lobbyCode = randomValue.substring(0, 6).toUpperCase();
 
     try {
-      const displayName = lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
+      const displayName =
+        lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
 
       // Create minimal Appwrite registry doc (discovery only)
       const lobbyData: Record<string, unknown> = {
@@ -261,7 +262,12 @@ export const useLobby = () => {
           maxPoints: 10,
           cardsPerPlayer: 10,
           maxPick: 3,
-          cardPacks: ["CAH Base Set"],
+          cardPacks: [
+            "CAH Base Set",
+            "CAH: Blue Box Expansion",
+            "CAH: Green Box Expansion",
+            "CAH: Red Box Expansion",
+          ],
           isPrivate: isPrivate || false,
           lobbyName: displayName,
           roundEndCountdownDuration: 5,
@@ -524,10 +530,7 @@ export const useLobby = () => {
         const allPlayers = await tables.listRows({
           databaseId: config.public.appwriteDatabaseId,
           tableId: config.public.appwritePlayerCollectionId,
-          queries: [
-            Query.equal("lobbyId", lobbyId),
-            Query.limit(100),
-          ],
+          queries: [Query.equal("lobbyId", lobbyId), Query.limit(100)],
         });
         for (const playerDoc of allPlayers.rows) {
           try {
@@ -599,6 +602,7 @@ export const useLobby = () => {
       cardPacks?: string[];
       isPrivate?: boolean;
       lobbyName?: string;
+      maxPick?: number;
       $id?: string;
     } | null,
   ) => {
@@ -827,7 +831,6 @@ export const useLobby = () => {
           err,
         );
       }
-
     }
   };
 
