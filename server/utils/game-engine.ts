@@ -70,8 +70,6 @@ export function getCollectionIds() {
     PLAYER: config.public.appwritePlayerCollectionId as string,
     WHITE_CARDS: config.public.appwriteWhiteCardCollectionId as string,
     BLACK_CARDS: config.public.appwriteBlackCardCollectionId as string,
-    GAMECHAT: config.public.appwriteGamechatCollectionId as string,
-    GAMESETTINGS: config.public.appwriteGameSettingsCollectionId as string,
     USER_DECORATIONS: config.public.appwriteUserDecorationsCollectionId as string,
     DECORATIONS: config.public.appwriteDecorationsCollectionId as string,
   };
