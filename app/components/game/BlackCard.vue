@@ -275,6 +275,11 @@ function applyTransform(rotateX = 0, rotateY = 0) {
     rotateY(${rotateY * intensity}deg)
   `;
 
+  // Simulate overhead lighting: tilting toward the light (negative rotateX) brightens,
+  // tilting away darkens. Subtle range ~0.88–1.12.
+  const brightness = 1 + rotateX * intensity * 0.02;
+  card.value.style.setProperty("--card-brightness", brightness.toFixed(3));
+
   // Physical shadow tracks the tilt
   updateShadow(rotateX, rotateY, intensity);
 }
@@ -283,6 +288,7 @@ function resetTransform() {
   if (card.value) {
     rotation.value = { x: 0, y: 0 };
     applyTransform(0, 0);
+    card.value.style.removeProperty("--card-brightness");
     // Clear custom properties so CSS defaults take over
     const scaler = card.value.parentElement as HTMLElement | null;
     if (scaler) {
@@ -522,7 +528,8 @@ onMounted(async () => {
      flattens the content into a single raster layer BEFORE the parent's 3D
      transform is applied. Placed here (inside the face) rather than on
      .card__face to avoid interfering with backface-visibility. */
-  filter: blur(0);
+  filter: blur(0) brightness(var(--card-brightness, 1));
+  transition: filter 0.15s ease-out;
 }
 
 /* Decorative border + vignette — on .card-content (clipped by overflow:hidden) instead of .card__face (in the 3D chain) to avoid Firefox rectangular bounding box artifacts */

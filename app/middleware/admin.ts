@@ -17,8 +17,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (!userStore.user) {
     // '[middleware/admin] No user, fetching session')
-    await userStore.fetchUserSession();
+    const result = await userStore.fetchUserSession();
     // '[middleware/admin] Session fetch complete, user exists:', !!userStore.user)
+    if (result === 'error') return; // Transient failure — don't lock out admins
   }
 
   // '[middleware/admin] Checking if user is admin')

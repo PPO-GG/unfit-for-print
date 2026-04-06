@@ -1,5 +1,14 @@
 import { ref, readonly } from "vue";
 
+export interface DiscordParticipant {
+  id: string;
+  username: string;
+  avatar: string | null;
+  avatarUrl: string | null;
+  global_name: string | null;
+  bot: boolean;
+}
+
 let sdkInstance: any = null;
 let cachedAuthResult: {
   userId: string;
@@ -16,6 +25,8 @@ const discordUser = ref<{
   avatar: string | null;
   avatarUrl: string | null;
 } | null>(null);
+const vcParticipants = ref<DiscordParticipant[]>([]);
+const channelId = ref<string | null>(null);
 
 // Synchronous detection: Discord's iframe sets these query params
 if (import.meta.client) {
@@ -42,11 +53,17 @@ export function useDiscordSDK() {
     sdkInstance = new DiscordSDK(clientId);
     await sdkInstance.ready();
 
-    // Route external requests through Discord's proxy to satisfy CSP
-    patchUrlMappings([{ prefix: "/appwrite", target: "api.ppo.gg" }]);
+    // Route external requests through Discord's proxy to satisfy CSP.
+    // /appwrite  → Appwrite API (fetch/XHR)
+    // /teleportal → Teleportal WebSocket server (HTTP fallback paths)
+    patchUrlMappings([
+      { prefix: "/appwrite", target: "api.ppo.gg" },
+      { prefix: "/teleportal", target: "teleportal.unfit.cards" },
+    ]);
 
     isReady.value = true;
     isDiscordActivity.value = true;
+    channelId.value = sdkInstance.channelId ?? null;
 
     return sdkInstance;
   }
@@ -111,6 +128,40 @@ export function useDiscordSDK() {
     return cachedAuthResult;
   }
 
+  function mapParticipant(p: any): DiscordParticipant {
+    const avatarHash = p.avatar ?? null;
+    const avatarUrl = avatarHash
+      ? `https://cdn.discordapp.com/avatars/${p.id}/${avatarHash}.png`
+      : null;
+    return {
+      id: p.id,
+      username: p.global_name || p.username,
+      avatar: avatarHash,
+      avatarUrl,
+      global_name: p.global_name ?? null,
+      bot: p.bot ?? false,
+    };
+  }
+
+  async function getChannelParticipants(): Promise<DiscordParticipant[]> {
+    if (!sdkInstance) throw new Error("Discord SDK not initialized");
+    const { participants } =
+      await sdkInstance.commands.getInstanceConnectedParticipants();
+    const mapped = participants.map(mapParticipant);
+    vcParticipants.value = mapped;
+    return mapped;
+  }
+
+  async function subscribeToParticipants(): Promise<void> {
+    if (!sdkInstance) throw new Error("Discord SDK not initialized");
+    await sdkInstance.subscribe(
+      "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
+      (event: { participants: any[] }) => {
+        vcParticipants.value = event.participants.map(mapParticipant);
+      },
+    );
+  }
+
   async function inviteFriends() {
     if (!sdkInstance) throw new Error("Discord SDK not initialized");
     await sdkInstance.commands.openInviteDialog();
@@ -134,8 +185,12 @@ export function useDiscordSDK() {
     isReady: readonly(isReady),
     isAuthenticated: readonly(isAuthenticated),
     discordUser: readonly(discordUser),
+    vcParticipants: readonly(vcParticipants),
+    channelId: readonly(channelId),
     init,
     authenticate,
+    getChannelParticipants,
+    subscribeToParticipants,
     inviteFriends,
     close,
     getSdk,

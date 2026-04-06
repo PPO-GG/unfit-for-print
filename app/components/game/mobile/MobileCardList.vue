@@ -1,8 +1,36 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { useParallax } from "@vueuse/core";
 import type { CardTexts } from "~/types/gamecards";
 import { SFX } from "~/config/sfx.config";
+
+// ── iOS DeviceOrientation permission ─────────────────────────────────────────
+const gyroPermission = ref<"unknown" | "granted" | "denied" | "not-needed">(
+  "unknown",
+);
+
+async function requestGyroPermission() {
+  if (typeof window === "undefined") return;
+  const DOE = window.DeviceOrientationEvent as any;
+  if (typeof DOE?.requestPermission === "function") {
+    try {
+      const result = await DOE.requestPermission();
+      gyroPermission.value = result === "granted" ? "granted" : "denied";
+    } catch {
+      gyroPermission.value = "denied";
+    }
+  } else {
+    // Android / desktop — no permission gate
+    gyroPermission.value = "not-needed";
+  }
+}
+
+onMounted(() => {
+  const DOE = window.DeviceOrientationEvent as any;
+  if (typeof DOE?.requestPermission !== "function") {
+    gyroPermission.value = "not-needed";
+  }
+});
 
 interface Props {
   mode: "select" | "judge";
@@ -25,7 +53,7 @@ const emit = defineEmits<{
   select: [cardId: string];
   reveal: [playerId: string];
   "pick-winner": [playerId: string];
-  "read-aloud": [text: string];
+  "read-aloud": [playerId: string];
 }>();
 
 // ── Pick color palette (shared with MobileSelectionSlots) ──────────────────────
@@ -56,12 +84,26 @@ function cardStyle(cardId: string) {
 
 // ── Gyroscope tilt ────────────────────────────────────────────────────────────
 const listRef = ref<HTMLElement | null>(null);
-const { tilt, roll } = useParallax(listRef);
+const { tilt, roll, source } = useParallax(listRef);
+
+const gyroActive = computed(
+  () =>
+    source.value === "deviceOrientation" &&
+    (gyroPermission.value === "granted" || gyroPermission.value === "not-needed"),
+);
 
 // Clamp to ±3deg (tilt/roll are -0.5 to 0.5, × 6 = ±3deg)
+const tiltX = computed(() => (tilt.value * 6).toFixed(2));
+const tiltY = computed(() => (roll.value * 6).toFixed(2));
+
 const tiltTransform = computed(
   () =>
-    `perspective(800px) rotateX(${(tilt.value * 6).toFixed(2)}deg) rotateY(${(roll.value * 6).toFixed(2)}deg)`,
+    `perspective(800px) rotateX(${tiltX.value}deg) rotateY(${tiltY.value}deg)`,
+);
+
+// Show iOS permission prompt only when needed
+const showGyroPrompt = computed(
+  () => gyroPermission.value === "unknown",
 );
 
 // ── Tap bounce animation ─────────────────────────────────────────────────────
@@ -100,18 +142,36 @@ function handleSubmissionTap(playerId: string, revealed: boolean) {
   }
 }
 
+// Play flip SFX for non-judges when cards are revealed via Yjs sync
+watch(
+  () => props.revealedCards,
+  (next, prev) => {
+    if (props.isJudge || props.mode !== "judge") return;
+    const newReveals = Object.keys(next).filter((k) => next[k] && !prev?.[k]);
+    if (newReveals.length) {
+      playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
+    }
+  },
+  { deep: true },
+);
+
 function readAloud(playerId: string) {
-  const cardIds = props.submissions[playerId] ?? [];
-  const text = cardIds
-    .map((id) => props.cardTexts[id]?.text ?? "")
-    .filter(Boolean)
-    .join(" ");
-  if (text) emit("read-aloud", text);
+  emit("read-aloud", playerId);
 }
 </script>
 
 <template>
-  <div ref="listRef" class="mobile-card-list">
+  <div ref="listRef" class="mobile-card-list" :style="gyroActive ? { transform: tiltTransform } : {}">
+    <!-- ── iOS gyro permission prompt ─────────────────────────────────────── -->
+    <button
+      v-if="showGyroPrompt"
+      class="gyro-prompt"
+      @click="requestGyroPermission"
+    >
+      <Icon name="i-solar-smartphone-rotate-orientation-bold-duotone" class="gyro-prompt-icon" />
+      Enable tilt
+    </button>
+
     <!-- ── SELECT MODE ─────────────────────────────────────────────────────── -->
     <template v-if="mode === 'select'">
       <div
@@ -122,7 +182,7 @@ function readAloud(playerId: string) {
           'select-card',
           justTapped.has(cardId) && 'select-card--bounce',
         ]"
-        :style="{ ...cardStyle(cardId), transform: tiltTransform }"
+        :style="cardStyle(cardId)"
         @click="handleSelectTap(cardId)"
       >
         <!-- Selection badge (numbered, top-right) -->
@@ -151,12 +211,11 @@ function readAloud(playerId: string) {
             ? 'submission-group--revealed'
             : 'submission-group--hidden'
         "
-        :style="entry.revealed ? { transform: tiltTransform } : {}"
         @click="handleSubmissionTap(entry.playerId, entry.revealed)"
       >
         <!-- Unrevealed state -->
         <template v-if="!entry.revealed">
-          <p class="reveal-hint">Tap to reveal</p>
+          <p class="reveal-hint">{{ isJudge ? 'Tap to reveal' : 'Waiting to be revealed' }}</p>
         </template>
 
         <!-- Revealed state: show each card in the submission -->
@@ -192,6 +251,31 @@ function readAloud(playerId: string) {
   overflow-y: auto;
   padding: 0.125rem 0.75rem 5rem;
   -webkit-overflow-scrolling: touch;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.1s ease-out;
+}
+
+/* ── Gyro permission prompt ─────────────────────────────────────────────── */
+.gyro-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0.5rem auto 0.25rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 999px;
+  color: rgba(245, 158, 11, 0.9);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gyro-prompt-icon {
+  width: 1rem;
+  height: 1rem;
 }
 
 /* ── Shared card base ─────────────────────────────────────────────────────── */
@@ -213,7 +297,7 @@ function readAloud(playerId: string) {
 }
 
 .select-card:active {
-  transform: scale(1.02) !important;
+  filter: brightness(0.95);
 }
 
 .select-card,

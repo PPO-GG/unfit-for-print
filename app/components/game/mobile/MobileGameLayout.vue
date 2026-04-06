@@ -8,6 +8,8 @@ import MobileBlackCard from "~/components/game/mobile/MobileBlackCard.vue";
 import MobileSelectionSlots from "~/components/game/mobile/MobileSelectionSlots.vue";
 import MobileCardList from "~/components/game/mobile/MobileCardList.vue";
 import MobileActionBar from "~/components/game/mobile/MobileActionBar.vue";
+import { mergeCardText } from "~/composables/useMergeCards";
+import { SFX } from "~/config/sfx.config";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -121,6 +123,33 @@ const totalSubmissions = computed(() => Object.keys(props.submissions).length);
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
+async function handleReadAloud(playerId: string) {
+  if (!import.meta.client) return;
+  const sub = props.submissions[playerId];
+  if (!sub || !props.blackCard) return;
+
+  // Resolve any card texts missing from the shared cardTexts map
+  const missingIds = sub.filter((cardId) => !props.cardTexts[cardId]?.text);
+  let resolvedTexts: Record<string, { text: string; pack: string }> = {};
+  if (missingIds.length > 0) {
+    try {
+      resolvedTexts = await $fetch("/api/cards/resolve", {
+        method: "POST",
+        body: { cardIds: missingIds },
+      });
+    } catch (err) {
+      console.error("[ReadAloud] Failed to resolve card texts:", err);
+    }
+  }
+
+  const whiteTexts = sub.map(
+    (cardId) =>
+      props.cardTexts[cardId]?.text ?? resolvedTexts[cardId]?.text ?? "",
+  );
+  const merged = mergeCardText(props.blackCard.text, whiteTexts);
+  if (merged) emit("read-aloud", merged);
+}
+
 function handleCardSelect(cardId: string) {
   const idx = selectedCards.value.indexOf(cardId);
   if (idx !== -1) {
@@ -134,9 +163,12 @@ function handleSlotDeselect(index: number) {
   selectedCards.value = selectedCards.value.filter((_, i) => i !== index);
 }
 
+const { playSfx } = useSfx();
+
 function handleSubmit() {
   emit("select-cards", selectedCards.value);
   selectedCards.value = [];
+  playSfx(SFX.cardThrow);
 }
 
 // ── Confetti ──────────────────────────────────────────────────────────────────
@@ -276,7 +308,7 @@ watch(
           :reading-aloud="readingAloud"
           @reveal="(pid) => emit('reveal-card', pid)"
           @pick-winner="(pid) => emit('select-winner', pid)"
-          @read-aloud="(text) => emit('read-aloud', text)"
+          @read-aloud="handleReadAloud"
         />
       </template>
 
@@ -317,6 +349,9 @@ watch(
 .mobile-game-layout {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100vw;
+  min-width: 0;
   height: 100vh;
   height: 100dvh;
   background: #0f172a;

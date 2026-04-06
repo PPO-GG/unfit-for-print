@@ -66,10 +66,6 @@ const hasBlanks = computed(() =>
         <template v-else>{{ text }}</template>
       </p>
 
-      <!-- Players waiting -->
-      <p v-if="playersWaiting > 0" class="waiting-text">
-        {{ playersWaiting }} player{{ playersWaiting > 1 ? "s" : "" }} waiting
-      </p>
     </div>
   </div>
 </template>
@@ -132,9 +128,4 @@ const hasBlanks = computed(() =>
   text-underline-offset: 2px;
 }
 
-.waiting-text {
-  color: #64748b;
-  font-size: 0.875rem;
-  margin: 0.5rem 0 0;
-}
 </style>

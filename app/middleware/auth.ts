@@ -9,14 +9,12 @@ export default defineNuxtRouteMiddleware(async () => {
   const userStore = useUserStore()
 
   if (!userStore.isLoggedIn) {
-    try {
-      await userStore.fetchUserSession()
+    const result = await userStore.fetchUserSession()
 
-      if (!userStore.isLoggedIn) {
-        return navigateTo('/')
-      }
-    } catch (error) {
-      console.error('User is not authenticated:', error)
+    // Only redirect for definitive auth failures — not transient network errors.
+    // 'error' means Appwrite was unreachable; let the page render rather than
+    // silently redirecting a user whose session may be perfectly valid.
+    if (result === 'unauthenticated') {
       return navigateTo('/')
     }
   }

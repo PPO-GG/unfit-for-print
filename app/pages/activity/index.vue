@@ -24,8 +24,8 @@ definePageMeta({ layout: "activity" });
 
 const router = useRouter();
 const userStore = useUserStore();
-const { init, authenticate, getSdk } = useDiscordSDK();
-const { createLobby, joinLobby, getLobbyByInstanceId } = useLobby();
+const { init, authenticate, getSdk, getChannelParticipants, subscribeToParticipants } = useDiscordSDK();
+const { joinLobby, getLobbyByInstanceId } = useLobby();
 
 const statusText = ref("Connecting to Discord...");
 const error = ref<string | null>(null);
@@ -43,8 +43,6 @@ async function launch() {
     const authData = await authenticate();
 
     // 3. Establish Appwrite session on the client
-    // The server already created the session — we just set the session
-    // hash so the client SDK can authenticate subsequent requests.
     if (!userStore.isLoggedIn) {
       const { client } = useAppwrite();
       client.setSession(authData.secret);
@@ -55,50 +53,26 @@ async function launch() {
       }
     }
 
-    // 4. Find or create lobby for this Activity instance
-    statusText.value = "Joining game...";
+    // 4. Fetch VC participants and subscribe to updates
+    statusText.value = "Loading voice channel...";
+    await getChannelParticipants();
+    await subscribeToParticipants();
+
+    // 5. Fast-path: reconnect to existing lobby for this Activity instance
     const instanceId = sdk.instanceId;
-    if (!instanceId) {
-      throw new Error("No Activity instance ID available");
-    }
-
-    let lobby = await getLobbyByInstanceId(instanceId);
-
-    if (lobby) {
-      // Lobby exists for this Activity — join it
-      await joinLobby(lobby.code, {
-        username: userStore.user?.name ?? "Unknown",
-      });
-    } else {
-      // No lobby yet — create one as host
-      try {
-        lobby = await createLobby(
-          authData.userId,
-          `${userStore.user?.name ?? "Unknown"}'s Game`,
-          false,
-          undefined,
-          instanceId,
-        );
-      } catch (err: unknown) {
-        // Race condition: another user may have created the lobby first
-        // Re-check before giving up
-        lobby = await getLobbyByInstanceId(instanceId);
-        if (lobby) {
-          await joinLobby(lobby.code, {
-            username: userStore.user?.name ?? "Unknown",
-          });
-        } else {
-          throw err;
-        }
+    if (instanceId) {
+      const lobby = await getLobbyByInstanceId(instanceId);
+      if (lobby) {
+        await joinLobby(lobby.code, {
+          username: userStore.user?.name ?? "Unknown",
+        });
+        await router.replace(`/game/${lobby.code}`);
+        return;
       }
     }
 
-    if (!lobby) {
-      throw new Error("Failed to create or find lobby");
-    }
-
-    // 5. Navigate to game
-    await router.replace(`/game/${lobby.code}`);
+    // 6. No existing lobby — go to VC Hub
+    await router.replace("/activity/hub");
   } catch (err: any) {
     console.error("[Discord Activity] Launch failed:", err);
     error.value = err?.message || "Something went wrong. Please try again.";

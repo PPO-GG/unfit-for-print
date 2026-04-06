@@ -82,16 +82,52 @@ export interface LobbyDocResult {
 // instances share the same reactive state. If refs were created inside the
 // function, connect() in one instance wouldn't trigger watchers in another
 // (e.g., useLobbyReactive's observers would never fire).
-let activeDoc: Y.Doc | null = null;
-let activeProvider: any | null = null;
-let activeConnection: any | null = null;
-let beforeUnloadHandler: (() => void) | null = null;
+//
+// HMR guard: During development, Vite re-executes this module on hot reload,
+// which would orphan the live WebSocket and Y.Doc. We stash the active state
+// on import.meta.hot.data so it survives module re-evaluation.
+// The mutable state (activeDoc, etc.) lives in a single object so that
+// reassignments inside connect()/disconnect() are visible to the HMR stash.
 
-const doc = shallowRef<Y.Doc | null>(null);
-const awareness = shallowRef<any | null>(null);
-const synced = ref(false);
-const connected = ref(false);
-const lobbyCode = ref<string | null>(null);
+interface LobbyDocState {
+  activeDoc: Y.Doc | null;
+  activeProvider: any | null;
+  activeConnection: any | null;
+  beforeUnloadHandler: (() => void) | null;
+  doc: ShallowRef<Y.Doc | null>;
+  awareness: ShallowRef<any | null>;
+  synced: Ref<boolean>;
+  connected: Ref<boolean>;
+  lobbyCode: Ref<string | null>;
+}
+
+const _prev: LobbyDocState | undefined = import.meta.hot?.data?.lobbyDoc;
+
+const _state: LobbyDocState = _prev ?? {
+  activeDoc: null,
+  activeProvider: null,
+  activeConnection: null,
+  beforeUnloadHandler: null,
+  doc: shallowRef<Y.Doc | null>(null),
+  awareness: shallowRef<any | null>(null),
+  synced: ref(false),
+  connected: ref(false),
+  lobbyCode: ref<string | null>(null),
+};
+
+// Stash state for next HMR reload — same object reference, so mutations
+// inside connect()/disconnect() are automatically reflected.
+if (import.meta.hot) {
+  import.meta.hot.data.lobbyDoc = _state;
+  import.meta.hot.accept();
+}
+
+// Convenience aliases so the rest of the file stays readable
+const doc = _state.doc;
+const awareness = _state.awareness;
+const synced = _state.synced;
+const connected = _state.connected;
+const lobbyCode = _state.lobbyCode;
 
 export function useLobbyDoc(): LobbyDocResult {
   const config = useRuntimeConfig();
@@ -127,7 +163,21 @@ export function useLobbyDoc(): LobbyDocResult {
     // in Provider.create). Sending it in both places causes the server to
     // create a duplicate Y.Doc under a namespaced key (e.g., lobby-CODE/lobby-CODE),
     // which gets orphaned and triggers GC sweeps that corrupt tracking state.
-    const baseUrl = config.public.lobbyTeleportalUrl || "ws://localhost:1235";
+    //
+    // Discord Activity: the iframe on discordsays.com blocks direct external
+    // WebSocket connections. Route through Discord's proxy via URL mapping
+    // (/teleportal → teleportal.unfit.cards, configured in Developer Portal).
+    const { isDiscordActivity } = useDiscordSDK();
+    let baseUrl: string;
+    if (isDiscordActivity.value && typeof window !== "undefined") {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      baseUrl = `${proto}//${window.location.host}/teleportal`;
+    } else {
+      baseUrl = config.public.lobbyTeleportalUrl || "ws://localhost:1235";
+    }
+    console.log(
+      `[LobbyDoc] Connecting to ${baseUrl} doc=${documentName}${isDiscordActivity.value ? " (Discord proxy)" : ""}`,
+    );
     const wsUrl = new URL(baseUrl);
     if (token) {
       wsUrl.searchParams.set("token", token);
@@ -153,9 +203,9 @@ export function useLobbyDoc(): LobbyDocResult {
     });
 
     // Store module-level refs for singleton enforcement
-    activeDoc = ydoc;
-    activeProvider = provider;
-    activeConnection = connection;
+    _state.activeDoc = ydoc;
+    _state.activeProvider = provider;
+    _state.activeConnection = connection;
 
     // Expose to composable consumers
     doc.value = ydoc;
@@ -167,13 +217,13 @@ export function useLobbyDoc(): LobbyDocResult {
     // page refresh / tab close so the server can immediately GC.
     if (typeof window !== "undefined") {
       // Remove any previous handler first (shouldn't happen, but be safe)
-      if (beforeUnloadHandler) {
-        window.removeEventListener("beforeunload", beforeUnloadHandler);
+      if (_state.beforeUnloadHandler) {
+        window.removeEventListener("beforeunload", _state.beforeUnloadHandler);
       }
-      beforeUnloadHandler = () => {
+      _state.beforeUnloadHandler = () => {
         disconnect();
       };
-      window.addEventListener("beforeunload", beforeUnloadHandler);
+      window.addEventListener("beforeunload", _state.beforeUnloadHandler);
     }
 
     // Wait for initial sync before resolving — callers need the full Y.Doc
@@ -206,30 +256,30 @@ export function useLobbyDoc(): LobbyDocResult {
 
   const disconnect = () => {
     // Remove beforeunload listener to avoid double-teardown
-    if (typeof window !== "undefined" && beforeUnloadHandler) {
-      window.removeEventListener("beforeunload", beforeUnloadHandler);
-      beforeUnloadHandler = null;
+    if (typeof window !== "undefined" && _state.beforeUnloadHandler) {
+      window.removeEventListener("beforeunload", _state.beforeUnloadHandler);
+      _state.beforeUnloadHandler = null;
     }
 
-    if (activeProvider) {
+    if (_state.activeProvider) {
       try {
-        activeProvider.destroy?.();
+        _state.activeProvider.destroy?.();
       } catch {
         // Best-effort cleanup
       }
-      activeProvider = null;
+      _state.activeProvider = null;
     }
-    if (activeConnection) {
+    if (_state.activeConnection) {
       try {
-        activeConnection.destroy?.();
+        _state.activeConnection.destroy?.();
       } catch {
         // Best-effort cleanup
       }
-      activeConnection = null;
+      _state.activeConnection = null;
     }
-    if (activeDoc) {
-      activeDoc.destroy();
-      activeDoc = null;
+    if (_state.activeDoc) {
+      _state.activeDoc.destroy();
+      _state.activeDoc = null;
     }
 
     doc.value = null;

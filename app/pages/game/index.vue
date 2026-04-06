@@ -33,7 +33,8 @@
               color="warning"
               icon="i-solar-add-square-bold-duotone"
               class="text-base font-bold uppercase tracking-wider text-xl"
-              @click="showCreate = true"
+              :loading="creatingLobby"
+              @click="handleCreateLobby"
             >
               {{ t("modal.create_lobby") }}
             </UButton>
@@ -277,11 +278,6 @@
       </template>
     </UModal>
 
-    <UModal v-model:open="showCreate" :title="t('modal.create_lobby')">
-      <template #body>
-        <CreateLobbyDialog @created="handleJoined" />
-      </template>
-    </UModal>
   </div>
 </template>
 
@@ -307,7 +303,7 @@ if (import.meta.client) {
 }
 const config = useRuntimeConfig();
 const showJoin = ref(false);
-const showCreate = ref(false);
+const creatingLobby = ref(false);
 const { getPlayerName, getPlayerNameSync, playerCache } = useGetPlayerName();
 
 const DB_ID = config.public.appwriteDatabaseId;
@@ -321,7 +317,8 @@ const lobbies = ref<LobbyWithName[]>([]);
 
 const router = useRouter();
 const userStore = useUserStore();
-const { getActiveLobbyForUser } = useLobby();
+const { getActiveLobbyForUser, createLobby } = useLobby();
+const { notify } = useNotifications();
 const { showIfAuthenticated } = useUserAccess();
 const { getPlayersForLobby } = usePlayers();
 const hostNames = ref<Record<string, string>>({});
@@ -568,6 +565,24 @@ onBeforeUnmount(() => {
     pollTimer = null;
   }
 });
+
+const handleCreateLobby = async () => {
+  if (!userStore.user?.$id) return;
+  try {
+    creatingLobby.value = true;
+    const lobby = await createLobby(userStore.user.$id);
+    if (!lobby?.code) throw new Error("Invalid lobby response");
+    router.replace(`/game/${lobby.code}`);
+  } catch (error: unknown) {
+    notify({
+      title: t("modal.error_create_lobby"),
+      description: error instanceof Error ? error.message : "Unknown error",
+      color: "error",
+    });
+  } finally {
+    creatingLobby.value = false;
+  }
+};
 
 const handleJoined = (code: string) => {
   return router.replace(`/game/${code}`);

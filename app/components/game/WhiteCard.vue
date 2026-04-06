@@ -249,6 +249,12 @@ function applyTransform(rotateX = 0, rotateY = 0) {
   // Only tilt the outer .card container
   card.value.style.transform = `rotateX(${rotateX * intensity}deg) rotateY(${rotateY * intensity}deg)`;
 
+  // Simulate overhead lighting via dark overlay — brightness filter is invisible
+  // on near-white surfaces, so we use an opacity-controlled black overlay instead.
+  // Positive rotateX = tilting away from overhead light = darker.
+  const shadowAmount = Math.max(0, -rotateX * intensity * 0.01);
+  card.value.style.setProperty("--card-light-shadow", shadowAmount.toFixed(3));
+
   // Physical shadow tracks the tilt
   updateShadow(rotateX, rotateY, intensity);
 }
@@ -257,6 +263,7 @@ function resetTransform() {
   if (card.value && !props.disableHover) {
     rotation.value = { x: 0, y: 0 };
     applyTransform(0, 0);
+    card.value.style.removeProperty("--card-light-shadow");
     // Clear custom properties so CSS defaults take over
     const scaler = card.value.parentElement as HTMLElement | null;
     if (scaler) {
@@ -568,6 +575,20 @@ onMounted(async () => {
      transform is applied. Placed here (inside the face) rather than on
      .card__face to avoid interfering with backface-visibility. */
   filter: blur(0);
+}
+
+/* Overhead-light simulation: a black overlay whose opacity tracks the tilt angle.
+   Only darkens (tilting away from light); at rest or tilting toward light it's invisible. */
+.card-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: black;
+  opacity: var(--card-light-shadow, 0);
+  pointer-events: none;
+  z-index: 5;
+  border-radius: 12px;
+  transition: opacity 0.15s ease-out;
 }
 
 /* Decorative border + vignette — on .card-content (clipped by overflow:hidden) instead of .card__face (in the 3D chain) to avoid Firefox rectangular bounding box artifacts */

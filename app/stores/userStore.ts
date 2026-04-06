@@ -83,7 +83,7 @@ export const useUserStore = defineStore("user", {
         return;
       }
 
-      (this as any)._sessionFetchPromise = (async () => {
+      (this as any)._sessionFetchPromise = (async (): Promise<'ok' | 'unauthenticated' | 'error'> => {
         try {
           const [session, rawUser] = await Promise.all([
             account.getSession("current"),
@@ -150,11 +150,16 @@ export const useUserStore = defineStore("user", {
           if (typeof window !== "undefined") {
             (window as any).__auth_verified = true;
           }
-        } catch (error) {
+
+          return this.isLoggedIn ? 'ok' : 'unauthenticated';
+        } catch (error: any) {
+          // Distinguish definitive auth failures (401/guest) from transient errors
+          const isAuthError = error?.code === 401 || error?.type === 'general_unauthorized_scope';
           console.error("Error fetching session:", error);
           this.isLoggedIn = false;
           this.user = null;
           this.session = null;
+          return isAuthError ? 'unauthenticated' : 'error';
         } finally {
           (this as any)._sessionFetchPromise = null;
         }

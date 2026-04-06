@@ -74,6 +74,8 @@ function hasSubmitted(userId: string): boolean {
   flex-shrink: 0;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: 0.375rem 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }

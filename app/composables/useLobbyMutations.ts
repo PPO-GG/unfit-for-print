@@ -237,11 +237,59 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
 
   const startGame = (payload: GameStartPayload): void => {
     const ydoc = requireDoc();
+
+    // Split into multiple small transactions. Teleportal silently drops
+    // WebSocket messages larger than ~64KB, so each Y.Doc update must
+    // stay well under that threshold.
+
+    // 1. Card texts — the largest payload. Split into chunked Y.Map keys
+    //    (cardTexts_0, cardTexts_1, ...) of ~100 entries each so no
+    //    single JSON blob exceeds ~30KB.
+    const cards = getCards();
+    const cardTextEntries = Object.entries(payload.cardTexts);
+    const CHUNK_SIZE = 100;
+    const numChunks = Math.ceil(cardTextEntries.length / CHUNK_SIZE);
+    for (let i = 0; i < numChunks; i++) {
+      const chunk = cardTextEntries.slice(
+        i * CHUNK_SIZE,
+        (i + 1) * CHUNK_SIZE,
+      );
+      const chunkObj: Record<string, any> = {};
+      for (const [id, data] of chunk) {
+        chunkObj[id] = data;
+      }
+      ydoc.transact(() => {
+        cards.set(`cardTexts_${i}`, JSON.stringify(chunkObj));
+      });
+    }
+    // Store chunk count so readers know how many to merge
     ydoc.transact(() => {
-      // Meta
+      cards.set("cardTextsChunks", String(numChunks));
+    });
+
+    // 2. Decks (split white and black to keep each update small)
+    ydoc.transact(() => {
+      cards.set("whiteDeck", JSON.stringify(payload.whiteDeck));
+      cards.set("discardWhite", "[]");
+      cards.set("discardBlack", "[]");
+    });
+    ydoc.transact(() => {
+      cards.set("blackDeck", JSON.stringify(payload.blackDeck));
+    });
+
+    // 3. Hands
+    ydoc.transact(() => {
+      const hands = getHands();
+      for (const [playerId, hand] of Object.entries(payload.hands)) {
+        hands.set(playerId, JSON.stringify(hand));
+      }
+    });
+
+    // 4. Game state + meta (triggers phase change — must be last so
+    //    card data is already available when clients transition)
+    ydoc.transact(() => {
       getMeta().set("status", "playing");
 
-      // Game state
       const gs = getGameState();
       gs.set("phase", "submitting");
       gs.set("round", 1);
@@ -256,17 +304,13 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       gs.set("readAloudText", "");
       gs.set("gameEndTime", null);
 
-      // Initialize scores for all players
       const scores: Record<string, number> = {};
       for (const playerId of payload.playerOrder) {
         scores[playerId] = 0;
       }
       gs.set("scores", JSON.stringify(scores));
-
-      // Store the player order for judge rotation
       gs.set("playerOrder", JSON.stringify(payload.playerOrder));
 
-      // Store player name map for post-leave name resolution
       const playerNameMap: Record<string, string> = {};
       const playersMap = getPlayers();
       for (const [pid, raw] of playersMap.entries()) {
@@ -278,20 +322,6 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
         }
       }
       gs.set("players", JSON.stringify(playerNameMap));
-
-      // Cards
-      const cards = getCards();
-      cards.set("whiteDeck", JSON.stringify(payload.whiteDeck));
-      cards.set("blackDeck", JSON.stringify(payload.blackDeck));
-      cards.set("discardWhite", "[]");
-      cards.set("discardBlack", "[]");
-      cards.set("cardTexts", JSON.stringify(payload.cardTexts));
-
-      // Hands
-      const hands = getHands();
-      for (const [playerId, hand] of Object.entries(payload.hands)) {
-        hands.set(playerId, JSON.stringify(hand));
-      }
     });
   };
 
