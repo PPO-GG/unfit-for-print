@@ -27,7 +27,7 @@ const {
   handleJoined,
 } = useLobbyActions();
 
-const navItems = [
+const navItems = computed(() => [
   {
     labelKey: "nav.home",
     to: "/",
@@ -40,12 +40,19 @@ const navItems = [
     icon: "i-solar-info-square-bold-duotone",
     color: "info" as const,
   },
-  {
-    labelKey: "nav.games",
-    to: "/game",
-    icon: "i-solar-gamepad-bold-duotone",
-    color: "warning" as const,
-  },
+  isDiscordActivity.value
+    ? {
+        labelKey: "nav.hub",
+        to: "/activity/hub",
+        icon: "i-solar-widget-bold-duotone",
+        color: "warning" as const,
+      }
+    : {
+        labelKey: "nav.games",
+        to: "/game",
+        icon: "i-solar-gamepad-bold-duotone",
+        color: "warning" as const,
+      },
   {
     labelKey: "nav.labs",
     to: "/labs",
@@ -60,7 +67,7 @@ const navItems = [
     color: "secondary" as const,
     authRequired: true,
   },
-];
+]);
 
 watch(
   () => route.path,
@@ -155,6 +162,7 @@ const isAdmin = useIsAdmin();
     <!-- Mobile Join/Create Buttons -->
     <ClientOnly>
       <UFieldGroup
+        v-if="!isDiscordActivity"
         class="lg:hidden absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1"
       >
         <UButton
@@ -208,6 +216,7 @@ const isAdmin = useIsAdmin();
             </template>
           </ClientOnly>
           <UButton
+            v-if="!isDiscordActivity"
             :loading="isJoining"
             class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
             color="success"
@@ -218,6 +227,7 @@ const isAdmin = useIsAdmin();
             {{ t("nav.joingame") }}
           </UButton>
           <UButton
+            v-if="!isDiscordActivity"
             :disabled="!isAuthenticatedUser(userStore.user)"
             :icon="
               !isAuthenticatedUser(userStore.user)
@@ -365,6 +375,7 @@ const isAdmin = useIsAdmin();
               </template>
             </ClientOnly>
             <UButton
+              v-if="!isDiscordActivity"
               :loading="isJoining"
               block
               class="mb-2 text-xl py-3 border-2 dark:border-none"
@@ -377,6 +388,7 @@ const isAdmin = useIsAdmin();
               {{ t("nav.joingame") }}
             </UButton>
             <UButton
+              v-if="!isDiscordActivity"
               :disabled="!isAuthenticatedUser(userStore.user)"
               :icon="
                 !isAuthenticatedUser(userStore.user)
