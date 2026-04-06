@@ -6,8 +6,6 @@ declare module "nuxt/schema" {
     appwriteBlackCardCollectionId: string;
     appwriteLobbyCollectionId: string;
     appwritePlayerCollectionId: string;
-    appwriteGamechatCollectionId: string;
-    appwriteGameSettingsCollectionId: string;
     appwriteSubmissionCollectionId: string;
     appwriteReportsCollectionId: string;
     baseUrl: string;

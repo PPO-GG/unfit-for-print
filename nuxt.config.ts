@@ -73,6 +73,7 @@ export default defineNuxtConfig({
   },
   routeRules: {
     "/": { prerender: true },
+    "/profile": { ssr: false },
   },
   vite: {
     optimizeDeps: {
@@ -212,10 +213,6 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID,
       appwriteGamecardsCollectionId:
         process.env.NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID,
-      appwriteGamechatCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_GAMECHAT_COLLECTION_ID,
-      appwriteGameSettingsCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_GAMESETTINGS_COLLECTION_ID,
       appwriteSubmissionCollectionId:
         process.env.NUXT_PUBLIC_APPWRITE_SUBMISSION_COLLECTION_ID,
       appwriteReportsCollectionId:
