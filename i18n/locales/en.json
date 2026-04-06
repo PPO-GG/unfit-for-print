@@ -184,5 +184,8 @@
   "profile.locked": "Locked",
   "profile.support_to_unlock": "Support the game to unlock",
   "tagline": "A PARTY GAME FOR HIDEOUS PEOPLE",
-  "try_me": "Try Me!"
+  "try_me": "Try Me!",
+  "footer": {
+    "copyright": "All Rights Reserved."
+  }
 }

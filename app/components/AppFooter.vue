@@ -24,7 +24,7 @@ const { t } = useI18n();
     >
       <div class="flex-1 flex justify-start">
         <p class="text-sm dark:text-white text-slate-700">
-          {{ t("footer.copyright") }}
+          © 2026 Unfit for Print. All rights reserved.
         </p>
       </div>
 
@@ -45,30 +45,34 @@ const { t } = useI18n();
         </ClientOnly>
       </div>
 
-      <div class="flex-1 flex justify-end items-center gap-4">
-        <VoiceSwitcher />
-        <LanguageSwitcher />
-        <ThemeSwitcher />
-        <UTooltip text="Terms of Service" arrow class="cursor-pointer">
-          <UButton
-            to="/legal/termsofservice"
-            class="rounded-full"
-            color="neutral"
-            icon="i-solar-document-text-line-duotone"
-            size="xl"
-            variant="ghost"
-          />
-        </UTooltip>
-        <UTooltip :text="t('nav.privacy_policy')" arrow class="cursor-pointer">
-          <UButton
-            to="/legal/privacypolicy"
-            class="rounded-full"
-            color="neutral"
-            icon="i-solar-shield-check-line-duotone"
-            size="xl"
-            variant="ghost"
-          />
-        </UTooltip>
+      <div class="flex-1 flex justify-end items-center">
+        <UFieldGroup>
+          <VoiceSwitcher />
+          <LanguageSwitcher />
+          <ThemeSwitcher />
+          <UTooltip text="Terms of Service" arrow class="cursor-pointer">
+            <UButton
+              to="/legal/termsofservice"
+              color="neutral"
+              icon="i-solar-document-text-bold-duotone"
+              size="xl"
+              variant="ghost"
+            />
+          </UTooltip>
+          <UTooltip
+            :text="t('nav.privacy_policy')"
+            arrow
+            class="cursor-pointer"
+          >
+            <UButton
+              to="/legal/privacypolicy"
+              color="neutral"
+              icon="i-solar-shield-check-bold-duotone"
+              size="xl"
+              variant="ghost"
+            />
+          </UTooltip>
+        </UFieldGroup>
       </div>
     </div>
   </footer>
