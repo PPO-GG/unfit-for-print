@@ -138,12 +138,9 @@
         :is-host="isHost"
       />
       <GameSettings
-        v-if="gameSettings && !sidebarMoved"
-        :host-user-id="lobby.hostUserId"
+        v-if="lobbyReactive.settings.value && !sidebarMoved"
         :is-editable="isHost"
-        :lobby-id="lobby.$id"
-        :settings="gameSettings"
-        @update:settings="handleSettingsUpdate"
+        :settings="lobbyReactive.settings.value"
       />
     </div>
   </div>
@@ -153,17 +150,12 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onUnmounted } from "vue";
+import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
-import { getAppwrite } from "~/utils/appwrite";
-import type { Client } from "appwrite";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
-import type { GameSettings } from "~/types/gamesettings";
-import { useNotifications } from "~/composables/useNotifications";
-
 const { isDiscordActivity, inviteFriends } = useDiscordSDK();
 const isInDiscordActivity = isDiscordActivity.value;
 
@@ -174,12 +166,9 @@ async function handleInviteFriends() {
     console.error("Failed to open invite dialog:", err);
   }
 }
-import { resolveId } from "~/utils/resolveId";
 
 const { t } = useI18n();
-const { notify } = useNotifications();
 
-const { client } = getAppwrite();
 const props = defineProps<{
   lobby: Lobby;
   players: Player[];
@@ -197,8 +186,7 @@ watch(
 
 const router = useRouter();
 const userStore = useUserStore();
-const { startGame, leaveLobby, mutations } = useLobby();
-const { getGameSettings, createDefaultGameSettings } = useGameSettings();
+const { startGame, leaveLobby, reactive: lobbyReactive } = useLobby();
 const myId = userStore.user?.$id ?? "";
 const isHost = computed(() => props.lobby?.hostUserId === userStore.user?.$id);
 
@@ -211,96 +199,19 @@ const { botPlayers, canAddBot, addingBot, botError, addBot } = useBots(
 );
 
 const isStarting = ref(false);
-const gameSettings = ref<GameSettings | null>(null);
-
-// Set up real-time listener for game settings changes
-const setupGameSettingsRealtime = () => {
-  if (!props.lobby) return;
-
-  if (!client) return;
-  const config = useRuntimeConfig();
-
-  // Subscribe to changes in the game settings collection for this lobby
-  const unsubscribeGameSettings = client.subscribe(
-    [
-      `databases.${config.public.appwriteDatabaseId}.collections.${config.public.appwriteGameSettingsCollectionId}.documents`,
-    ],
-    async ({ payload }: { payload: unknown }) => {
-      // Check if this is a game settings document for our lobby
-      const settings = payload as GameSettings;
-      // Handle case where lobbyId is a relationship object
-      const settingsLobbyId = resolveId(settings.lobbyId);
-
-      if (settingsLobbyId === props.lobby.$id) {
-        // console.log('[Realtime] Game settings updated:', settings);
-        gameSettings.value = settings;
-
-        // If you're not the host and settings changed, show a notification
-        if (!isHost.value) {
-          notify({
-            title: t("game.settings.updated"),
-            icon: "i-solar-info-circle-bold-duotone",
-            color: "primary",
-            duration: 3000,
-          });
-        }
-      }
-    },
-  );
-
-  // Clean up subscription when component is unmounted
-  onUnmounted(() => {
-    unsubscribeGameSettings?.();
-  });
-};
-
-// Fetch game settings when the component is mounted.
-// Skip when sidebarMoved is true — the parent [code].vue already owns settings
-// lifecycle and passes them via GameSidebarContent.  Running both paths
-// concurrently causes a 409 Conflict (deterministic document ID).
-onMounted(async () => {
-  if (props.lobby && !props.sidebarMoved) {
-    try {
-      // Try to get existing settings
-      const settings = await getGameSettings(props.lobby.$id);
-
-      // If no settings exist and user is host, create default settings
-      if (!settings && isHost.value) {
-        gameSettings.value = await createDefaultGameSettings(
-          props.lobby.$id,
-          `${userStore.user?.name || "Anonymous"}'s Game`,
-          userStore.user?.$id, // Pass the host user ID
-        );
-      } else {
-        gameSettings.value = settings;
-      }
-
-      // Set up real-time listener for game settings changes
-      setupGameSettingsRealtime();
-    } catch (err) {
-      // console.error('Failed to load game settings:', err);
-    }
-  }
-});
-const handleSettingsUpdate = (newSettings: GameSettings) => {
-  gameSettings.value = newSettings;
-
-  // Sync into Y.Doc so all clients see the updated config
-  mutations.updateSettings({
-    maxPoints: newSettings.maxPoints,
-    cardsPerPlayer: newSettings.numPlayerCards,
-    cardPacks: newSettings.cardPacks,
-    isPrivate: newSettings.isPrivate,
-    lobbyName: newSettings.lobbyName,
-  });
-};
 
 const startGameWrapper = async () => {
   if (!props.lobby) return;
   try {
     isStarting.value = true;
-    // Pass game settings to the startGame function
-    await startGame(props.lobby.$id, gameSettings.value);
+    const s = lobbyReactive.settings.value;
+    await startGame(props.lobby.$id, s ? {
+      maxPoints: s.maxPoints,
+      numPlayerCards: s.cardsPerPlayer,
+      cardPacks: s.cardPacks,
+      isPrivate: s.isPrivate,
+      lobbyName: s.lobbyName,
+    } : null);
   } catch (err) {
     // console.error('Failed to start game:', err);
     isStarting.value = false;
