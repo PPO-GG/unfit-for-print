@@ -13,6 +13,11 @@ const props = defineProps<{
   scores?: Record<string, number>;
   roundWinner?: string | null;
   phase?: "submitting" | "judging";
+  isHost?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: "skip-player", playerId: string): void;
 }>();
 
 const { t } = useI18n();
@@ -45,6 +50,15 @@ function hasSubmitted(playerId: string): boolean {
 
 function getPlayerScore(playerId: string): number {
   return props.scores?.[playerId] ?? 0;
+}
+
+function canSkip(player: Player): boolean {
+  return (
+    !!props.isHost &&
+    props.phase === "submitting" &&
+    !hasSubmitted(player.userId) &&
+    player.userId !== props.judgeId
+  );
 }
 
 // ── Position rankings (dense rank — ties share the same position) ──
@@ -340,6 +354,16 @@ watch(
           <Icon name="mdi:gavel" />
         </div>
 
+        <!-- Skip button (host-only, submission phase, not yet submitted) -->
+        <button
+          v-if="canSkip(player)"
+          class="seat-skip absolute -bottom-0.5 -left-1 w-6 h-6 bg-slate-950/90 border-2 border-amber-500/50 rounded-full flex items-center justify-center text-[0.75rem] text-amber-400 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer hover:bg-amber-500/20 hover:border-amber-400"
+          :title="t('game.skip_player')"
+          @click.stop="emit('skip-player', player.userId)"
+        >
+          <UIcon name="i-solar-skip-next-bold-duotone" />
+        </button>
+
         <!-- Submitted checkmark badge -->
         <div
           v-if="hasSubmitted(player.userId)"
@@ -435,6 +459,13 @@ watch(
         v-if="player.userId === props.judgeId"
         name="mdi:gavel"
         class="text-amber-400 text-sm"
+      />
+      <UIcon
+        v-if="canSkip(player)"
+        name="i-solar-skip-next-bold-duotone"
+        class="text-amber-400 text-sm cursor-pointer opacity-0 group-hover/overflow:opacity-100 transition-opacity duration-200"
+        :title="t('game.skip_player')"
+        @click.stop="emit('skip-player', player.userId)"
       />
     </div>
   </div>
