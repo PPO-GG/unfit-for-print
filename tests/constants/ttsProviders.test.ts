@@ -72,3 +72,49 @@ describe('TTS_PROVIDERS', () => {
     }
   })
 })
+
+describe('Kokoro voices', () => {
+  it('getProviderFromVoiceId returns kokoro for any kokoro- prefixed ID', () => {
+    expect(getProviderFromVoiceId('kokoro-af_heart')).toBe('kokoro')
+    expect(getProviderFromVoiceId('kokoro-bm_george')).toBe('kokoro')
+    expect(getProviderFromVoiceId('kokoro-ff_siwis')).toBe('kokoro')
+  })
+
+  it('KOKORO_AF_HEART has correct shape', () => {
+    expect(TTS_PROVIDERS.KOKORO_AF_HEART).toEqual({
+      id: 'kokoro-af_heart',
+      apiVoice: 'af_heart',
+      displayName: 'Kokoro · Heart (American F)',
+    })
+  })
+
+  it('KOKORO_BF_EMMA has correct shape', () => {
+    expect(TTS_PROVIDERS.KOKORO_BF_EMMA).toEqual({
+      id: 'kokoro-bf_emma',
+      apiVoice: 'bf_emma',
+      displayName: 'Kokoro · Emma (British F)',
+    })
+  })
+
+  it('all kokoro voice IDs start with kokoro-', () => {
+    const kokoroKeys = Object.keys(TTS_PROVIDERS).filter(k => k.startsWith('KOKORO_'))
+    expect(kokoroKeys.length).toBe(16)
+    for (const key of kokoroKeys) {
+      const provider = TTS_PROVIDERS[key as keyof typeof TTS_PROVIDERS]
+      expect(provider.id).toMatch(/^kokoro-/)
+    }
+  })
+
+  it('all kokoro apiVoice values are in the server allowlist', () => {
+    const ALLOWED_VOICES = [
+      'af_heart', 'af_bella', 'af_nicole', 'af_aoede', 'af_kore',
+      'af_sarah', 'af_alloy', 'af_nova', 'am_fenrir', 'am_michael',
+      'am_puck', 'bf_emma', 'bf_isabella', 'bm_fable', 'bm_george', 'ff_siwis',
+    ]
+    const kokoroKeys = Object.keys(TTS_PROVIDERS).filter(k => k.startsWith('KOKORO_'))
+    for (const key of kokoroKeys) {
+      const provider = TTS_PROVIDERS[key as keyof typeof TTS_PROVIDERS]
+      expect(ALLOWED_VOICES).toContain(provider.apiVoice)
+    }
+  })
+})
