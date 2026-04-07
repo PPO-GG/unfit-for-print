@@ -670,24 +670,22 @@ function handleResetGame() {
       v-if="!showJoinModal && lobby && players"
       class="flex h-screen overflow-hidden"
     >
-      <!-- Mobile menu button -->
+      <!-- Mobile menu button (hidden during active gameplay — mobile has its own controls) -->
       <UButton
+        v-if="!isPlaying"
         icon="i-solar-hamburger-menu-broken"
         color="neutral"
         variant="ghost"
         size="xl"
-        :class="[
-          'xl:hidden absolute left-6 translate-y-[50%] z-10',
-          isPlaying && 'max-[767px]:hidden',
-        ]"
+        class="xl:hidden absolute left-6 translate-y-[50%] z-10"
         aria-label="Open menu"
         @click="isSidebarOpen = true"
       />
 
-      <!-- Desktop sidebar toggle button (visible during gameplay when sidebar is hidden) -->
+      <!-- Desktop sidebar toggle button (waiting room only — gameplay uses CornerControls) -->
       <Transition name="sidebar-toggle">
         <div
-          v-if="!showDesktopSidebar && isPlaying"
+          v-if="!showDesktopSidebar && !isPlaying"
           class="hidden xl:flex fixed left-4 top-4 z-[75] sidebar-toggle-btn"
         >
           <UButton
@@ -701,32 +699,22 @@ function handleResetGame() {
         </div>
       </Transition>
 
-      <!-- Desktop sidebar backdrop (click to close) -->
+      <!-- Desktop sidebar backdrop (waiting room only — gameplay uses ESC menu + FPS chat) -->
       <Transition name="sidebar-backdrop">
         <div
-          v-if="showDesktopSidebar && isPlaying"
+          v-if="showDesktopSidebar && !isPlaying && !isWaiting"
           class="hidden xl:block fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px]"
           @click="showDesktopSidebar = false"
         />
       </Transition>
 
-      <!-- Desktop sidebar (slides over content) -->
+      <!-- Desktop sidebar (hidden during active gameplay) -->
       <aside
+        v-if="!isPlaying"
         class="desktop-sidebar hidden xl:flex"
         :class="{ 'desktop-sidebar--open': showDesktopSidebar }"
       >
         <div class="sidebar-content-scroll">
-          <!-- Close button when playing -->
-          <div v-if="isPlaying" class="sidebar-close-row">
-            <UButton
-              icon="i-solar-close-square-bold-duotone"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              aria-label="Close sidebar"
-              @click="showDesktopSidebar = false"
-            />
-          </div>
           <GameSidebarContent
             :lobby="lobby"
             :players="players"
@@ -749,8 +737,9 @@ function handleResetGame() {
         </div>
       </aside>
 
-      <!-- Mobile slideover -->
+      <!-- Mobile slideover (hidden during active gameplay) -->
       <USlideover
+        v-if="!isPlaying"
         v-model:open="isSidebarOpen"
         class="xl:hidden"
         side="left"
@@ -812,6 +801,8 @@ function handleResetGame() {
             :players="players"
             @leave="handleLeave"
             @toggle-sidebar="isSidebarOpen = true"
+            @skip-judge="handleSkipJudge"
+            @reset-game="handleResetGame"
           />
         </ClientOnly>
 

@@ -141,7 +141,7 @@ const needsManualDraw = computed(() => {
 
 function handleDeckDraw() {
   const result = engine.drawCards();
-  if (result.success) {
+  if (result.success && result.drawnCount && result.drawnCount > 0) {
     playSfx(SFX.cardShuffle, { volume: 0.5 });
   }
 }

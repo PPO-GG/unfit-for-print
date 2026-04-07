@@ -1,8 +1,9 @@
 <template>
   <div
     v-bind="$attrs"
-    class="card-scaler select-none justify-center flex items-center w-[clamp(10rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none justify-center flex items-center aspect-[3/4] hover:z-[100]"
     :class="flat ? '' : 'perspective-[800px]'"
+    :style="{ '--card-scale': scale / 100 }"
   >
     <div
       ref="card"
@@ -137,7 +138,7 @@ function playRandomFlip() {
   playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   cardId?: string;
   text?: string;
   cardPack?: string;
@@ -152,7 +153,11 @@ const props = defineProps<{
    *  tiling artifacts. Use for cards that never need an animated flip
    *  (e.g. hand cards, pile cards). */
   flat?: boolean;
-}>();
+  /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
+  scale?: number;
+}>(), {
+  scale: 100,
+});
 
 const fallbackText = ref("");
 const cardText = computed(() => props.text || fallbackText.value);
@@ -604,6 +609,12 @@ onMounted(async () => {
 }
 
 .card-scaler {
+  --card-scale: 1;
+  width: clamp(
+    calc(10rem * var(--card-scale)),
+    calc(12vw * var(--card-scale)),
+    calc(18rem * var(--card-scale))
+  );
   container-type: inline-size;
   border-radius: 12px;
   position: relative;

@@ -200,6 +200,7 @@ watch(
               :text="blackCard.text"
               :num-pick="blackCard.pick"
               :flipped="false"
+              :scale="75"
             />
           </div>
           <div class="winner-answers">
@@ -213,6 +214,7 @@ watch(
               :is-winner="true"
               :flipped="false"
               back-logo-url="/img/ufp.svg"
+              :scale="75"
             />
           </div>
         </div>

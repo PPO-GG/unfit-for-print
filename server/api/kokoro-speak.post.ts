@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const { text, voice } = await readBody(event) as { text: string; voice: string };
+  const { text, voice, speed } = await readBody(event) as { text: string; voice: string; speed?: number };
 
   if (!text || !voice) {
     throw createError({
@@ -31,7 +31,12 @@ export default defineEventHandler(async (event) => {
   const resp = await fetch('https://kokoro.ppo.gg/v1/audio/speech', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'kokoro', voice, input: text }),
+    body: JSON.stringify({
+      model: 'kokoro',
+      voice,
+      input: text,
+      ...(speed != null && { speed: Math.min(2, Math.max(0.5, speed)) }),
+    }),
   });
 
   if (!resp.ok) {

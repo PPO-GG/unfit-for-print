@@ -1,6 +1,7 @@
 <template>
   <div
-    class="card-scaler select-none perspective-[800px] justify-center flex items-center w-[clamp(10rem,12vw,18rem)] aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none perspective-[800px] justify-center flex items-center aspect-[3/4] hover:z-[100]"
+    :style="{ '--card-scale': scale / 100 }"
   >
     <div
       ref="card"
@@ -121,7 +122,7 @@ function playRandomFlip() {
   playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   cardId?: string;
   text?: string;
   cardPack?: string;
@@ -131,7 +132,11 @@ const props = defineProps<{
   shine?: boolean;
   backLogoUrl?: string;
   maskUrl?: string;
-}>();
+  /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
+  scale?: number;
+}>(), {
+  scale: 100,
+});
 
 const fallbackNumPick = ref<number | undefined>(undefined);
 
@@ -545,6 +550,12 @@ onMounted(async () => {
 }
 
 .card-scaler {
+  --card-scale: 1;
+  width: clamp(
+    calc(10rem * var(--card-scale)),
+    calc(12vw * var(--card-scale)),
+    calc(18rem * var(--card-scale))
+  );
   container-type: inline-size;
   border-radius: 12px;
   position: relative;

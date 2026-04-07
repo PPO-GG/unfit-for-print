@@ -95,8 +95,22 @@ export default defineAppConfig({
     popover: {
       slots: {
         content:
-          "backdrop-blur-md bg-slate-900/90 ring ring-slate-700/50 rounded-xl shadow-xl shadow-black/50",
+          "backdrop-blur-md bg-slate-900/90 ring ring-slate-700/50 rounded-xl shadow-xl shadow-black/50 z-[250]",
         arrow: "fill-slate-900",
+      },
+    },
+
+    // ── DropdownMenu ─────────────────────────────────────────────────────────
+    dropdownMenu: {
+      slots: {
+        content: "z-[250]",
+      },
+    },
+
+    // ── SelectMenu ───────────────────────────────────────────────────────────
+    selectMenu: {
+      slots: {
+        content: "z-[250]",
       },
     },
 
