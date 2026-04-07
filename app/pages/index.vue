@@ -24,7 +24,9 @@
             ]"
           >
             <UButton variant="ghost" class="p-0 rounded-full cursor-pointer">
-              <AvatarDecoration :decoration-id="userStore.user?.prefs?.activeDecoration">
+              <AvatarDecoration
+                :decoration-id="userStore.user?.prefs?.activeDecoration"
+              >
                 <img
                   v-if="avatarUrl"
                   :src="avatarUrl"
@@ -160,10 +162,11 @@
     <ClientOnly>
       <div class="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
         <UButton
+          v-if="!isDiscordActivity"
           block
           :loading="isCreating"
           :disabled="!isAuthenticatedUser(userStore.user)"
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="warning"
           icon="i-solar-add-square-bold-duotone"
           size="xl"
@@ -174,9 +177,10 @@
         </UButton>
 
         <UButton
+          v-if="!isDiscordActivity"
           block
           :loading="isJoining"
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="success"
           icon="i-solar-hand-shake-line-duotone"
           size="xl"
@@ -187,8 +191,9 @@
         </UButton>
 
         <UButton
+          v-if="!isDiscordActivity"
           block
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="info"
           icon="i-solar-gamepad-bold-duotone"
           size="xl"
@@ -200,7 +205,7 @@
 
         <UButton
           block
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="primary"
           icon="i-solar-test-tube-bold-duotone"
           size="xl"
@@ -208,6 +213,36 @@
           to="/labs"
         >
           {{ t("nav.labs") }}
+        </UButton>
+
+        <!-- Admin: only shown to admins -->
+        <ClientOnly>
+          <UButton
+            v-if="isAdmin"
+            block
+            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+            color="error"
+            icon="i-solar-shield-star-bold-duotone"
+            size="xl"
+            variant="subtle"
+            to="/admin"
+          >
+            {{ t("nav.admin") }}
+          </UButton>
+        </ClientOnly>
+
+        <!-- Hub: only shown in Discord Activity mode -->
+        <UButton
+          v-if="isDiscordActivity"
+          block
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          color="warning"
+          icon="i-ic-baseline-discord"
+          size="xl"
+          variant="subtle"
+          to="/activity/hub"
+        >
+          {{ t("nav.hub") }}
         </UButton>
       </div>
     </ClientOnly>
