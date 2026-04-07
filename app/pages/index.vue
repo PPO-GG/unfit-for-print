@@ -166,11 +166,11 @@
           block
           :loading="isCreating"
           :disabled="!isAuthenticatedUser(userStore.user)"
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full size-64"
           color="warning"
           icon="i-solar-add-square-bold-duotone"
-          size="xl"
           variant="subtle"
+          size="xl"
           @click="checkForActiveLobbyAndCreate"
         >
           {{ t("nav.creategame") }}
@@ -183,7 +183,6 @@
           class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="success"
           icon="i-solar-hand-shake-line-duotone"
-          size="xl"
           variant="subtle"
           @click="checkForActiveLobbyAndJoin"
         >
@@ -196,7 +195,6 @@
           class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="info"
           icon="i-solar-gamepad-bold-duotone"
-          size="xl"
           variant="subtle"
           to="/game"
         >
@@ -208,7 +206,6 @@
           class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="primary"
           icon="i-solar-test-tube-bold-duotone"
-          size="xl"
           variant="subtle"
           to="/labs"
         >
@@ -216,29 +213,25 @@
         </UButton>
 
         <!-- Admin: only shown to admins -->
-        <ClientOnly>
-          <UButton
-            v-if="isAdmin"
-            block
-            class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
-            color="error"
-            icon="i-solar-shield-star-bold-duotone"
-            size="xl"
-            variant="subtle"
-            to="/admin"
-          >
-            {{ t("nav.admin") }}
-          </UButton>
-        </ClientOnly>
+        <UButton
+          v-if="isAdmin"
+          block
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
+          color="error"
+          icon="i-solar-shield-star-bold-duotone"
+          variant="subtle"
+          to="/admin"
+        >
+          {{ t("nav.admin") }}
+        </UButton>
 
         <!-- Hub: only shown in Discord Activity mode -->
         <UButton
           v-if="isDiscordActivity"
           block
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
           color="warning"
           icon="i-ic-baseline-discord"
-          size="xl"
           variant="subtle"
           to="/activity/hub"
         >
