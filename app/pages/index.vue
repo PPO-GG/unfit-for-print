@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center px-4 py-8 select-none">
+  <div
+    class="min-h-screen flex flex-col items-center justify-center px-4 py-8 select-none"
+  >
     <!-- Avatar (top-right corner) -->
     <div class="fixed top-4 right-4 z-20">
       <NuxtLink v-if="userStore.user" to="/profile">
@@ -30,60 +32,15 @@
         alt="Unfit For Print Logo"
         class="w-20 sm:w-28 md:w-36 h-auto drop-shadow-xl mb-4"
       />
-      <h1 class="font-display text-5xl sm:text-6xl md:text-7xl tracking-widest text-white drop-shadow-lg leading-none">
-        UNFIT FOR PRINT
-      </h1>
-      <p class="font-display text-lg sm:text-xl tracking-[0.4em] text-violet-300/80 mt-1">
-        PARTY GAME
-      </p>
     </div>
-
-    <!-- Primary Actions -->
-    <div class="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
-      <!-- CREATE GAME -->
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-white cursor-pointer
-               bg-gradient-to-r from-violet-600 to-indigo-600
-               shadow-[0_0_24px_rgba(139,92,246,0.45)]
-               hover:shadow-[0_0_36px_rgba(139,92,246,0.65)]
-               hover:brightness-110
-               active:scale-95
-               transition-all duration-150"
-        @click="checkForActiveLobbyAndCreate"
-      >
-        CREATE GAME
-      </button>
-
-      <!-- JOIN GAME -->
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer
-               glass-panel
-               hover:border-violet-500/40 hover:text-white
-               active:scale-95
-               transition-all duration-150"
-        @click="checkForActiveLobbyAndJoin"
-      >
-        JOIN GAME
-      </button>
-
-      <!-- BROWSE LOBBIES -->
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer
-               glass-panel
-               hover:border-violet-500/40 hover:text-white
-               active:scale-95
-               transition-all duration-150"
-        @click="navigateTo('/game')"
-      >
-        BROWSE LOBBIES
-      </button>
-    </div>
-
-    <!-- Try Me Panel -->
-    <div class="glass-panel rounded-2xl p-5 flex flex-col items-center gap-4 w-full max-w-sm">
+    <div
+      class="glass-panel rounded-2xl p-5 flex flex-col items-center gap-4 w-full max-w-sm"
+    >
       <div class="flex justify-center gap-4">
         <!-- Black Card -->
-        <div class="outline-2 outline-dashed dark:outline-slate-300/20 outline-slate-900/20 outline-offset-3 rounded-xl">
+        <div
+          class="outline-2 outline-dashed dark:outline-slate-300/20 outline-slate-900/20 outline-offset-3 rounded-xl"
+        >
           <BlackCard
             v-if="blackCard"
             :back-logo-url="'/img/ufp.svg'"
@@ -110,7 +67,9 @@
         </div>
 
         <!-- White Card -->
-        <div class="outline-2 outline-dashed dark:outline-slate-300/20 outline-slate-900/20 outline-offset-3 rounded-xl">
+        <div
+          class="outline-2 outline-dashed dark:outline-slate-300/20 outline-slate-900/20 outline-offset-3 rounded-xl"
+        >
           <WhiteCard
             v-if="whiteCard"
             :back-logo-url="'/img/ufp.svg'"
@@ -153,7 +112,11 @@
           <UButton
             class="cursor-pointer"
             color="neutral"
-            :icon="isSpeaking ? 'i-solar-stop-bold' : 'i-solar-user-speak-bold-duotone'"
+            :icon="
+              isSpeaking
+                ? 'i-solar-stop-bold'
+                : 'i-solar-user-speak-bold-duotone'
+            "
             variant="subtle"
             size="sm"
             @click="handleSpeakClick"
@@ -161,12 +124,58 @@
         </div>
       </ClientOnly>
     </div>
+    <!-- Primary Actions -->
+    <div class="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
+      <!-- CREATE GAME -->
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-white cursor-pointer bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_24px_rgba(139,92,246,0.45)] hover:shadow-[0_0_36px_rgba(139,92,246,0.65)] hover:brightness-110 active:scale-95 transition-all duration-150"
+        @click="checkForActiveLobbyAndCreate"
+      >
+        CREATE GAME
+      </button>
+
+      <!-- JOIN GAME -->
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
+        @click="checkForActiveLobbyAndJoin"
+      >
+        JOIN GAME
+      </button>
+
+      <!-- BROWSE LOBBIES -->
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
+        @click="navigateTo('/game')"
+      >
+        BROWSE LOBBIES
+      </button>
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
+        @click="navigateTo('/labs')"
+      >
+        LABS
+      </button>
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
+        @click="navigateTo('/admin')"
+      >
+        ADMIN
+      </button>
+    </div>
+
+    <!-- Try Me Panel -->
 
     <!-- Footer links -->
     <div class="flex gap-6 mt-8 text-sm text-slate-500">
-      <NuxtLink to="/about" class="hover:text-slate-300 transition-colors">About</NuxtLink>
-      <NuxtLink to="/profile" class="hover:text-slate-300 transition-colors">Profile</NuxtLink>
-      <NuxtLink to="/changelog" class="hover:text-slate-300 transition-colors">Changelog</NuxtLink>
+      <NuxtLink to="/about" class="hover:text-slate-300 transition-colors"
+        >About</NuxtLink
+      >
+      <NuxtLink to="/profile" class="hover:text-slate-300 transition-colors"
+        >Profile</NuxtLink
+      >
+      <NuxtLink to="/changelog" class="hover:text-slate-300 transition-colors"
+        >Changelog</NuxtLink
+      >
     </div>
   </div>
 </template>
@@ -185,14 +194,53 @@ import {
 import { useUserStore } from "~/stores/userStore";
 import { SFX } from "~/config/sfx.config";
 import { useLobbyActions } from "~/composables/useLobbyActions";
+import { isAuthenticatedUser } from "~/composables/useUserUtils";
+import { useNotifications } from "~/composables/useNotifications";
+import { useIsAdmin } from "~/composables/useAdminCheck";
 
 type TTSProvider = "browser" | "elevenlabs" | "openai";
 
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
 const userStore = useUserStore();
+const { notify } = useNotifications();
+const { isDiscordActivity } = useDiscordSDK();
+const isAdmin = useIsAdmin();
 const router = useRouter();
 const route = useRoute();
+
+const avatarUrl = computed(() => {
+  const user = userStore.user;
+  if (!user?.prefs) return null;
+  if (user.prefs.avatarUrl) return user.prefs.avatarUrl;
+  if (user.prefs.discordUserId && user.prefs.avatar) {
+    return `https://cdn.discordapp.com/avatars/${user.prefs.discordUserId}/${user.prefs.avatar}.png`;
+  }
+  if (user.name) {
+    return `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(user.name)}`;
+  }
+  return null;
+});
+
+const handleLoginWithDiscord = async (): Promise<void> => {
+  try {
+    await userStore.loginWithDiscord();
+  } catch (err: any) {
+    console.error("Login error:", err);
+    notify({ title: t("notification.login_failed"), color: "error" });
+  }
+};
+
+const handleLogout = async () => {
+  try {
+    await userStore.logout();
+    notify({ title: t("notification.logged_out"), color: "success" });
+  } catch (err) {
+    notify({ title: t("notification.logout_failed"), color: "error" });
+    console.error("Logout error:", err);
+  }
+};
+
 const openAIConfig = TTS_PROVIDERS.OPENAI;
 const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
 
