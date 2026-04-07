@@ -48,7 +48,7 @@ const isAIVoiceAvailable = (voiceId: string): boolean => {
 };
 
 const updateVoice = () => {
-  // If the current voice is an AI voice (ElevenLabs or OpenAI) and user is admin, keep it
+  // If the current voice is an AI voice (ElevenLabs, OpenAI, or Google) and user is admin, keep it
   if (isAIVoiceAvailable(userPrefs.ttsVoice)) {
     return;
   }
