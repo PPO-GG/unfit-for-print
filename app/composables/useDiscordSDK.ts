@@ -170,9 +170,11 @@ export function useDiscordSDK() {
   }
 
   function close() {
-    console.log("[Discord SDK] close() called, sdkInstance:", !!sdkInstance);
     if (!sdkInstance) {
-      console.warn("[Discord SDK] Cannot close — SDK not initialized");
+      // Only warn inside a Discord Activity iframe — outside it, this is expected
+      if (isDiscordActivity.value) {
+        console.warn("[Discord SDK] Cannot close — SDK not initialized");
+      }
       return;
     }
     sdkInstance.close(1000, "User closed activity");
