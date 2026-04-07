@@ -13,8 +13,12 @@ const isAdmin = useIsAdmin();
 // Get provider configurations
 const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
 const openAIConfig = TTS_PROVIDERS.OPENAI;
-const googleMaleConfig = TTS_PROVIDERS.GOOGLE_MALE;
-const googleFemaleConfig = TTS_PROVIDERS.GOOGLE_FEMALE;
+
+// All Google voice configs, in display order
+const googleVoiceConfigs = Object.values(TTS_PROVIDERS).filter((p) =>
+  p.id.startsWith("google-neural2-"),
+);
+const googleVoiceIdSet = new Set(googleVoiceConfigs.map((p) => p.id));
 
 const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
   // Get the user's preferred language from the store
@@ -38,12 +42,10 @@ const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
 
 const isAIVoiceAvailable = (voiceId: string): boolean => {
   return (
-    (
-      voiceId === elevenLabsConfig.id ||
+    (voiceId === elevenLabsConfig.id ||
       voiceId === openAIConfig.id ||
-      voiceId === googleMaleConfig.id ||
-      voiceId === googleFemaleConfig.id
-    ) && isAdmin.value
+      googleVoiceIdSet.has(voiceId)) &&
+    isAdmin.value
   );
 };
 
@@ -73,8 +75,7 @@ const loadVoices = () => {
   } else if (
     userPrefs.ttsVoice === elevenLabsConfig.id ||
     userPrefs.ttsVoice === openAIConfig.id ||
-    userPrefs.ttsVoice === googleMaleConfig.id ||
-    userPrefs.ttsVoice === googleFemaleConfig.id
+    googleVoiceIdSet.has(userPrefs.ttsVoice)
   ) {
     // If an AI voice is selected but user is not admin, reset to browser voice
     if (!isAdmin.value) {
@@ -104,14 +105,12 @@ const currentVoice = computed(() => {
     } as any;
   }
 
-  // If the selected voice is Google Male and user is admin, return a special object
-  if (userPrefs.ttsVoice === googleMaleConfig.id && isAdmin.value) {
-    return { name: googleMaleConfig.displayName } as any;
-  }
-
-  // If the selected voice is Google Female and user is admin, return a special object
-  if (userPrefs.ttsVoice === googleFemaleConfig.id && isAdmin.value) {
-    return { name: googleFemaleConfig.displayName } as any;
+  // If the selected voice is any Google voice and user is admin, return a special object
+  const googleConfig = googleVoiceConfigs.find(
+    (c) => c.id === userPrefs.ttsVoice,
+  );
+  if (googleConfig && isAdmin.value) {
+    return { name: googleConfig.displayName } as any;
   }
 
   // Otherwise, find the voice in the browser voices
@@ -166,22 +165,16 @@ const items = computed<
       onSelect: () => (userPrefs.ttsVoice = elevenLabsConfig.id),
     });
 
-    // Add Google Neural2 Female voice option
-    const isGoogleFemaleSelected = userPrefs.ttsVoice === googleFemaleConfig.id;
-    browserVoices.unshift({
-      label: googleFemaleConfig.displayName,
-      color: (isGoogleFemaleSelected ? "primary" : undefined) as UIColor | undefined,
-      icon: "i-solar-magic-stick-3-bold-duotone",
-      onSelect: () => (userPrefs.ttsVoice = googleFemaleConfig.id),
-    });
-
-    // Add Google Neural2 Male voice option
-    const isGoogleMaleSelected = userPrefs.ttsVoice === googleMaleConfig.id;
-    browserVoices.unshift({
-      label: googleMaleConfig.displayName,
-      color: (isGoogleMaleSelected ? "primary" : undefined) as UIColor | undefined,
-      icon: "i-solar-magic-stick-3-bold-duotone",
-      onSelect: () => (userPrefs.ttsVoice = googleMaleConfig.id),
+    // Add Google voices in reverse order so first defined appears at top
+    [...googleVoiceConfigs].reverse().forEach((config) => {
+      browserVoices.unshift({
+        label: config.displayName,
+        color: (userPrefs.ttsVoice === config.id ? "primary" : undefined) as
+          | UIColor
+          | undefined,
+        icon: "i-solar-magic-stick-3-bold-duotone",
+        onSelect: () => (userPrefs.ttsVoice = config.id),
+      });
     });
   }
 

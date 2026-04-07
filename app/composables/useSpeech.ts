@@ -111,13 +111,12 @@ export function useSpeech(options: TTSOptions = {}) {
       } else if (provider === "google") {
         endpoint = "/api/google-speak";
         const userPrefs = useUserPrefsStore();
-        const googleConfig =
-          userPrefs.ttsVoice === TTS_PROVIDERS.GOOGLE_FEMALE.id
-            ? TTS_PROVIDERS.GOOGLE_FEMALE
-            : TTS_PROVIDERS.GOOGLE_MALE;
+        const googleConfig = Object.values(TTS_PROVIDERS).find(
+          (p) => p.id === userPrefs.ttsVoice,
+        );
         payload = {
           text,
-          voiceName: googleConfig.apiVoice,
+          voiceName: googleConfig?.apiVoice ?? TTS_PROVIDERS.GOOGLE_MALE.apiVoice,
         };
       } else {
         throw new Error(`Unknown provider: ${provider}`);

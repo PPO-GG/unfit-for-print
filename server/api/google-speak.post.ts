@@ -14,7 +14,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const ALLOWED_VOICES = ['en-US-Neural2-D', 'en-US-Neural2-C'];
+  const ALLOWED_VOICES = [
+    'en-US-Neural2-A', 'en-US-Neural2-C', 'en-US-Neural2-D', 'en-US-Neural2-E', 'en-US-Neural2-F',
+    'en-AU-Neural2-A', 'en-AU-Neural2-B', 'en-AU-Neural2-C', 'en-AU-Neural2-D',
+    'en-GB-Neural2-A', 'en-GB-Neural2-B', 'en-GB-Neural2-C', 'en-GB-Neural2-D', 'en-GB-Neural2-F',
+  ];
   if (!ALLOWED_VOICES.includes(voiceName)) {
     throw createError({
       statusCode: 400,
@@ -30,6 +34,9 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Extract language code from voice name (e.g. 'en-US-Neural2-D' → 'en-US')
+  const languageCode = voiceName.split('-').slice(0, 2).join('-');
+
   const resp = await fetch(
     `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
     {
@@ -37,7 +44,7 @@ export default defineEventHandler(async (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         input: { text },
-        voice: { languageCode: 'en-US', name: voiceName },
+        voice: { languageCode, name: voiceName },
         audioConfig: { audioEncoding: 'MP3' },
       }),
     }
