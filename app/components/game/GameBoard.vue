@@ -52,7 +52,7 @@ const myId = userStore.user?.$id ?? "";
 const { notify } = useNotifications();
 
 // ── TTS (read-aloud broadcast) ──────────────────────────────────
-type TTSProvider = "browser" | "elevenlabs" | "openai";
+type TTSProvider = "browser" | "elevenlabs" | "openai" | "google";
 const userPrefs = useUserPrefsStore();
 
 let speechService = {
