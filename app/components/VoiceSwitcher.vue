@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { DropdownMenuItem } from '@nuxt/ui'
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
 import { ref } from "vue";
 import { useBrowserSpeech } from "~/composables/useBrowserSpeech";
@@ -10,33 +11,28 @@ const voices = ref<SpeechSynthesisVoice[]>([]);
 const { getVoices, isVoiceAvailable } = useBrowserSpeech();
 const isAdmin = useIsAdmin();
 
-// Get provider configurations
 const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
 const openAIConfig = TTS_PROVIDERS.OPENAI;
 
-// All Google voice configs, in display order
 const googleVoiceConfigs = Object.values(TTS_PROVIDERS).filter((p) =>
   p.id.startsWith("google-neural2-"),
 );
 const googleVoiceIdSet = new Set(googleVoiceConfigs.map((p) => p.id));
 
-const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
-  // Get the user's preferred language from the store
-  const preferredLang = userPrefs.preferredLanguage.toLowerCase();
+const kokoroVoiceConfigs = Object.values(TTS_PROVIDERS).filter((p) =>
+  p.id.startsWith("kokoro-"),
+);
 
-  // Try to find a voice that exactly matches the preferred language
+const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
+  const preferredLang = userPrefs.preferredLanguage.toLowerCase();
   let bestMatch = voices.value.find((voice) =>
     voice.lang.toLowerCase().startsWith(preferredLang),
   );
-
-  // If no exact match, try to find a voice that starts with the same language code
   if (!bestMatch) {
     bestMatch = voices.value.find(
       (voice) => voice.lang.toLowerCase().split("-")[0] === preferredLang,
     );
   }
-
-  // If still no match, return the first voice or null
   return bestMatch || voices.value[0] || null;
 };
 
@@ -50,15 +46,10 @@ const isAIVoiceAvailable = (voiceId: string): boolean => {
 };
 
 const updateVoice = () => {
-  // If the current voice is an AI voice (ElevenLabs, OpenAI, or Google) and user is admin, keep it
-  if (isAIVoiceAvailable(userPrefs.ttsVoice)) {
-    return;
-  }
-
-  // Otherwise check if the browser voice is available
+  if (isAIVoiceAvailable(userPrefs.ttsVoice)) return;
+  // Kokoro voices are valid for all users — keep as-is
+  if (userPrefs.ttsVoice.startsWith("kokoro-")) return;
   if (!isVoiceAvailable(userPrefs.ttsVoice)) {
-    // If no voice is selected or the selected voice is not available,
-    // try to find a voice that matches the user's preferred language
     const bestMatch = findBestMatchingVoice();
     userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || "";
   }
@@ -67,8 +58,6 @@ const updateVoice = () => {
 const loadVoices = () => {
   voices.value = getVoices();
 
-  // If this is the first load or no voice is selected, try to find a voice
-  // that matches the user's preferred language
   if (!userPrefs.ttsVoice) {
     const bestMatch = findBestMatchingVoice();
     userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || "";
@@ -77,35 +66,34 @@ const loadVoices = () => {
     userPrefs.ttsVoice === openAIConfig.id ||
     googleVoiceIdSet.has(userPrefs.ttsVoice)
   ) {
-    // If an AI voice is selected but user is not admin, reset to browser voice
+    // Admin-only AI voice: reset to browser if user lost admin
     if (!isAdmin.value) {
       const bestMatch = findBestMatchingVoice();
       userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || "";
     }
+  } else if (userPrefs.ttsVoice.startsWith("kokoro-")) {
+    // Kokoro voices are valid for all — no reset needed
   } else {
-    // Otherwise, just make sure the selected voice is available
     updateVoice();
   }
 };
 
 const currentVoice = computed(() => {
-  // If the selected voice is ElevenLabs and user is admin, return a special object
+  // Kokoro voice (available to all)
+  const kokoroConfig = kokoroVoiceConfigs.find(
+    (c) => c.id === userPrefs.ttsVoice,
+  );
+  if (kokoroConfig) {
+    return { name: kokoroConfig.displayName } as any;
+  }
+
+  // Admin-only AI voices
   if (userPrefs.ttsVoice === elevenLabsConfig.id && isAdmin.value) {
-    return {
-      name: elevenLabsConfig.displayName,
-      // Add other properties that might be needed
-    } as any;
+    return { name: elevenLabsConfig.displayName } as any;
   }
-
-  // If the selected voice is OpenAI and user is admin, return a special object
   if (userPrefs.ttsVoice === openAIConfig.id && isAdmin.value) {
-    return {
-      name: openAIConfig.displayName,
-      // Add other properties that might be needed
-    } as any;
+    return { name: openAIConfig.displayName } as any;
   }
-
-  // If the selected voice is any Google voice and user is admin, return a special object
   const googleConfig = googleVoiceConfigs.find(
     (c) => c.id === userPrefs.ttsVoice,
   );
@@ -113,7 +101,7 @@ const currentVoice = computed(() => {
     return { name: googleConfig.displayName } as any;
   }
 
-  // Otherwise, find the voice in the browser voices
+  // Browser / OS voices
   return (
     voices.value.find((voice) => voice.name === userPrefs.ttsVoice) ||
     voices.value[0] ||
@@ -121,64 +109,96 @@ const currentVoice = computed(() => {
   );
 });
 
-type UIColor =
-  | "primary"
-  | "secondary"
-  | "success"
-  | "info"
-  | "warning"
-  | "error"
-  | "neutral";
-const items = computed<
-  { label: string; color?: UIColor; icon?: string; onSelect: () => void }[]
->(() => {
-  // Start with browser voices
-  const browserVoices = [...voices.value]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((voice) => {
-      const isSelected = voice.name === userPrefs.ttsVoice;
-      return {
-        label: voice.name,
-        color: (isSelected ? "primary" : undefined) as UIColor | undefined,
-        icon: isSelected ? "i-solar-user-speak-bold-duotone" : undefined,
-        onSelect: () => (userPrefs.ttsVoice = voice.name),
-      };
-    });
+const items = computed<DropdownMenuItem[]>(() => {
+  const result: DropdownMenuItem[] = [];
 
-  // Add AI voice options for admins
+  // Premium Voices — admin only
   if (isAdmin.value) {
-    // Add OpenAI voice option
-    const isOpenAISelected = userPrefs.ttsVoice === openAIConfig.id;
-    browserVoices.unshift({
-      label: openAIConfig.displayName,
-      color: (isOpenAISelected ? "primary" : undefined) as UIColor | undefined,
-      icon: "i-solar-magic-stick-3-bold-duotone",
-      onSelect: () => (userPrefs.ttsVoice = openAIConfig.id),
-    });
-
-    // Add ElevenLabs voice option
-    const isElevenLabsSelected = userPrefs.ttsVoice === elevenLabsConfig.id;
-    browserVoices.unshift({
-      label: elevenLabsConfig.displayName,
-      color: (isElevenLabsSelected ? "primary" : undefined) as UIColor | undefined,
-      icon: "i-solar-magic-stick-3-bold-duotone",
-      onSelect: () => (userPrefs.ttsVoice = elevenLabsConfig.id),
-    });
-
-    // Add Google voices in reverse order so first defined appears at top
-    [...googleVoiceConfigs].reverse().forEach((config) => {
-      browserVoices.unshift({
-        label: config.displayName,
-        color: (userPrefs.ttsVoice === config.id ? "primary" : undefined) as
-          | UIColor
-          | undefined,
-        icon: "i-solar-magic-stick-3-bold-duotone",
-        onSelect: () => (userPrefs.ttsVoice = config.id),
-      });
+    result.push({
+      label: "Premium Voices",
+      icon: "i-solar-crown-bold-duotone",
+      children: [
+        ...googleVoiceConfigs.map((config) => ({
+          label: config.displayName,
+          color: (userPrefs.ttsVoice === config.id ? "primary" : undefined) as any,
+          icon: userPrefs.ttsVoice === config.id
+            ? "i-solar-user-speak-bold-duotone"
+            : "i-solar-magic-stick-3-bold-duotone",
+          onSelect: () => { userPrefs.ttsVoice = config.id },
+        })),
+        {
+          label: openAIConfig.displayName,
+          color: (userPrefs.ttsVoice === openAIConfig.id ? "primary" : undefined) as any,
+          icon: userPrefs.ttsVoice === openAIConfig.id
+            ? "i-solar-user-speak-bold-duotone"
+            : "i-solar-magic-stick-3-bold-duotone",
+          onSelect: () => { userPrefs.ttsVoice = openAIConfig.id },
+        },
+        {
+          label: elevenLabsConfig.displayName,
+          color: (userPrefs.ttsVoice === elevenLabsConfig.id ? "primary" : undefined) as any,
+          icon: userPrefs.ttsVoice === elevenLabsConfig.id
+            ? "i-solar-user-speak-bold-duotone"
+            : "i-solar-magic-stick-3-bold-duotone",
+          onSelect: () => { userPrefs.ttsVoice = elevenLabsConfig.id },
+        },
+      ],
     });
   }
 
-  return browserVoices;
+  // Kokoro TTS — all users
+  result.push({
+    label: "Kokoro TTS",
+    icon: "i-solar-magic-stick-3-bold-duotone",
+    children: kokoroVoiceConfigs.map((config) => ({
+      label: config.displayName,
+      color: (userPrefs.ttsVoice === config.id ? "primary" : undefined) as any,
+      icon: userPrefs.ttsVoice === config.id
+        ? "i-solar-user-speak-bold-duotone"
+        : undefined,
+      onSelect: () => { userPrefs.ttsVoice = config.id },
+    })),
+  });
+
+  // Browser TTS — cloud-based browser voices (localService === false)
+  const browserVoices = [...voices.value]
+    .filter((v) => !v.localService)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (browserVoices.length) {
+    result.push({
+      label: "Browser TTS",
+      icon: "i-solar-global-bold-duotone",
+      children: browserVoices.map((voice) => ({
+        label: voice.name,
+        color: (userPrefs.ttsVoice === voice.name ? "primary" : undefined) as any,
+        icon: userPrefs.ttsVoice === voice.name
+          ? "i-solar-user-speak-bold-duotone"
+          : undefined,
+        onSelect: () => { userPrefs.ttsVoice = voice.name },
+      })),
+    });
+  }
+
+  // OS TTS — native OS voices (localService === true)
+  const osVoices = [...voices.value]
+    .filter((v) => v.localService)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (osVoices.length) {
+    result.push({
+      label: "OS TTS",
+      icon: "i-solar-cpu-bold-duotone",
+      children: osVoices.map((voice) => ({
+        label: voice.name,
+        color: (userPrefs.ttsVoice === voice.name ? "primary" : undefined) as any,
+        icon: userPrefs.ttsVoice === voice.name
+          ? "i-solar-user-speak-bold-duotone"
+          : undefined,
+        onSelect: () => { userPrefs.ttsVoice = voice.name },
+      })),
+    });
+  }
+
+  return result;
 });
 
 onMounted(() => {
