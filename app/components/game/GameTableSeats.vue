@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { gsap } from "gsap";
 import confetti from "canvas-confetti";
 import type { Player } from "~/types/player";
+import { getDiscordIdFromPlayer } from "~/utils/discord";
 
 const props = defineProps<{
   players: Player[];

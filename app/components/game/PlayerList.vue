@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import type { Player } from "~/types/player";
+import { getDiscordIdFromPlayer } from "~/utils/discord";
 
 const { t } = useI18n();
 const props = defineProps<{
