@@ -1,4 +1,5 @@
 <template>
+  <div class="flex-1 flex items-center justify-center py-8">
   <div class="hub-root">
     <!-- Header -->
     <div class="hub-header">
@@ -30,7 +31,7 @@
               class="vc-row"
               :class="{ 'vc-row--dimmed': recentJoins.has(participant.id) }"
             >
-              <div class="vc-avatar">
+              <div class="vc-avatar" :class="{ 'vc-avatar--speaking': speakingDiscordIds.has(participant.id) }">
                 <img
                   v-if="participant.avatarUrl"
                   :src="participant.avatarUrl"
@@ -113,7 +114,9 @@
       </div>
     </div>
   </div>
+  </div>
 </template>
+
 
 <script lang="ts" setup>
 import { useUserStore } from '~/stores/userStore'
@@ -129,6 +132,7 @@ const {
   vcParticipants: realVcParticipants,
   channelId: realChannelId,
   isDiscordActivity,
+  speakingDiscordIds,
   inviteFriends,
   close,
   getSdk,
@@ -387,6 +391,15 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.vc-avatar--speaking {
+  box-shadow: 0 0 0 2px #23a55a, 0 0 8px rgba(35, 165, 90, 0.4);
+  animation: speaking-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #23a55a, 0 0 8px rgba(35, 165, 90, 0.4); }
+  50%       { box-shadow: 0 0 0 3px #23a55a, 0 0 14px rgba(35, 165, 90, 0.6); }
 }
 .vc-name {
   font-size: 0.9rem;
