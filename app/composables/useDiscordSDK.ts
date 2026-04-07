@@ -187,7 +187,7 @@ export function useDiscordSDK() {
     if (!sdkInstance) throw new Error("Discord SDK not initialized");
     // openInviteDialog() is broken on Discord's backend (max_age > 604800 error).
     // shareLink() opens a native share modal for the activity instead.
-    await sdkInstance.commands.shareLink({ message: "" });
+    await sdkInstance.commands.shareLink({ message: "Join my Unfit for Print game!" });
   }
 
   function close() {
