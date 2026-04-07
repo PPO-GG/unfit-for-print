@@ -3,6 +3,8 @@ import { ref, computed, watch, nextTick, onBeforeUnmount } from "vue";
 import type { Player } from "~/types/player";
 import type { CardTexts } from "~/types/gamecards";
 import { gsap } from "gsap";
+import { MotionPathPlugin } from "gsap/MotionPathPlugin";
+gsap.registerPlugin(MotionPathPlugin);
 import confetti from "canvas-confetti";
 import { shuffle } from "lodash-es";
 import { useCardFlyCoords } from "~/composables/useCardFlyCoords";
@@ -450,42 +452,73 @@ watch(
       // ── Step 4: Animate the ghost from source → destination ────────
       // Ghost uses position:fixed with left:0;top:0, so GSAP x/y are
       // screen coordinates directly.
-      gsap.fromTo(
-        ghost,
-        {
-          x: fromX - cardWidth / 2,
-          y: fromY - cardHeight / 2,
-          rotation: startRotation,
-          scale: isLocal ? 1.05 : 0.15,
-        },
-        {
-          x: destX - cardWidth / 2,
-          y: destY - cardHeight / 2,
-          rotation: finalAngle.rotate,
-          scale: 1,
-          duration: isLocal ? 0.6 : 0.8,
-          delay: animIndex * 0.2,
-          ease: "power3.out",
-          onStart: () => {
-            if (!isLocal) {
-              playSfx(SFX.cardSelect, {
-                volume: [0.3, 0.5],
-                pitch: [0.9, 1.1],
-              });
-            }
-          },
-          onComplete: () => {
-            // Remove ghost, let Vue reveal the real pile card via :style
-            ghost.remove();
-            flyingGhosts.value.delete(pid);
+      const startX = fromX - cardWidth / 2;
+      const startY = fromY - cardHeight / 2;
+      const endX = destX - cardWidth / 2;
+      const endY = destY - cardHeight / 2;
 
-            playCardLandSfx("", {
-              volume: isLocal ? [0.7, 0.9] : [0.4, 0.6],
+      // Control point: midpoint horizontally, lifted vertically for arc
+      const cpX = (startX + endX) / 2;
+      const cpY = Math.min(startY, endY) - 120 - Math.random() * 80;
+
+      gsap.set(ghost, {
+        x: startX,
+        y: startY,
+        rotation: startRotation,
+        scale: isLocal ? 1.05 : 0.15,
+      });
+
+      const tl = gsap.timeline({
+        delay: animIndex * 0.2,
+        onStart: () => {
+          if (!isLocal) {
+            playSfx(SFX.cardSelect, {
+              volume: [0.3, 0.5],
               pitch: [0.9, 1.1],
             });
-          },
+          }
         },
-      );
+        onComplete: () => {
+          // Remove ghost, let Vue reveal the real pile card via :style
+          ghost.remove();
+          flyingGhosts.value.delete(pid);
+
+          playCardLandSfx("", {
+            volume: isLocal ? [0.7, 0.9] : [0.4, 0.6],
+            pitch: [0.9, 1.1],
+          });
+        },
+      });
+
+      // Arc flight
+      tl.to(ghost, {
+        motionPath: {
+          path: [
+            { x: startX, y: startY },
+            { x: cpX, y: cpY },
+            { x: endX, y: endY },
+          ],
+          type: "quadratic",
+        },
+        rotation: finalAngle.rotate,
+        scale: 1,
+        duration: isLocal ? 0.6 : 0.8,
+        ease: "power2.inOut",
+      });
+
+      // Landing bounce (slight overshoot settle)
+      tl.to(ghost, {
+        y: endY - 6,
+        scale: 1.03,
+        duration: 0.08,
+        ease: "power1.out",
+      });
+      tl.to(ghost, {
+        y: endY,
+        scale: 1,
+        duration: 0.12,
+        ease: "power2.in",
+      });
     });
   },
   { deep: true },
@@ -1026,6 +1059,7 @@ function handleSelectWinner(playerId: string) {
         :flipped="true"
         :disable-hover="true"
         :flat="true"
+        :scale="75"
         back-logo-url="/img/ufp.svg"
       />
     </div>
@@ -1096,6 +1130,7 @@ function handleSelectWinner(playerId: string) {
                 :is-winner="false"
                 :disable-hover="true"
                 :flat="true"
+                :scale="75"
                 back-logo-url="/img/ufp.svg"
               />
             </div>
@@ -1185,6 +1220,7 @@ function handleSelectWinner(playerId: string) {
                   :flipped="!isRevealed(sub.playerId)"
                   :is-winner="effectiveRoundWinner === sub.playerId"
                   :disable-hover="!isRevealed(sub.playerId)"
+                  :scale="75"
                   back-logo-url="/img/ufp.svg"
                 />
               </div>
@@ -1224,7 +1260,6 @@ function handleSelectWinner(playerId: string) {
         </p>
       </div>
     </div>
-
     <!-- Spectator view -->
     <div v-if="blackCard && isSpectator" class="spectator-banner">
       <p>{{ t("game.you_are_spectating") }}</p>
@@ -1335,8 +1370,14 @@ function handleSelectWinner(playerId: string) {
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem;
+  padding: 1.5rem;
   width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  border: 1px solid rgba(139, 92, 246, 0.06);
+  border-radius: 1.5rem;
+  background: rgba(139, 92, 246, 0.015);
+  box-shadow: inset 0 0 40px rgba(139, 92, 246, 0.02);
 }
 
 /* ── Judging Info Bar ────────────────────────────────────────── */
@@ -1407,10 +1448,11 @@ function handleSelectWinner(playerId: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 2px dashed rgba(100, 116, 139, 0.25);
+  border: 1px solid rgba(139, 92, 246, 0.1);
   border-radius: 0.75rem;
-  background: rgba(30, 41, 59, 0.12);
+  background: rgba(15, 23, 42, 0.2);
   padding: 0.65rem;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.03);
   transition:
     border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     background 0.35s cubic-bezier(0.4, 0, 0.2, 1),
@@ -1418,8 +1460,9 @@ function handleSelectWinner(playerId: string) {
 }
 
 .grid-cell:hover:not(.grid-cell--hidden) {
-  border-color: rgba(100, 116, 139, 0.4);
-  background: rgba(30, 41, 59, 0.2);
+  border-color: rgba(139, 92, 246, 0.2);
+  background: rgba(15, 23, 42, 0.3);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.06);
 }
 
 .grid-cell--clickable {
@@ -1495,8 +1538,10 @@ function handleSelectWinner(playerId: string) {
   justify-content: center;
   width: 8rem;
   aspect-ratio: 3 / 4;
-  border: 2px dashed rgba(100, 116, 139, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.15);
   border-radius: 12px;
+  background: rgba(139, 92, 246, 0.03);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.05);
 }
 
 .pile-counter {
