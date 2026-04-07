@@ -69,6 +69,7 @@ const emit = defineEmits([
   "select-winner",
   "reveal-card",
   "read-aloud",
+  "skip-player",
 ]);
 
 const { t } = useI18n();
@@ -1190,6 +1191,8 @@ function handleSelectWinner(playerId: string) {
       :scores="scores"
       :round-winner="effectiveRoundWinner"
       :phase="localPhase"
+      :is-host="props.isHost"
+      @skip-player="emit('skip-player', $event)"
     />
 
     <!-- Table Center -->
