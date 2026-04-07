@@ -1,111 +1,177 @@
 <template>
-  <div class="flex flex-col items-center justify-center">
-    <div
-      class="px-4 py-8 flex flex-col items-center text-center select-none pointer-events-none"
-    >
+  <div class="min-h-screen flex flex-col items-center justify-center px-4 py-8 select-none">
+    <!-- Avatar (top-right corner) -->
+    <div class="fixed top-4 right-4 z-20">
+      <NuxtLink v-if="userStore.user" to="/profile">
+        <UAvatar
+          :src="userStore.user?.prefs?.avatar"
+          :alt="userStore.user?.name ?? 'Profile'"
+          size="md"
+          class="ring-2 ring-violet-500/40 hover:ring-violet-400/70 transition-all cursor-pointer"
+        />
+      </NuxtLink>
+      <NuxtLink v-else to="/auth/login">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-solar-login-bold-duotone"
+          size="sm"
+          class="opacity-60 hover:opacity-100"
+        >
+          {{ t("nav.login_discord") }}
+        </UButton>
+      </NuxtLink>
+    </div>
+
+    <!-- Logo -->
+    <div class="flex flex-col items-center mb-10 pointer-events-none">
       <img
         src="/img/ufp2.svg"
         alt="Unfit For Print Logo"
-        class="mx-auto w-16 sm:w-24 md:w-32 lg:w-48 h-auto drop-shadow-xl drop-shadow-black/25"
+        class="w-20 sm:w-28 md:w-36 h-auto drop-shadow-xl mb-4"
       />
+      <h1 class="font-display text-5xl sm:text-6xl md:text-7xl tracking-widest text-white drop-shadow-lg leading-none">
+        UNFIT FOR PRINT
+      </h1>
+      <p class="font-display text-lg sm:text-xl tracking-[0.4em] text-violet-300/80 mt-1">
+        PARTY GAME
+      </p>
     </div>
-    <div class="flex justify-center gap-6">
-      <div
-        class="outline-2 outline-dashed dark:outline-slate-300/25 outline-slate-900/25 outline-offset-4 rounded-xl"
+
+    <!-- Primary Actions -->
+    <div class="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
+      <!-- CREATE GAME -->
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-white cursor-pointer
+               bg-gradient-to-r from-violet-600 to-indigo-600
+               shadow-[0_0_24px_rgba(139,92,246,0.45)]
+               hover:shadow-[0_0_36px_rgba(139,92,246,0.65)]
+               hover:brightness-110
+               active:scale-95
+               transition-all duration-150"
+        @click="checkForActiveLobbyAndCreate"
       >
-        <BlackCard
-          v-if="blackCard"
-          :back-logo-url="'/img/ufp.svg'"
-          :card-id="blackCard.$id"
-          :cardPack="blackCard.pack"
-          :flipped="blackCardFlipped"
-          :mask-url="'/img/textures/hexa.webp'"
-          :num-pick="randomCard.pick"
-          :shine="shine"
-          :text="blackCard.text"
-          :threeDeffect="threeDeffect"
-          @click="blackCardFlipped = !blackCardFlipped"
-        />
-        <div
-          v-else
-          class="flex items-center p-2 text-white w-[clamp(6rem,12vw,18rem)] aspect-[3/4] bg-[#1c2342] rounded-xl"
-        >
-          <div class="grid gap-2 w-full px-2">
-            <USkeleton class="h-4 w-[85%] bg-slate-600/50" />
-            <USkeleton class="h-4 w-[70%] bg-slate-600/50" />
+        CREATE GAME
+      </button>
+
+      <!-- JOIN GAME -->
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer
+               glass-panel
+               hover:border-violet-500/40 hover:text-white
+               active:scale-95
+               transition-all duration-150"
+        @click="checkForActiveLobbyAndJoin"
+      >
+        JOIN GAME
+      </button>
+
+      <!-- BROWSE LOBBIES -->
+      <button
+        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer
+               glass-panel
+               hover:border-violet-500/40 hover:text-white
+               active:scale-95
+               transition-all duration-150"
+        @click="navigateTo('/game')"
+      >
+        BROWSE LOBBIES
+      </button>
+    </div>
+
+    <!-- Try Me Panel -->
+    <div class="glass-panel rounded-2xl p-5 flex flex-col items-center gap-4 w-full max-w-sm">
+      <div class="flex justify-center gap-4">
+        <!-- Black Card -->
+        <div class="outline-2 outline-dashed dark:outline-slate-300/20 outline-slate-900/20 outline-offset-3 rounded-xl">
+          <BlackCard
+            v-if="blackCard"
+            :back-logo-url="'/img/ufp.svg'"
+            :card-id="blackCard.$id"
+            :cardPack="blackCard.pack"
+            :flipped="blackCardFlipped"
+            :mask-url="'/img/textures/hexa.webp'"
+            :num-pick="randomCard.pick"
+            :shine="shine"
+            :text="blackCard.text"
+            :threeDeffect="threeDeffect"
+            :scale="80"
+            @click="blackCardFlipped = !blackCardFlipped"
+          />
+          <div
+            v-else
+            class="flex items-center p-2 text-white w-[clamp(5rem,10vw,14rem)] aspect-[3/4] bg-[#1c2342] rounded-xl"
+          >
+            <div class="grid gap-2 w-full px-2">
+              <USkeleton class="h-3 w-[85%] bg-slate-600/50" />
+              <USkeleton class="h-3 w-[70%] bg-slate-600/50" />
+            </div>
+          </div>
+        </div>
+
+        <!-- White Card -->
+        <div class="outline-2 outline-dashed dark:outline-slate-300/20 outline-slate-900/20 outline-offset-3 rounded-xl">
+          <WhiteCard
+            v-if="whiteCard"
+            :back-logo-url="'/img/ufp.svg'"
+            :card-id="whiteCard.$id"
+            :card-pack="whiteCard.pack"
+            :flipped="whiteCardFlipped"
+            :mask-url="'/img/textures/hexa2.webp'"
+            :shine="shine"
+            :text="whiteCard.text"
+            :three-deffect="threeDeffect"
+            :scale="80"
+            @click="whiteCardFlipped = !whiteCardFlipped"
+          />
+          <div
+            v-else
+            class="flex items-center p-2 text-white w-[clamp(5rem,10vw,14rem)] aspect-[3/4] bg-[#e7e1de] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.stone.400/50)]"
+          >
+            <div class="grid gap-2 w-full px-2">
+              <USkeleton class="h-3 w-[85%] bg-stone-400/50" />
+              <USkeleton class="h-3 w-[70%] bg-stone-400/50" />
+            </div>
           </div>
         </div>
       </div>
 
-      <div
-        class="outline-2 outline-dashed dark:outline-slate-300/25 outline-slate-900/25 outline-offset-4 rounded-xl"
-      >
-        <WhiteCard
-          v-if="whiteCard"
-          :back-logo-url="'/img/ufp.svg'"
-          :card-id="whiteCard.$id"
-          :card-pack="whiteCard.pack"
-          :flipped="whiteCardFlipped"
-          :mask-url="'/img/textures/hexa2.webp'"
-          :shine="shine"
-          :text="whiteCard.text"
-          :three-deffect="threeDeffect"
-          @click="whiteCardFlipped = !whiteCardFlipped"
-        />
-        <div
-          v-else
-          class="flex items-center p-2 text-white w-[clamp(6rem,12vw,18rem)] aspect-[3/4] bg-[#e7e1de] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.stone.400/50)]"
-        >
-          <div class="grid gap-2 w-full px-2">
-            <USkeleton class="h-4 w-[85%] bg-stone-400/50" />
-            <USkeleton class="h-4 w-[70%] bg-stone-400/50" />
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="flex flex-col items-center mt-8">
+      <!-- Draw + Speak buttons -->
       <ClientOnly>
-        <UFieldGroup>
+        <div class="flex gap-2">
           <UButton
             :loading="isFetching"
-            class="text-xl py-2 px-4 cursor-pointer"
-            color="secondary"
+            class="font-display tracking-wider cursor-pointer"
+            color="neutral"
             icon="i-solar-layers-minimalistic-bold-duotone"
             variant="subtle"
-            @click="handleTryMeClick"
+            size="sm"
+            @click="fetchNewCards"
           >
-            {{ t("try_me") }}
+            DRAW NEW CARDS
           </UButton>
           <UButton
-            class="text-xl py-2 px-4 cursor-pointer"
-            color="primary"
-            :icon="
-              isSpeaking
-                ? 'i-solar-stop-bold'
-                : 'i-solar-user-speak-bold-duotone'
-            "
+            class="cursor-pointer"
+            color="neutral"
+            :icon="isSpeaking ? 'i-solar-stop-bold' : 'i-solar-user-speak-bold-duotone'"
             variant="subtle"
+            size="sm"
             @click="handleSpeakClick"
           />
-          <!-- <ShareImage
-            v-if="blackCard && whiteCard"
-            :black-card="{
-              id: blackCard.$id,
-              text: blackCard.text,
-              pick: blackCard.pick,
-            }"
-            :white-card-ids="[whiteCard.$id]"
-          >
-            Share
-          </ShareImage> -->
-        </UFieldGroup>
+        </div>
       </ClientOnly>
+    </div>
+
+    <!-- Footer links -->
+    <div class="flex gap-6 mt-8 text-sm text-slate-500">
+      <NuxtLink to="/about" class="hover:text-slate-300 transition-colors">About</NuxtLink>
+      <NuxtLink to="/profile" class="hover:text-slate-300 transition-colors">Profile</NuxtLink>
+      <NuxtLink to="/changelog" class="hover:text-slate-300 transition-colors">Changelog</NuxtLink>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from "vue";
 import { useCards } from "~/composables/useCards";
 import { useVibrate } from "@vueuse/core";
 import { useSpeech } from "~/composables/useSpeech";
@@ -117,14 +183,19 @@ import {
   getProviderFromVoiceId,
 } from "~/constants/ttsProviders";
 import { useUserStore } from "~/stores/userStore";
-import ShareImage from "~/components/game/ShareImage.vue";
 import { SFX } from "~/config/sfx.config";
+import { useLobbyActions } from "~/composables/useLobbyActions";
+
 type TTSProvider = "browser" | "elevenlabs" | "openai";
 
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
+const userStore = useUserStore();
+const router = useRouter();
+const route = useRoute();
 const openAIConfig = TTS_PROVIDERS.OPENAI;
 const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
+
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
 const blackCardFlipped = ref(true);
@@ -134,11 +205,10 @@ const shine = ref(true);
 const { fetchRandomCard } = useCards();
 const randomCard = ref<any>({ pick: 1 });
 const { playSfx } = useSfx();
-const { notify } = useNotifications();
 const isFetching = ref(false);
-const userStore = useUserStore();
-const router = useRouter();
-const route = useRoute();
+
+const { checkForActiveLobbyAndCreate, checkForActiveLobbyAndJoin } =
+  useLobbyActions();
 
 // Safety net: if OAuth redirect (with secret & userId) accidentally lands
 // on the root page instead of /auth/callback (e.g. due to service worker
@@ -155,9 +225,7 @@ if (import.meta.client) {
 }
 
 let speechService = {
-  speak: (provider: TTSProvider, text: string) => {
-    // `Speaking with ${provider} speech: ${text}`);
-  },
+  speak: (provider: TTSProvider, text: string) => {},
   stop: () => {},
   isSpeaking: ref(false),
 };
@@ -169,9 +237,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-const isClient = computed(() => {
-  return typeof window !== "undefined";
-});
+const isClient = computed(() => typeof window !== "undefined");
 
 const currentProvider = computed(
   (): TTSProvider => getProviderFromVoiceId(userPrefs.ttsVoice),
@@ -203,13 +269,10 @@ const handleSpeakClick = () => {
   );
 };
 
-const handleTryMeClick = () => {
-  fetchNewCards();
-};
-
 const { vibrate } = useVibrate({ pattern: [10, 7, 5], interval: 0 });
+
 useHead({
-  title: `Unfit for Print`,
+  title: "Unfit for Print",
 });
 
 const fetchNewCards = async () => {

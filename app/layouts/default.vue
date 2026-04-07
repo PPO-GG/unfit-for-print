@@ -1,40 +1,9 @@
 <template>
-  <div
-    class="relative min-h-screen subpixel-antialiased cursor-default"
-    :style="{ '--ui-header-height': `${headerSize.height}px` }"
-  >
-    <!-- Background behind everything -->
+  <div class="min-h-screen relative subpixel-antialiased cursor-default">
     <ScrollingBackground :gap="12" :scale="0.5" :speedPx="15" />
-
-    <!-- Foreground: Header -> Main Content -> Footer -->
-    <div class="flex flex-col min-h-screen">
-      <div ref="headerRef">
-        <AppHeader />
-      </div>
-
-      <main
-        :style="{
-          marginTop: `${headerSize.height}px`,
-          marginBottom: `${footerSize.height}px`,
-        }"
-        class="flex-1 p-4 mt-16"
-      >
-        <slot />
-      </main>
-      <div ref="footerRef">
-        <AppFooter />
-      </div>
-    </div>
+    <AtmosphericOverlay vignette />
+    <main class="relative z-10 min-h-screen flex flex-col">
+      <slot />
+    </main>
   </div>
 </template>
-
-<script lang="ts" setup>
-import { ref } from "vue";
-import { useElementSize } from "@vueuse/core";
-
-const headerRef = ref(null);
-const headerSize = useElementSize(headerRef);
-
-const footerRef = ref(null);
-const footerSize = useElementSize(footerRef);
-</script>
