@@ -2,39 +2,71 @@
   <div
     class="min-h-screen flex flex-col items-center justify-center px-4 py-8 select-none"
   >
-    <!-- Avatar (top-right corner) -->
-    <div class="fixed top-4 right-4 z-20">
-      <NuxtLink v-if="userStore.user" to="/profile">
-        <UAvatar
-          :src="userStore.user?.prefs?.avatar"
-          :alt="userStore.user?.name ?? 'Profile'"
-          size="md"
-          class="ring-2 ring-violet-500/40 hover:ring-violet-400/70 transition-all cursor-pointer"
-        />
-      </NuxtLink>
-      <NuxtLink v-else to="/auth/login">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-solar-login-bold-duotone"
-          size="sm"
-          class="opacity-60 hover:opacity-100"
-        >
-          {{ t("nav.login_discord") }}
-        </UButton>
-      </NuxtLink>
-    </div>
+    <!-- Avatar / User Menu (top-right corner) -->
+    <ClientOnly>
+      <div class="fixed top-4 right-4 z-20">
+        <template v-if="isAuthenticatedUser(userStore.user)">
+          <UDropdownMenu
+            :items="[
+              [{ label: userStore.user.name, disabled: true }],
+              [
+                {
+                  label: t('nav.profile'),
+                  icon: 'i-solar-user-settings-bold-duotone',
+                  to: '/profile',
+                },
+                {
+                  label: t('nav.logout'),
+                  icon: 'i-solar-logout-3-bold-duotone',
+                  onSelect: handleLogout,
+                },
+              ],
+            ]"
+          >
+            <UButton variant="ghost" class="p-0 rounded-full cursor-pointer">
+              <AvatarDecoration :decoration-id="userStore.user?.prefs?.activeDecoration">
+                <img
+                  v-if="avatarUrl"
+                  :src="avatarUrl"
+                  alt="avatar"
+                  class="w-10 h-10 rounded-full ring-2 ring-violet-500/40 hover:ring-violet-400/70 transition-all"
+                />
+                <UAvatar
+                  v-else
+                  :alt="userStore.user?.name ?? 'Profile'"
+                  size="md"
+                  class="ring-2 ring-violet-500/40 hover:ring-violet-400/70 transition-all"
+                />
+              </AvatarDecoration>
+            </UButton>
+          </UDropdownMenu>
+        </template>
+        <template v-else>
+          <UButton
+            color="secondary"
+            variant="subtle"
+            icon="i-logos-discord-icon"
+            size="sm"
+            class="outline-1 dark:outline-none backdrop-blur-2xl"
+            @click="handleLoginWithDiscord"
+          >
+            {{ t("nav.login_discord") }}
+          </UButton>
+        </template>
+      </div>
+    </ClientOnly>
 
     <!-- Logo -->
-    <div class="flex flex-col items-center mb-10 pointer-events-none">
+    <div class="flex flex-col items-center mb-8 -mt-24 pointer-events-none">
       <img
         src="/img/ufp2.svg"
         alt="Unfit For Print Logo"
-        class="w-20 sm:w-28 md:w-36 h-auto drop-shadow-xl mb-4"
+        class="w-12 sm:w-20 md:w-24 h-auto drop-shadow-xl"
       />
     </div>
+
     <div
-      class="glass-panel rounded-2xl p-5 flex flex-col items-center gap-4 w-full max-w-sm"
+      class="glass-panel rounded-2xl p-5 flex flex-col items-center gap-4 mb-4"
     >
       <div class="flex justify-center gap-4">
         <!-- Black Card -->
@@ -104,7 +136,7 @@
             color="neutral"
             icon="i-solar-layers-minimalistic-bold-duotone"
             variant="subtle"
-            size="sm"
+            size="lg"
             @click="fetchNewCards"
           >
             DRAW NEW CARDS
@@ -118,7 +150,7 @@
                 : 'i-solar-user-speak-bold-duotone'
             "
             variant="subtle"
-            size="sm"
+            size="lg"
             @click="handleSpeakClick"
           />
         </div>
@@ -166,7 +198,7 @@
     <!-- Try Me Panel -->
 
     <!-- Footer links -->
-    <div class="flex gap-6 mt-8 text-sm text-slate-500">
+    <div class="flex gap-6 mt-8 text-sm text-slate-500 absolute bottom-4">
       <NuxtLink to="/about" class="hover:text-slate-300 transition-colors"
         >About</NuxtLink
       >
