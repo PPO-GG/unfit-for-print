@@ -127,6 +127,9 @@ const seatsRef = ref<InstanceType<typeof GameTableSeats> | null>(null);
 // Accessor for seat element refs from the child component
 const seatRefs = computed(() => seatsRef.value?.seatRefs ?? {});
 
+// ── Score fly badge state ────────────────────────────────────────
+const scoreFly = ref<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
+
 // ── State ───────────────────────────────────────────────────────
 // We delay the transition to "judging" locally so the final submission
 // animation has time to physically land in the pile before the FLIP layout change.
@@ -897,6 +900,22 @@ watch(
       ticks: 80,
     });
 
+    // ── Score fly badge: arc +1 from winner card to winner seat ──
+    const from = {
+      x: winnerBurstRect.left + winnerBurstRect.width / 2,
+      y: winnerBurstRect.top + winnerBurstRect.height / 2,
+    };
+
+    const seatEl = seatRefs.value[winnerId];
+    if (seatEl) {
+      const seatRect = seatEl.getBoundingClientRect();
+      const to = {
+        x: seatRect.left + seatRect.width / 2,
+        y: seatRect.top + seatRect.height / 2,
+      };
+      scoreFly.value = { from, to };
+    }
+
     // ── Slide losing cards off-table edges after spotlight settles ─
     setTimeout(() => {
       nonWinnerCells.forEach((cell, i) => {
@@ -1437,6 +1456,14 @@ function handleSelectWinner(playerId: string) {
       :players="players"
       :my-id="myId"
       :card-texts="cardTexts"
+    />
+
+    <!-- Score Fly Badge -->
+    <ScoreFlyBadge
+      v-if="scoreFly"
+      :from="scoreFly.from"
+      :to="scoreFly.to"
+      @done="scoreFly = null"
     />
   </div>
 </template>
