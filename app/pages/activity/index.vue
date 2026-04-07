@@ -1,8 +1,9 @@
 <template>
-  <div class="flex flex-col items-center justify-center h-screen gap-4">
-    <img src="/img/ufp2.svg" alt="Unfit For Print" class="w-32 h-auto" />
+  <div class="relative flex flex-col items-center justify-center h-screen gap-4">
+    <ScrollingBackground :gap="12" :scale="0.5" :speedPx="15" />
+    <img src="/img/ufp2.svg" alt="Unfit For Print" class="relative z-10 w-32 h-auto" />
 
-    <div class="text-center">
+    <div class="relative z-10 text-center">
       <h2 class="text-2xl font-bold mb-2">{{ statusText }}</h2>
       <p v-if="error" class="text-red-500 mt-2">{{ error }}</p>
       <p v-if="error" class="text-sm text-gray-400 mt-4">
@@ -20,11 +21,18 @@
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
 
-definePageMeta({ layout: "activity" });
+definePageMeta({ layout: "game" });
 
 const router = useRouter();
 const userStore = useUserStore();
-const { init, authenticate, getSdk, getChannelParticipants, subscribeToParticipants } = useDiscordSDK();
+const {
+  init,
+  authenticate,
+  getSdk,
+  getChannelParticipants,
+  subscribeToParticipants,
+  subscribeToSpeaking,
+} = useDiscordSDK();
 const { joinLobby, getLobbyByInstanceId } = useLobby();
 
 const statusText = ref("Connecting to Discord...");
@@ -57,6 +65,7 @@ async function launch() {
     statusText.value = "Loading voice channel...";
     await getChannelParticipants();
     await subscribeToParticipants();
+    await subscribeToSpeaking();
 
     // 5. Fast-path: reconnect to existing lobby for this Activity instance
     const instanceId = sdk.instanceId;
