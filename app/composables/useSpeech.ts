@@ -3,7 +3,7 @@ import { useBrowserSpeech } from "./useBrowserSpeech";
 import { TTS_PROVIDERS } from "~/constants/ttsProviders";
 
 // Define provider types
-export type TTSProvider = "browser" | "elevenlabs" | "openai" | "google";
+export type TTSProvider = "browser" | "elevenlabs" | "openai" | "google" | "kokoro";
 
 // Define options for each provider
 export interface TTSOptions {
@@ -117,6 +117,16 @@ export function useSpeech(options: TTSOptions = {}) {
         payload = {
           text,
           voiceName: googleConfig?.apiVoice ?? TTS_PROVIDERS.GOOGLE_MALE.apiVoice,
+        };
+      } else if (provider === "kokoro") {
+        endpoint = "/api/kokoro-speak";
+        const userPrefs = useUserPrefsStore();
+        const kokoroConfig = Object.values(TTS_PROVIDERS).find(
+          (p) => p.id === userPrefs.ttsVoice,
+        );
+        payload = {
+          text,
+          voice: kokoroConfig?.apiVoice ?? "af_bella",
         };
       } else {
         throw new Error(`Unknown provider: ${provider}`);
