@@ -3,7 +3,7 @@ import { ref, onMounted, watch } from "vue";
 import { useWhiteDeckPosition } from "~/composables/useWhiteDeckPosition";
 import { gsap } from "gsap";
 
-defineProps({
+const props = defineProps({
   backLogoUrl: {
     type: String,
     default: "/img/ufp.svg",
@@ -12,7 +12,21 @@ defineProps({
     type: String,
     default: "/img/textures/hexa.png",
   },
+  /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
+  scale: {
+    type: Number,
+    default: 100,
+  },
+  /** When true, the deck is clickable for manual draw mode. */
+  interactive: {
+    type: Boolean,
+    default: false,
+  },
 });
+
+const emit = defineEmits<{
+  (e: "draw"): void;
+}>();
 
 const deckRef = ref<HTMLElement | null>(null);
 const { registerDeck, isDealing } = useWhiteDeckPosition();
@@ -45,20 +59,20 @@ watch(isDealing, (dealing) => {
   <div
     ref="deckRef"
     data-deck="white"
-    class="relative w-[clamp(6rem,12vw,18rem)] aspect-[3/4] outline-2 outline-slate-400/25 md:outline-offset-4 outline-offset-2 outline-dashed rounded-xl transition-[filter] duration-300"
-    :class="{ 'brightness-120': isDealing }"
+    class="white-deck-wrapper"
+    :class="{ 'white-deck--dealing': isDealing, 'white-deck--interactive': props.interactive }"
+    @click="props.interactive && emit('draw')"
   >
     <!-- Stack effect with multiple cards -->
     <div
       v-for="i in 5"
       :key="`white-stack-${i}`"
+      class="white-deck-layer"
       :style="{
-        position: 'absolute',
         top: `${i * 2}px`,
         left: `${i * 2}px`,
         zIndex: 5 - i,
       }"
-      class="w-full h-full -translate-x-3 -translate-y-3"
     >
       <WhiteCard
         :backLogoUrl="backLogoUrl"
@@ -68,18 +82,34 @@ watch(isDealing, (dealing) => {
         :threeDeffect="false"
         :disableHover="true"
         :flat="true"
+        :scale="scale"
       />
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Override card component's fixed width so it inherits from the deck container */
-:deep(.card-scaler) {
-  width: 100% !important;
+.white-deck-wrapper {
+  position: relative;
+  width: fit-content;
 }
 
-.brightness-120 {
+.white-deck-layer {
+  position: absolute;
+  transform: translate(-12px, -12px);
+}
+
+/* First layer is relative to establish container size */
+.white-deck-layer:first-child {
+  position: relative;
+}
+
+.white-deck--dealing {
   filter: brightness(1.2);
+  transition: filter 0.3s ease;
+}
+
+.white-deck--interactive {
+  cursor: pointer;
 }
 </style>

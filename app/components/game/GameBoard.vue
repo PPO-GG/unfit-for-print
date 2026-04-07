@@ -17,6 +17,9 @@ import {
   getProviderFromVoiceId,
 } from "~/constants/ttsProviders";
 import MobileGameLayout from "~/components/game/mobile/MobileGameLayout.vue";
+import CornerControls from "~/components/game/CornerControls.vue";
+import GameEscMenu from "~/components/game/GameEscMenu.vue";
+import GameChatOverlay from "~/components/game/GameChatOverlay.vue";
 import { useBreakpoints } from "@vueuse/core";
 
 const { t } = useI18n();
@@ -24,6 +27,8 @@ const props = defineProps<{ lobby: Lobby; players: Player[] }>();
 const emit = defineEmits<{
   (e: "leave"): void;
   (e: "toggle-sidebar"): void;
+  (e: "skip-judge"): void;
+  (e: "reset-game"): void;
 }>();
 
 // ─── Y.Doc Reactive State ───────────────────────────────────────────────────
@@ -122,10 +127,51 @@ const isSpectator = computed(() => {
   return currentPlayer.value?.playerType === "spectator";
 });
 
+const needsManualDraw = computed(() => {
+  const manualDraw = lobbyReactive.settings.value?.manualDraw;
+  const myHandCards = lobbyReactive.myHand.value ?? [];
+  const cardsPerPlayer = lobbyReactive.settings.value?.cardsPerPlayer ?? 10;
+  return (
+    manualDraw &&
+    myHandCards.length < cardsPerPlayer &&
+    isSubmitting.value &&
+    isParticipant.value
+  );
+});
+
+function handleDeckDraw() {
+  const result = engine.drawCards();
+  if (result.success) {
+    playSfx(SFX.cardShuffle, { volume: 0.5 });
+  }
+}
+
 // ── Mobile breakpoint detection ──
 const breakpoints = useBreakpoints({ md: 768 });
 const isMobile = breakpoints.smaller("md");
 const myAvatar = computed(() => currentPlayer.value?.avatar || "");
+
+// ── Immersion: ESC menu & chat ──
+const escMenuOpen = ref(false);
+const gameChatRef = ref<InstanceType<typeof GameChatOverlay> | null>(null);
+
+// ESC key toggles the menu (chat overlay handles its own ESC via capture phase)
+function handleGlobalEsc(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    escMenuOpen.value = !escMenuOpen.value;
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", handleGlobalEsc));
+onUnmounted(() => window.removeEventListener("keydown", handleGlobalEsc));
+
+// ── Phase-reactive table lighting ──
+const tableLightingClass = computed(() => {
+  if (isComplete.value) return "table-light--gold";
+  if (isRoundEnd.value) return "table-light--green";
+  if (isJudging.value) return "table-light--amber";
+  return "table-light--violet";
+});
 
 // Helper function to get player name from ID
 const getPlayerName = (playerId: string): string => {
@@ -387,12 +433,36 @@ function handleMobileContinue() {
 }
 </script>
 <template>
-  <div
-    class="w-full bg-gradient-to-b from-slate-900 to-slate-800 min-h-screen flex flex-col"
-  >
-    <div
-      class="fixed w-full inset-0 bg-[url('/img/textures/noise.png')] opacity-7 pointer-events-none"
-    ></div>
+  <div class="game-table-root" :class="tableLightingClass">
+    <!-- Felt texture overlay -->
+    <div class="game-table-felt"></div>
+    <!-- Vignette -->
+    <div class="game-table-vignette"></div>
+
+    <!-- FPS-style Chat Overlay (desktop only) -->
+    <GameChatOverlay v-if="!isMobile" ref="gameChatRef" />
+
+    <!-- Corner HUD Controls (desktop only) -->
+    <CornerControls
+      v-if="!isMobile"
+      :unread-count="gameChatRef?.unreadCount ?? 0"
+      @toggle-chat="gameChatRef?.toggleChat()"
+      @toggle-settings="escMenuOpen = true"
+      @open-menu="escMenuOpen = true"
+    />
+
+    <!-- ESC Menu Overlay -->
+    <GameEscMenu
+      :open="escMenuOpen"
+      :lobby-code="props.lobby?.code"
+      :is-host="isHost"
+      :game-settings="lobbyReactive.settings.value"
+      @close="escMenuOpen = false"
+      @leave="emit('leave')"
+      @toggle-chat="gameChatRef?.toggleChat(); escMenuOpen = false"
+      @skip-judge="emit('skip-judge'); escMenuOpen = false"
+      @reset-game="emit('reset-game'); escMenuOpen = false"
+    />
 
     <!-- Mobile Layout -->
     <MobileGameLayout
@@ -438,12 +508,16 @@ function handleMobileContinue() {
       />
 
       <main class="flex-1 p-2 md:p-6 flex flex-col overflow-hidden relative">
-        <!-- Card Decks — flanking left/right, out of document flow -->
-        <div class="absolute left-10 top-10 z-10">
-          <BlackCardDeck :black-card="blackCard ?? undefined" />
+        <!-- Card Decks — black left, white right -->
+        <div class="deck-zone deck-zone--black">
+          <BlackCardDeck :black-card="blackCard ?? undefined" :scale="75" />
         </div>
-        <div class="absolute right-10 top-10 z-10">
-          <WhiteCardDeck />
+        <div class="deck-zone deck-zone--white">
+          <WhiteCardDeck
+            :scale="75"
+            :interactive="needsManualDraw"
+            @draw="handleDeckDraw"
+          />
         </div>
 
         <!-- Unified Game Table (submission + judging + winner celebration) -->
@@ -488,45 +562,111 @@ function handleMobileContinue() {
 </template>
 
 <style scoped>
-.card-deck {
+/* ─── Game Table Surface ──────────────────────────────────── */
+.game-table-root {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  perspective: 1200px;
+  transition: background 1s ease;
+}
+
+/* Phase-reactive lighting via radial gradient */
+.table-light--violet {
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(99, 102, 241, 0.08) 0%,
+    #0f1729 50%,
+    #0a0e1a 100%
+  );
+}
+
+.table-light--amber {
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(245, 158, 11, 0.08) 0%,
+    #0f1729 50%,
+    #0a0e1a 100%
+  );
+}
+
+.table-light--green {
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(34, 197, 94, 0.08) 0%,
+    #0f1729 50%,
+    #0a0e1a 100%
+  );
+}
+
+.table-light--gold {
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(234, 179, 8, 0.12) 0%,
+    #0f1729 50%,
+    #0a0e1a 100%
+  );
+}
+
+/* Felt texture */
+.game-table-felt {
+  position: fixed;
+  inset: 0;
+  background-image: url("/img/textures/noise.png");
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Edge vignette */
+.game-table-vignette {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ─── Deck Zones (flanking left/right) ────────────────────── */
+.deck-zone {
   position: absolute;
   z-index: 10;
-  top: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.card-deck--black {
-  left: 0.5rem;
+.deck-zone--black {
+  left: 1rem;
 }
 
-.card-deck--white {
-  right: 0.5rem;
+.deck-zone--white {
+  right: 1rem;
 }
 
 @media (min-width: 768px) {
-  .card-deck {
-    top: 0.75rem;
+  .deck-zone--black {
+    left: 1.5rem;
   }
 
-  .card-deck--black {
-    left: 1rem;
-  }
-
-  .card-deck--white {
-    right: 1rem;
+  .deck-zone--white {
+    right: 1.5rem;
   }
 }
 
 @media (min-width: 1280px) {
-  .card-deck {
-    top: 1rem;
+  .deck-zone--black {
+    left: 2.5rem;
   }
 
-  .card-deck--black {
-    left: 1.5rem;
-  }
-
-  .card-deck--white {
-    right: 1.5rem;
+  .deck-zone--white {
+    right: 2.5rem;
   }
 }
 </style>

@@ -503,27 +503,30 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       // so we always operate on the current committed deck state. Reading from the
       // outer `cards` snapshot (captured before transact) would allow two clients
       // to draw from the same stale deck, producing duplicate/missing cards.
-      const whiteDeck = safeParseJson<CardId[]>(c.get("whiteDeck"), []);
-      const numCards = safeParseJson<number>(
-        lobbyDoc.getSettings().get("cardsPerPlayer"),
-        10,
-      );
+      const manualDraw = lobbyDoc.getSettings().get("manualDraw");
+      if (!manualDraw) {
+        const whiteDeck = safeParseJson<CardId[]>(c.get("whiteDeck"), []);
+        const numCards = safeParseJson<number>(
+          lobbyDoc.getSettings().get("cardsPerPlayer"),
+          10,
+        );
 
-      for (const [playerId, rawHand] of handsMap.entries()) {
-        const hand = safeParseJson<CardId[]>(rawHand, []);
-        const deficit = numCards - hand.length;
+        for (const [playerId, rawHand] of handsMap.entries()) {
+          const hand = safeParseJson<CardId[]>(rawHand, []);
+          const deficit = numCards - hand.length;
 
-        if (deficit > 0) {
-          const newCards = whiteDeck.splice(
-            0,
-            Math.min(deficit, whiteDeck.length),
-          );
-          hand.push(...newCards);
-          handsMap.set(playerId, JSON.stringify(hand));
+          if (deficit > 0) {
+            const newCards = whiteDeck.splice(
+              0,
+              Math.min(deficit, whiteDeck.length),
+            );
+            hand.push(...newCards);
+            handsMap.set(playerId, JSON.stringify(hand));
+          }
         }
-      }
 
-      c.set("whiteDeck", JSON.stringify(whiteDeck));
+        c.set("whiteDeck", JSON.stringify(whiteDeck));
+      }
 
       // Clear round state
       gs.set("submissions", "{}");
@@ -914,6 +917,51 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     scheduleReplenishIfNeeded();
   };
 
+  // ── Manual Draw ──────────────────────────────────────────────────────
+  // When manualDraw setting is enabled, players draw their own cards
+  // by clicking the white deck instead of auto-receiving them.
+
+  const drawCards = (
+    playerId?: PlayerId,
+  ): { success: boolean; reason?: string; drawnCount?: number } => {
+    const ydoc = requireDoc();
+    const state = readGameState();
+    const pid = playerId ?? myId();
+
+    if (state.phase !== "submitting")
+      return { success: false, reason: "Can only draw during submitting phase" };
+
+    const manualDraw = lobbyDoc.getSettings().get("manualDraw");
+    if (!manualDraw)
+      return { success: false, reason: "Manual draw is not enabled" };
+
+    let drawnCount = 0;
+
+    ydoc.transact(() => {
+      const c = getCards();
+      const handsMap = getHands();
+      const rawHand = handsMap.get(pid);
+      if (!rawHand) return;
+
+      const hand = safeParseJson<CardId[]>(rawHand, []);
+      const numCards = safeParseJson<number>(
+        lobbyDoc.getSettings().get("cardsPerPlayer"),
+        10,
+      );
+      const deficit = numCards - hand.length;
+      if (deficit <= 0) return;
+
+      const whiteDeck = safeParseJson<CardId[]>(c.get("whiteDeck"), []);
+      const newCards = whiteDeck.splice(0, Math.min(deficit, whiteDeck.length));
+      hand.push(...newCards);
+      handsMap.set(pid, JSON.stringify(hand));
+      c.set("whiteDeck", JSON.stringify(whiteDeck));
+      drawnCount = newCards.length;
+    });
+
+    return { success: true, drawnCount };
+  };
+
   return {
     readHand,
     playCard,
@@ -928,5 +976,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     markReturnedToLobby,
     handlePlayerLeave,
     replenishWhiteDeck,
+    drawCards,
   };
 }
