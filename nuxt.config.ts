@@ -152,12 +152,11 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      // Asset caching only — no API caching since the game needs
-      // a live connection for real-time multiplayer state.
-      // navigateFallback is intentionally omitted: this is an SSR app and the
-      // server handles all routes. Using navigateFallback: "/" caused the SW to
-      // intercept navigations to /about, /profile, etc. and serve "/" instead.
-      globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2,webp}"],
+      // Static-asset caching only. navigateFallback is intentionally omitted:
+      // this is an SSR app — the server handles all routes. HTML is excluded
+      // from globPatterns so the SW never serves stale markup for navigations.
+      globPatterns: ["**/*.{js,css,png,svg,ico,woff2,webp}"],
+      cleanupOutdatedCaches: true,
     },
     client: {
       installPrompt: true,
