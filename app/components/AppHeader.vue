@@ -153,7 +153,7 @@ const isAdmin = useIsAdmin();
     <!-- Back Button (desktop only, all pages except home and game room) -->
     <UButton
       v-if="route.path !== '/' && !route.path.startsWith('/game/')"
-      class="not-lg:hidden text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+      class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
       color="neutral"
       icon="i-solar-alt-arrow-left-bold-duotone"
       size="xl"

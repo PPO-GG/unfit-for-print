@@ -68,7 +68,7 @@
     </div>
 
     <div
-      class="glass-panel rounded-2xl p-5 flex flex-col items-center gap-4 mb-4"
+      class="glass-panel rounded-2xl p-4 flex flex-col items-center gap-4 mb-4 w-full max-w-md"
     >
       <div class="flex justify-center gap-4">
         <!-- Black Card -->
@@ -86,7 +86,7 @@
             :shine="shine"
             :text="blackCard.text"
             :threeDeffect="threeDeffect"
-            :scale="80"
+            :scale="75"
             @click="blackCardFlipped = !blackCardFlipped"
           />
           <div
@@ -114,7 +114,7 @@
             :shine="shine"
             :text="whiteCard.text"
             :three-deffect="threeDeffect"
-            :scale="80"
+            :scale="75"
             @click="whiteCardFlipped = !whiteCardFlipped"
           />
           <div
@@ -160,17 +160,16 @@
     </div>
     <!-- Primary Actions -->
     <ClientOnly>
-      <div class="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
+      <div class="flex flex-col items-center gap-1 w-full max-w-md mb-8">
         <UButton
           v-if="!isDiscordActivity"
           block
           :loading="isCreating"
           :disabled="!isAuthenticatedUser(userStore.user)"
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full size-64"
+          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all"
           color="warning"
           icon="i-solar-add-square-bold-duotone"
           variant="subtle"
-          size="xl"
           @click="checkForActiveLobbyAndCreate"
         >
           {{ t("nav.creategame") }}
@@ -180,7 +179,7 @@
           v-if="!isDiscordActivity"
           block
           :loading="isJoining"
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
+          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all"
           color="success"
           icon="i-solar-hand-shake-line-duotone"
           variant="subtle"
@@ -192,7 +191,7 @@
         <UButton
           v-if="!isDiscordActivity"
           block
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
+          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all"
           color="info"
           icon="i-solar-gamepad-bold-duotone"
           variant="subtle"
@@ -203,7 +202,7 @@
 
         <UButton
           block
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
+          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all"
           color="primary"
           icon="i-solar-test-tube-bold-duotone"
           variant="subtle"
@@ -216,7 +215,7 @@
         <UButton
           v-if="isAdmin"
           block
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
+          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all"
           color="error"
           icon="i-solar-shield-star-bold-duotone"
           variant="subtle"
@@ -229,7 +228,7 @@
         <UButton
           v-if="isDiscordActivity"
           block
-          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full"
+          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all"
           color="warning"
           icon="i-ic-baseline-discord"
           variant="subtle"
@@ -254,13 +253,13 @@
         >Changelog</NuxtLink
       >
     </div>
-  </div>
 
-  <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
-    <template #body>
-      <JoinLobbyForm @joined="handleJoined" />
-    </template>
-  </UModal>
+    <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
+      <template #body>
+        <JoinLobbyForm @joined="handleJoined" />
+      </template>
+    </UModal>
+  </div>
 </template>
 
 <script lang="ts" setup>
