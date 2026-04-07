@@ -30,6 +30,7 @@ export interface LobbyInitPayload {
     isPrivate: boolean;
     lobbyName: string;
     roundEndCountdownDuration?: number;
+    manualDraw?: boolean;
   };
 }
 
@@ -104,6 +105,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
         "roundEndCountdownDuration",
         payload.settings.roundEndCountdownDuration ?? 5,
       );
+      settings.set("manualDraw", payload.settings.manualDraw ?? false);
 
       // Game state — blank until game starts
       const gameState = getGameState();
@@ -228,6 +230,8 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
           updates.roundEndCountdownDuration,
         );
       }
+      if (updates.manualDraw !== undefined)
+        settings.set("manualDraw", updates.manualDraw);
     });
   };
 

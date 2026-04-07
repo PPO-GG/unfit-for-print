@@ -212,6 +212,7 @@ export interface LobbySettings {
   isPrivate: boolean;
   lobbyName: string;
   roundEndCountdownDuration: number;
+  manualDraw: boolean;
 }
 
 function parseSettings(raw: Record<string, any>): LobbySettings {
@@ -224,6 +225,7 @@ function parseSettings(raw: Record<string, any>): LobbySettings {
     isPrivate: raw.isPrivate ?? false,
     lobbyName: raw.lobbyName ?? "",
     roundEndCountdownDuration: raw.roundEndCountdownDuration ?? 5,
+    manualDraw: raw.manualDraw ?? false,
   };
 }
 
