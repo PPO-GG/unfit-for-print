@@ -26,6 +26,7 @@ const discordUser = ref<{
   avatarUrl: string | null;
 } | null>(null);
 const vcParticipants = ref<DiscordParticipant[]>([]);
+const speakingDiscordIds = ref<Set<string>>(new Set());
 const channelId = ref<string | null>(null);
 
 // Synchronous detection: Discord's iframe sets these query params
@@ -162,6 +163,26 @@ export function useDiscordSDK() {
     );
   }
 
+  async function subscribeToSpeaking(): Promise<void> {
+    if (!sdkInstance) throw new Error("Discord SDK not initialized");
+
+    await sdkInstance.subscribe(
+      "SPEAKING_START",
+      (event: { user_id: string }) => {
+        speakingDiscordIds.value = new Set([...speakingDiscordIds.value, event.user_id]);
+      },
+    );
+
+    await sdkInstance.subscribe(
+      "SPEAKING_STOP",
+      (event: { user_id: string }) => {
+        const next = new Set(speakingDiscordIds.value);
+        next.delete(event.user_id);
+        speakingDiscordIds.value = next;
+      },
+    );
+  }
+
   async function inviteFriends() {
     if (!sdkInstance) throw new Error("Discord SDK not initialized");
     // openInviteDialog() is broken on Discord's backend (max_age > 604800 error).
@@ -190,11 +211,13 @@ export function useDiscordSDK() {
     isAuthenticated: readonly(isAuthenticated),
     discordUser: readonly(discordUser),
     vcParticipants: readonly(vcParticipants),
+    speakingDiscordIds: readonly(speakingDiscordIds),
     channelId: readonly(channelId),
     init,
     authenticate,
     getChannelParticipants,
     subscribeToParticipants,
+    subscribeToSpeaking,
     inviteFriends,
     close,
     getSdk,
