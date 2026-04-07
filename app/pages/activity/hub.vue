@@ -1,6 +1,6 @@
 <template>
   <div class="flex-1 flex items-center justify-center py-8">
-  <div class="hub-root">
+    <div class="hub-root">
     <!-- Header -->
     <div class="hub-header">
       <img src="/img/ufp2.svg" alt="Unfit For Print" class="hub-logo" />
@@ -113,7 +113,7 @@
         </button>
       </div>
     </div>
-  </div>
+    </div>
   </div>
 </template>
 
@@ -401,6 +401,7 @@ onUnmounted(() => {
   0%, 100% { box-shadow: 0 0 0 2px #23a55a, 0 0 8px rgba(35, 165, 90, 0.4); }
   50%       { box-shadow: 0 0 0 3px #23a55a, 0 0 14px rgba(35, 165, 90, 0.6); }
 }
+
 .vc-name {
   font-size: 0.9rem;
   font-weight: 500;
