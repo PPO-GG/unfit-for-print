@@ -22,6 +22,7 @@ const googleVoiceIdSet = new Set(googleVoiceConfigs.map((p) => p.id));
 const kokoroVoiceConfigs = Object.values(TTS_PROVIDERS).filter((p) =>
   p.id.startsWith("kokoro-"),
 );
+const kokoroVoiceIdSet = new Set(kokoroVoiceConfigs.map((p) => p.id));
 
 const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
   const preferredLang = userPrefs.preferredLanguage.toLowerCase();
@@ -48,7 +49,7 @@ const isAIVoiceAvailable = (voiceId: string): boolean => {
 const updateVoice = () => {
   if (isAIVoiceAvailable(userPrefs.ttsVoice)) return;
   // Kokoro voices are valid for all users — keep as-is
-  if (userPrefs.ttsVoice.startsWith("kokoro-")) return;
+  if (kokoroVoiceIdSet.has(userPrefs.ttsVoice)) return;
   if (!isVoiceAvailable(userPrefs.ttsVoice)) {
     const bestMatch = findBestMatchingVoice();
     userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || "";
@@ -71,43 +72,12 @@ const loadVoices = () => {
       const bestMatch = findBestMatchingVoice();
       userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || "";
     }
-  } else if (userPrefs.ttsVoice.startsWith("kokoro-")) {
+  } else if (kokoroVoiceIdSet.has(userPrefs.ttsVoice)) {
     // Kokoro voices are valid for all — no reset needed
   } else {
     updateVoice();
   }
 };
-
-const currentVoice = computed(() => {
-  // Kokoro voice (available to all)
-  const kokoroConfig = kokoroVoiceConfigs.find(
-    (c) => c.id === userPrefs.ttsVoice,
-  );
-  if (kokoroConfig) {
-    return { name: kokoroConfig.displayName } as any;
-  }
-
-  // Admin-only AI voices
-  if (userPrefs.ttsVoice === elevenLabsConfig.id && isAdmin.value) {
-    return { name: elevenLabsConfig.displayName } as any;
-  }
-  if (userPrefs.ttsVoice === openAIConfig.id && isAdmin.value) {
-    return { name: openAIConfig.displayName } as any;
-  }
-  const googleConfig = googleVoiceConfigs.find(
-    (c) => c.id === userPrefs.ttsVoice,
-  );
-  if (googleConfig && isAdmin.value) {
-    return { name: googleConfig.displayName } as any;
-  }
-
-  // Browser / OS voices
-  return (
-    voices.value.find((voice) => voice.name === userPrefs.ttsVoice) ||
-    voices.value[0] ||
-    null
-  );
-});
 
 const items = computed<DropdownMenuItem[]>(() => {
   const result: DropdownMenuItem[] = [];
@@ -221,7 +191,7 @@ onMounted(() => {
       }"
       :items="items"
       :ui="{
-        content: 'w-48 max-h-60 overflow-y-auto',
+        content: 'w-64 max-h-60 overflow-y-auto',
       }"
     >
       <UButton
