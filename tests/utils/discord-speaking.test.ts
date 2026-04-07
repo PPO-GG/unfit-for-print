@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 // Helper function with expected signature
-// This will be extracted to a separate utility file in Step 4
+// Inline copy — duplicated intentionally in PlayerList.vue and GameTableSeats.vue
 function getDiscordIdFromPlayer(player: { provider: string; avatar: string }): string | null {
   if (player.provider !== 'discord' || !player.avatar) return null
   if (player.avatar.startsWith('http')) {
