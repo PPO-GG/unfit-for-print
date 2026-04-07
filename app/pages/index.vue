@@ -28,7 +28,7 @@
                 <img
                   v-if="avatarUrl"
                   :src="avatarUrl"
-                  alt="avatar"
+                  :alt="userStore.user.name"
                   class="w-10 h-10 rounded-full ring-2 ring-violet-500/40 hover:ring-violet-400/70 transition-all"
                 />
                 <UAvatar
@@ -198,7 +198,7 @@
     <!-- Try Me Panel -->
 
     <!-- Footer links -->
-    <div class="flex gap-6 mt-8 text-sm text-slate-500 absolute bottom-4">
+    <div class="flex gap-6 mt-8 text-sm text-slate-500">
       <NuxtLink to="/about" class="hover:text-slate-300 transition-colors"
         >About</NuxtLink
       >
