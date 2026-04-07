@@ -11,6 +11,7 @@ import { useIsAdmin } from "~/composables/useAdminCheck";
 import { useLobbyActions } from "~/composables/useLobbyActions";
 
 const route = useRoute();
+const router = useRouter();
 const { isDiscordActivity, close: closeActivity } = useDiscordSDK();
 const userStore = useUserStore();
 const uiStore = useUiStore();
@@ -149,6 +150,17 @@ const isAdmin = useIsAdmin();
   <header
     class="fixed top-0 left-0 right-0 z-50 flex w-full h-16 items-center p-4"
   >
+    <!-- Back Button (desktop only, all pages except home and game room) -->
+    <UButton
+      v-if="route.path !== '/' && !route.path.startsWith('/game/')"
+      class="not-lg:hidden text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+      color="neutral"
+      icon="i-solar-alt-arrow-left-bold-duotone"
+      size="xl"
+      variant="subtle"
+      @click="router.back()"
+    />
+
     <!-- Mobile Menu Button -->
     <UButton
       class="lg:hidden absolute right-4 p-4"
