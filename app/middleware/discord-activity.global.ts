@@ -14,7 +14,8 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   // Not authenticated and not already on an /activity route — redirect to init flow
+  // Preserve query params (frame_id, instance_id) that the Discord SDK needs
   if (!isAuthenticated.value && !to.path.startsWith("/activity")) {
-    return navigateTo("/activity", { replace: true });
+    return navigateTo({ path: "/activity", query: to.query }, { replace: true });
   }
 });
