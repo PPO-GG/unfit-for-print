@@ -320,6 +320,53 @@
   animation: screen-shake 0.2s ease-out;
 }
 
+/* Ambient dust motes — subtle floating particles */
+.ambient-particles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+}
+
+.ambient-particles::before,
+.ambient-particles::after {
+  content: "";
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  opacity: 0.04;
+  filter: blur(40px);
+}
+
+.ambient-particles::before {
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.3), transparent);
+  animation: float-mote-1 18s ease-in-out infinite;
+  top: 20%;
+  left: 30%;
+}
+
+.ambient-particles::after {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent);
+  animation: float-mote-2 22s ease-in-out infinite;
+  bottom: 30%;
+  right: 25%;
+}
+
+@keyframes float-mote-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(50px, -30px) scale(1.1); }
+  50% { transform: translate(-20px, 40px) scale(0.9); }
+  75% { transform: translate(30px, 20px) scale(1.05); }
+}
+
+@keyframes float-mote-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-40px, -50px) scale(1.15); }
+  66% { transform: translate(60px, 30px) scale(0.85); }
+}
+
 /* Reduced-motion: plain crossfade, no movement */
 @media (prefers-reduced-motion: reduce) {
   .page-enter-active,

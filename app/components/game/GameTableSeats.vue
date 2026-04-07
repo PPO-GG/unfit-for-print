@@ -134,6 +134,7 @@ onMounted(() => {
 // ── GSAP: Submission bounce pulse ──────────────────────────────
 // Track which player IDs have submitted to detect new submissions
 const previousSubmissions = ref<Set<string>>(new Set());
+const ripplingSeat = ref<string | null>(null);
 
 watch(
   () => props.submissions,
@@ -160,6 +161,12 @@ watch(
             );
           }
         }
+
+        // Ripple ring burst
+        ripplingSeat.value = pid;
+        setTimeout(() => {
+          if (ripplingSeat.value === pid) ripplingSeat.value = null;
+        }, 800);
       }
     }
     previousSubmissions.value = newKeys;
@@ -303,6 +310,9 @@ watch(
           player.userId === props.judgeId && props.phase === 'judging' ? 'seat-avatar-ring--judging' : '',
         ]"
       >
+        <!-- Submission ripple ring -->
+        <div v-if="ripplingSeat === player.userId" class="seat-ripple" />
+
         <!-- Position badge (top-left, always visible) -->
         <div
           v-if="getPlayerPosition(player.userId)"
@@ -431,6 +441,21 @@ watch(
 </template>
 
 <style>
+/* Submission ripple ring */
+.seat-ripple {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(139, 92, 246, 0.4);
+  animation: seat-ripple 0.8s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes seat-ripple {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
 /* check-pop keyframe used by judge & submitted badges */
 @keyframes check-pop {
   from {

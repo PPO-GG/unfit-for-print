@@ -439,6 +439,9 @@ function handleMobileContinue() {
     <!-- Vignette -->
     <div class="game-table-vignette"></div>
 
+    <!-- Ambient floating particles -->
+    <div class="ambient-particles" aria-hidden="true" />
+
     <!-- FPS-style Chat Overlay (desktop only) -->
     <GameChatOverlay v-if="!isMobile" ref="gameChatRef" />
 
