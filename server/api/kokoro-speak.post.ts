@@ -1,7 +1,4 @@
 export default defineEventHandler(async (event) => {
-  // Require an authenticated session to prevent unauthenticated abuse of the GPU server.
-  await requireAuth(event);
-
   const { text, voice } = await readBody(event) as { text: string; voice: string };
 
   if (!text || !voice) {
