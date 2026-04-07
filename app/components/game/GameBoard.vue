@@ -29,6 +29,7 @@ const emit = defineEmits<{
   (e: "leave"): void;
   (e: "toggle-sidebar"): void;
   (e: "skip-judge"): void;
+  (e: "skip-player", playerId: string): void;
   (e: "reset-game"): void;
 }>();
 
@@ -572,6 +573,7 @@ function handleMobileContinue() {
           @select-winner="handleSelectWinner"
           @reveal-card="revealCard"
           @read-aloud="handleReadAloud"
+          @skip-player="emit('skip-player', $event)"
         />
 
         <!-- Waiting State -->
