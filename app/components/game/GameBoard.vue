@@ -540,6 +540,7 @@ function handleMobileContinue() {
           <WhiteCardDeck
             :scale="75"
             :interactive="needsManualDraw"
+            :need-draw="needsManualDraw"
             @draw="handleDeckDraw"
           />
         </div>

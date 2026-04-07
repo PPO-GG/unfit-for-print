@@ -22,6 +22,11 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  /** When true, show a pulsing draw indicator on the topmost card. */
+  needsDraw: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits<{
@@ -84,6 +89,9 @@ watch(isDealing, (dealing) => {
         :flat="true"
         :scale="scale"
       />
+      <div v-if="i === 1 && props.needsDraw" class="draw-indicator">
+        <UIcon name="i-solar-circle-bottom-down-bold" class="draw-indicator-icon" />
+      </div>
     </div>
   </div>
 </template>
@@ -111,5 +119,32 @@ watch(isDealing, (dealing) => {
 
 .white-deck--interactive {
   cursor: pointer;
+}
+
+.draw-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.draw-indicator-icon {
+  width: 50%;
+  height: 50%;
+  color: white;
+  animation: draw-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes draw-pulse {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 </style>
