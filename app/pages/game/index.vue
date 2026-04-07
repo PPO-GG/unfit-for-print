@@ -1,45 +1,38 @@
 <template>
   <div class="flex flex-col items-center justify-start text-white">
     <!-- ── Hero Section ─────────────────────────────────────────── -->
-    <div
-      class="w-full flex flex-col items-center justify-center pt-6 pb-10 px-6 text-center z-10"
-    >
-      <!-- Logo / Icon -->
-      <h1
-        class="text-5xl sm:text-6xl font-black uppercase tracking-tight leading-tight drop-shadow-xl"
-      >
+    <div class="lobby-hero z-10 w-full px-6">
+      <h1 class="lobby-title">
         {{ t("game.available") }}
       </h1>
 
       <!-- Primary CTAs -->
-      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <UFieldGroup>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <UButton
+          size="xl"
+          variant="subtle"
+          color="success"
+          icon="i-solar-hand-shake-line-duotone"
+          class="font-bold uppercase tracking-wider text-lg"
+          @click="showJoin = true"
+        >
+          {{ t("modal.join_lobby") }}
+        </UButton>
+
+        <ClientOnly>
           <UButton
+            v-if="showIfAuthenticated"
             size="xl"
             variant="subtle"
-            color="success"
-            icon="i-solar-hand-shake-line-duotone"
-            class="text-base font-bold uppercase tracking-wider text-xl"
-            @click="showJoin = true"
+            color="warning"
+            icon="i-solar-add-square-bold-duotone"
+            class="font-bold uppercase tracking-wider text-lg"
+            :loading="creatingLobby"
+            @click="handleCreateLobby"
           >
-            {{ t("modal.join_lobby") }}
+            {{ t("modal.create_lobby") }}
           </UButton>
-
-          <ClientOnly>
-            <UButton
-              v-if="showIfAuthenticated"
-              size="xl"
-              variant="subtle"
-              color="warning"
-              icon="i-solar-add-square-bold-duotone"
-              class="text-base font-bold uppercase tracking-wider text-xl"
-              :loading="creatingLobby"
-              @click="handleCreateLobby"
-            >
-              {{ t("modal.create_lobby") }}
-            </UButton>
-          </ClientOnly>
-        </UFieldGroup>
+        </ClientOnly>
       </div>
     </div>
 
@@ -63,60 +56,46 @@
         <li
           v-for="lobby in sortedLobbies"
           :key="lobby.$id"
-          class="group relative flex items-center justify-between gap-4 rounded-xl border border-white/8 bg-slate-800/50 backdrop-blur-md px-5 py-4 shadow-lg transition-all duration-200 hover:border-violet-500/40 hover:bg-slate-800/70 hover:shadow-violet-900/30"
+          class="lobby-tile glass-panel rounded-xl shadow-lg"
+          @click="handleJoined(lobby.code)"
         >
-          <!-- Subtle glow on hover -->
-          <div
-            class="pointer-events-none absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-violet-500/5 to-transparent"
-          />
+          <!-- Subtle glow overlay on hover -->
+          <div class="lobby-tile-glow" />
 
-          <!-- Left: Info -->
-          <div class="flex items-center gap-4 min-w-0">
+          <!-- Left: tile-header -->
+          <div class="tile-header min-w-0">
             <!-- Host avatar -->
-            <div
-              class="shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-violet-900/40 border border-violet-500/20 text-violet-300 overflow-hidden"
-            >
+            <div class="tile-avatar-wrap shrink-0">
               <img
                 v-if="getHostAvatar(lobby)"
                 :src="getHostAvatar(lobby)!"
                 :alt="getHostName(lobby)"
-                class="w-full h-full object-cover"
+                class="tile-avatar"
               />
               <span
                 v-else
-                class="i-solar-users-group-rounded-bold-duotone text-xl"
+                class="i-solar-users-group-rounded-bold-duotone text-violet-300 text-xl"
               />
             </div>
 
-            <div class="min-w-0">
-              <h3 class="text-sm font-bold truncate text-white leading-tight">
+            <!-- Name + host + badges -->
+            <div class="tile-info min-w-0">
+              <span class="tile-name truncate">
                 {{ lobby.lobbyName || t("lobby.no_name") }}
-              </h3>
-              <div class="flex items-center gap-2 mt-1 flex-wrap">
-                <!-- Lobby code badge -->
-                <span
-                  class="inline-flex items-center gap-1 text-xs font-mono text-slate-400"
-                >
-                  <span
-                    class="i-solar-key-minimalistic-2-bold-duotone text-slate-500"
-                  />
-                  {{ lobby.code }}
-                </span>
-                <!-- Host name -->
-                <span
-                  class="inline-flex items-center gap-1 text-xs text-slate-500"
-                >
-                  <span
-                    class="i-solar-crown-minimalistic-bold-duotone text-amber-500/70"
-                  />
-                  {{ getHostName(lobby) }}
-                </span>
-              </div>
+              </span>
 
-              <!-- Live game info (from Teleportal) -->
+              <span class="tile-host">
+                <span class="i-solar-crown-minimalistic-bold-duotone text-amber-400" />
+                {{ getHostName(lobby) }}
+                <span class="mx-1 opacity-40">·</span>
+                <span class="i-solar-key-minimalistic-2-bold-duotone text-slate-500" />
+                <span class="font-mono">{{ lobby.code }}</span>
+              </span>
+
+              <!-- Live game info row -->
               <div
                 v-if="getLiveInfo(lobby.code)"
-                class="flex items-center gap-2 mt-1.5 flex-wrap"
+                class="flex items-center gap-2 mt-1 flex-wrap"
               >
                 <!-- Phase badge -->
                 <span
@@ -130,39 +109,20 @@
                   {{ getPhaseLabel(getLiveInfo(lobby.code)!.phase) }}
                 </span>
 
-                <!-- Round info (only if playing) -->
+                <!-- Round info -->
                 <span
                   v-if="getLiveInfo(lobby.code)!.round > 0"
                   class="inline-flex items-center gap-1 text-[10px] text-slate-400 tabular-nums"
                 >
-                  <span
-                    class="i-solar-restart-circle-bold-duotone text-slate-500"
-                  />
+                  <span class="i-solar-restart-circle-bold-duotone text-slate-500" />
                   Round {{ getLiveInfo(lobby.code)!.round }}
-                </span>
-
-                <!-- Live player count from Teleportal -->
-                <span
-                  class="inline-flex items-center gap-1 text-[10px] text-slate-400 tabular-nums"
-                >
-                  <span
-                    class="i-solar-users-group-rounded-bold-duotone text-slate-500"
-                  />
-                  {{ getLiveInfo(lobby.code)!.players }}
-                  {{
-                    getLiveInfo(lobby.code)!.players === 1
-                      ? "player"
-                      : "players"
-                  }}
                 </span>
               </div>
 
-              <!-- Player avatar stack (fallback to Appwrite data) -->
+              <!-- Player avatar stack (Appwrite fallback) -->
               <div
-                v-if="
-                  !getLiveInfo(lobby.code) && lobbyPlayers[lobby.$id]?.length
-                "
-                class="flex items-center gap-1 mt-2"
+                v-if="!getLiveInfo(lobby.code) && lobbyPlayers[lobby.$id]?.length"
+                class="flex items-center gap-1 mt-1.5"
               >
                 <div class="flex items-center -space-x-1.5">
                   <div
@@ -183,49 +143,45 @@
                     >
                       {{ player.name?.charAt(0) || "?" }}
                     </span>
-                    <!-- Bot indicator -->
                     <span
                       v-if="player.playerType === 'bot'"
                       class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-3 h-3 rounded-full bg-slate-900 border border-slate-700"
                     >
-                      <span
-                        class="i-solar-bot-minimalistic-bold-duotone text-[8px] text-cyan-400"
-                      />
+                      <span class="i-solar-bot-minimalistic-bold-duotone text-[8px] text-cyan-400" />
                     </span>
-                    <!-- Host crown -->
                     <span
                       v-else-if="player.isHost"
                       class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-3 h-3 rounded-full bg-slate-900 border border-slate-700"
                     >
-                      <span
-                        class="i-solar-crown-minimalistic-bold-duotone text-[8px] text-amber-400"
-                      />
+                      <span class="i-solar-crown-minimalistic-bold-duotone text-[8px] text-amber-400" />
                     </span>
                   </div>
                 </div>
-                <!-- Overflow count -->
                 <span
                   v-if="lobbyPlayers[lobby.$id]!.length > 6"
                   class="text-[10px] font-semibold text-slate-500 ml-1"
                 >
                   +{{ lobbyPlayers[lobby.$id]!.length - 6 }}
                 </span>
-                <!-- Player count -->
-                <span class="text-[10px] text-slate-500 ml-1 tabular-nums">
-                  {{ lobbyPlayers[lobby.$id]!.length }}
-                  {{
-                    lobbyPlayers[lobby.$id]!.length === 1 ? "player" : "players"
-                  }}
-                </span>
               </div>
             </div>
           </div>
 
-          <!-- Right: Status + Join -->
-          <div class="flex items-center gap-3 shrink-0">
-            <!-- Status badge -->
+          <!-- Right: meta badges + join button -->
+          <div class="tile-meta shrink-0">
+            <!-- Player count badge -->
             <span
-              class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide border"
+              v-if="getLiveInfo(lobby.code)"
+              class="tile-badge tile-badge--players"
+            >
+              <span class="i-solar-users-group-rounded-bold-duotone" />
+              {{ getLiveInfo(lobby.code)!.players }}
+              {{ getLiveInfo(lobby.code)!.players === 1 ? "player" : "players" }}
+            </span>
+
+            <!-- Status badge (desktop) -->
+            <span
+              class="tile-badge hidden sm:inline-flex"
               :class="getStatusBadgeClasses(lobby, getLiveInfo(lobby.code))"
             >
               <span
@@ -242,7 +198,7 @@
               icon="i-solar-arrow-right-bold-duotone"
               trailing
               class="font-semibold uppercase tracking-wide text-xs"
-              @click="handleJoined(lobby.code)"
+              @click.stop="handleJoined(lobby.code)"
             >
               {{ t("game.joingame") }}
             </UButton>
@@ -277,7 +233,6 @@
         <JoinLobbyForm @joined="handleJoined" />
       </template>
     </UModal>
-
   </div>
 </template>
 
@@ -588,3 +543,135 @@ const handleJoined = (code: string) => {
   return router.replace(`/game/${code}`);
 };
 </script>
+
+<style scoped>
+/* ── Hero ─────────────────────────────────────────────────────── */
+.lobby-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 1.5rem;
+  padding-bottom: 2.5rem;
+  text-align: center;
+}
+
+.lobby-title {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  color: #e2e8f0;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  drop-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Lobby Tile ───────────────────────────────────────────────── */
+.lobby-tile {
+  position: relative;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.lobby-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.1);
+}
+
+.lobby-tile-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: linear-gradient(to right, rgba(139, 92, 246, 0.06), transparent);
+}
+
+.lobby-tile:hover .lobby-tile-glow {
+  opacity: 1;
+}
+
+/* ── Tile internals ───────────────────────────────────────────── */
+.tile-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tile-avatar-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(109, 40, 217, 0.25);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.tile-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.tile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.tile-name {
+  font-weight: 600;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.tile-host {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 0.15rem;
+}
+
+.tile-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  background: rgba(51, 65, 85, 0.5);
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tile-badge--players {
+  color: #a78bfa;
+  background: rgba(109, 40, 217, 0.12);
+  border-color: rgba(139, 92, 246, 0.2);
+}
+</style>
