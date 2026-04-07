@@ -126,7 +126,7 @@ export function useSpeech(options: TTSOptions = {}) {
         );
         payload = {
           text,
-          voice: kokoroConfig?.apiVoice ?? "af_bella",
+          voice: kokoroConfig?.apiVoice ?? TTS_PROVIDERS.KOKORO_AF_BELLA.apiVoice,
         };
       } else {
         throw new Error(`Unknown provider: ${provider}`);
