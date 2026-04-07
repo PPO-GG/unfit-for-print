@@ -11,6 +11,13 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  if (text.length > 1000) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Text too long (max 1000 characters)',
+    });
+  }
+
   const ALLOWED_VOICES = [
     'af_heart', 'af_bella', 'af_nicole', 'af_aoede', 'af_kore',
     'af_sarah', 'af_alloy', 'af_nova', 'am_fenrir', 'am_michael',
