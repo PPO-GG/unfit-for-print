@@ -86,12 +86,16 @@ function setColRef(
 
 let keyCounter = 0;
 
+const cols = computed(() => {
+  const rawCols = Math.ceil((width.value * 1.8) / (cardW.value + props.gap));
+  return Math.max(3, rawCols);
+});
+
 function rebuildGrid() {
   columns.length = 0;
-  const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const diag = vw + vh;
-  const colCount = Math.ceil(diag / (cardW.value + props.gap)) + 2;
+  const diag = window.innerWidth + vh;
+  const colCount = cols.value;
   const rowCount = Math.ceil(diag / (cardH.value + props.gap)) + 2;
 
   for (let i = 0; i < colCount; i++) {
@@ -134,6 +138,13 @@ watch(showEffect, (val) => {
     nextTick(() => animateColumns());
   } else {
     animations.forEach((anim) => anim.kill());
+  }
+});
+
+watch([width, computedScale], () => {
+  if (showEffect.value) {
+    rebuildGrid();
+    nextTick(() => animateColumns());
   }
 });
 
