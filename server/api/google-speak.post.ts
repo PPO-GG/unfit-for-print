@@ -1,4 +1,5 @@
 export default defineEventHandler(async (event) => {
+  // Require an authenticated session to prevent free-riders burning Google TTS credits.
   await requireAuth(event);
 
   const { text, voiceName } = await readBody(event) as {
