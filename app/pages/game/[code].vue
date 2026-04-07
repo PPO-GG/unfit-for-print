@@ -53,11 +53,8 @@ const {
 } = useLobby();
 const { initSessionIfNeeded } = useJoinLobby();
 
-// ─── Discord Activity Layout ───────────────────────────────────────────────
+// ─── Discord Activity ─────────────────────────────────────────────────────
 const { isDiscordActivity } = useDiscordSDK();
-if (isDiscordActivity.value) {
-  setPageLayout("activity");
-}
 
 // ─── Reactive State from Y.Doc ──────────────────────────────────────────────
 // All game state is derived from useLobbyReactive() — no Appwrite subscriptions.

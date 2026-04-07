@@ -14,7 +14,7 @@
         :style="{
           marginTop: `${headerSize.height}px`,
         }"
-        class="flex-1 p-4 mt-16"
+        class="flex-1 flex flex-col p-4"
       >
         <slot />
       </main>
