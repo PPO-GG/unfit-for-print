@@ -14,6 +14,14 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const ALLOWED_VOICES = ['en-US-Neural2-D', 'en-US-Neural2-C'];
+  if (!ALLOWED_VOICES.includes(voiceName)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid voiceName',
+    });
+  }
+
   const apiKey = process.env.GOOGLE_TTS_API_KEY;
   if (!apiKey) {
     throw createError({

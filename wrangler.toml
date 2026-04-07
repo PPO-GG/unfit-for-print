@@ -16,7 +16,7 @@ compatibility_flags = ["nodejs_compat"]
 # ─── Runtime environment variables ──────────────────────────────────────────
 # Non-sensitive NUXT_PUBLIC_* values must be available as Worker bindings so
 # Nitro's useRuntimeConfig() can read them on the server at runtime.
-# Secrets (NUXT_APPWRITE_API_KEY, ELEVENLABS_API_KEY, OPENAI_API_KEY, DISCORD_CLIENT_SECRET) are
+# Secrets (NUXT_APPWRITE_API_KEY, ELEVENLABS_API_KEY, OPENAI_API_KEY, DISCORD_CLIENT_SECRET, GOOGLE_TTS_API_KEY) are
 # managed via `wrangler secret put` or the Cloudflare dashboard.
 [vars]
 NUXT_PUBLIC_APPWRITE_ENDPOINT = "https://api.ppo.gg/v1"

@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { useBrowserSpeech } from "./useBrowserSpeech";
+import { TTS_PROVIDERS } from "~/constants/ttsProviders";
 
 // Define provider types
 export type TTSProvider = "browser" | "elevenlabs" | "openai" | "google";
@@ -109,9 +110,14 @@ export function useSpeech(options: TTSOptions = {}) {
         };
       } else if (provider === "google") {
         endpoint = "/api/google-speak";
+        const userPrefs = useUserPrefsStore();
+        const googleConfig =
+          userPrefs.ttsVoice === TTS_PROVIDERS.GOOGLE_FEMALE.id
+            ? TTS_PROVIDERS.GOOGLE_FEMALE
+            : TTS_PROVIDERS.GOOGLE_MALE;
         payload = {
           text,
-          voiceName: mergedOptions.googleVoiceName,
+          voiceName: googleConfig.apiVoice,
         };
       } else {
         throw new Error(`Unknown provider: ${provider}`);
