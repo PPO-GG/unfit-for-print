@@ -37,6 +37,8 @@ const props = defineProps<{
   cardsToSelect?: number;
   /** Resolved card texts from the server — eliminates per-card Appwrite fetches. */
   cardTexts?: CardTexts;
+  /** When true the hand is visible; when false it slides down and hides. */
+  isSubmitting?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -664,56 +666,62 @@ onUnmounted(() => {
       </span>
     </div>
 
-    <!-- Card fan -->
+    <!-- Card fan (wrapped in container for phase-driven show/hide) -->
     <div
-      ref="handRef"
-      class="hand-zone"
-      @mouseenter="handleMouseEnter"
-      @mouseleave="handleMouseLeave"
-      @mousemove="handlePointerMove"
-      @touchmove.prevent="handlePointerMove"
-      @touchstart="handleTouchStart"
-      @click="handleHandClick"
+      class="hand-container"
+      :class="{ 'hand-container--hidden': isSubmitting === false }"
     >
-      <div class="hand-arc">
-        <div
-          v-for="(cardId, index) in props.cards"
-          :key="cardId"
-          ref="cardRefs"
-          class="hand-card hand-card--fan"
-          :class="{
-            'hand-card--selected': selectedCards.includes(cardId),
-            'hand-card--hovered': hoveredIndex === index && !isMobile,
-            'hand-card--locked':
-              allSelected &&
-              selectedCards.includes(cardId) &&
-              playMode === 'click',
-            'hand-card--draggable':
-              gestureEnabled && allSelected && selectedCards.includes(cardId),
-          }"
-          @click="onCardClick($event, cardId, index)"
-          @pointerdown="
-            gestureEnabled && allSelected
-              ? onPointerDown($event, cardId, index)
-              : undefined
-          "
-          @pointermove="gestureEnabled ? onPointerMove($event) : undefined"
-          @pointerup="gestureEnabled ? onPointerUp($event) : undefined"
-        >
-          <!-- Selection order badge (multi-pick) -->
+      <div
+        ref="handRef"
+        class="hand-zone"
+        @mouseenter="handleMouseEnter"
+        @mouseleave="handleMouseLeave"
+        @mousemove="handlePointerMove"
+        @touchmove.prevent="handlePointerMove"
+        @touchstart="handleTouchStart"
+        @click="handleHandClick"
+      >
+        <div class="hand-arc">
           <div
-            v-if="cardsToSelect > 1 && selectedCards.includes(cardId)"
-            class="selection-badge"
+            v-for="(cardId, index) in props.cards"
+            :key="cardId"
+            ref="cardRefs"
+            class="hand-card hand-card--fan"
+            :class="{
+              'hand-card--selected': selectedCards.includes(cardId),
+              'hand-card--hovered': hoveredIndex === index && !isMobile,
+              'hand-card--locked':
+                allSelected &&
+                selectedCards.includes(cardId) &&
+                playMode === 'click',
+              'hand-card--draggable':
+                gestureEnabled && allSelected && selectedCards.includes(cardId),
+            }"
+            @click="onCardClick($event, cardId, index)"
+            @pointerdown="
+              gestureEnabled && allSelected
+                ? onPointerDown($event, cardId, index)
+                : undefined
+            "
+            @pointermove="gestureEnabled ? onPointerMove($event) : undefined"
+            @pointerup="gestureEnabled ? onPointerUp($event) : undefined"
           >
-            {{ selectionOrder(cardId) }}
+            <!-- Selection order badge (multi-pick) -->
+            <div
+              v-if="cardsToSelect > 1 && selectedCards.includes(cardId)"
+              class="selection-badge"
+            >
+              {{ selectionOrder(cardId) }}
+            </div>
+            <WhiteCard
+              :cardId="cardId"
+              :text="props.cardTexts?.[cardId]?.text"
+              :card-pack="props.cardTexts?.[cardId]?.pack"
+              :disableHover="true"
+              :flat="true"
+              :scale="65"
+            />
           </div>
-          <WhiteCard
-            :cardId="cardId"
-            :text="props.cardTexts?.[cardId]?.text"
-            :card-pack="props.cardTexts?.[cardId]?.pack"
-            :disableHover="true"
-            :flat="true"
-          />
         </div>
       </div>
     </div>
@@ -824,6 +832,18 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
+/* ── Hand Container (phase-driven show/hide) ─────────────────── */
+.hand-container {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.4s ease;
+}
+
+.hand-container--hidden {
+  transform: translateY(100px);
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* ── Card Zone ────────────────────────────────────────────────── */
 .hand-zone {
   position: relative;
@@ -859,15 +879,6 @@ onUnmounted(() => {
 .hand-card--fan {
   position: absolute;
   bottom: 0;
-  width: clamp(5rem, 10vw, 15rem);
-  aspect-ratio: 3 / 4;
-}
-
-/* Override WhiteCard's hardcoded vw-based width so it inherits the
-   smaller hand-card container size. GSAP scale(1.2) on hover then
-   brings the visual size up to match table cards exactly. */
-.hand-card--fan :deep(.card-scaler) {
-  width: 100% !important;
 }
 
 .hand-card--selected::after {

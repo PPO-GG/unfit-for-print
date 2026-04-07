@@ -1,5 +1,8 @@
 <script lang="ts" setup>
-defineProps({
+import { ref, watch } from "vue";
+import { gsap } from "gsap";
+
+const props = defineProps({
   blackCard: {
     type: Object,
     default: null,
@@ -8,47 +11,91 @@ defineProps({
     type: Boolean,
     default: true,
   },
+  /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
+  scale: {
+    type: Number,
+    default: 100,
+  },
 });
+
+const cardRef = ref<HTMLElement | null>(null);
+
+watch(
+  () => props.blackCard,
+  (newCard, oldCard) => {
+    if (!newCard || newCard.id === oldCard?.id) return;
+    const cardEl = cardRef.value;
+    if (!cardEl) return;
+
+    gsap.fromTo(
+      cardEl,
+      { x: -20, y: -30, scale: 0.8, opacity: 0, rotation: -8 },
+      {
+        x: 0,
+        y: 0,
+        scale: 1,
+        opacity: 1,
+        rotation: 0,
+        duration: 0.6,
+        ease: "back.out(1.4)",
+      },
+    );
+  },
+);
 </script>
 
 <template>
-  <div
-    class="relative w-[clamp(6rem,12vw,18rem)] aspect-[3/4] outline-2 outline-slate-400/25 md:outline-offset-4 outline-offset-2 outline-dashed rounded-xl"
-  >
+  <div class="black-deck-wrapper">
     <!-- Stack effect with multiple cards -->
     <div
       v-for="i in 5"
       :key="`black-stack-${i}`"
+      class="black-deck-layer"
       :style="{
-        position: 'absolute',
         top: `${i * 2}px`,
         left: `${i * 2}px`,
         zIndex: 5 - i,
       }"
-      class="w-full h-full -translate-x-3 -translate-y-3"
     >
-      <BlackCard :flipped="true" :shine="false" :three-deffect="false" />
+      <BlackCard :flipped="true" :shine="false" :three-deffect="false" :scale="scale" />
     </div>
     <!-- Top card (current black card) -->
     <div
       v-if="blackCard"
-      class="absolute top-0 left-0 z-10 w-full h-full -translate-x-3 -translate-y-3 transform hover:translate-y-[-20px] hover:scale-105 transition-transform duration-300"
+      ref="cardRef"
+      class="black-deck-top"
     >
       <BlackCard
-        v-if="blackCard"
         :card-id="blackCard.id"
         :flipped="false"
         :num-pick="blackCard.pick"
         :text="blackCard.text"
         :three-deffect="true"
+        :scale="scale"
       />
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Override card component's fixed width so it inherits from the deck container */
-:deep(.card-scaler) {
-  width: 100% !important;
+.black-deck-wrapper {
+  position: relative;
+  width: fit-content;
+}
+
+.black-deck-layer {
+  position: absolute;
+  transform: translate(-12px, -12px);
+}
+
+.black-deck-top {
+  position: relative;
+  z-index: 10;
+  transform: translate(-12px, -12px);
+  transition: transform 0.3s ease;
+}
+
+.black-deck-top:hover {
+  transform: translate(-12px, -32px) scale(1.05);
 }
 </style>

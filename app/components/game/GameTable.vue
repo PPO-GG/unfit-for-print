@@ -678,6 +678,32 @@ onMounted(() => {
   }
 });
 
+// ── "All submitted" pulse: fire when every participant has submitted ──
+const allSubmittedDuringPhase = computed(
+  () =>
+    localPhase.value === "submitting" &&
+    submissionCount.value > 0 &&
+    submissionCount.value >= totalParticipants.value,
+);
+
+watch(allSubmittedDuringPhase, (allIn) => {
+  if (!allIn) return;
+  const zone = cardContainerRef.value;
+  if (zone) {
+    gsap.fromTo(
+      zone,
+      { boxShadow: "0 0 0 rgba(139, 92, 246, 0)" },
+      {
+        boxShadow: "0 0 40px rgba(139, 92, 246, 0.2)",
+        duration: 0.4,
+        yoyo: true,
+        repeat: 1,
+        ease: "power2.inOut",
+      },
+    );
+  }
+});
+
 // ── Derived state ───────────────────────────────────────────────
 const isSubmitting = computed(() => localPhase.value === "submitting");
 const isJudging = computed(() => localPhase.value === "judging");
@@ -1095,6 +1121,7 @@ function handleSelectWinner(playerId: string) {
       :judge-id="judgeId"
       :scores="scores"
       :round-winner="effectiveRoundWinner"
+      :phase="localPhase"
     />
 
     <!-- Table Center -->
@@ -1123,6 +1150,7 @@ function handleSelectWinner(playerId: string) {
         v-if="isSubmitting || (isJudging && !hasTransitionedToRow)"
         ref="cardContainerRef"
         class="unified-card-container unified-card-container--pile"
+        :class="{ 'zone-glow': isSubmitting }"
       >
         <!-- Empty pile placeholder (submission phase, no cards yet) -->
         <div v-if="isSubmitting && submissionCount === 0" class="pile-empty">
@@ -1330,6 +1358,7 @@ function handleSelectWinner(playerId: string) {
           :cardsToSelect="blackCard?.pick || 1"
           :disabled="isJudge || false"
           :card-texts="props.cardTexts"
+          :is-submitting="isSubmitting"
           @select-cards="handleCardSubmit"
         />
       </div>
@@ -1455,6 +1484,14 @@ function handleSelectWinner(playerId: string) {
   width: 320px;
   height: 340px;
   margin: 0 auto;
+  transition: box-shadow 0.8s ease;
+}
+
+/* Submission zone glow during submitting phase */
+.unified-card-container--pile.zone-glow {
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.12),
+              inset 0 0 20px rgba(139, 92, 246, 0.05);
+  border-color: rgba(139, 92, 246, 0.15);
 }
 
 /* ── Judging Row (blackjack-style centred) ───────────────────── */

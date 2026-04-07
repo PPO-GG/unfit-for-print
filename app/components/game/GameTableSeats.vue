@@ -12,6 +12,7 @@ const props = defineProps<{
   judgeId?: string | null;
   scores?: Record<string, number>;
   roundWinner?: string | null;
+  phase?: "submitting" | "judging";
 }>();
 
 const { t } = useI18n();
@@ -299,6 +300,7 @@ watch(
             : player.userId === props.judgeId
               ? 'bg-linear-to-br from-amber-500/35 to-amber-600/20 shadow-[0_0_0_3px_rgba(245,158,11,0.25),0_0_18px_rgba(245,158,11,0.12),0_4px_16px_rgba(0,0,0,0.3)]'
               : 'bg-linear-to-br from-slate-600/60 to-slate-800/90 shadow-[0_0_0_3px_rgba(30,41,59,0.95),0_4px_16px_rgba(0,0,0,0.3)] group-hover:shadow-[0_0_0_3px_rgba(51,65,85,0.95),0_6px_24px_rgba(0,0,0,0.4)]',
+          player.userId === props.judgeId && props.phase === 'judging' ? 'seat-avatar-ring--judging' : '',
         ]"
       >
         <!-- Position badge (top-left, always visible) -->
@@ -440,6 +442,16 @@ watch(
 }
 .animate-check-pop {
   animation: check-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Judge avatar ring pulse during judging (when no submission yet) */
+.seat-avatar-ring--judging {
+  animation: judge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes judge-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 12px 3px rgba(245, 158, 11, 0.3); }
 }
 
 /* Speaking ring — suppressed for judge/submitted players (see isSpeaking guard) */
