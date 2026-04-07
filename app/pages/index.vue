@@ -157,43 +157,60 @@
       </ClientOnly>
     </div>
     <!-- Primary Actions -->
-    <div class="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
-      <!-- CREATE GAME -->
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-white cursor-pointer bg-gradient-to-r from-violet-600 to-indigo-600 shadow-[0_0_24px_rgba(139,92,246,0.45)] hover:shadow-[0_0_36px_rgba(139,92,246,0.65)] hover:brightness-110 active:scale-95 transition-all duration-150"
-        @click="checkForActiveLobbyAndCreate"
-      >
-        CREATE GAME
-      </button>
+    <ClientOnly>
+      <div class="flex flex-col items-center gap-3 w-full max-w-xs mb-8">
+        <UButton
+          block
+          :loading="isCreating"
+          :disabled="!isAuthenticatedUser(userStore.user)"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          color="warning"
+          icon="i-solar-add-square-bold-duotone"
+          size="xl"
+          variant="subtle"
+          @click="checkForActiveLobbyAndCreate"
+        >
+          {{ t("nav.creategame") }}
+        </UButton>
 
-      <!-- JOIN GAME -->
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
-        @click="checkForActiveLobbyAndJoin"
-      >
-        JOIN GAME
-      </button>
+        <UButton
+          block
+          :loading="isJoining"
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          color="success"
+          icon="i-solar-hand-shake-line-duotone"
+          size="xl"
+          variant="subtle"
+          @click="checkForActiveLobbyAndJoin"
+        >
+          {{ t("nav.joingame") }}
+        </UButton>
 
-      <!-- BROWSE LOBBIES -->
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
-        @click="navigateTo('/game')"
-      >
-        BROWSE LOBBIES
-      </button>
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
-        @click="navigateTo('/labs')"
-      >
-        LABS
-      </button>
-      <button
-        class="w-full py-3 px-6 rounded-xl font-display text-2xl tracking-widest text-slate-200 cursor-pointer glass-panel hover:border-violet-500/40 hover:text-white active:scale-95 transition-all duration-150"
-        @click="navigateTo('/admin')"
-      >
-        ADMIN
-      </button>
-    </div>
+        <UButton
+          block
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          color="info"
+          icon="i-solar-gamepad-bold-duotone"
+          size="xl"
+          variant="subtle"
+          to="/game"
+        >
+          {{ t("nav.games") }}
+        </UButton>
+
+        <UButton
+          block
+          class="text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+          color="primary"
+          icon="i-solar-test-tube-bold-duotone"
+          size="xl"
+          variant="subtle"
+          to="/labs"
+        >
+          {{ t("nav.labs") }}
+        </UButton>
+      </div>
+    </ClientOnly>
 
     <!-- Try Me Panel -->
 
@@ -210,6 +227,12 @@
       >
     </div>
   </div>
+
+  <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
+    <template #body>
+      <JoinLobbyForm @joined="handleJoined" />
+    </template>
+  </UModal>
 </template>
 
 <script lang="ts" setup>
@@ -287,8 +310,14 @@ const randomCard = ref<any>({ pick: 1 });
 const { playSfx } = useSfx();
 const isFetching = ref(false);
 
-const { checkForActiveLobbyAndCreate, checkForActiveLobbyAndJoin } =
-  useLobbyActions();
+const {
+  checkForActiveLobbyAndCreate,
+  checkForActiveLobbyAndJoin,
+  isJoining,
+  isCreating,
+  showJoin,
+  handleJoined,
+} = useLobbyActions();
 
 // Safety net: if OAuth redirect (with secret & userId) accidentally lands
 // on the root page instead of /auth/callback (e.g. due to service worker
