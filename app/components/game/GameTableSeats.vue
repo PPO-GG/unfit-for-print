@@ -15,6 +15,22 @@ const props = defineProps<{
 
 const { t } = useI18n();
 
+const { speakingDiscordIds, isDiscordActivity } = useDiscordSDK();
+
+function getDiscordIdFromPlayer(player: Player): string | null {
+  if (player.provider !== 'discord' || !player.avatar) return null;
+  if (player.avatar.startsWith('http')) {
+    return player.avatar.split('/')[4] ?? null;
+  }
+  return player.avatar.split('/')[0] ?? null;
+}
+
+function isSpeaking(player: Player): boolean {
+  if (!isDiscordActivity.value) return false;
+  const discordId = getDiscordIdFromPlayer(player);
+  return discordId !== null && speakingDiscordIds.value.has(discordId);
+}
+
 // ── Participants (excluding self) ───────────────────────────────
 const participants = computed(() =>
   props.players.filter(
@@ -276,6 +292,7 @@ watch(
         }
       "
       class="group absolute flex flex-col items-center gap-0.5 transition-all duration-300 ease-in-out cursor-default pointer-events-auto"
+      :class="{ 'seat--speaking': isSpeaking(player) }"
       :style="getSeatStyle(idx, seatedPlayers.length)"
     >
       <!-- Avatar Ring -->
@@ -371,6 +388,7 @@ watch(
           : player.userId === props.judgeId
             ? 'bg-amber-500/10'
             : 'bg-slate-600/50 hover:bg-slate-600/70',
+        { 'seat--speaking': isSpeaking(player) },
       ]"
     >
       <div class="relative">
@@ -427,6 +445,35 @@ watch(
 }
 .animate-check-pop {
   animation: check-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Speaking ring — lower priority than submitted/judge, shows for all players */
+.seat--speaking .seat-avatar-ring {
+  box-shadow:
+    0 0 0 3px rgba(35, 165, 90, 0.7),
+    0 0 16px rgba(35, 165, 90, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.3);
+  animation: seat-speaking-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes seat-speaking-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px rgba(35, 165, 90, 0.7),
+      0 0 16px rgba(35, 165, 90, 0.3),
+      0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(35, 165, 90, 0.9),
+      0 0 24px rgba(35, 165, 90, 0.5),
+      0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Speaking glow for overflow pills */
+.seat--speaking.group\/overflow {
+  box-shadow: 0 0 0 1px rgba(35, 165, 90, 0.5), 0 0 8px rgba(35, 165, 90, 0.2);
 }
 
 /* ── Position Badge ──────────────────────────────────────────── */
