@@ -29,14 +29,6 @@ const { notify } = useNotifications();
 
 const { speakingDiscordIds, isDiscordActivity } = useDiscordSDK();
 
-function getDiscordIdFromPlayer(player: Player): string | null {
-  if (player.provider !== 'discord' || !player.avatar) return null;
-  if (player.avatar.startsWith('http')) {
-    return player.avatar.split('/')[4] ?? null;
-  }
-  return player.avatar.split('/')[0] ?? null;
-}
-
 function isSpeaking(player: Player): boolean {
   if (!isDiscordActivity.value) return false;
   const discordId = getDiscordIdFromPlayer(player);

@@ -1,17 +1,5 @@
 import { describe, it, expect } from 'vitest'
-
-// Helper function with expected signature
-// Inline copy — duplicated intentionally in PlayerList.vue and GameTableSeats.vue
-function getDiscordIdFromPlayer(player: { provider: string; avatar: string }): string | null {
-  if (player.provider !== 'discord' || !player.avatar) return null
-  if (player.avatar.startsWith('http')) {
-    // https://cdn.discordapp.com/avatars/{discordId}/{hash}.png
-    // split: ['https:', '', 'cdn.discordapp.com', 'avatars', '{discordId}', '{hash}.png']
-    return player.avatar.split('/')[4] ?? null
-  }
-  // Legacy format: "discordId/hash"
-  return player.avatar.split('/')[0] ?? null
-}
+import { getDiscordIdFromPlayer } from '~/utils/discord'
 
 describe('getDiscordIdFromPlayer', () => {
   it('extracts Discord ID from full CDN avatar URL', () => {

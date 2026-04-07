@@ -17,16 +17,10 @@ const { t } = useI18n();
 
 const { speakingDiscordIds, isDiscordActivity } = useDiscordSDK();
 
-function getDiscordIdFromPlayer(player: Player): string | null {
-  if (player.provider !== 'discord' || !player.avatar) return null;
-  if (player.avatar.startsWith('http')) {
-    return player.avatar.split('/')[4] ?? null;
-  }
-  return player.avatar.split('/')[0] ?? null;
-}
-
 function isSpeaking(player: Player): boolean {
   if (!isDiscordActivity.value) return false;
+  if (player.userId === props.judgeId) return false;
+  if (hasSubmitted(player.userId)) return false;
   const discordId = getDiscordIdFromPlayer(player);
   return discordId !== null && speakingDiscordIds.value.has(discordId);
 }
@@ -447,7 +441,7 @@ watch(
   animation: check-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Speaking ring — lower priority than submitted/judge, shows for all players */
+/* Speaking ring — suppressed for judge/submitted players (see isSpeaking guard) */
 .seat--speaking .seat-avatar-ring {
   box-shadow:
     0 0 0 3px rgba(35, 165, 90, 0.7),
