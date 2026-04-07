@@ -179,6 +179,9 @@ watch(
   <Transition name="celebration">
     <div v-if="winnerSelected" ref="overlayRef" class="winner-overlay">
       <div class="winner-overlay-content">
+        <div class="winner-crown">
+          <UIcon name="i-solar-crown-bold" class="text-4xl text-yellow-400" />
+        </div>
         <h2 ref="headlineRef" class="winner-headline">
           <template v-if="isWinnerSelf">
             {{ t("game.round_won_self") }}
@@ -307,6 +310,23 @@ watch(
 .winner-progress {
   width: 200px;
   transform-origin: center;
+}
+
+/* ── Crown decoration ─────────────────────────────────────── */
+.winner-crown {
+  animation: crown-drop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.3s both;
+}
+
+@keyframes crown-drop {
+  0% { transform: translateY(-40px) scale(0); opacity: 0; }
+  60% { transform: translateY(4px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ── Golden glow on winning cards ─────────────────────────── */
+.winner-cards-display :deep(.card-content) {
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+  border: 1px solid rgba(234, 179, 8, 0.25);
 }
 
 /* ── Celebration Transition (Vue) ─────────────────────────── */

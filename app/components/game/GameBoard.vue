@@ -21,6 +21,7 @@ import CornerControls from "~/components/game/CornerControls.vue";
 import GameEscMenu from "~/components/game/GameEscMenu.vue";
 import GameChatOverlay from "~/components/game/GameChatOverlay.vue";
 import { useBreakpoints } from "@vueuse/core";
+import { gsap } from "gsap";
 
 const { t } = useI18n();
 const props = defineProps<{ lobby: Lobby; players: Player[] }>();
@@ -295,6 +296,11 @@ watch(
       setTimeout(() => {
         winnerSelected.value = true;
 
+        // Sweep cards off table on game win
+        if (isComplete.value) {
+          sweepCardsOffTable();
+        }
+
         // Play round-win fanfare when the celebration overlay appears
         playSfx(SFX.winRound, { volume: 0.25 });
 
@@ -355,6 +361,21 @@ watch(
     stopStalePhaseWatchdog();
   },
 );
+
+function sweepCardsOffTable() {
+  const cards = document.querySelectorAll(".unified-card-container .unified-card");
+  cards.forEach((card, i) => {
+    const direction = i % 2 === 0 ? -1 : 1;
+    gsap.to(card, {
+      x: direction * (window.innerWidth + 200),
+      rotation: direction * (30 + Math.random() * 60),
+      opacity: 0,
+      duration: 0.6 + Math.random() * 0.3,
+      delay: i * 0.05,
+      ease: "power2.in",
+    });
+  });
+}
 
 function handleSelectWinner(playerId: string) {
   // First mark the winner locally for immediate feedback
