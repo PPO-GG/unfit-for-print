@@ -44,7 +44,7 @@ const navItems = computed(() => [
     ? {
         labelKey: "nav.hub",
         to: "/activity/hub",
-        icon: "i-solar-widget-bold-duotone",
+        icon: "i-ic-baseline-discord",
         color: "warning" as const,
       }
     : {
@@ -513,5 +513,4 @@ const isAdmin = useIsAdmin();
       <JoinLobbyForm @joined="handleJoined" />
     </template>
   </UModal>
-
 </template>
