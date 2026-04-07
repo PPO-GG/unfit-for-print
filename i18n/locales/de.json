@@ -55,6 +55,8 @@
   "game.select_winner": "Wählen Sie einen Gewinner",
   "game.selected_cards": "Ausgewählte {count}/{total}-Karten",
   "game.settings": "Spieleinstellungen",
+  "game.skip_player": "Spieler überspringen",
+  "game.skip_player_failed": "Spieler konnte nicht übersprungen werden",
   "game.settings.card_packs": "Kartenpakete",
   "game.settings.cards_per_player": "Karten pro Spieler",
   "game.settings.fetch_packs_error": "Kartenpakete konnten nicht abgerufen werden",

@@ -55,6 +55,8 @@
   "game.select_winner": "Seleccione un ganador",
   "game.selected_cards": "Tarjetas {count}/{total} seleccionadas",
   "game.settings": "Configuración del juego",
+  "game.skip_player": "Saltar jugador",
+  "game.skip_player_failed": "No se pudo saltar al jugador",
   "game.settings.card_packs": "Paquetes de cartas",
   "game.settings.cards_per_player": "Cartas por jugador",
   "game.settings.fetch_packs_error": "No se pudieron obtener los paquetes de cartas",

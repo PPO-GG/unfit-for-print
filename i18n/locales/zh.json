@@ -55,6 +55,8 @@
   "game.select_winner": "选择获胜者",
   "game.selected_cards": "选定的 {count}/{total} 卡",
   "game.settings": "游戏设置",
+  "game.skip_player": "跳过玩家",
+  "game.skip_player_failed": "跳过玩家失败",
   "game.settings.card_packs": "卡包",
   "game.settings.cards_per_player": "每位玩家的卡牌数量",
   "game.settings.fetch_packs_error": "获取卡包失败",

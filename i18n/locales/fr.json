@@ -55,6 +55,8 @@
   "game.select_winner": "Sélectionnez un gagnant",
   "game.selected_cards": "Cartes {count}/{total} sélectionnées",
   "game.settings": "Paramètres du jeu",
+  "game.skip_player": "Passer le joueur",
+  "game.skip_player_failed": "Impossible de passer le joueur",
   "game.settings.card_packs": "Packs de cartes",
   "game.settings.cards_per_player": "Cartes par joueur",
   "game.settings.fetch_packs_error": "Échec de la récupération des packs de cartes",

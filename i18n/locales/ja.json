@@ -55,6 +55,8 @@
   "game.select_winner": "勝者を選択",
   "game.selected_cards": "選択された{count}/{total}枚のカード",
   "game.settings": "ゲーム設定",
+  "game.skip_player": "プレイヤーをスキップ",
+  "game.skip_player_failed": "プレイヤーのスキップに失敗しました",
   "game.settings.card_packs": "カードパック",
   "game.settings.cards_per_player": "プレイヤーあたりのカード",
   "game.settings.fetch_packs_error": "カードパックの取得に失敗しました",

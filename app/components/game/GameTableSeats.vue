@@ -359,6 +359,7 @@ watch(
           v-if="canSkip(player)"
           class="seat-skip absolute -bottom-0.5 -left-1 w-6 h-6 bg-slate-950/90 border-2 border-amber-500/50 rounded-full flex items-center justify-center text-[0.75rem] text-amber-400 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer hover:bg-amber-500/20 hover:border-amber-400"
           :title="t('game.skip_player')"
+          :aria-label="t('game.skip_player')"
           @click.stop="emit('skip-player', player.userId)"
         >
           <UIcon name="i-solar-skip-next-bold-duotone" />
@@ -460,13 +461,15 @@ watch(
         name="mdi:gavel"
         class="text-amber-400 text-sm"
       />
-      <UIcon
+      <button
         v-if="canSkip(player)"
-        name="i-solar-skip-next-bold-duotone"
-        class="text-amber-400 text-sm cursor-pointer opacity-0 group-hover/overflow:opacity-100 transition-opacity duration-200"
+        class="text-amber-400 text-sm cursor-pointer opacity-0 group-hover/overflow:opacity-100 transition-opacity duration-200 bg-transparent border-0 p-0 flex items-center"
         :title="t('game.skip_player')"
+        :aria-label="t('game.skip_player')"
         @click.stop="emit('skip-player', player.userId)"
-      />
+      >
+        <UIcon name="i-solar-skip-next-bold-duotone" />
+      </button>
     </div>
   </div>
 </template>

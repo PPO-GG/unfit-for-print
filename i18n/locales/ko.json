@@ -55,6 +55,8 @@
   "game.select_winner": "우승자를 선택하세요",
   "game.selected_cards": "선택된 {count}/{total} 카드",
   "game.settings": "게임 설정",
+  "game.skip_player": "플레이어 건너뛰기",
+  "game.skip_player_failed": "플레이어를 건너뛰지 못했습니다",
   "game.settings.card_packs": "카드 팩",
   "game.settings.cards_per_player": "플레이어당 카드",
   "game.settings.fetch_packs_error": "카드 팩을 가져오지 못했습니다.",

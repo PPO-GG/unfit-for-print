@@ -55,6 +55,8 @@
   "game.select_winner": "Выберите победителя",
   "game.selected_cards": "Выбранные карты {count}/{total}",
   "game.settings": "Настройки игры",
+  "game.skip_player": "Пропустить игрока",
+  "game.skip_player_failed": "Не удалось пропустить игрока",
   "game.settings.card_packs": "Наборы карт",
   "game.settings.cards_per_player": "Карты на игрока",
   "game.settings.fetch_packs_error": "Не удалось получить наборы карт.",
