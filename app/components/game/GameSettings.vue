@@ -1,7 +1,7 @@
 <template>
   <div class="settings-panel">
-    <!-- ─── Header (always visible, toggles body) ─── -->
-    <button class="settings-header" @click="expanded = !expanded">
+    <!-- ─── Header (always visible, toggles body) — hidden in inline mode ─── -->
+    <button v-if="!inline" class="settings-header" @click="expanded = !expanded">
       <div class="settings-header-left">
         <Icon
           name="solar:settings-minimalistic-bold-duotone"
@@ -19,7 +19,7 @@
       />
     </button>
 
-    <!-- ─── Collapsible body ─── -->
+    <!-- ─── Collapsible body (always visible in inline mode) ─── -->
     <Transition name="settings-body">
       <div v-if="expanded" class="settings-body">
         <!-- ── Edit mode ── -->
@@ -95,6 +95,17 @@
             />
           </div>
 
+          <!-- Manual Draw toggle -->
+          <div class="field-group field-inline">
+            <UCheckbox
+              v-model="localSettings.manualDraw"
+              :label="t('game.settings.manual_draw', 'Manual Card Draw')"
+            />
+            <p class="field-hint">
+              {{ t('game.settings.manual_draw_hint', 'Players click the deck to draw cards each round') }}
+            </p>
+          </div>
+
           <!-- Card packs -->
           <div class="field-group">
             <label class="field-label">{{
@@ -161,6 +172,8 @@ const config = useRuntimeConfig();
 const props = defineProps<{
   settings: LobbySettings;
   isEditable: boolean;
+  /** Start expanded and hide the collapsible header */
+  inline?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -169,7 +182,7 @@ const emit = defineEmits<{
 
 const { mutations } = useLobby();
 const localSettings = ref<LobbySettings>({ ...props.settings });
-const expanded = ref(false);
+const expanded = ref(props.inline ?? false);
 
 watch(
   () => props.settings,
@@ -251,6 +264,7 @@ const saveSettings = () => {
       maxPick: localSettings.value.maxPick,
       cardPacks: localSettings.value.cardPacks,
       isPrivate: localSettings.value.isPrivate,
+      manualDraw: localSettings.value.manualDraw,
       lobbyName: localSettings.value.lobbyName,
     });
     emit("update:settings", localSettings.value);
@@ -275,12 +289,13 @@ const readOnlyMap = {
   cardsPerPlayer: t("game.settings.cards_per_player"),
   maxPick: t("game.settings.max_pick"),
   isPrivate: t("game.settings.is_private"),
+  manualDraw: t("game.settings.manual_draw", "Manual Card Draw"),
   cardPacks: t("game.settings.card_packs"),
 };
 
 const formatValue = (key: keyof LobbySettings) => {
   const value = props.settings[key];
-  if (key === "isPrivate") return value ? "YES" : "NO";
+  if (key === "manualDraw" || key === "isPrivate") return value ? "YES" : "NO";
   if (key === "maxPick")
     return t("game.settings.up_to_pick_n", { n: value || 3 });
   if (key === "cardPacks" && Array.isArray(value))
