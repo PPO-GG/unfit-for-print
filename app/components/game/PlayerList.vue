@@ -27,6 +27,22 @@ const { kickPlayer, promoteToHost, reshufflePlayerCards } = useLobby();
 const userStore = useUserStore();
 const { notify } = useNotifications();
 
+const { speakingDiscordIds, isDiscordActivity } = useDiscordSDK();
+
+function getDiscordIdFromPlayer(player: Player): string | null {
+  if (player.provider !== 'discord' || !player.avatar) return null;
+  if (player.avatar.startsWith('http')) {
+    return player.avatar.split('/')[4] ?? null;
+  }
+  return player.avatar.split('/')[0] ?? null;
+}
+
+function isSpeaking(player: Player): boolean {
+  if (!isDiscordActivity.value) return false;
+  const discordId = getDiscordIdFromPlayer(player);
+  return discordId !== null && speakingDiscordIds.value.has(discordId);
+}
+
 const currentUserId = computed(() => userStore.user?.$id);
 const isHost = computed(() => props.hostUserId === currentUserId.value);
 
@@ -225,6 +241,9 @@ function getPlayerStatus(
           <span v-if="player.userId === hostUserId" class="crown-badge">
             <Icon name="solar:crown-minimalistic-bold" />
           </span>
+
+          <!-- Speaking dot (Discord Activity only) -->
+          <span v-if="isSpeaking(player)" class="speaking-dot" />
         </div>
 
         <!-- Player info -->
@@ -474,6 +493,23 @@ function getPlayerStatus(
   color: #f59e0b;
   filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.7));
   line-height: 1;
+}
+
+.speaking-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  background: #23a55a;
+  border-radius: 50%;
+  border: 2px solid rgba(15, 23, 42, 0.9);
+  animation: speaking-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(35, 165, 90, 0.5); }
+  50%       { box-shadow: 0 0 0 4px rgba(35, 165, 90, 0); }
 }
 
 /* ─── Player Info ───────────────────────────────────────────── */
