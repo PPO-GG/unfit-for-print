@@ -95,14 +95,14 @@ export function useDiscordSDK() {
         response_type: "code",
         state: "",
         prompt: "none",
-        scope: ["identify", "rpc.activities.write"],
+        scope: ["identify", "rpc.activities.write", "rpc.voice.read"],
       }));
     } catch {
       ({ code } = await sdkInstance.commands.authorize({
         client_id: clientId,
         response_type: "code",
         state: "",
-        scope: ["identify", "rpc.activities.write"],
+        scope: ["identify", "rpc.activities.write", "rpc.voice.read"],
       }));
     }
 
