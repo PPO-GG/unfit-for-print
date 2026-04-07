@@ -162,6 +162,9 @@ const hasTransitionedToRow = ref(false);
 // Track whether the FLIP animation is currently running
 const isFlipAnimating = ref(false);
 
+// Track the most recently revealed card (for flash effect)
+const justRevealed = ref<string | null>(null);
+
 // Track random angles for thrown cards (stable per player).
 // Plain object (non-reactive) so that caching a new card's angle
 // doesn't trigger Vue re-renders on every existing pile card.
@@ -524,6 +527,25 @@ watch(
   { deep: true },
 );
 
+// ── Reveal flash: detect newly revealed cards ────────────────────
+watch(
+  () => props.revealedCards,
+  (newVal, oldVal) => {
+    if (!newVal) return;
+    for (const id of Object.keys(newVal)) {
+      if (!oldVal?.[id]) {
+        justRevealed.value = id;
+        setTimeout(() => {
+          if (justRevealed.value === id) justRevealed.value = null;
+        }, 600);
+        // Play flip whoosh SFX
+        playSfx(SFX.cardFlip, { volume: [0.4, 0.6], pitch: [0.95, 1.05] });
+      }
+    }
+  },
+  { deep: true },
+);
+
 // ── Judging: shuffle once & FLIP animate when phase changes ─────
 watch(
   localPhase,
@@ -594,8 +616,8 @@ watch(
                       scale: 1,
                       opacity: 1,
                       duration: 0.7,
-                      delay: index * 0.1,
-                      ease: "power3.out",
+                      delay: index * 0.06,
+                      ease: "back.out(1.4)",
                       clearProps: "all",
                       onComplete: () => {
                         if (index === shuffledOrder.value.length - 1) {
@@ -1185,6 +1207,10 @@ function handleSelectWinner(playerId: string) {
               effectiveRoundWinner === sub.playerId
             "
           >
+            <div
+              v-if="justRevealed === sub.playerId"
+              class="reveal-flash"
+            />
             <div
               class="submission-group"
               :class="{
@@ -1998,5 +2024,21 @@ function handleSelectWinner(playerId: string) {
   50% {
     box-shadow: 0 0 12px 4px rgba(245, 158, 11, 0.35);
   }
+}
+
+.reveal-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: flash-pulse 0.5s ease-out forwards;
+  z-index: 5;
+}
+
+@keyframes flash-pulse {
+  0% { opacity: 1; transform: scale(0.9); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+  100% { opacity: 0; transform: scale(1.1); }
 }
 </style>
