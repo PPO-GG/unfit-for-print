@@ -208,7 +208,7 @@ onMounted(async () => {
         queries: [Query.limit(chunkSize), Query.offset(offset)],
       });
       blackCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && !card.disabled) blackPacks.add(card.pack);
+        if (card.pack && card.active) blackPacks.add(card.pack);
       });
     }
 
@@ -227,7 +227,7 @@ onMounted(async () => {
         queries: [Query.limit(chunkSize), Query.offset(offset)],
       });
       whiteCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && !card.disabled) whitePacks.add(card.pack);
+        if (card.pack && card.active) whitePacks.add(card.pack);
       });
     }
 

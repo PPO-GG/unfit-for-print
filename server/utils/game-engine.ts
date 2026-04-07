@@ -37,13 +37,14 @@ export async function fetchAllIds(
   };
 
   const packFilter = buildPackFilter();
+  const activeFilter = Query.equal("active", true);
   const tables = getAdminTables();
 
   // Get total count
   const { total } = await tables.listRows({
     databaseId: dbId,
     tableId: collectionId,
-    queries: [Query.limit(1), ...packFilter],
+    queries: [Query.limit(1), activeFilter, ...packFilter],
   });
 
   const ids: string[] = [];
@@ -51,7 +52,7 @@ export async function fetchAllIds(
     const res = await tables.listRows({
       databaseId: dbId,
       tableId: collectionId,
-      queries: [Query.limit(BATCH), Query.offset(offset), ...packFilter],
+      queries: [Query.limit(BATCH), Query.offset(offset), activeFilter, ...packFilter],
     });
     ids.push(...res.rows.map((d) => d.$id));
   }
