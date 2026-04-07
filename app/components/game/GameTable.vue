@@ -820,17 +820,20 @@ watch(
       return;
     }
 
-    // ── Animate losing cells out ────────────────────────────────
+    // ── Animate losing cells out (dim + blur + scale) ──────────
+    const nonWinnerCells: HTMLElement[] = [];
     allCells.forEach((cell) => {
       const cardEl = cell.querySelector<HTMLElement>(".unified-card");
       const pid = cardEl?.dataset.playerId;
       if (pid === winnerId) return;
 
+      nonWinnerCells.push(cell);
       gsap.to(cell, {
-        opacity: 0,
+        opacity: 0.3,
         scale: 0.85,
+        filter: "blur(3px)",
         duration: 0.45,
-        ease: "power2.inOut",
+        ease: "power2.out",
       });
     });
 
@@ -855,13 +858,59 @@ watch(
 
     gsap.to(winnerCell, {
       x: dx,
-      scale: 1.05,
       duration: 0.6,
       ease: "power3.out",
       // Do NOT set winnerAnimating = false here.
       // It stays true until the celebration overlay appears or the round resets.
       // This prevents CSS from hiding / reflowing the card.
     });
+
+    // ── Winner spotlight: golden glow + scale-up ─────────────────
+    gsap.to(winnerCell, {
+      scale: 1.05,
+      duration: 0.5,
+      ease: "back.out(1.7)",
+      onStart: () => {
+        winnerCell.classList.add("winner-spotlight");
+      },
+    });
+
+    // ── Screen shake ─────────────────────────────────────────────
+    const tableRoot = document.querySelector(".game-table-root");
+    if (tableRoot) {
+      tableRoot.classList.add("screen-shake");
+      setTimeout(() => tableRoot.classList.remove("screen-shake"), 250);
+    }
+
+    // ── Localized confetti burst from winner card position ────────
+    const winnerBurstRect = winnerCell.getBoundingClientRect();
+    const x = (winnerBurstRect.left + winnerBurstRect.width / 2) / window.innerWidth;
+    const y = (winnerBurstRect.top + winnerBurstRect.height / 2) / window.innerHeight;
+
+    confetti({
+      particleCount: 40,
+      spread: 55,
+      origin: { x, y },
+      colors: ["#eab308", "#a78bfa", "#e2e8f0"],
+      startVelocity: 20,
+      gravity: 0.8,
+      ticks: 80,
+    });
+
+    // ── Slide losing cards off-table edges after spotlight settles ─
+    setTimeout(() => {
+      nonWinnerCells.forEach((cell, i) => {
+        const direction = i % 2 === 0 ? -1 : 1;
+        gsap.to(cell, {
+          x: direction * 300,
+          opacity: 0,
+          rotation: direction * 15,
+          duration: 0.4,
+          delay: i * 0.05,
+          ease: "power2.in",
+        });
+      });
+    }, 800);
   },
 );
 
@@ -1393,6 +1442,13 @@ function handleSelectWinner(playerId: string) {
 </template>
 
 <style scoped>
+.winner-spotlight {
+  box-shadow: 0 0 25px rgba(234, 179, 8, 0.4),
+              0 0 60px rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 12px;
+}
+
 .game-table {
   position: relative;
   width: 100%;
