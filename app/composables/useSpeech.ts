@@ -2,7 +2,7 @@ import { ref } from "vue";
 import { useBrowserSpeech } from "./useBrowserSpeech";
 
 // Define provider types
-export type TTSProvider = "browser" | "elevenlabs" | "openai";
+export type TTSProvider = "browser" | "elevenlabs" | "openai" | "google";
 
 // Define options for each provider
 export interface TTSOptions {
@@ -17,6 +17,9 @@ export interface TTSOptions {
   // OpenAI options
   openAIVoice?: string;
   openAIModel?: string;
+
+  // Google options
+  googleVoiceName?: string;
 }
 
 // Default options
@@ -31,6 +34,9 @@ const defaultOptions: TTSOptions = {
   // OpenAI defaults
   openAIVoice: "nova",
   openAIModel: "tts-1",
+
+  // Google defaults
+  googleVoiceName: "en-US-Neural2-D",
 };
 
 export function useSpeech(options: TTSOptions = {}) {
@@ -100,6 +106,12 @@ export function useSpeech(options: TTSOptions = {}) {
           text,
           voice: mergedOptions.openAIVoice,
           model: mergedOptions.openAIModel,
+        };
+      } else if (provider === "google") {
+        endpoint = "/api/google-speak";
+        payload = {
+          text,
+          voiceName: mergedOptions.googleVoiceName,
         };
       } else {
         throw new Error(`Unknown provider: ${provider}`);
