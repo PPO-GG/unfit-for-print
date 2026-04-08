@@ -739,7 +739,6 @@ function handleResetGame() {
 
       <!-- Mobile slideover (hidden during active gameplay) -->
       <USlideover
-        v-if="!isPlaying"
         v-model:open="isSidebarOpen"
         class="xl:hidden"
         side="left"
