@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.13.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.12.0...v3.13.0) (2026-04-08)
+
+
+### ✨ Features
+
+* add carousel rendering path with submit bar for tablet touch ([cdc1dec](https://github.com/PPO-GG/unfit-for-print/commit/cdc1decb54ef17ada7a96fd9abfb5fcb33e4414a))
+* add i18n keys, UI scale store, and global zoom application ([72c618a](https://github.com/PPO-GG/unfit-for-print/commit/72c618a3789f708dea147d8a1bbd345bf49efbc6))
+* add UI Scale slider to profile settings page ([26e7d8a](https://github.com/PPO-GG/unfit-for-print/commit/26e7d8a78bfe6ecd3029ef52a90db74711107adb))
+* add UI Scale slider with presets to game settings menu ([edf480d](https://github.com/PPO-GG/unfit-for-print/commit/edf480d636a60a9f9422a297b108efb4466e8cd5))
+* add useTouchDevice composable for pointer:coarse detection ([e38f9db](https://github.com/PPO-GG/unfit-for-print/commit/e38f9dbfeb6ffb6afa5d6ade59ee2aa21ba1a008))
+* handle card animations for carousel mode (skip fan GSAP, add simple exit) ([6b69c4f](https://github.com/PPO-GG/unfit-for-print/commit/6b69c4fa4e96369e64346465cbb3764f8c406274))
+
+
+### 🐛 Bug Fixes
+
+* account for CSS zoom in custom cursor positioning ([76f53f5](https://github.com/PPO-GG/unfit-for-print/commit/76f53f5f89bf6b9cd8c7a6945beb33b0807ddae0))
+* detect touch via touchstart event fallback for DevTools simulation ([7ad2777](https://github.com/PPO-GG/unfit-for-print/commit/7ad2777b0eed53eb5091f9f5eb729fca8d4f5522))
+* improve gesture discrimination with angle-based direction locking and higher threshold ([0e6290f](https://github.com/PPO-GG/unfit-for-print/commit/0e6290f9c178d67e0b31178560289475b0b4ea29))
+* **lobby:** rejoin logic to redirect users to active game ([0cc1e00](https://github.com/PPO-GG/unfit-for-print/commit/0cc1e00e8ff68b0201131110b2cd9bb33e293036))
+* switch UI scale from CSS zoom to root font-size to prevent layout overflow ([323763d](https://github.com/PPO-GG/unfit-for-print/commit/323763d9bacdc0c6749dd00dfd73a2df3e556ace))
+
 ## [3.12.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.11.0...v3.12.0) (2026-04-08)
 
 
