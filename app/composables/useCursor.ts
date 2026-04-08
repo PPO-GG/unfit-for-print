@@ -68,7 +68,8 @@ function createAnimatedCursor() {
     if (!wasVisible && cursorRef.value) {
       currentX = mouseX;
       currentY = mouseY;
-      cursorRef.value.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+      const zoom = parseFloat(document.documentElement.style.zoom || "1");
+      cursorRef.value.style.transform = `translate3d(${currentX / zoom}px, ${currentY / zoom}px, 0)`;
       cursorRef.value.classList.add("custom-cursor--visible");
       wasVisible = true;
     }
@@ -111,7 +112,11 @@ function createAnimatedCursor() {
 
     const el = cursorRef.value;
     if (el) {
-      el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+      // Divide by zoom factor — clientX/clientY are in viewport space but the
+      // cursor element lives inside the zoomed document, so coordinates must
+      // be scaled down to match the zoomed coordinate system.
+      const zoom = parseFloat(document.documentElement.style.zoom || "1");
+      el.style.transform = `translate3d(${currentX / zoom}px, ${currentY / zoom}px, 0)`;
 
       // Throttle hit-test to every 6th frame (~10 fps at 60 fps)
       frameCount++;
