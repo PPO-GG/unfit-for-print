@@ -5,14 +5,20 @@ export default defineEventHandler(async (event) => {
   const { code } = await readBody<{ code: string }>(event);
 
   if (!code) {
-    throw createError({ statusCode: 400, message: "Missing authorization code" });
+    throw createError({
+      statusCode: 400,
+      message: "Missing authorization code",
+    });
   }
 
   const clientId = config.public.discordClientId as string;
   const clientSecret = config.discordClientSecret as string;
 
   if (!clientId || !clientSecret) {
-    throw createError({ statusCode: 500, message: "Discord credentials not configured" });
+    throw createError({
+      statusCode: 500,
+      message: "Discord credentials not configured",
+    });
   }
 
   // 1. Exchange Discord authorization code for access token
@@ -30,7 +36,10 @@ export default defineEventHandler(async (event) => {
   if (!tokenResponse.ok) {
     const error = await tokenResponse.text();
     console.error("[Discord Activity] Token exchange failed:", error);
-    throw createError({ statusCode: 401, message: "Discord token exchange failed" });
+    throw createError({
+      statusCode: 401,
+      message: "Discord token exchange failed",
+    });
   }
 
   const tokenData = await tokenResponse.json();
@@ -42,7 +51,10 @@ export default defineEventHandler(async (event) => {
   });
 
   if (!userResponse.ok) {
-    throw createError({ statusCode: 401, message: "Failed to fetch Discord user" });
+    throw createError({
+      statusCode: 401,
+      message: "Failed to fetch Discord user",
+    });
   }
 
   const discordUser = await userResponse.json();
@@ -64,7 +76,7 @@ export default defineEventHandler(async (event) => {
       Query.equal("provider", "discord"),
     ]);
     if (identities.total > 0) {
-      appwriteUserId = identities.identities[0].userId;
+      appwriteUserId = identities.identities[0]?.userId ?? null;
     }
   } catch (err) {
     console.warn("[Discord Activity] Identity lookup failed:", err);
@@ -74,10 +86,10 @@ export default defineEventHandler(async (event) => {
   if (!appwriteUserId) {
     try {
       const labeled = await users.list([
-        Query.contains("labels", [`discord:${discordUserId}`]),
+        Query.contains("labels", [`dsc${discordUserId}`]),
       ]);
       if (labeled.total > 0) {
-        appwriteUserId = labeled.users[0].$id;
+        appwriteUserId = labeled.users[0]?.$id ?? null;
       }
     } catch (err) {
       console.warn("[Discord Activity] Label lookup failed:", err);
@@ -98,11 +110,14 @@ export default defineEventHandler(async (event) => {
 
       await users.updateLabels(appwriteUserId, [
         ...(newUser.labels || []),
-        `discord:${discordUserId}`,
+        `dsc${discordUserId}`,
       ]);
     } catch (err) {
       console.error("[Discord Activity] User creation failed:", err);
-      throw createError({ statusCode: 500, message: "Failed to create user account" });
+      throw createError({
+        statusCode: 500,
+        message: "Failed to create user account",
+      });
     }
   }
 
