@@ -185,6 +185,13 @@
   "profile.click_to_unequip": "Click to unequip",
   "profile.locked": "Locked",
   "profile.support_to_unlock": "Support the game to unlock",
+  "profile.settings": "Settings",
+  "profile.settings_tts_voice": "TTS Voice",
+  "profile.settings_tts_voice_desc": "Choose which voice reads cards aloud",
+  "profile.settings_language": "Language",
+  "profile.settings_language_desc": "Change the interface language",
+  "profile.settings_theme": "Theme",
+  "profile.settings_theme_desc": "Switch between light, dark, and system themes",
   "tagline": "A PARTY GAME FOR HIDEOUS PEOPLE",
   "try_me": "Try Me!",
   "footer": {

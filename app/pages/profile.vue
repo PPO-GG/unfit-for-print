@@ -261,5 +261,59 @@ const avatarUrl = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- Settings -->
+    <div id="settings" class="w-full">
+      <h2 class="text-xl font-semibold mb-4">
+        {{ t("profile.settings") }}
+      </h2>
+
+      <div class="flex flex-col gap-3">
+        <!-- TTS Voice -->
+        <div
+          class="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-700 bg-slate-800/50 backdrop-blur-xs"
+        >
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <span class="text-sm font-medium">{{
+              t("profile.settings_tts_voice")
+            }}</span>
+            <span class="text-xs text-slate-400">{{
+              t("profile.settings_tts_voice_desc")
+            }}</span>
+          </div>
+          <VoiceSwitcher />
+        </div>
+
+        <!-- Language -->
+        <div
+          class="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-700 bg-slate-800/50 backdrop-blur-xs"
+        >
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <span class="text-sm font-medium">{{
+              t("profile.settings_language")
+            }}</span>
+            <span class="text-xs text-slate-400">{{
+              t("profile.settings_language_desc")
+            }}</span>
+          </div>
+          <LanguageSwitcher />
+        </div>
+
+        <!-- Theme -->
+        <div
+          class="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-700 bg-slate-800/50 backdrop-blur-xs"
+        >
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <span class="text-sm font-medium">{{
+              t("profile.settings_theme")
+            }}</span>
+            <span class="text-xs text-slate-400">{{
+              t("profile.settings_theme_desc")
+            }}</span>
+          </div>
+          <ThemeSwitcher />
+        </div>
+      </div>
+    </div>
   </div>
 </template>

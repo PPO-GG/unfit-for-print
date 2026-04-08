@@ -56,13 +56,17 @@
                 />
                 <span>{{ t("nav.profile") }}</span>
               </NuxtLink>
-              <button class="user-menu-item rounded-md" disabled>
+              <NuxtLink
+                to="/profile#settings"
+                class="user-menu-item rounded-md"
+                @click="userMenuOpen = false"
+              >
                 <UIcon
                   name="i-solar-settings-bold-duotone"
                   class="user-menu-item-icon"
                 />
                 <span>{{ t("nav.settings") }}</span>
-              </button>
+              </NuxtLink>
               <button
                 class="user-menu-item user-menu-item--danger rounded-b-2xl rounded-t-md"
                 @click="
