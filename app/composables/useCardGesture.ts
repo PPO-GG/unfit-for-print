@@ -56,7 +56,7 @@ const MAX_SAMPLES = 5;
 /** CSS selector for the drop zone (submission pile on the game table) */
 const DROP_ZONE_SELECTOR = ".unified-card-container--pile";
 /** Minimum distance in px before a pointer-down becomes a drag */
-const DRAG_THRESHOLD = 10;
+const DRAG_THRESHOLD = 20;
 
 /* ── Composable ────────────────────────────────────────────────────── */
 
@@ -86,6 +86,8 @@ export function useCardGesture(opts: CardGestureOptions) {
     { x: number; y: number; rotation: number }
   > = new Map();
   const pointerHistory: PointerSample[] = [];
+  /** Direction lock: once classified, prevents switching mid-drag */
+  let dragDirection: "none" | "horizontal" | "vertical" = "none";
 
   /* ── Velocity helper ────────────────────────────────────────────── */
 
@@ -185,7 +187,29 @@ export function useCardGesture(opts: CardGestureOptions) {
 
     // Check threshold before committing to drag
     if (isPending) {
-      if (Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < DRAG_THRESHOLD) return;
+
+      // Classify direction based on dominant axis
+      const angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+      // angle < 30° from horizontal OR > 150° = horizontal swipe (browse)
+      // angle between 60° and 120° = vertical gesture (submit)
+      // 30°-60° / 120°-150° = ambiguous, use dominant axis
+      if (angle < 30 || angle > 150) {
+        dragDirection = "horizontal";
+        // Cancel drag — let the browser handle horizontal scroll
+        isPending = false;
+        const el = cardRefs.value[dragIndex];
+        if (el) {
+          try { el.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+        }
+        dragIndex = -1;
+        dragCardId = "";
+        pointerHistory.length = 0;
+        return;
+      }
+
+      dragDirection = "vertical";
       commitDrag();
     }
 
@@ -224,6 +248,7 @@ export function useCardGesture(opts: CardGestureOptions) {
       dragIndex = -1;
       dragCardId = "";
       pointerHistory.length = 0;
+      dragDirection = "none";
       return;
     }
     if (!isDragging.value) return;
@@ -232,11 +257,14 @@ export function useCardGesture(opts: CardGestureOptions) {
     const velocity = calculateVelocity();
     const isUpward = velocity.vy < 0;
     const isFastEnough = velocity.speed > FLICK_SPEED_THRESHOLD;
+    // Require ≥30° from horizontal (atan2 of pure-up = -90°)
+    const flickAngle = Math.abs(Math.atan2(velocity.vy, velocity.vx) * (180 / Math.PI));
+    const isSteepEnough = flickAngle > 30 && flickAngle < 150;
     const isOverDrop = isOverDropZone(e.clientX, e.clientY);
 
     const selectedIndices = getSelectedIndices();
 
-    if ((isFastEnough && isUpward) || isOverDrop) {
+    if ((isFastEnough && isUpward && isSteepEnough) || isOverDrop) {
       // ── SUCCESS: Fling or drop ─────────────────────────────────
 
       // CRITICAL: Snapshot the card elements NOW, while they still have
@@ -323,6 +351,7 @@ export function useCardGesture(opts: CardGestureOptions) {
     dragCardId = "";
     dragBaseTransforms.clear();
     pointerHistory.length = 0;
+    dragDirection = "none";
   }
 
   /* ── Cleanup ────────────────────────────────────────────────────── */
@@ -352,6 +381,7 @@ export function useCardGesture(opts: CardGestureOptions) {
     dragCardId = "";
     dragBaseTransforms.clear();
     pointerHistory.length = 0;
+    dragDirection = "none";
   }
 
   onUnmounted(() => {
