@@ -1,31 +1,23 @@
 <template>
-  <div
-    class="relative min-h-screen subpixel-antialiased cursor-default"
-    :style="{ '--ui-header-height': `${headerSize.height}px` }"
-  >
+  <div class="relative min-h-screen subpixel-antialiased cursor-default">
     <ScrollingBackground :gap="12" :scale="0.5" :speedPx="15" />
 
-    <div class="flex flex-col min-h-screen">
-      <div ref="headerRef">
-        <AppHeader />
-      </div>
+    <!-- Back button -->
+    <UButton
+      class="fixed top-4 left-4 z-20 text-xl py-2 px-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl"
+      color="neutral"
+      icon="i-solar-alt-arrow-left-bold-duotone"
+      size="xl"
+      variant="subtle"
+      @click="router.back()"
+    />
 
-      <main
-        :style="{
-          marginTop: `${headerSize.height}px`,
-        }"
-        class="flex-1 flex flex-col p-4"
-      >
-        <slot />
-      </main>
-    </div>
+    <main class="relative z-10 min-h-screen flex flex-col p-4">
+      <slot />
+    </main>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref } from "vue";
-import { useElementSize } from "@vueuse/core";
-
-const headerRef = ref(null);
-const headerSize = useElementSize(headerRef);
+const router = useRouter();
 </script>

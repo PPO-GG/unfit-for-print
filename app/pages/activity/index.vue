@@ -213,8 +213,8 @@ async function launch() {
       }
     }
 
-    // 6. No existing lobby — go to VC Hub
-    await router.replace("/activity/hub");
+    // 6. No existing lobby — go to main page (hub is accessible from there)
+    await router.replace("/");
   } catch (err: any) {
     console.error(`[Discord Activity] Launch failed at stage "${stage}":`, err);
     launchError.value = buildLaunchError(stage, err?.message);
