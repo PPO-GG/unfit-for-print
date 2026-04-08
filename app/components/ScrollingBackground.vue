@@ -7,20 +7,30 @@
     </ClientOnly>
     <div
       v-if="showEffect"
-      ref="wrapper"
       class="fixed inset-[-60vw] flex rotate-45 scale-[1.8] pointer-events-none z-[-1] opacity-5"
     >
       <div
         v-for="(col, cIndex) in columns"
         :key="cIndex"
-        :ref="(el) => setColRef(el, cIndex)"
         :style="getColWrapperStyle()"
         class="flex flex-col"
       >
-        <div class="col-inner">
+        <div
+          class="col-inner"
+          :class="{ 'col-inner--reverse': cIndex % 2 !== 0 }"
+          :style="getColInnerStyle(cIndex)"
+        >
+          <!-- Primary card set -->
           <div
             v-for="card in col.cards"
             :key="card.key"
+            :class="['card__back', cIndex % 2 === 0 ? 'white' : 'black']"
+            :style="cardBaseStyle"
+          />
+          <!-- Duplicate set for seamless wrap-around -->
+          <div
+            v-for="card in col.cards"
+            :key="'d' + card.key"
             :class="['card__back', cIndex % 2 === 0 ? 'white' : 'black']"
             :style="cardBaseStyle"
           />
@@ -31,11 +41,8 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
+import { reactive, computed, onMounted, watch } from "vue";
 import { useWindowSize } from "@vueuse/core";
-import { gsap } from "gsap";
-import { nextTick } from "vue";
-import type { ComponentPublicInstance } from "vue";
 
 const props = defineProps({
   speedPx: { type: Number, default: 60 },
@@ -45,18 +52,9 @@ const props = defineProps({
   disableOnLowPerf: { type: Boolean, default: true },
 });
 
-function getColWrapperStyle() {
-  return {
-    width: `${cardW.value + props.gap}px`,
-    paddingRight: `${props.gap / 2}px`,
-    paddingLeft: `${props.gap / 2}px`,
-    boxSizing: "border-box" as const,
-  };
-}
-
 const { width } = useWindowSize();
 
-const showEffect = computed(() => true); // simplify for now
+const showEffect = computed(() => true);
 
 const computedScale = computed(() => {
   if (width.value < 480) return 0.3;
@@ -75,14 +73,6 @@ interface ColState {
 }
 
 const columns = reactive<ColState[]>([]);
-const colRefs = ref<HTMLElement[]>([]);
-
-function setColRef(
-  el: Element | ComponentPublicInstance | null,
-  index: number,
-) {
-  if (el) colRefs.value[index] = el as HTMLElement;
-}
 
 let keyCounter = 0;
 
@@ -106,58 +96,38 @@ function rebuildGrid() {
   }
 }
 
-const animations: gsap.core.Tween[] = [];
-
-function animateColumns() {
-  animations.forEach((anim) => anim.kill());
-  animations.length = 0;
-
-  colRefs.value.forEach((col, index) => {
-    if (!col) return;
-    const dir = index % 2 === 0 ? -1 : 1;
-    const travel = cardH.value + props.gap;
-    const duration = travel / props.speedPx;
-
-    const tween = gsap.to(col.querySelector(".col-inner"), {
-      y: `${dir * travel}px`,
-      ease: "none",
-      duration,
-      repeat: -1,
-      modifiers: {
-        y: (val) => `${parseFloat(val) % travel}px`,
-      },
-    });
-
-    animations.push(tween);
-  });
+function getColWrapperStyle() {
+  return {
+    width: `${cardW.value + props.gap}px`,
+    paddingRight: `${props.gap / 2}px`,
+    paddingLeft: `${props.gap / 2}px`,
+    boxSizing: "border-box" as const,
+  };
 }
 
-watch(showEffect, (val) => {
-  if (val) {
-    rebuildGrid();
-    nextTick(() => animateColumns());
-  } else {
-    animations.forEach((anim) => anim.kill());
-  }
-});
+function getColInnerStyle(index: number) {
+  const count = columns[index]?.cards.length ?? 0;
+  const setHeight = count * (cardH.value + props.gap);
+  const duration = setHeight / props.speedPx;
+
+  return {
+    "--scroll-distance": `${setHeight}px`,
+    "--scroll-duration": `${duration}s`,
+  };
+}
 
 watch([width, computedScale], () => {
   if (showEffect.value) {
     rebuildGrid();
-    nextTick(() => animateColumns());
   }
 });
 
 onMounted(() => {
   if (showEffect.value) {
     rebuildGrid();
-    nextTick(() => animateColumns());
   }
 });
 
-onUnmounted(() => {
-  animations.forEach((anim) => anim.kill());
-});
 const cardBaseStyle = computed(() => ({
   width: `${cardW.value}px`,
   height: `${cardH.value}px`,
@@ -167,24 +137,51 @@ const cardBaseStyle = computed(() => ({
 </script>
 
 <style scoped>
+/* ── Seamless infinite scroll via CSS compositor ─────────────────────── */
 .col-inner {
   will-change: transform;
+  animation: scroll-up var(--scroll-duration) linear infinite;
 }
+
+.col-inner--reverse {
+  animation-name: scroll-down;
+}
+
+@keyframes scroll-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-1 * var(--scroll-distance)));
+  }
+}
+
+@keyframes scroll-down {
+  from {
+    transform: translateY(calc(-1 * var(--scroll-distance)));
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* ── Card faces ──────────────────────────────────────────────────────── */
+.card__back {
+  border-radius: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: var(--logo-size);
+}
+
 .card__back.white {
   background-image: url("/img/unfit_logo_alt_dark.png");
   background-color: rgba(231, 225, 222);
   border: 6px solid rgba(0, 0, 0, 0.25);
 }
+
 .card__back.black {
   background-image: url("/img/unfit_logo_alt.png");
   background-color: rgba(28, 35, 66);
   border: 6px solid rgba(255, 255, 255, 0.5);
-}
-.card__back {
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: var(--logo-size);
 }
 </style>
