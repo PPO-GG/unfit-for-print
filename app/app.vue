@@ -24,9 +24,23 @@
 </template>
 <script lang="ts" setup>
 import { useHead, useRuntimeConfig } from "#imports";
+import { useUserPrefsStore } from "~/stores/userPrefsStore";
+
 const isDev = import.meta.env.DEV;
 const config = useRuntimeConfig();
 const { isDiscordActivity } = useDiscordSDK();
+const prefs = useUserPrefsStore();
+
+// Apply global UI scale via CSS zoom
+watch(
+  () => prefs.uiScale,
+  (scale) => {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.zoom = `${scale / 100}`;
+    }
+  },
+  { immediate: true },
+);
 
 // Named CSS transition — enter/leave keyframes are defined in main.css
 const pageTransition = {

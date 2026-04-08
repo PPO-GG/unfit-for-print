@@ -11,6 +11,9 @@ export const useUserPrefsStore = defineStore('userPrefs', {
         ttsVoice: DEFAULT_TTS_VOICE.id,
 
         acceptedWarning: false,
+
+        /** Global UI zoom level (75-150, percentage) */
+        uiScale: 100,
     }),
 
     actions: {
@@ -28,6 +31,9 @@ export const useUserPrefsStore = defineStore('userPrefs', {
         },
         setAcceptedWarning(value: boolean) {
             this.acceptedWarning = value
+        },
+        setUiScale(scale: number) {
+            this.uiScale = Math.min(150, Math.max(75, scale))
         }
     },
 
