@@ -147,6 +147,7 @@
   "nav.logout": "Sair",
   "nav.privacy_policy": "política de Privacidade",
   "nav.profile": "Perfil",
+  "nav.settings": "Configurações",
   "nav.welcome_guest": "Olá, usuário aleatório!",
   "nav.welcome_user": "Bem-vindo, {name}!",
   "notification.fetched_cards": "Novos cartões obtidos",

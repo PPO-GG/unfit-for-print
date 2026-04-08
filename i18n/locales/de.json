@@ -147,6 +147,7 @@
   "nav.logout": "Ausloggen",
   "nav.privacy_policy": "Datenschutzrichtlinie",
   "nav.profile": "Profil",
+  "nav.settings": "Einstellungen",
   "nav.welcome_guest": "Hallo, zufälliger Benutzer!",
   "nav.welcome_user": "Willkommen, {name}!",
   "notification.fetched_cards": "Neue Karten geholt",

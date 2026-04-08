@@ -147,6 +147,7 @@
   "nav.logout": "Выйти",
   "nav.privacy_policy": "политика конфиденциальности",
   "nav.profile": "Профиль",
+  "nav.settings": "Настройки",
   "nav.welcome_guest": "Привет, случайный пользователь!",
   "nav.welcome_user": "Добро пожаловать, {name}!",
   "notification.fetched_cards": "Получены новые карты",

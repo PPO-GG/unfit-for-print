@@ -147,6 +147,7 @@
   "nav.logout": "로그아웃",
   "nav.privacy_policy": "개인정보 보호정책",
   "nav.profile": "윤곽",
+  "nav.settings": "설정",
   "nav.welcome_guest": "안녕하세요, 무작위 사용자 여러분!",
   "nav.welcome_user": "환영합니다, {name}!",
   "notification.fetched_cards": "새로운 카드를 가져왔습니다",

@@ -166,6 +166,7 @@
   "nav.logout": "Logout",
   "nav.privacy_policy": "Privacy Policy",
   "nav.profile": "Profile",
+  "nav.settings": "Settings",
   "nav.welcome_guest": "Hello There, Random User!",
   "nav.welcome_user": "Welcome, {name}!",
   "notification.fetched_cards": "Fetched New Cards",

@@ -147,6 +147,7 @@
   "nav.logout": "登出",
   "nav.privacy_policy": "隐私政策",
   "nav.profile": "轮廓",
+  "nav.settings": "设置",
   "nav.welcome_guest": "你好，随机用户！",
   "nav.welcome_user": "欢迎，{name}！",
   "notification.fetched_cards": "已获取新卡",

@@ -147,6 +147,7 @@
   "nav.logout": "Déconnexion",
   "nav.privacy_policy": "politique de confidentialité",
   "nav.profile": "Profil",
+  "nav.settings": "Paramètres",
   "nav.welcome_guest": "Bonjour, utilisateur aléatoire !",
   "nav.welcome_user": "Bienvenue, {name} !",
   "notification.fetched_cards": "Nouvelles cartes récupérées",

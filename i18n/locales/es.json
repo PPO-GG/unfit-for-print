@@ -147,6 +147,7 @@
   "nav.logout": "Cerrar sesión",
   "nav.privacy_policy": "política de privacidad",
   "nav.profile": "Perfil",
+  "nav.settings": "Configuración",
   "nav.welcome_guest": "¡Hola, usuario aleatorio!",
   "nav.welcome_user": "¡Bienvenido, {name}!",
   "notification.fetched_cards": "Obtuve nuevas tarjetas",

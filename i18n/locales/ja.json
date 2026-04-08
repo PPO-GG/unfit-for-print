@@ -147,6 +147,7 @@
   "nav.logout": "ログアウト",
   "nav.privacy_policy": "プライバシーポリシー",
   "nav.profile": "プロフィール",
+  "nav.settings": "設定",
   "nav.welcome_guest": "こんにちは、ランダムユーザーさん！",
   "nav.welcome_user": "ようこそ、{name}さん！",
   "notification.fetched_cards": "新しいカードを取得",
