@@ -136,7 +136,7 @@ const needsManualDraw = computed(() => {
   return (
     manualDraw &&
     myHandCards.length < cardsPerPlayer &&
-    isSubmitting.value &&
+    !isJudge.value &&
     isParticipant.value
   );
 });
@@ -541,7 +541,7 @@ function handleMobileContinue() {
           <WhiteCardDeck
             :scale="75"
             :interactive="needsManualDraw"
-            :need-draw="needsManualDraw"
+            :needs-draw="needsManualDraw"
             @draw="handleDeckDraw"
           />
         </div>

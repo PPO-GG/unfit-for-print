@@ -65,7 +65,10 @@ watch(isDealing, (dealing) => {
     ref="deckRef"
     data-deck="white"
     class="white-deck-wrapper"
-    :class="{ 'white-deck--dealing': isDealing, 'white-deck--interactive': props.interactive }"
+    :class="{
+      'white-deck--dealing': isDealing,
+      'white-deck--interactive': props.interactive,
+    }"
     @click="props.interactive && emit('draw')"
   >
     <!-- Stack effect with multiple cards -->
@@ -89,8 +92,14 @@ watch(isDealing, (dealing) => {
         :flat="true"
         :scale="scale"
       />
-      <div v-if="i === 1 && props.needsDraw" class="draw-indicator">
-        <UIcon name="i-solar-circle-bottom-down-bold" class="draw-indicator-icon" />
+      <div
+        v-if="i === 1 && props.needsDraw"
+        class="draw-indicator text-nickel-500"
+      >
+        <UIcon
+          name="i-solar-circle-bottom-down-bold"
+          class="draw-indicator-icon"
+        />
       </div>
     </div>
   </div>
@@ -128,17 +137,18 @@ watch(isDealing, (dealing) => {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  z-index: 10;
 }
 
 .draw-indicator-icon {
   width: 50%;
   height: 50%;
-  color: white;
   animation: draw-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes draw-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.7;
     transform: scale(1);
   }

@@ -931,8 +931,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     const state = readGameState();
     const pid = playerId ?? myId();
 
-    if (state.phase !== "submitting")
-      return { success: false, reason: "Can only draw during submitting phase" };
+    if (state.judgeId === pid)
+      return { success: false, reason: "Judge cannot draw cards" };
 
     const manualDraw = lobbyDoc.getSettings().get("manualDraw");
     if (!manualDraw)
