@@ -32,6 +32,17 @@
             <UIcon name="i-heroicons-arrow-path" class="w-4 h-4" />
             Try Again
           </button>
+
+          <details class="activity-launch__details">
+            <summary class="activity-launch__details-toggle">Error Details</summary>
+            <div class="activity-launch__details-body">
+              <pre class="activity-launch__details-code">{{ errorDigest }}</pre>
+              <button class="activity-launch__details-copy" @click="copyDigest">
+                <UIcon :name="copied ? 'i-heroicons-check' : 'i-heroicons-clipboard'" class="w-3.5 h-3.5" />
+                {{ copied ? 'Copied!' : 'Copy' }}
+              </button>
+            </div>
+          </details>
         </div>
       </template>
     </div>
@@ -50,14 +61,19 @@ interface LaunchError {
   title: string;
   message: string;
   tips: string[];
+  stage: LaunchStage;
+  rawError: string;
+  timestamp: string;
 }
 
 type LaunchStage = "sdk" | "auth" | "backend" | "session" | "voice" | "lobby";
 
 function buildLaunchError(stage: LaunchStage, raw?: string): LaunchError {
+  const base = { stage, rawError: raw || "Unknown error", timestamp: new Date().toISOString() };
   switch (stage) {
     case "sdk":
       return {
+        ...base,
         title: "Couldn\u2019t connect to Discord",
         message: "The game was unable to establish a connection with Discord.",
         tips: [
@@ -70,6 +86,7 @@ function buildLaunchError(stage: LaunchStage, raw?: string): LaunchError {
       };
     case "auth":
       return {
+        ...base,
         title: "Authorization required",
         message:
           "The game needs permission to access your Discord account. "
@@ -82,6 +99,7 @@ function buildLaunchError(stage: LaunchStage, raw?: string): LaunchError {
       };
     case "backend":
       return {
+        ...base,
         title: "Server error",
         message:
           raw && raw.includes("token")
@@ -94,6 +112,7 @@ function buildLaunchError(stage: LaunchStage, raw?: string): LaunchError {
       };
     case "session":
       return {
+        ...base,
         title: "Account setup failed",
         message: "We were able to verify your Discord account, but couldn\u2019t finish setting up your game profile.",
         tips: [
@@ -103,6 +122,7 @@ function buildLaunchError(stage: LaunchStage, raw?: string): LaunchError {
       };
     case "voice":
       return {
+        ...base,
         title: "Voice channel not accessible",
         message: "The game couldn\u2019t load voice channel information. You may have launched the Activity outside of a voice channel.",
         tips: [
@@ -113,6 +133,7 @@ function buildLaunchError(stage: LaunchStage, raw?: string): LaunchError {
       };
     case "lobby":
       return {
+        ...base,
         title: "Couldn\u2019t rejoin lobby",
         message: "There was a problem reconnecting you to an existing game session.",
         tips: [
@@ -122,6 +143,7 @@ function buildLaunchError(stage: LaunchStage, raw?: string): LaunchError {
       };
     default:
       return {
+        ...base,
         title: "Something went wrong",
         message: raw || "An unexpected error occurred.",
         tips: [
@@ -148,6 +170,30 @@ const { joinLobby, getLobbyByInstanceId } = useLobby();
 
 const statusText = ref("Connecting to Discord...");
 const launchError = ref<LaunchError | null>(null);
+const copied = ref(false);
+
+const errorDigest = computed(() => {
+  if (!launchError.value) return "";
+  const { stage, rawError, timestamp } = launchError.value;
+  return `Stage: ${stage}\nError: ${rawError}\nTime: ${timestamp}`;
+});
+
+async function copyDigest() {
+  try {
+    await navigator.clipboard.writeText(errorDigest.value);
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  } catch {
+    // Fallback: select the pre element text
+    const pre = document.querySelector(".activity-launch__details-code");
+    if (pre) {
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+    }
+  }
+}
 
 // ─── Launch Flow ─────────────────────────────────────────────────────────────
 
@@ -371,6 +417,69 @@ onMounted(() => {
 
 .activity-launch__retry:active {
   transform: scale(0.97);
+}
+
+/* ── Error Details ──────────────────────────────────────────────────────────── */
+
+.activity-launch__details {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.activity-launch__details-toggle {
+  font-size: 0.75rem;
+  color: var(--ui-text-dimmed);
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.activity-launch__details-toggle:hover {
+  color: var(--ui-text-muted);
+}
+
+.activity-launch__details-body {
+  margin-top: 0.5rem;
+  position: relative;
+}
+
+.activity-launch__details-code {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--ui-text-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+  text-align: left;
+  margin: 0;
+}
+
+.activity-launch__details-copy {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--ui-text-dimmed);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.activity-launch__details-copy:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ui-text-muted);
 }
 
 @keyframes spin {
