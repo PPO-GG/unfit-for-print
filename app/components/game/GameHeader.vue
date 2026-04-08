@@ -83,7 +83,7 @@ const getPlayerName = (playerId: string) => {
 
 <template>
   <header
-    class="flex justify-between items-center backdrop-blur-xs p-8 border-b border-slate-700/30"
+    class="flex justify-between items-center backdrop-blur-xs p-8 border-b border-slate-700/30 z-50"
   >
     <!-- Floating centre pill -->
     <div

@@ -86,17 +86,15 @@ watch(
 
 .black-deck-layer {
   position: absolute;
-  transform: translate(-12px, -12px);
 }
 
 .black-deck-top {
   position: relative;
   z-index: 10;
-  transform: translate(-12px, -12px);
   transition: transform 0.3s ease;
 }
 
 .black-deck-top:hover {
-  transform: translate(-12px, -32px) scale(1.05);
+  transform: translateY(-20px) scale(1.05);
 }
 </style>
