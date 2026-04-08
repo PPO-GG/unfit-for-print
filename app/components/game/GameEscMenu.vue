@@ -150,6 +150,35 @@ watch(
                 <span class="setting-label">{{ t("game.language", "Language") }}</span>
                 <LanguageSwitcher />
               </div>
+
+              <div class="setting-group">
+                <div class="setting-row">
+                  <span class="setting-label">{{ t("game.ui_scale", "UI Scale") }}</span>
+                  <span class="setting-value">{{ prefs.uiScale }}%</span>
+                </div>
+                <div class="scale-control">
+                  <input
+                    type="range"
+                    :value="prefs.uiScale"
+                    min="75"
+                    max="150"
+                    step="5"
+                    class="scale-slider"
+                    @input="prefs.setUiScale(Number(($event.target as HTMLInputElement).value))"
+                  />
+                  <div class="scale-presets">
+                    <button
+                      v-for="preset in [100, 125, 150]"
+                      :key="preset"
+                      class="scale-preset"
+                      :class="{ 'scale-preset--active': prefs.uiScale === preset }"
+                      @click="prefs.setUiScale(preset)"
+                    >
+                      {{ preset }}%
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </template>
 
@@ -437,6 +466,83 @@ watch(
 .confirm-btn--danger:hover {
   background: rgba(239, 68, 68, 0.25);
   color: #fca5a5;
+}
+
+/* ─── UI Scale Controls ───────────────────────────────────── */
+.setting-value {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.scale-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.scale-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(71, 85, 105, 0.4);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.scale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  border: 2px solid rgba(139, 92, 246, 0.5);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+}
+
+.scale-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  border: 2px solid rgba(139, 92, 246, 0.5);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+}
+
+.scale-presets {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.scale-preset {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.scale-preset:hover {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #e2e8f0;
+}
+
+.scale-preset--active {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #c4b5fd;
 }
 
 /* ─── Transitions ──────────────────────────────────────────── */
