@@ -465,6 +465,30 @@ onMounted(async () => {
           return;
         }
       }
+
+      // Re-add to Y.Doc if confirmed in game but missing from players map
+      // (happens after HMR reload or page refresh when the Y.Doc player
+      // entry was lost but the Appwrite/sessionStorage record persists)
+      if (!inYDoc && lobbyDoc.doc.value) {
+        try {
+          const meta = lobbyDoc.getMeta();
+          const docStatus = meta.get("status") || "waiting";
+          mutations.addPlayer({
+            userId: user.$id,
+            name: user.name || "Unknown",
+            avatar: (user.prefs as Record<string, any>)?.avatar || "",
+            isHost: false,
+            joinedAt: new Date().toISOString(),
+            provider: userStore.session?.provider || "",
+            playerType: docStatus === "playing" ? "spectator" : "player",
+            activeDecoration:
+              (user.prefs as Record<string, any>)?.activeDecoration || "",
+          });
+          console.log("[GamePage] Re-added player to Y.Doc after reconnect");
+        } catch (err) {
+          console.warn("[GamePage] Failed to re-add player to Y.Doc:", err);
+        }
+      }
       // Player confirmed in this game — proceed
     }
 

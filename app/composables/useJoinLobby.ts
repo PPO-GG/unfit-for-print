@@ -68,6 +68,7 @@ export const useJoinLobby = () => {
       }
 
       // Check if the chosen username is already taken in this lobby
+      // (exclude the current user's own stale doc — they may be rejoining)
       const { databases, tables } = getAppwrite();
       const config = useRuntimeConfig();
       const existingPlayers = await tables.listRows({
@@ -77,7 +78,8 @@ export const useJoinLobby = () => {
       });
       const nameTaken = existingPlayers.rows.some(
         (doc: Record<string, any>) =>
-          doc.name?.toLowerCase() === username.trim().toLowerCase(),
+          doc.name?.toLowerCase() === username.trim().toLowerCase() &&
+          doc.userId !== user.$id,
       );
       if (nameTaken) {
         setError?.(t("lobby.username_taken"));
