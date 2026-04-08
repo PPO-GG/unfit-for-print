@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.11.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.10.0...v3.11.0) (2026-04-08)
+
+
+### ✨ Features
+
+* **animations:** arc trajectory and landing bounce for card submission ([9d07617](https://github.com/PPO-GG/unfit-for-print/commit/9d076172cf70f79787f772b772f978fe2555d8c0))
+* **animations:** enhanced FLIP overshoot, reveal flash, and whoosh SFX ([bddf7cc](https://github.com/PPO-GG/unfit-for-print/commit/bddf7cce5da492817b136df2542d00dc6069e5db))
+* **animations:** hand rise/lower, zone glow, black card slide-in, judge pulse ([a0dc5b0](https://github.com/PPO-GG/unfit-for-print/commit/a0dc5b0bdd3b35ae664a2287361ccbcc9aa05647))
+* **app-shell:** game menu landing page with atmospheric overlay ([71d9c3d](https://github.com/PPO-GG/unfit-for-print/commit/71d9c3d06fcbb1ceaa9eca6495f742255384014a))
+* **app-shell:** lobby browser game tile styling ([43179f1](https://github.com/PPO-GG/unfit-for-print/commit/43179f19e405ec09acb262629dd8775f63794814))
+* **atmosphere:** ambient dust motes and submission ripple effects ([7759724](https://github.com/PPO-GG/unfit-for-print/commit/775972481637dca08bec022bb3f075552d0cc979))
+* **board:** wire skip-player event up to page handler ([989500c](https://github.com/PPO-GG/unfit-for-print/commit/989500caad2edff57e0117608d7f85d60fdf52d9))
+* **celebrations:** game win card sweep, crown decoration, and golden card display ([32f6d90](https://github.com/PPO-GG/unfit-for-print/commit/32f6d9096a48586f5aa39b156a35d789b8808813))
+* **celebrations:** round win spotlight, screen shake, confetti, and card slide-off ([93dcbc1](https://github.com/PPO-GG/unfit-for-print/commit/93dcbc1f97214ec4cea4042b9f55047b9996d924))
+* **celebrations:** score fly +1 badge arcing to winner seat ([ca0cb70](https://github.com/PPO-GG/unfit-for-print/commit/ca0cb703bb26d8e23fac43a1bc7af29c2e346cad))
+* **deck:** add pulsing draw indicator on white deck in manual draw mode ([a06ecee](https://github.com/PPO-GG/unfit-for-print/commit/a06eceefbcee6723500665dbcb032626cf5583b7))
+* **game:** propagate card pack name through black card pipeline ([491a7e2](https://github.com/PPO-GG/unfit-for-print/commit/491a7e28aef7e7a0054ed0ae67b5401d29e21ed2))
+* **header:** add back button to desktop nav on non-home, non-game pages ([f252b4e](https://github.com/PPO-GG/unfit-for-print/commit/f252b4eb13c50e136c1e097ab4719afec3f32e81))
+* **home:** redesign user menu, add hover effects, and add footer legal links ([2101986](https://github.com/PPO-GG/unfit-for-print/commit/21019868c17d937064602fbc1a28af933f6431c3))
+* **index:** add avatarUrl, handleLogout, handleLoginWithDiscord, isAdmin, isDiscordActivity helpers ([96a68fa](https://github.com/PPO-GG/unfit-for-print/commit/96a68fafd31ffe764dc444ed5cb01845b84a143d))
+* **index:** gate admin button with isAdmin, add Hub for Discord Activity mode ([6705776](https://github.com/PPO-GG/unfit-for-print/commit/670577608f597e6b1317e02154ed5f6670f9ae3c))
+* **index:** replace raw buttons with UButton AppHeader style ([075aab9](https://github.com/PPO-GG/unfit-for-print/commit/075aab94e5b6ba27e6d5dace615cd7b706b50a15))
+* **index:** replace top-right corner with avatar UDropdownMenu ([00c0277](https://github.com/PPO-GG/unfit-for-print/commit/00c0277ac6b2d5a05a7ce5ed33a8a48574ef9be4))
+* **manual-draw:** add engine logic and interactive deck UI ([1ade22b](https://github.com/PPO-GG/unfit-for-print/commit/1ade22b654d5c18e120f0675c1d5d37f00784d34))
+* **seats:** add host skip button to player seat arc and overflow ([4d63f16](https://github.com/PPO-GG/unfit-for-print/commit/4d63f1684afa2158b35f9c42c8847edea9a13826))
+* **settings:** add manual draw toggle to game settings UI ([d67961d](https://github.com/PPO-GG/unfit-for-print/commit/d67961de6ea9ce8eb70b0231fe5fb6896491066e))
+* **settings:** add manualDraw setting to types and mutations ([468d2fa](https://github.com/PPO-GG/unfit-for-print/commit/468d2fa5487ca0ae8d848ad778e09ba8e910104b))
+* **sfx:** wire placeholder sound effects to phase transitions ([8396254](https://github.com/PPO-GG/unfit-for-print/commit/8396254213ad1dfc7ec5899d20aa6853cbfa9e5c))
+* **table:** bubble skip-player event and pass isHost to seats ([34f3e86](https://github.com/PPO-GG/unfit-for-print/commit/34f3e86e2cf9dad837ac32cd1b1f9d3044c4086c))
+
+
+### 🐛 Bug Fixes
+
+* **game:** add z-index to GameHeader and clean up BlackCardDeck offsets ([0fde8b7](https://github.com/PPO-GG/unfit-for-print/commit/0fde8b706997e07d2638d752f24a0e7e1ae1bb4c))
+* **game:** fix manual draw indicator visibility and allow drawing in any phase ([0f54ee8](https://github.com/PPO-GG/unfit-for-print/commit/0f54ee81c3108c3a7e9587b175dffa041b9608a1))
+* **index:** remove redundant ClientOnly wrapper around admin button ([8e0b1e7](https://github.com/PPO-GG/unfit-for-print/commit/8e0b1e7820ac55cdb452ca16ea93121a91adb976))
+* **index:** restore footer flow layout, add accessible alt to avatar img ([6aaf221](https://github.com/PPO-GG/unfit-for-print/commit/6aaf2216b2c901b1973ea801cc6eaa2502a97d21))
+* **layout:** add AppHeader to default layout ([8336a0a](https://github.com/PPO-GG/unfit-for-print/commit/8336a0aa3e00c2bd53b7e8313f7067bc347559a5))
+* **layout:** replace AppHeader with standalone back button in default layout ([b5c8b33](https://github.com/PPO-GG/unfit-for-print/commit/b5c8b33cbc4fbd89cf5330cee8b0d8dc33315f45))
+* **nav:** move UModal inside root div, show back button on all screen sizes ([d7f9340](https://github.com/PPO-GG/unfit-for-print/commit/d7f9340c6115a8835364d7ea040cff7caafef268))
+* **responsive:** scrolling background column count at all viewports ([5f1ef58](https://github.com/PPO-GG/unfit-for-print/commit/5f1ef583a55850811f40e5cbefab1459c5e73af1))
+* **seats:** add aria-labels, fix overflow button, add missing i18n keys for skip-player ([9dc0374](https://github.com/PPO-GG/unfit-for-print/commit/9dc037424a849046ef90326d4c3d098006962ff9))
+
+
+### ♻️ Refactors
+
+* **background:** replace GSAP animation with CSS-only infinite scroll ([803c455](https://github.com/PPO-GG/unfit-for-print/commit/803c4556b52799c8254ec4fd7c9929f78350c341))
+* **tts:** export TTSProviderType and adjust Kokoro Nicole speed ([da605b9](https://github.com/PPO-GG/unfit-for-print/commit/da605b968f903e9cc2d174963e66f5df00e29cb8))
+
 ## [3.10.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.9.1...v3.10.0) (2026-04-07)
 
 
