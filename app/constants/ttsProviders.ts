@@ -173,6 +173,9 @@ export const TTS_PROVIDERS = {
   },
 };
 
+/** The voice every new user starts with */
+export const DEFAULT_TTS_VOICE = TTS_PROVIDERS.KOKORO_AF_NICOLE;
+
 /**
  * Helper function to determine the TTS provider from a voice ID
  */

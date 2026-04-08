@@ -1,5 +1,6 @@
 // stores/userPrefsStore.ts
 import { defineStore } from 'pinia'
+import { DEFAULT_TTS_VOICE } from '~/constants/ttsProviders'
 
 export const useUserPrefsStore = defineStore('userPrefs', {
     state: () => ({
@@ -7,7 +8,8 @@ export const useUserPrefsStore = defineStore('userPrefs', {
         theme: 'system' as 'light' | 'dark' | 'system',
         chatProfanityFilter: true,
         preferredLanguage: 'en',
-        ttsVoice: '',
+        ttsVoice: DEFAULT_TTS_VOICE.id,
+
         acceptedWarning: false,
     }),
 
