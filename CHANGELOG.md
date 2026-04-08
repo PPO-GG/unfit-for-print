@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.12.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.11.0...v3.12.0) (2026-04-08)
+
+
+### ✨ Features
+
+* **activity:** add error diagnostic digest with copy-to-clipboard support ([94290a1](https://github.com/PPO-GG/unfit-for-print/commit/94290a1f9522aa50c9f0f5a45a75417f1957091b))
+* **activity:** add stage-aware error UI for Discord launch flow and allow sidebar during gameplay ([c3e7891](https://github.com/PPO-GG/unfit-for-print/commit/c3e789151678af866eabdbf81a1a0e2d260cdf22))
+* add settings to profile page ([a9b2eb4](https://github.com/PPO-GG/unfit-for-print/commit/a9b2eb4f7b19c38242c40c6e237430324d5bcad1))
+* **web:** streamline Discord Activity launch to skip header and land on main page ([2ddffd0](https://github.com/PPO-GG/unfit-for-print/commit/2ddffd03d5aa367797993038fd851295e6412753))
+
+
+### 🐛 Bug Fixes
+
+* add optional chaining for strict array index access in discord-activity auth ([52bd851](https://github.com/PPO-GG/unfit-for-print/commit/52bd851600399b2650c448b3b4b75bce3cdbb5be))
+* **tts:** set default tts voice to kokoro nicole ([b9713c6](https://github.com/PPO-GG/unfit-for-print/commit/b9713c6bb671b37899f0190ddd26146a8c776c10))
+
 ## [3.11.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.10.0...v3.11.0) (2026-04-08)
 
 
