@@ -117,6 +117,8 @@ function getBaseTransform(i: number) {
 }
 
 function animateCards() {
+  // Carousel mode uses CSS layout, not GSAP positioning
+  if (isTabletTouch.value) return;
   if (!cardRefs.value.length) return;
 
   const hovered = hoveredIndex.value;
@@ -209,6 +211,13 @@ watch(
     }
 
     nextTick(() => {
+      // Carousel mode: skip GSAP entrance, CSS handles layout
+      if (isTabletTouch.value) {
+        previousHandIds.clear();
+        newCards.forEach((id) => previousHandIds.add(id));
+        return;
+      }
+
       // Calculate deck offset for new cards
       let fromX = 0;
       let fromY = 80;
@@ -289,18 +298,33 @@ function doSubmitNow() {
   );
   snapshotCards(selectedEls);
 
-  // Phase 1: Animate selected cards out of the fan immediately
-  selectedEls.forEach((el, i) => {
-    gsap.to(el, {
-      y: "-=130",
-      scale: 0.3,
-      opacity: 0,
-      rotation: `+=${(Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 20)}`,
-      duration: 0.4,
-      delay: i * 0.06,
-      ease: "power2.in",
+  // Animate selected cards out
+  if (isTabletTouch.value) {
+    // Carousel mode: simple fly-up animation
+    selectedEls.forEach((el, i) => {
+      gsap.to(el, {
+        y: -100,
+        scale: 0.5,
+        opacity: 0,
+        duration: 0.35,
+        ease: "power2.in",
+        delay: i * 0.05,
+      });
     });
-  });
+  } else {
+    // Fan mode: dramatic spin exit
+    selectedEls.forEach((el, i) => {
+      gsap.to(el, {
+        y: "-=130",
+        scale: 0.3,
+        opacity: 0,
+        rotation: `+=${(Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 20)}`,
+        duration: 0.4,
+        delay: i * 0.06,
+        ease: "power2.in",
+      });
+    });
+  }
 
   justSubmitted.value = true;
   emit("select-cards", [...selectedCards.value]);
