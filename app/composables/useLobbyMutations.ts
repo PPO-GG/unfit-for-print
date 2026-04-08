@@ -52,7 +52,7 @@ export interface PlayerPayload {
 export interface GameStartPayload {
   whiteDeck: CardId[];
   blackDeck: CardId[];
-  blackCard: { id: CardId; text: string; pick: number };
+  blackCard: { id: CardId; text: string; pick: number; pack?: string };
   hands: Record<PlayerId, CardId[]>;
   cardTexts: CardTexts;
   playerOrder: PlayerId[];

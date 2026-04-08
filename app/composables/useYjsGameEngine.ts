@@ -89,6 +89,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         id: string;
         text: string;
         pick: number;
+        pack?: string;
       } | null>(gs.get("blackCard"), null),
       submissions: safeParseJson<Record<PlayerId, CardId[]>>(
         gs.get("submissions"),
@@ -492,8 +493,9 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
             id: newBlackCardId,
             text: cardEntry?.text ?? "Unknown card",
             pick: cardEntry?.pick ?? 1,
+            pack: cardEntry?.pack ?? "",
           }
-        : { id: "", text: "No eligible cards remain", pick: 1 };
+        : { id: "", text: "No eligible cards remain", pick: 1, pack: "" };
       gs.set("blackCard", JSON.stringify(newBlackCard));
       c.set("blackDeck", JSON.stringify(blackDeck));
       c.set("discardBlack", JSON.stringify(discardBlack));
@@ -856,6 +858,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
               id: nextBlackId,
               text: entry?.text ?? "Unknown card",
               pick: entry?.pick ?? 1,
+              pack: entry?.pack ?? "",
             }),
           );
         } else {

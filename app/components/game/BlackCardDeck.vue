@@ -70,6 +70,7 @@ watch(
         :flipped="false"
         :num-pick="blackCard.pick"
         :text="blackCard.text"
+        :card-pack="blackCard.pack"
         :three-deffect="true"
         :scale="scale"
       />

@@ -182,6 +182,7 @@ export default defineEventHandler(async (event) => {
         id: firstBlackId,
         text: firstBlack.text,
         pick: firstBlack.pick || 1,
+        pack: firstBlack.pack ?? "",
       },
       hands,
       cardTexts,
