@@ -31,12 +31,14 @@ const config = useRuntimeConfig();
 const { isDiscordActivity } = useDiscordSDK();
 const prefs = useUserPrefsStore();
 
-// Apply global UI scale via CSS zoom
+// Apply global UI scale by adjusting root font-size.
+// Tailwind uses rem units, so scaling the root font-size (default 16px)
+// proportionally scales all UI elements without affecting viewport layouts.
 watch(
   () => prefs.uiScale,
   (scale) => {
     if (typeof document !== "undefined") {
-      document.documentElement.style.zoom = `${scale / 100}`;
+      document.documentElement.style.fontSize = `${16 * (scale / 100)}px`;
     }
   },
   { immediate: true },
