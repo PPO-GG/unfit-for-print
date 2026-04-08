@@ -5,6 +5,7 @@ definePageMeta({
 
 const { t } = useI18n();
 const userStore = useUserStore();
+const prefs = useUserPrefsStore();
 const {
   allDecorations,
   activeDecorationId,
@@ -313,7 +314,80 @@ const avatarUrl = computed(() => {
           </div>
           <ThemeSwitcher />
         </div>
+
+        <!-- UI Scale -->
+        <div
+          class="flex flex-col gap-3 p-4 rounded-xl border border-slate-700 bg-slate-800/50 backdrop-blur-xs"
+        >
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex flex-col gap-0.5 min-w-0">
+              <span class="text-sm font-medium">{{
+                t("game.ui_scale", "UI Scale")
+              }}</span>
+              <span class="text-xs text-slate-400">{{
+                t("profile.settings_ui_scale_desc", "Adjust the overall size of the interface")
+              }}</span>
+            </div>
+            <span class="text-sm font-semibold text-slate-200 tabular-nums">{{ prefs.uiScale }}%</span>
+          </div>
+          <input
+            type="range"
+            :value="prefs.uiScale"
+            min="75"
+            max="150"
+            step="5"
+            class="profile-scale-slider"
+            @input="prefs.setUiScale(Number(($event.target as HTMLInputElement).value))"
+          />
+          <div class="flex gap-2">
+            <button
+              v-for="preset in [100, 125, 150]"
+              :key="preset"
+              class="flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer"
+              :class="prefs.uiScale === preset
+                ? 'bg-violet-500/20 border border-violet-500/50 text-violet-300'
+                : 'bg-slate-700/50 border border-slate-600/30 text-slate-400 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-slate-200'"
+              @click="prefs.setUiScale(preset)"
+            >
+              {{ preset }}%
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.profile-scale-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(71, 85, 105, 0.4);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.profile-scale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  border: 2px solid rgba(139, 92, 246, 0.5);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+}
+
+.profile-scale-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  border: 2px solid rgba(139, 92, 246, 0.5);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+}
+</style>

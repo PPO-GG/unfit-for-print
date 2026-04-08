@@ -195,6 +195,7 @@
   "profile.settings_language_desc": "Change the interface language",
   "profile.settings_theme": "Theme",
   "profile.settings_theme_desc": "Switch between light, dark, and system themes",
+  "profile.settings_ui_scale_desc": "Adjust the overall size of the interface",
   "tagline": "A PARTY GAME FOR HIDEOUS PEOPLE",
   "try_me": "Try Me!",
   "footer": {
