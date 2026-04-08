@@ -1,5 +1,9 @@
-// Define the provider types locally to avoid import issues
-type TTSProviderType = "browser" | "elevenlabs" | "openai" | "google" | "kokoro";
+export type TTSProviderType =
+  | "browser"
+  | "elevenlabs"
+  | "openai"
+  | "google"
+  | "kokoro";
 
 export const TTS_PROVIDERS = {
   OPENAI: {
@@ -100,7 +104,7 @@ export const TTS_PROVIDERS = {
     id: "kokoro-af_nicole",
     apiVoice: "af_nicole",
     displayName: "Kokoro · Nicole (American F)",
-    speed: 1.2,
+    speed: 1.25,
   },
   KOKORO_AF_AOEDE: {
     id: "kokoro-af_aoede",
