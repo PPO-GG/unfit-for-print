@@ -45,6 +45,7 @@ export interface PlayerPayload {
   provider: string;
   playerType: "player" | "spectator" | "bot";
   activeDecoration?: string;
+  ready?: boolean;
 }
 
 // ─── Game Start Payload (returned by server after card fetch) ────────────────
@@ -212,8 +213,12 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       const playersMap = getPlayers();
       const raw = playersMap.get(playerId);
       if (!raw) return;
-      const parsed = JSON.parse(raw);
-      playersMap.set(playerId, JSON.stringify({ ...parsed, ready }));
+      try {
+        const parsed = JSON.parse(raw);
+        playersMap.set(playerId, JSON.stringify({ ...parsed, ready }));
+      } catch {
+        /* skip malformed player entry */
+      }
     });
   };
 

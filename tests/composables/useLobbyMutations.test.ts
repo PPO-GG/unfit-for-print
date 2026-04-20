@@ -61,5 +61,15 @@ describe("useLobbyMutations.setPlayerReady", () => {
     const stub = makeStubDoc();
     const mutations = useLobbyMutations(stub);
     expect(() => mutations.setPlayerReady("ghost", true)).not.toThrow();
+    expect(stub.getPlayers().get("ghost")).toBeUndefined();
+  });
+
+  it("does nothing for a malformed player entry", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+    stub.getPlayers().set("corrupt", "not-valid-json{{{{");
+    expect(() => mutations.setPlayerReady("corrupt", true)).not.toThrow();
+    // Entry should remain unchanged (not overwritten)
+    expect(stub.getPlayers().get("corrupt")).toBe("not-valid-json{{{{");
   });
 });
