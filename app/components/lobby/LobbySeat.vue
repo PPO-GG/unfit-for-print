@@ -14,28 +14,30 @@
 
   <!-- Filled seat -->
   <div v-else class="lobby-seat" :style="positionStyle">
-    <AvatarDecoration :decoration-id="player.activeDecoration ?? null">
-      <div
-        :class="[
-          'lobby-seat-avatar',
-          player.ready ? 'lobby-seat-avatar--ready' : '',
-          player.playerType === 'bot' ? 'lobby-seat-avatar--bot' : '',
-          player.isHost ? 'lobby-seat-avatar--host' : '',
-          avatarUrl && !imgError ? 'lobby-seat-avatar--image' : '',
-        ]"
-        :style="avatarUrl && !imgError ? {} : avatarStyle"
-      >
-        <img
-          v-if="avatarUrl && !imgError"
-          :src="avatarUrl"
-          :alt="player.name"
-          class="lobby-seat-avatar-img"
-          referrerpolicy="no-referrer"
-          @error="imgError = true"
-        />
-        <span v-else>{{ initials }}</span>
-      </div>
-    </AvatarDecoration>
+    <div class="lobby-seat-avatar-wrap">
+      <AvatarDecoration :decoration-id="player.activeDecoration ?? null">
+        <div
+          :class="[
+            'lobby-seat-avatar',
+            player.ready ? 'lobby-seat-avatar--ready' : '',
+            player.playerType === 'bot' ? 'lobby-seat-avatar--bot' : '',
+            avatarUrl && !imgError ? 'lobby-seat-avatar--image' : '',
+          ]"
+          :style="avatarUrl && !imgError ? {} : avatarStyle"
+        >
+          <img
+            v-if="avatarUrl && !imgError"
+            :src="avatarUrl"
+            :alt="player.name"
+            class="lobby-seat-avatar-img"
+            referrerpolicy="no-referrer"
+            @error="imgError = true"
+          />
+          <span v-else>{{ initials }}</span>
+        </div>
+      </AvatarDecoration>
+      <span v-if="player.isHost" class="lobby-seat-crown" aria-hidden="true">👑</span>
+    </div>
     <div class="lobby-seat-name">{{ player.name }}</div>
     <div :class="['lobby-seat-status', statusClass]">{{ statusLabel }}</div>
   </div>

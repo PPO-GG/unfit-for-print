@@ -156,14 +156,22 @@
   border-color: var(--lb-accent-yellow);
   border-style: dashed;
 }
-.lobby-seat-avatar--host::before {
-  content: '👑';
+/* Wrapper so the crown can float above the avatar without being clipped
+   by overflow:hidden on the image avatar. */
+.lobby-seat-avatar-wrap {
+  position: relative;
+  display: inline-block;
+}
+.lobby-seat-crown {
   position: absolute;
   top: -20px;
   left: 50%;
   transform: translateX(-50%) rotate(-8deg);
   font-size: 20px;
+  line-height: 1;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+  z-index: 3;
 }
 .lobby-seat-avatar--image {
   padding: 0;
