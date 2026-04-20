@@ -69,7 +69,8 @@ const seatPositions = computed(() => {
 .lobby-table-root {
   position: relative;
   width: 100%;
-  height: 480px;
+  /* Scale with viewport, keeping the oval visible on all sizes */
+  height: clamp(460px, 62vh, 780px);
   overflow: hidden;
 }
 

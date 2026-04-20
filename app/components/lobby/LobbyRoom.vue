@@ -159,6 +159,7 @@ function handleKick(playerId: string) {
   flex: 1;
   padding: 16px 20px 20px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .lobby-room-grid {
@@ -193,7 +194,8 @@ function handleKick(playerId: string) {
   padding: 20px;
   position: relative;
   overflow: hidden;
-  min-height: 520px;
+  display: flex;
+  flex-direction: column;
 }
 
 .lobby-room-sidebar {
