@@ -1,5 +1,9 @@
 <template>
   <div class="lobby-room">
+    <div class="lobby-room-bg">
+      <ScrollingBackground :speed-px="40" :disable-on-mobile="false" />
+    </div>
+
     <LobbyTopBar
       :lobby-name="reactive.settings.value?.lobbyName ?? ''"
       :max-points="reactive.settings.value?.maxPoints ?? 0"
@@ -138,6 +142,17 @@ function handleKick(playerId: string) {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
+}
+
+.lobby-room-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.lobby-room > :not(.lobby-room-bg) {
+  position: relative;
+  z-index: 1;
 }
 
 .lobby-room-main {

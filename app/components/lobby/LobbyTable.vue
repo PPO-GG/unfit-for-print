@@ -1,8 +1,5 @@
 <template>
   <div class="lobby-table-root">
-    <!-- Existing scrolling card-back background -->
-    <ScrollingBackground :speed-px="40" :disable-on-mobile="false" />
-
     <!-- Oval table surface -->
     <div class="lobby-table-surface" />
 
