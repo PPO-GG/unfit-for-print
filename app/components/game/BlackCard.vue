@@ -15,35 +15,36 @@
         <!-- Front Side -->
         <div class="card__face card__front cursor-pointer">
           <slot name="front">
-            <div
-              class="card-content rounded-lg relative overflow-hidden cursor-pointer"
-            >
-              <p
-                class="card-text text-pretty cursor-pointer"
-                v-html="formattedCardText"
-              ></p>
-              <div
-                class="absolute bottom-0 left-0 m-3 text-xl opacity-10 hover:opacity-50 transition-opacity duration-500"
-              >
+            <div class="card-content cursor-pointer">
+              <div class="card-spine" />
+              <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
+              <div class="card-body">
+                <p class="card-body-text cursor-pointer" v-html="formattedCardText" />
+              </div>
+              <img
+                class="card-watermark"
+                src="/img/unfit_logo_alt.png"
+                alt=""
+                aria-hidden="true"
+                draggable="false"
+              />
+              <div class="card-footer">
+                <span class="card-footer-pack">{{ cardPack || '' }}</span>
+                <span v-if="computedNumPick" class="card-footer-pick">PICK {{ computedNumPick }}</span>
+              </div>
+              <div class="card-report-btn" @click.stop>
                 <UPopover
-                  :ui="{
-                    content:
-                      'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg',
-                  }"
+                  :ui="{ content: 'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg' }"
                   arrow
                 >
-                  <span class="flex" @click.stop>
-                    <Icon class="z-10 cursor-pointer" name="mdi:cards" />
-                  </span>
-                  <template #content class="">
+                  <span class="flex cursor-pointer">⋯</span>
+                  <template #content>
                     <div class="flex-1 p-4">
                       <p class="text-md p-1">
-                        <span class="text-yellow-500">Card ID: </span
-                        >{{ cardId ?? "" }}
+                        <span class="text-yellow-500">Card ID: </span>{{ cardId ?? '' }}
                       </p>
                       <p class="text-md p-1">
-                        <span class="text-yellow-500">Card Pack: </span
-                        >{{ cardPack }}
+                        <span class="text-yellow-500">Card Pack: </span>{{ cardPack }}
                       </p>
                       <UButton
                         class="mt-2"
@@ -57,12 +58,6 @@
                 </UPopover>
               </div>
             </div>
-            <span
-              class="hidden md:flex items-center absolute bottom-0 right-0 m-2 p-1 text-lg bg-slate-900/50 rounded-lg text-slate-400"
-            >
-              <Icon class="align-middle" name="mdi:cards" />
-              {{ computedNumPick }}
-            </span>
           </slot>
         </div>
 
@@ -70,12 +65,20 @@
         <div class="card__face card__back cursor-pointer">
           <slot name="back">
             <div class="card-content cursor-pointer">
-              <img
-                :src="backLogoUrl"
-                alt="Card Back Logo"
-                class="w-3/4 max-w-[10rem] object-contain invert opacity-75 cursor-pointer"
-                draggable="false"
-              />
+              <div class="card-spine" />
+              <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
+              <div class="card-back-logo-wrap">
+                <img
+                  class="card-back-logo-img"
+                  src="/img/unfit_logo_alt.png"
+                  alt="Unfit For Print"
+                  draggable="false"
+                />
+              </div>
+              <div class="card-back-footer">
+                <span>ED. 001 · PROMPTS</span>
+                <span class="card-back-footer-mark">✶ 18+</span>
+              </div>
             </div>
           </slot>
           <div v-if="shine" :style="shineStyle" class="card__shine"></div>
@@ -161,7 +164,7 @@ const cardText = computed(() => props.text || fallbackText.value);
 const formattedCardText = computed(() => {
   return cardText.value.replace(
     /_/g,
-    '<span class="inline-block relative w-1/2 align-middle bg-slate-600/50 rounded-sm outline-dashed outline-1 outline-white/25 inset-shadow-xs inset-shadow-black/50 border-b-1 border-white/25 mx-1" style="height: 1em; padding-block: 0.1em;"></span>',
+    '<span style="display:inline-block;width:38%;height:0.75em;vertical-align:-2px;border-bottom:2px solid rgba(255,255,255,.75);margin:0 4px;"></span>',
   );
 });
 
@@ -423,15 +426,10 @@ onMounted(async () => {
 .card {
   width: 100%;
   height: 100%;
-  /* No background here — .card__inner provides the Firefox GPU seam-gap
-     colour AND rotates with the flip animation. A background on this
-     static wrapper would appear as a non-rotating layer mid-flip. */
-  border-radius: 12px;
+  border-radius: 14px;
   transform-style: preserve-3d;
   position: relative;
   transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  /* Hint the compositor to use a single layer for the 3D element tree,
-     reducing tile-boundary calculations in Firefox/Gecko */
   will-change: transform;
 }
 
@@ -444,10 +442,8 @@ onMounted(async () => {
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  /* Match the card-face colour so any GPU tile-seam gaps in the children
-     reveal this same colour instead of transparent → dark. */
-  background-color: #1c2342;
-  border-radius: 12px;
+  background-color: #0d0f1a;
+  border-radius: 14px;
 }
 
 .card__face {
@@ -461,16 +457,9 @@ onMounted(async () => {
   align-items: center;
   font-size: 1.25rem;
   text-align: center;
-  border-radius: 12px;
-  /* Ensure content is positioned correctly */
+  border-radius: 14px;
   z-index: 1;
-  /* Firefox anti-aliasing fix: transparent outline forces the compositor to
-     rasterize rounded corners with AA during preserve-3d transforms */
   outline: 1px solid transparent;
-  /* Firefox GPU tiling fix: opacity < 1 forces a new stacking context with
-     different GPU compositing, bypassing the tiled rendering path.
-     NOTE: filter:blur(0) is on .card-content instead — applying it here
-     can break backface-visibility in Gecko's 3D pipeline. */
   opacity: 0.999;
 }
 
@@ -481,26 +470,18 @@ onMounted(async () => {
   height: 100%;
   top: 0;
   left: 0;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
-.card__front {
-  background-color: #1c2342;
-}
+.card__front { background-color: #0d0f1a; }
+.card__back  { background-color: #0d0f1a; }
 
-.card__back {
-  background-color: #1c2342;
-}
-
-/* Ensure shine effect is properly positioned on both sides */
 .card__front .card__shine,
-.card__back .card__shine {
+.card__back  .card__shine {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 12px;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 14px;
   opacity: 0.25;
 }
 
@@ -512,54 +493,32 @@ onMounted(async () => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 100; /* Higher z-index to ensure it's on top */
-  border-radius: 12px;
+  z-index: 100;
+  border-radius: 14px;
 }
 
 .card-content {
   position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  /* Ensure content is above the texture */
   z-index: 1;
-  color: white;
-  border-radius: 12px;
-  /* overflow:hidden moved here from .card__face to avoid Firefox 3D compositing seam artifacts */
+  color: #f6f3ea;
+  border-radius: 14px;
   overflow: hidden;
-  /* Firefox GPU tiling fix: filter forces a temporary compositing surface that
-     flattens the content into a single raster layer BEFORE the parent's 3D
-     transform is applied. Placed here (inside the face) rather than on
-     .card__face to avoid interfering with backface-visibility. */
   filter: blur(0) brightness(var(--card-brightness, 1));
   transition: filter 0.15s ease-out;
-}
-
-/* Decorative border + vignette — on .card-content (clipped by overflow:hidden) instead of .card__face (in the 3D chain) to avoid Firefox rectangular bounding box artifacts */
-.card-content::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 6px solid rgba(42, 52, 99, 0.35);
-  pointer-events: none;
-  z-index: 10;
-  border-radius: 12px;
-  box-shadow: inset 0 0 100px 0 rgba(0, 0, 0, 0.25);
 }
 
 .card-scaler {
   --card-scale: 1;
   width: clamp(
     calc(10rem * var(--card-scale)),
-    calc(12vw * var(--card-scale)),
+    calc(12vw  * var(--card-scale)),
     calc(18rem * var(--card-scale))
   );
   container-type: inline-size;
-  border-radius: 12px;
+  border-radius: 14px;
   position: relative;
-  /* Default shadow values; JS overrides during hover / flip */
   --shadow-x: 0px;
   --shadow-y: 8px;
   --shadow-blur: 16px;
@@ -567,9 +526,6 @@ onMounted(async () => {
   --shadow-scale-x: 1;
 }
 
-/* Shadow blob — a blurred dark pseudo that acts as a physical ground shadow.
-   Unlike box-shadow (which only radiates outward and leaves a cutout),
-   this is a real filled element visible even directly under the card. */
 .card-scaler::before {
   content: "";
   position: absolute;
@@ -577,19 +533,147 @@ onMounted(async () => {
   border-radius: inherit;
   background: rgba(0, 0, 0, var(--shadow-opacity));
   filter: blur(var(--shadow-blur));
-  transform: translate(var(--shadow-x), var(--shadow-y))
-    scaleX(var(--shadow-scale-x));
+  transform: translate(var(--shadow-x), var(--shadow-y)) scaleX(var(--shadow-scale-x));
   z-index: -1;
   pointer-events: none;
   transition:
-    filter 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    filter    0.35s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     background 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.card-text {
-  font-size: clamp(0.55rem, 12.8cqi, 2.3rem);
-  line-height: 1.2;
-  padding: 6.4cqi;
+/* ── Showbill V4 layout ─────────────────────────────────────────── */
+
+.card-spine {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 10cqi;
+  background: #f5d442;
+  pointer-events: none;
+}
+
+.card-spine-label {
+  position: absolute;
+  left: 2cqi;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: center;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 2.6cqi;
+  letter-spacing: .28em;
+  color: #0d0f1a;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.card-body {
+  position: absolute;
+  left: 14cqi; right: 6cqi;
+  top: 7cqi; bottom: 22cqi;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+.card-body-text {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: clamp(0.7rem, 9.5cqi, 2.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+  color: #f6f3ea;
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  width: 100%;
+}
+
+.card-watermark {
+  position: absolute;
+  right: -6cqi; bottom: -4cqi;
+  width: 62cqi; height: auto;
+  opacity: 0.07;
+  pointer-events: none;
+  user-select: none;
+}
+
+.card-footer {
+  position: absolute;
+  left: 14cqi; right: 6cqi; bottom: 5cqi;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  pointer-events: none;
+}
+
+.card-footer-pack {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2.6cqi;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .55);
+}
+
+.card-footer-pick {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 4.2cqi;
+  letter-spacing: .04em;
+  line-height: 1;
+  color: #f6f3ea;
+}
+
+.card-report-btn {
+  position: absolute;
+  bottom: 4cqi;
+  left: 14cqi;
+  font-size: 5.5cqi;
+  opacity: 0.18;
+  color: #f6f3ea;
+  cursor: pointer;
+  z-index: 10;
+  line-height: 1;
+  transition: opacity 0.3s ease;
+}
+.card-report-btn:hover { opacity: 0.5; }
+
+/* ── Back face ──────────────────────────────────────────────────── */
+
+.card-back-logo-wrap {
+  position: absolute;
+  left: 14cqi; right: 6cqi;
+  top: 10cqi; bottom: 14cqi;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.card-back-logo-img {
+  width: 100%; height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.card-back-footer {
+  position: absolute;
+  left: 14cqi; right: 6cqi; bottom: 5cqi;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1.5px solid rgba(255, 255, 255, .25);
+  padding-top: 2cqi;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2.3cqi;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .6);
+}
+
+.card-back-footer-mark {
+  font-family: 'Archivo Black', sans-serif;
+  letter-spacing: .2em;
+  color: #f6f3ea;
 }
 </style>
