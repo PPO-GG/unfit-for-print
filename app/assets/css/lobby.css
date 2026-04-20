@@ -195,3 +195,167 @@
 .lobby-drawer-leave-active { transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1); }
 .lobby-drawer-enter-from,
 .lobby-drawer-leave-to     { transform: translateX(100%); }
+
+/* ── Neon button variants ──────────────────────────────────────────────── */
+.lobby-room .neon-btn--danger {
+  color: oklch(68% 0.22 25);
+  border-color: oklch(68% 0.22 25);
+  background: transparent;
+}
+.lobby-room .neon-btn--danger:hover { background: rgba(255, 80, 80, 0.08); color: oklch(68% 0.22 25); }
+
+/* ── Ticket separator (dashed horizontal line) ─────────────────────────── */
+.lobby-room .lobby-ticket-sep {
+  height: 2px;
+  background-image: linear-gradient(90deg, var(--lb-line-strong) 50%, transparent 0);
+  background-size: 8px 2px;
+  background-repeat: repeat-x;
+}
+
+/* ── Code tiles (one tile per letter) ──────────────────────────────────── */
+.lobby-room .lobby-code-tile {
+  width: 48px;
+  height: 56px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 28px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid var(--lb-line-strong);
+  color: var(--lb-ink);
+  position: relative;
+}
+.lobby-room .lobby-code-tile::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--lb-accent);
+  opacity: 0.6;
+}
+
+/* ── Form input ────────────────────────────────────────────────────────── */
+.lobby-room .lobby-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid var(--lb-line-strong);
+  color: var(--lb-ink);
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  transition: border-color 150ms;
+  outline: none;
+}
+.lobby-room .lobby-input:focus { border-color: var(--lb-accent); }
+.lobby-room .lobby-input::placeholder { color: var(--lb-ink-muted); }
+
+/* ── Checkbox ──────────────────────────────────────────────────────────── */
+.lobby-room .lobby-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1.5px solid var(--lb-line-strong);
+  background: rgba(255, 255, 255, 0.03);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 150ms, background 150ms;
+  font-size: 14px;
+  color: #0d0f1a;
+}
+.lobby-room .lobby-check--on { border-color: var(--lb-accent); background: var(--lb-accent); }
+
+/* ── Segmented control ─────────────────────────────────────────────────── */
+.lobby-room .lobby-segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--lb-line-strong);
+}
+.lobby-room .lobby-segmented button {
+  padding: 6px 14px;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--lb-ink-dim);
+  cursor: pointer;
+  transition: all 150ms;
+}
+.lobby-room .lobby-segmented button.on {
+  background: var(--lb-accent);
+  color: #0d0f1a;
+}
+.lobby-room .lobby-segmented button:hover:not(.on) { color: var(--lb-ink); }
+
+/* ── Pack chips ────────────────────────────────────────────────────────── */
+.lobby-room .lobby-pack-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--lb-line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lb-ink-dim);
+  cursor: pointer;
+  transition: all 150ms;
+}
+.lobby-room .lobby-pack-chip:hover:not(.lobby-pack-chip--on):not(:disabled) {
+  color: var(--lb-ink);
+  border-color: var(--lb-ink-dim);
+}
+.lobby-room .lobby-pack-chip--on {
+  background: var(--lb-accent);
+  color: #0d0f1a;
+  border-color: var(--lb-accent);
+}
+.lobby-room .lobby-pack-chip:disabled { opacity: 0.5; cursor: default; }
+
+/* ── Chat bubble (styled messages) ─────────────────────────────────────── */
+.lobby-room .lobby-chat-bubble {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  max-width: 80%;
+  font-size: 13px;
+  display: inline-block;
+}
+.lobby-room .lobby-chat-bubble--system {
+  background: transparent;
+  color: var(--lb-ink-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 0;
+  max-width: 100%;
+}
+
+/* ── Typing dot animation ──────────────────────────────────────────────── */
+@keyframes lb-typing-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30%           { opacity: 1; transform: translateY(-2px); }
+}
+.lobby-room .lobby-typing-dot {
+  display: inline-block;
+  animation: lb-typing-dot 1.2s ease-in-out infinite;
+}
