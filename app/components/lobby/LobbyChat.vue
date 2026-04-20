@@ -65,7 +65,16 @@ const props = defineProps<{
 }>();
 
 const { lobbyDoc } = useLobby();
-const chat = useLobbyChat(lobbyDoc);
+
+// useLobbyChat throws if the Y.Doc isn't ready yet (requireDoc()).
+// Wrap construction so the component can still mount before the doc connects.
+let chat: ReturnType<typeof useLobbyChat> | null = null;
+try {
+  chat = useLobbyChat(lobbyDoc);
+} catch (err) {
+  console.warn("[LobbyChat] Failed to init chat composable:", err);
+  chat = null;
+}
 
 const open = ref(false);
 const draft = ref("");
@@ -78,8 +87,16 @@ const messageCount = computed(
 function handleSend() {
   const text = draft.value.trim();
   if (!text) return;
-  chat.sendMessage(text);
-  draft.value = "";
+  if (!chat || typeof chat.sendMessage !== "function") {
+    console.warn("[LobbyChat] Chat not ready — message dropped");
+    return;
+  }
+  try {
+    chat.sendMessage(text);
+    draft.value = "";
+  } catch (err) {
+    console.warn("[LobbyChat] sendMessage failed:", err);
+  }
 }
 
 watch(

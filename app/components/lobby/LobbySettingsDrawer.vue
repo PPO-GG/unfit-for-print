@@ -15,11 +15,11 @@
           <div class="lsd-field">
             <div class="lsd-field-label">Lobby Name</div>
             <input
+              v-model="lobbyNameLocal"
               class="lobby-input"
-              :value="settings.lobbyName"
               :disabled="!isHost"
               placeholder="Name this lobby"
-              @input="(e) => isHost && update('lobbyName', (e.target as HTMLInputElement).value)"
+              @input="isHost && writeLobbyName(lobbyNameLocal)"
             />
           </div>
 
@@ -92,11 +92,11 @@
 
             <input
               v-if="requirePassword"
+              v-model="passwordLocal"
               class="lobby-input lsd-password-input"
-              :value="settings.password ?? ''"
               :disabled="!isHost"
               placeholder="Lobby password"
-              @input="(e) => isHost && update('password', (e.target as HTMLInputElement).value)"
+              @input="isHost && writePassword(passwordLocal)"
             />
 
             <button
@@ -170,8 +170,48 @@ const availablePacks = ref<string[]>([]);
 
 const activePacks = computed<string[]>(() => props.settings?.cardPacks ?? []);
 
+// Inline debounce helper for text inputs — avoids flooding the Y.Doc with keystroke mutations.
+function useDebouncedWrite<T>(writeFn: (v: T) => void, delayMs = 300) {
+  let handle: ReturnType<typeof setTimeout> | null = null;
+  return (value: T) => {
+    if (handle) clearTimeout(handle);
+    handle = setTimeout(() => { writeFn(value); handle = null; }, delayMs);
+  };
+}
+
+const writeLobbyName = useDebouncedWrite((v: string) => mutations.updateSettings({ lobbyName: v }), 300);
+const writePassword = useDebouncedWrite((v: string) => mutations.updateSettings({ password: v }), 300);
+
+// Locally bound values for text inputs, synced from props when settings update.
+const lobbyNameLocal = ref(props.settings?.lobbyName ?? "");
+const passwordLocal = ref(props.settings?.password ?? "");
+
+watch(() => props.settings?.lobbyName, (v) => {
+  if (v !== undefined && v !== lobbyNameLocal.value) lobbyNameLocal.value = v;
+});
+watch(() => props.settings?.password, (v) => {
+  if (v !== undefined && v !== passwordLocal.value) passwordLocal.value = v;
+});
+
+// Track the "require password" intent locally.
+// The persisted state is just `password?: string` — truthy means required.
+// We need a local ref so that toggling ON reveals the input even before the user types.
+const requirePasswordLocal = ref(false);
+
+// Initialize from current settings when they arrive / change
+watch(
+  () => props.settings?.password,
+  (pw) => {
+    if (pw && pw.length > 0) requirePasswordLocal.value = true;
+  },
+  { immediate: true },
+);
+
+// Computed for the UI — true if either the local toggle is on, or a non-empty password exists.
 const requirePassword = computed(
-  () => typeof props.settings?.password === "string" && props.settings.password.length > 0,
+  () =>
+    requirePasswordLocal.value ||
+    !!(props.settings?.password && props.settings.password.length > 0),
 );
 
 function update(key: string, value: unknown) {
@@ -179,12 +219,15 @@ function update(key: string, value: unknown) {
 }
 
 function toggleRequirePassword() {
-  if (requirePassword.value) {
+  if (!props.isHost) return;
+  const next = !requirePassword.value;
+  requirePasswordLocal.value = next;
+  if (!next) {
+    // When unchecked, clear the persisted password
     mutations.updateSettings({ password: "" });
-  } else {
-    // Seed an empty password string so input renders and user can type
-    mutations.updateSettings({ password: " " });
+    passwordLocal.value = "";
   }
+  // When checked, don't write anything to the doc until user types in the input
 }
 
 function togglePack(pack: string) {
@@ -201,6 +244,9 @@ const CARD_COLLECTIONS = {
   white: config.public.appwriteWhiteCardCollectionId as string,
 };
 
+let cancelled = false;
+onBeforeUnmount(() => { cancelled = true; });
+
 onMounted(async () => {
   const { databases, tables } = getAppwrite();
   if (!databases) return;
@@ -211,6 +257,7 @@ onMounted(async () => {
       tableId: CARD_COLLECTIONS.black,
       queries: [Query.limit(1), Query.equal("active", true)],
     })).total;
+    if (cancelled) return;
     const chunkSize = 1000;
     const blackPacks = new Set<string>();
 
@@ -220,6 +267,7 @@ onMounted(async () => {
         tableId: CARD_COLLECTIONS.black,
         queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
       });
+      if (cancelled) return;
       chunk.rows.forEach((c: { pack?: string }) => { if (c.pack) blackPacks.add(c.pack); });
     }
 
@@ -228,6 +276,7 @@ onMounted(async () => {
       tableId: CARD_COLLECTIONS.white,
       queries: [Query.limit(1), Query.equal("active", true)],
     })).total;
+    if (cancelled) return;
     const whitePacks = new Set<string>();
 
     for (let offset = 0; offset < whiteTotal; offset += chunkSize) {
@@ -236,18 +285,21 @@ onMounted(async () => {
         tableId: CARD_COLLECTIONS.white,
         queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
       });
+      if (cancelled) return;
       chunk.rows.forEach((c: { pack?: string }) => { if (c.pack) whitePacks.add(c.pack); });
     }
 
+    if (cancelled) return;
     availablePacks.value = [...new Set([...blackPacks, ...whitePacks])].sort();
   } catch {
+    if (cancelled) return;
     notify({
       title: t("game.settings.fetch_packs_error"),
       icon: "i-solar-danger-circle-bold-duotone",
       color: "error",
     });
   } finally {
-    loadingPacks.value = false;
+    if (!cancelled) loadingPacks.value = false;
   }
 });
 </script>
