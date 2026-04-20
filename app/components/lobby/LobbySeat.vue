@@ -58,20 +58,19 @@ function colorFromId(id: string): string {
 const initials = computed(() => {
   if (!props.player) return "";
   if (props.player.playerType === "bot") return "🤖";
-  const parts = props.player.name.trim().split(/\s+/);
+  const name = props.player.name?.trim() ?? "";
+  if (!name) return "?";
+  const parts = name.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return props.player.name.slice(0, 2).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
 });
 
 const avatarStyle = computed(() => {
   if (!props.player) return {};
-  const color = colorFromId(props.player.userId);
   if (props.player.playerType === "bot") {
-    return {
-      background: "linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%)",
-      color: "#0d0f1a",
-    };
+    return { background: "linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%)", color: "#0d0f1a" };
   }
+  const color = colorFromId(props.player.userId ?? props.player.$id ?? "");
   return {
     background: `linear-gradient(135deg, ${color}aa 0%, ${color}55 100%)`,
     color: "#0d0f1a",

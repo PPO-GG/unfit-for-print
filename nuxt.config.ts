@@ -103,7 +103,14 @@ export default defineNuxtConfig({
     { path: "~/components/decorations", prefix: "" },
     { path: "~/components/", prefix: "" },
   ],
-  css: ["~/assets/css/main.css"],
+  css: [
+    "~/assets/css/main.css",
+    "~/assets/css/admin.css",
+    "~/assets/css/brand.css",
+    "~/assets/css/profile.css",
+    "~/assets/css/labs.css",
+    "~/assets/css/lobby.css",
+  ],
   modules: [
     "@nuxt/fonts",
     "@nuxt/icon",

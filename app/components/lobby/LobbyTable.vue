@@ -24,7 +24,7 @@
     <!-- Seats -->
     <LobbySeat
       v-for="(seat, i) in seats"
-      :key="i"
+      :key="seat?.$id ?? 'empty-' + i"
       :player="seat"
       :position-style="seatPositions[i]"
       :is-host-user="isHostUser"
