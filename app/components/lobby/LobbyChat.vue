@@ -6,7 +6,7 @@
           <span class="live-dot" />
           Chat
         </span>
-        <button class="neon-btn neon-btn--ghost lobby-chat-close" @click="$emit('close')">✕</button>
+        <button class="neon-btn neon-btn--ghost lobby-chat-close" aria-label="Close chat" @click="$emit('close')">✕</button>
       </div>
 
       <div ref="scrollEl" class="lobby-chat-messages">
@@ -36,7 +36,7 @@
           maxlength="300"
           autocomplete="off"
         />
-        <button type="submit" class="neon-btn neon-btn--primary lobby-chat-send" :disabled="!draft.trim()">
+        <button type="submit" class="neon-btn neon-btn--primary lobby-chat-send" aria-label="Send message" :disabled="!draft.trim()">
           ↑
         </button>
       </form>

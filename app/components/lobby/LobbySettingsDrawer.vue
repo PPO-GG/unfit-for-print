@@ -124,43 +124,37 @@ onMounted(async () => {
   if (!databases) return;
   loadingPacks.value = true;
   try {
-    const blackCountResult = await tables.listRows({
+    const blackTotal = (await tables.listRows({
       databaseId: DB_ID,
       tableId: CARD_COLLECTIONS.black,
-      queries: [Query.limit(1)],
-    });
-    const totalBlackCards = blackCountResult.total;
+      queries: [Query.limit(1), Query.equal("active", true)],
+    })).total;
     const chunkSize = 1000;
     const blackPacks = new Set<string>();
 
-    for (let offset = 0; offset < totalBlackCards; offset += chunkSize) {
-      const blackCardsChunk = await tables.listRows({
+    for (let offset = 0; offset < blackTotal; offset += chunkSize) {
+      const chunk = await tables.listRows({
         databaseId: DB_ID,
         tableId: CARD_COLLECTIONS.black,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
+        queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
       });
-      blackCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && card.active) blackPacks.add(card.pack);
-      });
+      chunk.rows.forEach((c: { pack?: string }) => { if (c.pack) blackPacks.add(c.pack); });
     }
 
-    const whiteCountResult = await tables.listRows({
+    const whiteTotal = (await tables.listRows({
       databaseId: DB_ID,
       tableId: CARD_COLLECTIONS.white,
-      queries: [Query.limit(1)],
-    });
-    const totalWhiteCards = whiteCountResult.total;
+      queries: [Query.limit(1), Query.equal("active", true)],
+    })).total;
     const whitePacks = new Set<string>();
 
-    for (let offset = 0; offset < totalWhiteCards; offset += chunkSize) {
-      const whiteCardsChunk = await tables.listRows({
+    for (let offset = 0; offset < whiteTotal; offset += chunkSize) {
+      const chunk = await tables.listRows({
         databaseId: DB_ID,
         tableId: CARD_COLLECTIONS.white,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
+        queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
       });
-      whiteCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && card.active) whitePacks.add(card.pack);
-      });
+      chunk.rows.forEach((c: { pack?: string }) => { if (c.pack) whitePacks.add(c.pack); });
     }
 
     availablePacks.value = [...new Set([...blackPacks, ...whitePacks])].sort();
