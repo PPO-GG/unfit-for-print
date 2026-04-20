@@ -6,7 +6,20 @@
     </div>
     <div class="lpl-list">
       <div v-for="p in players" :key="p.$id" class="lpl-row">
-        <div class="lpl-avatar" :style="avatarStyle(p)">{{ initials(p) }}</div>
+        <div
+          class="lpl-avatar"
+          :class="{ 'lpl-avatar--image': avatarUrlFor(p) && !imgErrors[p.$id] }"
+          :style="avatarUrlFor(p) && !imgErrors[p.$id] ? {} : avatarStyle(p)"
+        >
+          <img
+            v-if="avatarUrlFor(p) && !imgErrors[p.$id]"
+            :src="avatarUrlFor(p) ?? ''"
+            :alt="p.name"
+            referrerpolicy="no-referrer"
+            @error="imgErrors[p.$id] = true"
+          />
+          <span v-else>{{ initials(p) }}</span>
+        </div>
         <div class="lpl-body">
           <div class="lpl-name">
             <span>{{ p.name }}</span>
@@ -29,6 +42,7 @@
 
 <script lang="ts" setup>
 import type { Player } from "~/types/player";
+import { getPlayerAvatarUrl } from "~/composables/usePlayerAvatar";
 
 defineProps<{
   players: Player[];
@@ -40,6 +54,9 @@ defineEmits<{
   (e: "add-bot"): void;
   (e: "kick", playerId: string): void;
 }>();
+
+const imgErrors = reactive<Record<string, boolean>>({});
+function avatarUrlFor(p: Player): string | null { return getPlayerAvatarUrl(p); }
 
 const PALETTE = [
   "#5865f2", "#f43f5e", "#22d3ee", "#84cc16",
@@ -142,6 +159,17 @@ function statusClass(p: Player): string {
   color: #0d0f1a;
   flex-shrink: 0;
   line-height: 1;
+  overflow: hidden;
+}
+.lpl-avatar--image {
+  background: #1a2040;
+}
+.lpl-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
 }
 .lpl-body { flex: 1; min-width: 0; }
 .lpl-name {

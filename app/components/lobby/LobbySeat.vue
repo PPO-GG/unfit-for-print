@@ -20,10 +20,19 @@
         player.ready ? 'lobby-seat-avatar--ready' : '',
         player.playerType === 'bot' ? 'lobby-seat-avatar--bot' : '',
         player.isHost ? 'lobby-seat-avatar--host' : '',
+        avatarUrl && !imgError ? 'lobby-seat-avatar--image' : '',
       ]"
-      :style="avatarStyle"
+      :style="avatarUrl && !imgError ? {} : avatarStyle"
     >
-      {{ initials }}
+      <img
+        v-if="avatarUrl && !imgError"
+        :src="avatarUrl"
+        :alt="player.name"
+        class="lobby-seat-avatar-img"
+        referrerpolicy="no-referrer"
+        @error="imgError = true"
+      />
+      <span v-else>{{ initials }}</span>
     </div>
     <div class="lobby-seat-name">{{ player.name }}</div>
     <div :class="['lobby-seat-status', statusClass]">{{ statusLabel }}</div>
@@ -32,12 +41,17 @@
 
 <script lang="ts" setup>
 import type { Player } from "~/types/player";
+import { getPlayerAvatarUrl } from "~/composables/usePlayerAvatar";
 
 const props = defineProps<{
   player: Player | null;
   positionStyle: { left: string; top: string };
   isHostUser: boolean;
 }>();
+
+const imgError = ref(false);
+const avatarUrl = computed(() => getPlayerAvatarUrl(props.player));
+watch(avatarUrl, () => { imgError.value = false; });
 
 defineEmits<{
   (e: "add-bot"): void;
