@@ -400,6 +400,7 @@ export function useLobbyReactive(lobbyDoc: LobbyDocResult) {
       provider: p.provider,
       playerType: p.playerType,
       activeDecoration: p.activeDecoration,
+      ready: p.ready ?? false,
     }));
   });
 

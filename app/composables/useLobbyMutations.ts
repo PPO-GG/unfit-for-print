@@ -204,6 +204,19 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     });
   };
 
+  // ── Player Ready State ─────────────────────────────────────────────────
+
+  const setPlayerReady = (playerId: string, ready: boolean): void => {
+    const ydoc = requireDoc();
+    ydoc.transact(() => {
+      const playersMap = getPlayers();
+      const raw = playersMap.get(playerId);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      playersMap.set(playerId, JSON.stringify({ ...parsed, ready }));
+    });
+  };
+
   // ── Settings ───────────────────────────────────────────────────────────
 
   const updateSettings = (
@@ -341,6 +354,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     initializeLobby,
     addPlayer,
     removePlayer,
+    setPlayerReady,
     updateSettings,
     startGame,
     setLobbyStatus,

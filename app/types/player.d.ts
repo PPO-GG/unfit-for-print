@@ -10,4 +10,5 @@ export interface Player {
   provider: string;
   playerType: "player" | "spectator" | "bot";
   activeDecoration?: string;
+  ready?: boolean;
 }
