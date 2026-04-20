@@ -1,9 +1,11 @@
 <template>
   <div class="lobby-room">
     <LobbyTopBar
-      :code="lobby.code"
+      :lobby-name="reactive.settings.value?.lobbyName ?? ''"
+      :max-points="reactive.settings.value?.maxPoints ?? 0"
+      :max-pick="reactive.settings.value?.maxPick ?? 0"
+      :pack-count="(reactive.settings.value?.cardPacks ?? []).length"
       @leave="$emit('leave')"
-      @toggle-chat="chatOpen = !chatOpen"
       @open-settings="settingsOpen = !settingsOpen"
     />
 
