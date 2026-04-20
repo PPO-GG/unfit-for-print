@@ -26,11 +26,7 @@
       @start="startGameWrapper"
     />
 
-    <LobbyChat
-      :open="chatOpen"
-      :messages="reactive.chat.value"
-      @close="chatOpen = false"
-    />
+    <LobbyChat :messages="reactive.chat.value" />
 
     <LobbySettingsDrawer
       :open="settingsOpen"
@@ -60,7 +56,6 @@ const { addBot } = useBots(
   computed(() => props.lobby.hostUserId === userStore.user?.$id),
 );
 
-const chatOpen = ref(false);
 const settingsOpen = ref(false);
 const isStarting = ref(false);
 

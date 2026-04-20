@@ -1,28 +1,34 @@
 <template>
-  <Transition name="lobby-drawer">
-    <aside v-if="open" class="lobby-chat-panel lobby-panel">
-      <div class="lobby-chat-header">
-        <span class="lobby-chip">
-          <span class="live-dot" />
-          Chat
-        </span>
-        <button class="neon-btn neon-btn--ghost lobby-chat-close" aria-label="Close chat" @click="$emit('close')">✕</button>
-      </div>
+  <aside class="lobby-chat-panel lobby-panel" :class="{ 'lobby-chat-panel--open': open }">
+    <button
+      class="lobby-chat-toggle"
+      :aria-expanded="open"
+      @click="open = !open"
+    >
+      <span class="lobby-chat-toggle-left">
+        <span class="lobby-chat-toggle-icon" aria-hidden="true">💬</span>
+        <span class="lobby-chat-toggle-title">LOBBY CHAT</span>
+        <span class="lobby-chip lobby-chat-toggle-chip">{{ messageCount }}</span>
+      </span>
+      <span class="lobby-chat-toggle-right" aria-hidden="true">
+        <span class="lobby-chat-chevron" :class="{ 'lobby-chat-chevron--open': open }">▾</span>
+      </span>
+    </button>
 
+    <div v-if="open" class="lobby-chat-expand">
+      <div class="lobby-ticket-sep" />
       <div ref="scrollEl" class="lobby-chat-messages">
-        <div
-          v-for="msg in messages"
-          :key="msg.id"
-          :class="['lobby-chat-row', msg.isSystem ? 'lobby-chat-row--system' : '']"
-        >
-          <template v-if="msg.isSystem">
-            <span class="lobby-chat-system-text">— {{ msg.text }} —</span>
-          </template>
-          <template v-else>
+        <template v-for="(msg, i) in messages" :key="msg.id ?? i">
+          <div v-if="msg.isSystem" class="lobby-chat-row lobby-chat-row--system">
+            <span class="lobby-chat-sys-rule" />
+            <span class="lobby-chat-bubble lobby-chat-bubble--system">{{ msg.text }}</span>
+            <span class="lobby-chat-sys-rule lobby-chat-sys-rule--grow" />
+          </div>
+          <div v-else class="lobby-chat-row">
             <span class="lobby-chat-who">{{ msg.name }}</span>
-            <span class="lobby-chat-text">{{ msg.text }}</span>
-          </template>
-        </div>
+            <span class="lobby-chat-bubble">{{ msg.text }}</span>
+          </div>
+        </template>
         <div v-if="messages.length === 0" class="lobby-chat-empty">
           No messages yet
         </div>
@@ -32,16 +38,21 @@
         <input
           v-model="draft"
           class="lobby-chat-input"
-          placeholder="Say something…"
+          placeholder="Say something regrettable…"
           maxlength="300"
           autocomplete="off"
         />
-        <button type="submit" class="neon-btn neon-btn--primary lobby-chat-send" aria-label="Send message" :disabled="!draft.trim()">
-          ↑
+        <button
+          type="submit"
+          class="neon-btn neon-btn--primary lobby-chat-send"
+          aria-label="Send message"
+          :disabled="!draft.trim()"
+        >
+          SEND
         </button>
       </form>
-    </aside>
-  </Transition>
+    </div>
+  </aside>
 </template>
 
 <script lang="ts" setup>
@@ -50,17 +61,19 @@ import { useLobby } from "~/composables/useLobby";
 import type { ChatMessage } from "~/composables/useLobbyReactive";
 
 const props = defineProps<{
-  open: boolean;
   messages: ChatMessage[];
 }>();
-
-defineEmits<{ (e: "close"): void }>();
 
 const { lobbyDoc } = useLobby();
 const chat = useLobbyChat(lobbyDoc);
 
+const open = ref(false);
 const draft = ref("");
 const scrollEl = ref<HTMLElement | null>(null);
+
+const messageCount = computed(
+  () => props.messages.filter((m) => !m.isSystem).length,
+);
 
 function handleSend() {
   const text = draft.value.trim();
@@ -69,7 +82,6 @@ function handleSend() {
   draft.value = "";
 }
 
-// Auto-scroll to bottom when new messages arrive
 watch(
   () => props.messages.length,
   async () => {
@@ -77,40 +89,82 @@ watch(
     if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight;
   },
 );
+
+watch(open, async (isOpen) => {
+  if (!isOpen) return;
+  await nextTick();
+  if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight;
+});
 </script>
 
 <style scoped>
 .lobby-chat-panel {
   position: fixed;
-  right: 0;
-  top: 0;
-  height: 100vh;
-  width: 300px;
-  z-index: 50;
+  bottom: 20px;
+  right: 20px;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  z-index: 40;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 0;
-  border-right: none;
-  border-top: none;
-  border-bottom: none;
+  overflow: hidden;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.8);
 }
 
-.lobby-chat-header {
+.lobby-chat-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--lb-line);
-  flex-shrink: 0;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: var(--lb-ink);
+  cursor: pointer;
+  transition: background 150ms;
+}
+.lobby-chat-toggle:hover { background: rgba(255, 255, 255, 0.04); }
+
+.lobby-chat-toggle-left,
+.lobby-chat-toggle-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.lobby-chat-close {
-  padding: 4px 8px;
+.lobby-chat-toggle-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.lobby-chat-toggle-title {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lobby-chat-toggle-chip {
+  padding: 1px 7px;
+  font-size: 10px;
+}
+
+.lobby-chat-chevron {
+  display: inline-block;
   font-size: 12px;
+  color: var(--lb-ink-muted);
+  transition: transform 180ms ease;
+}
+.lobby-chat-chevron--open { transform: rotate(180deg); }
+
+.lobby-chat-expand {
+  display: flex;
+  flex-direction: column;
 }
 
 .lobby-chat-messages {
-  flex: 1;
+  max-height: 260px;
   overflow-y: auto;
   padding: 12px 14px;
   display: flex;
@@ -127,63 +181,63 @@ watch(
 }
 
 .lobby-chat-row--system {
+  flex-direction: row;
   align-items: center;
+  gap: 8px;
 }
 
-.lobby-chat-system-text {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--lb-ink-muted);
-  font-style: italic;
+.lobby-chat-sys-rule {
+  height: 1px;
+  width: 12px;
+  background: var(--lb-line-strong);
+  flex-shrink: 0;
+}
+
+.lobby-chat-sys-rule--grow {
+  flex: 1;
+  width: auto;
 }
 
 .lobby-chat-who {
-  font-family: 'Archivo Black', sans-serif;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  letter-spacing: 0.05em;
-  color: var(--lb-ink-dim);
-}
-
-.lobby-chat-text {
-  font-size: 13px;
-  color: var(--lb-ink);
-  line-height: 1.4;
-  word-break: break-word;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lb-ink-muted);
+  margin-right: 8px;
 }
 
 .lobby-chat-empty {
-  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--lb-ink-muted);
   text-align: center;
-  margin: auto;
+  padding: 16px 0;
 }
 
 .lobby-chat-form {
   display: flex;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 8px;
   border-top: 1px solid var(--lb-line);
-  flex-shrink: 0;
 }
 
 .lobby-chat-input {
   flex: 1;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--lb-line-strong);
-  border-radius: 6px;
-  padding: 7px 10px;
-  color: var(--lb-ink);
-  font-size: 13px;
-  font-family: inherit;
+  background: transparent;
+  border: none;
   outline: none;
+  padding: 8px 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  color: var(--lb-ink);
 }
-.lobby-chat-input:focus { border-color: var(--lb-accent); }
 .lobby-chat-input::placeholder { color: var(--lb-ink-muted); }
 
 .lobby-chat-send {
-  padding: 7px 12px;
-  font-size: 14px;
+  padding: 6px 12px;
+  font-size: 11px;
 }
 </style>
