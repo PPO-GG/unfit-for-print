@@ -3,7 +3,10 @@
    the game board and other pages.
    ────────────────────────────────────────────────────────────────────────── */
 
-.lobby-room {
+/* Design tokens — available on both .lobby-room and .lobby-tokens
+   (the latter for teleported overlays that live outside .lobby-room). */
+.lobby-room,
+.lobby-tokens {
   --lb-bg-0: #05060d;
   --lb-bg-1: #0a0d1c;
   --lb-bg-2: #121735;
@@ -17,7 +20,9 @@
   --lb-accent-yellow: oklch(82% 0.18 95);
   --lb-accent-pink: oklch(72% 0.22 355);
   --lb-accent-lime: oklch(80% 0.20 140);
+}
 
+.lobby-room {
   position: relative;
   width: 100%;
   min-height: 100vh;

@@ -1,7 +1,10 @@
 <template>
-  <Transition name="lobby-drawer">
-    <aside v-if="open" class="lobby-settings-panel lobby-panel">
-      <div class="lsd-header">
+  <Teleport to="body">
+    <div v-if="open" class="lobby-tokens lsd-overlay">
+      <div class="lsd-backdrop" aria-hidden="true" @click="$emit('close')" />
+      <Transition name="lobby-drawer" appear>
+        <aside v-if="open" class="lobby-settings-panel lobby-panel">
+          <div class="lsd-header">
         <div class="lsd-header-left">
           <button class="neon-btn neon-btn--ghost lsd-close" aria-label="Close settings" @click="$emit('close')">✕</button>
           <div class="lsd-header-title">GAME SETTINGS</div>
@@ -142,8 +145,10 @@
         </template>
         <div v-else class="lsd-loading">Connecting to lobby…</div>
       </div>
-    </aside>
-  </Transition>
+        </aside>
+      </Transition>
+    </div>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>
@@ -305,14 +310,30 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.lobby-settings-panel {
+.lsd-overlay {
   position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  color: var(--lb-ink);
+}
+
+.lsd-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+}
+
+.lobby-settings-panel {
+  position: absolute;
   right: 0;
   top: 0;
-  height: 100vh;
+  height: 100%;
   width: 420px;
   max-width: 100%;
-  z-index: 55;
   display: flex;
   flex-direction: column;
   border-radius: 0;
@@ -320,6 +341,7 @@ onMounted(async () => {
   border-top: none;
   border-bottom: none;
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .lsd-header {
