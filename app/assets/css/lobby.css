@@ -316,11 +316,13 @@
 .lobby-room .lobby-segmented button:hover:not(.on) { color: var(--lb-ink); }
 
 /* ── Pack chips ────────────────────────────────────────────────────────── */
-.lobby-room .lobby-pack-chip {
+.lobby-room .lobby-pack-chip,
+.lobby-tokens .lobby-pack-chip {
+  --pack-color: var(--lb-accent);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 8px;
+  padding: 6px 10px 6px 8px;
   border-radius: 999px;
   border: 1.5px solid var(--lb-line-strong);
   background: rgba(255, 255, 255, 0.02);
@@ -330,18 +332,49 @@
   text-transform: uppercase;
   color: var(--lb-ink-dim);
   cursor: pointer;
-  transition: all 150ms;
+  transition: color 150ms, background 150ms, border-color 150ms, box-shadow 150ms;
 }
-.lobby-room .lobby-pack-chip:hover:not(.lobby-pack-chip--on):not(:disabled) {
+.lobby-room .lobby-pack-chip:hover:not(.lobby-pack-chip--on):not(:disabled),
+.lobby-tokens .lobby-pack-chip:hover:not(.lobby-pack-chip--on):not(:disabled) {
   color: var(--lb-ink);
-  border-color: var(--lb-ink-dim);
+  border-color: var(--pack-color);
 }
-.lobby-room .lobby-pack-chip--on {
-  background: var(--lb-accent);
-  color: #0d0f1a;
-  border-color: var(--lb-accent);
+.lobby-room .lobby-pack-chip--on,
+.lobby-tokens .lobby-pack-chip--on {
+  background: color-mix(in oklab, var(--pack-color) 18%, transparent);
+  color: var(--lb-ink);
+  border-color: var(--pack-color);
+  box-shadow: 0 0 0 1px var(--pack-color) inset;
 }
-.lobby-room .lobby-pack-chip:disabled { opacity: 0.5; cursor: default; }
+.lobby-room .lobby-pack-chip:disabled,
+.lobby-tokens .lobby-pack-chip:disabled { opacity: 0.5; cursor: default; }
+
+/* Dot + name + count inside pack chips */
+.lobby-room .lsd-pack-dot,
+.lobby-tokens .lsd-pack-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--pack-color);
+  opacity: 0.5;
+  transition: opacity 150ms, box-shadow 150ms;
+  flex-shrink: 0;
+}
+.lobby-room .lobby-pack-chip--on .lsd-pack-dot,
+.lobby-tokens .lobby-pack-chip--on .lsd-pack-dot {
+  opacity: 1;
+  box-shadow: 0 0 8px var(--pack-color);
+}
+.lobby-room .lsd-pack-name,
+.lobby-tokens .lsd-pack-name { line-height: 1; }
+.lobby-room .lsd-pack-count,
+.lobby-tokens .lsd-pack-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  padding-left: 2px;
+}
 
 /* ── Chat bubble (styled messages) ─────────────────────────────────────── */
 .lobby-room .lobby-chat-bubble {

@@ -127,12 +127,17 @@
             <div v-else class="lsd-packs-chips">
               <button
                 v-for="pack in availablePacks"
-                :key="pack"
+                :key="pack.name"
                 class="lobby-pack-chip"
-                :class="{ 'lobby-pack-chip--on': activePacks.includes(pack) }"
+                :class="{ 'lobby-pack-chip--on': activePacks.includes(pack.name) }"
                 :disabled="!isHost"
-                @click="isHost && togglePack(pack)"
-              >{{ pack }}</button>
+                :style="{ '--pack-color': pack.color }"
+                @click="isHost && togglePack(pack.name)"
+              >
+                <span class="lsd-pack-dot" aria-hidden="true" />
+                <span class="lsd-pack-name">{{ pack.name }}</span>
+                <span class="lsd-pack-count">{{ pack.count }}</span>
+              </button>
               <div v-if="availablePacks.length === 0" class="lsd-packs-empty">No packs found</div>
             </div>
           </div>
@@ -171,7 +176,21 @@ const { t } = useI18n();
 const { mutations } = useLobby();
 
 const loadingPacks = ref(false);
-const availablePacks = ref<string[]>([]);
+type PackDetail = { name: string; count: number; color: string };
+const availablePacks = ref<PackDetail[]>([]);
+
+const PACK_COLORS = [
+  "var(--lb-accent)",        // cyan
+  "var(--lb-accent-lime)",   // lime
+  "var(--lb-accent-pink)",   // pink
+  "var(--lb-accent-yellow)", // yellow
+];
+
+function packColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return PACK_COLORS[hash % PACK_COLORS.length];
+}
 
 const activePacks = computed<string[]>(() => props.settings?.cardPacks ?? []);
 
@@ -264,7 +283,7 @@ onMounted(async () => {
     })).total;
     if (cancelled) return;
     const chunkSize = 1000;
-    const blackPacks = new Set<string>();
+    const counts = new Map<string, number>();
 
     for (let offset = 0; offset < blackTotal; offset += chunkSize) {
       const chunk = await tables.listRows({
@@ -273,7 +292,9 @@ onMounted(async () => {
         queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
       });
       if (cancelled) return;
-      chunk.rows.forEach((c: { pack?: string }) => { if (c.pack) blackPacks.add(c.pack); });
+      chunk.rows.forEach((c: { pack?: string }) => {
+        if (c.pack) counts.set(c.pack, (counts.get(c.pack) ?? 0) + 1);
+      });
     }
 
     const whiteTotal = (await tables.listRows({
@@ -282,7 +303,6 @@ onMounted(async () => {
       queries: [Query.limit(1), Query.equal("active", true)],
     })).total;
     if (cancelled) return;
-    const whitePacks = new Set<string>();
 
     for (let offset = 0; offset < whiteTotal; offset += chunkSize) {
       const chunk = await tables.listRows({
@@ -291,11 +311,15 @@ onMounted(async () => {
         queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
       });
       if (cancelled) return;
-      chunk.rows.forEach((c: { pack?: string }) => { if (c.pack) whitePacks.add(c.pack); });
+      chunk.rows.forEach((c: { pack?: string }) => {
+        if (c.pack) counts.set(c.pack, (counts.get(c.pack) ?? 0) + 1);
+      });
     }
 
     if (cancelled) return;
-    availablePacks.value = [...new Set([...blackPacks, ...whitePacks])].sort();
+    availablePacks.value = Array.from(counts.entries())
+      .map(([name, count]): PackDetail => ({ name, count, color: packColor(name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   } catch {
     if (cancelled) return;
     notify({
