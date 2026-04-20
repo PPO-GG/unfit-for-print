@@ -42,8 +42,6 @@
 <script lang="ts" setup>
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
-import { useLobby } from "~/composables/useLobby";
-import { useUserStore } from "~/stores/userStore";
 
 const props = defineProps<{
   lobby: Lobby;
@@ -87,7 +85,7 @@ async function startGameWrapper() {
       isPrivate: s.isPrivate,
       lobbyName: s.lobbyName,
     } : null);
-  } catch {
+  } finally {
     isStarting.value = false;
   }
 }
