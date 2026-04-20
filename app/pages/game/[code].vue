@@ -696,7 +696,7 @@ function handleResetGame() {
     >
       <!-- Mobile menu button (hidden during active gameplay — mobile has its own controls) -->
       <UButton
-        v-if="!isPlaying"
+        v-if="!isPlaying && !isWaiting"
         icon="i-solar-hamburger-menu-broken"
         color="neutral"
         variant="ghost"
@@ -709,7 +709,7 @@ function handleResetGame() {
       <!-- Desktop sidebar toggle button (waiting room only — gameplay uses CornerControls) -->
       <Transition name="sidebar-toggle">
         <div
-          v-if="!showDesktopSidebar && !isPlaying"
+          v-if="!showDesktopSidebar && !isPlaying && !isWaiting"
           class="hidden xl:flex fixed left-4 top-4 z-[75] sidebar-toggle-btn"
         >
           <UButton
@@ -732,9 +732,9 @@ function handleResetGame() {
         />
       </Transition>
 
-      <!-- Desktop sidebar (hidden during active gameplay) -->
+      <!-- Desktop sidebar (hidden during active gameplay and waiting phase) -->
       <aside
-        v-if="!isPlaying"
+        v-if="!isPlaying && !isWaiting"
         class="desktop-sidebar hidden xl:flex"
         :class="{ 'desktop-sidebar--open': showDesktopSidebar }"
       >
@@ -801,11 +801,10 @@ function handleResetGame() {
       <div class="flex-1">
         <!-- Waiting room -->
         <ClientOnly>
-          <WaitingRoom
+          <LobbyRoom
             v-if="isWaiting && lobby && players"
-            :lobby="lobby || {}"
+            :lobby="lobby"
             :players="players"
-            :sidebar-moved="true"
             @leave="handleLeave"
           />
         </ClientOnly>
@@ -849,10 +848,9 @@ function handleResetGame() {
       class="flex-1"
     >
       <ClientOnly>
-        <WaitingRoom
-          :lobby="lobby || {}"
+        <LobbyRoom
+          :lobby="lobby"
           :players="players"
-          :sidebar-moved="true"
           @leave="handleLeave"
         />
       </ClientOnly>
