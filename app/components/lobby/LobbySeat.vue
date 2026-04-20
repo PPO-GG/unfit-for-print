@@ -1,0 +1,94 @@
+<template>
+  <!-- Empty seat -->
+  <div
+    v-if="!player"
+    class="lobby-seat"
+    :class="{ 'lobby-seat--clickable': isHostUser }"
+    :style="positionStyle"
+    @click="isHostUser ? $emit('add-bot') : undefined"
+  >
+    <div class="lobby-seat-avatar lobby-seat-avatar--empty">+</div>
+    <div class="lobby-seat-name" style="color: var(--lb-ink-muted)">OPEN SEAT</div>
+    <div class="lobby-seat-status" v-if="isHostUser">click · add bot</div>
+  </div>
+
+  <!-- Filled seat -->
+  <div v-else class="lobby-seat" :style="positionStyle">
+    <div
+      :class="[
+        'lobby-seat-avatar',
+        player.ready ? 'lobby-seat-avatar--ready' : '',
+        player.playerType === 'bot' ? 'lobby-seat-avatar--bot' : '',
+        player.isHost ? 'lobby-seat-avatar--host' : '',
+      ]"
+      :style="avatarStyle"
+    >
+      {{ initials }}
+    </div>
+    <div class="lobby-seat-name">{{ player.name }}</div>
+    <div :class="['lobby-seat-status', statusClass]">{{ statusLabel }}</div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import type { Player } from "~/types/player";
+
+const props = defineProps<{
+  player: Player | null;
+  positionStyle: { left: string; top: string };
+  isHostUser: boolean;
+}>();
+
+defineEmits<{
+  (e: "add-bot"): void;
+  (e: "kick", playerId: string): void;
+}>();
+
+const PALETTE = [
+  "#5865f2", "#f43f5e", "#22d3ee", "#84cc16",
+  "#f59e0b", "#a78bfa", "#fb7185", "#34d399",
+];
+
+function colorFromId(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return PALETTE[hash % PALETTE.length];
+}
+
+const initials = computed(() => {
+  if (!props.player) return "";
+  if (props.player.playerType === "bot") return "🤖";
+  const parts = props.player.name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return props.player.name.slice(0, 2).toUpperCase();
+});
+
+const avatarStyle = computed(() => {
+  if (!props.player) return {};
+  const color = colorFromId(props.player.userId);
+  if (props.player.playerType === "bot") {
+    return {
+      background: "linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%)",
+      color: "#0d0f1a",
+    };
+  }
+  return {
+    background: `linear-gradient(135deg, ${color}aa 0%, ${color}55 100%)`,
+    color: "#0d0f1a",
+  };
+});
+
+const statusLabel = computed(() => {
+  if (!props.player) return "";
+  if (props.player.playerType === "bot") return "BOT · auto-ready";
+  if (props.player.ready) return "Ready ✓";
+  return "Waiting…";
+});
+
+const statusClass = computed(() => {
+  if (!props.player) return "";
+  if (props.player.playerType === "bot") return "lobby-seat-status--bot";
+  if (props.player.ready) return "lobby-seat-status--ready";
+  return "";
+});
+</script>
