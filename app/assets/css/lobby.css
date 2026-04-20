@@ -210,15 +210,15 @@
 .lobby-drawer-leave-to     { transform: translateX(100%); }
 
 /* ── Neon button variants ──────────────────────────────────────────────── */
-.lobby-room .neon-btn--danger {
+:where(.lobby-room, .lobby-tokens) .neon-btn--danger {
   color: oklch(68% 0.22 25);
   border-color: oklch(68% 0.22 25);
   background: transparent;
 }
-.lobby-room .neon-btn--danger:hover { background: rgba(255, 80, 80, 0.08); color: oklch(68% 0.22 25); }
+:where(.lobby-room, .lobby-tokens) .neon-btn--danger:hover { background: rgba(255, 80, 80, 0.08); color: oklch(68% 0.22 25); }
 
 /* ── Ticket separator (dashed horizontal line) ─────────────────────────── */
-.lobby-room .lobby-ticket-sep {
+:where(.lobby-room, .lobby-tokens) .lobby-ticket-sep {
   height: 2px;
   background-image: linear-gradient(90deg, var(--lb-line-strong) 50%, transparent 0);
   background-size: 8px 2px;
@@ -226,7 +226,7 @@
 }
 
 /* ── Code tiles (one tile per letter) ──────────────────────────────────── */
-.lobby-room .lobby-code-tile {
+:where(.lobby-room, .lobby-tokens) .lobby-code-tile {
   width: 48px;
   height: 56px;
   border-radius: 8px;
@@ -240,7 +240,7 @@
   color: var(--lb-ink);
   position: relative;
 }
-.lobby-room .lobby-code-tile::after {
+:where(.lobby-room, .lobby-tokens) .lobby-code-tile::after {
   content: '';
   position: absolute;
   bottom: 4px;
@@ -254,7 +254,7 @@
 }
 
 /* ── Form input ────────────────────────────────────────────────────────── */
-.lobby-room .lobby-input {
+:where(.lobby-room, .lobby-tokens) .lobby-input {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
@@ -267,11 +267,11 @@
   transition: border-color 150ms;
   outline: none;
 }
-.lobby-room .lobby-input:focus { border-color: var(--lb-accent); }
-.lobby-room .lobby-input::placeholder { color: var(--lb-ink-muted); }
+:where(.lobby-room, .lobby-tokens) .lobby-input:focus { border-color: var(--lb-accent); }
+:where(.lobby-room, .lobby-tokens) .lobby-input::placeholder { color: var(--lb-ink-muted); }
 
 /* ── Checkbox ──────────────────────────────────────────────────────────── */
-.lobby-room .lobby-check {
+:where(.lobby-room, .lobby-tokens) .lobby-check {
   width: 22px;
   height: 22px;
   border-radius: 5px;
@@ -286,17 +286,17 @@
   font-size: 14px;
   color: #0d0f1a;
 }
-.lobby-room .lobby-check--on { border-color: var(--lb-accent); background: var(--lb-accent); }
+:where(.lobby-room, .lobby-tokens) .lobby-check--on { border-color: var(--lb-accent); background: var(--lb-accent); }
 
 /* ── Segmented control ─────────────────────────────────────────────────── */
-.lobby-room .lobby-segmented {
+:where(.lobby-room, .lobby-tokens) .lobby-segmented {
   display: inline-flex;
   padding: 3px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--lb-line-strong);
 }
-.lobby-room .lobby-segmented button {
+:where(.lobby-room, .lobby-tokens) .lobby-segmented button {
   padding: 6px 14px;
   font-family: 'Archivo Black', sans-serif;
   font-size: 11px;
@@ -309,14 +309,14 @@
   cursor: pointer;
   transition: all 150ms;
 }
-.lobby-room .lobby-segmented button.on {
+:where(.lobby-room, .lobby-tokens) .lobby-segmented button.on {
   background: var(--lb-accent);
   color: #0d0f1a;
 }
-.lobby-room .lobby-segmented button:hover:not(.on) { color: var(--lb-ink); }
+:where(.lobby-room, .lobby-tokens) .lobby-segmented button:hover:not(.on) { color: var(--lb-ink); }
 
 /* ── Pack chips ────────────────────────────────────────────────────────── */
-.lobby-room .lobby-pack-chip,
+:where(.lobby-room, .lobby-tokens) .lobby-pack-chip,
 .lobby-tokens .lobby-pack-chip {
   --pack-color: var(--lb-accent);
   display: inline-flex;
@@ -334,23 +334,23 @@
   cursor: pointer;
   transition: color 150ms, background 150ms, border-color 150ms, box-shadow 150ms;
 }
-.lobby-room .lobby-pack-chip:hover:not(.lobby-pack-chip--on):not(:disabled),
+:where(.lobby-room, .lobby-tokens) .lobby-pack-chip:hover:not(.lobby-pack-chip--on):not(:disabled),
 .lobby-tokens .lobby-pack-chip:hover:not(.lobby-pack-chip--on):not(:disabled) {
   color: var(--lb-ink);
   border-color: var(--pack-color);
 }
-.lobby-room .lobby-pack-chip--on,
+:where(.lobby-room, .lobby-tokens) .lobby-pack-chip--on,
 .lobby-tokens .lobby-pack-chip--on {
   background: color-mix(in oklab, var(--pack-color) 18%, transparent);
   color: var(--lb-ink);
   border-color: var(--pack-color);
   box-shadow: 0 0 0 1px var(--pack-color) inset;
 }
-.lobby-room .lobby-pack-chip:disabled,
+:where(.lobby-room, .lobby-tokens) .lobby-pack-chip:disabled,
 .lobby-tokens .lobby-pack-chip:disabled { opacity: 0.5; cursor: default; }
 
 /* Dot + name + count inside pack chips */
-.lobby-room .lsd-pack-dot,
+:where(.lobby-room, .lobby-tokens) .lsd-pack-dot,
 .lobby-tokens .lsd-pack-dot {
   width: 8px;
   height: 8px;
@@ -360,14 +360,14 @@
   transition: opacity 150ms, box-shadow 150ms;
   flex-shrink: 0;
 }
-.lobby-room .lobby-pack-chip--on .lsd-pack-dot,
+:where(.lobby-room, .lobby-tokens) .lobby-pack-chip--on .lsd-pack-dot,
 .lobby-tokens .lobby-pack-chip--on .lsd-pack-dot {
   opacity: 1;
   box-shadow: 0 0 8px var(--pack-color);
 }
-.lobby-room .lsd-pack-name,
+:where(.lobby-room, .lobby-tokens) .lsd-pack-name,
 .lobby-tokens .lsd-pack-name { line-height: 1; }
-.lobby-room .lsd-pack-count,
+:where(.lobby-room, .lobby-tokens) .lsd-pack-count,
 .lobby-tokens .lsd-pack-count {
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
@@ -377,7 +377,7 @@
 }
 
 /* ── Chat bubble (styled messages) ─────────────────────────────────────── */
-.lobby-room .lobby-chat-bubble {
+:where(.lobby-room, .lobby-tokens) .lobby-chat-bubble {
   padding: 6px 10px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
@@ -385,7 +385,7 @@
   font-size: 13px;
   display: inline-block;
 }
-.lobby-room .lobby-chat-bubble--system {
+:where(.lobby-room, .lobby-tokens) .lobby-chat-bubble--system {
   background: transparent;
   color: var(--lb-ink-muted);
   font-family: 'JetBrains Mono', monospace;
@@ -401,7 +401,7 @@
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
   30%           { opacity: 1; transform: translateY(-2px); }
 }
-.lobby-room .lobby-typing-dot {
+:where(.lobby-room, .lobby-tokens) .lobby-typing-dot {
   display: inline-block;
   animation: lb-typing-dot 1.2s ease-in-out infinite;
 }

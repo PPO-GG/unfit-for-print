@@ -29,18 +29,18 @@
           <!-- Points + Cards Per Player -->
           <div class="lsd-grid-2">
             <div class="lsd-field">
-              <div class="lsd-field-label">Points to Win</div>
+              <div class="lsd-field-label">Max Points to Win</div>
               <div class="lsd-stepper">
-                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.maxPoints <= 1" @click="update('maxPoints', settings.maxPoints - 1)">−</button>
+                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.maxPoints <= 3" @click="update('maxPoints', settings.maxPoints - 1)">−</button>
                 <span class="lsd-step-val">{{ settings.maxPoints }}</span>
                 <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.maxPoints >= 20" @click="update('maxPoints', settings.maxPoints + 1)">+</button>
               </div>
             </div>
 
             <div class="lsd-field">
-              <div class="lsd-field-label">Cards Per Player</div>
+              <div class="lsd-field-label">Cards per Player</div>
               <div class="lsd-stepper">
-                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.cardsPerPlayer <= 3" @click="update('cardsPerPlayer', settings.cardsPerPlayer - 1)">−</button>
+                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.cardsPerPlayer <= 5" @click="update('cardsPerPlayer', settings.cardsPerPlayer - 1)">−</button>
                 <span class="lsd-step-val">{{ settings.cardsPerPlayer }}</span>
                 <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.cardsPerPlayer >= 15" @click="update('cardsPerPlayer', settings.cardsPerPlayer + 1)">+</button>
               </div>
@@ -50,7 +50,7 @@
           <!-- Max Pick -->
           <div class="lsd-field">
             <div class="lsd-field-label">
-              Max Pick<span class="lsd-field-hint">Prompts with pick ≤ this allowed</span>
+              Max Pick<span class="lsd-field-hint">All prompts with pick ≤ this are allowed</span>
             </div>
             <div class="lobby-segmented">
               <button
@@ -121,7 +121,7 @@
           <div class="lsd-field">
             <div class="lsd-field-label">
               Card Packs
-              <span class="lsd-field-hint">{{ activePacks.length }} active</span>
+              <span class="lsd-field-hint">{{ activePacksStatLabel }}</span>
             </div>
             <div v-if="loadingPacks" class="lsd-packs-loading">Loading packs…</div>
             <div v-else class="lsd-packs-chips">
@@ -145,7 +145,7 @@
           <!-- Footer -->
           <div class="lsd-footer">
             <button class="neon-btn" @click="$emit('close')">CANCEL</button>
-            <button class="neon-btn neon-btn--primary" @click="$emit('close')">✓ SAVE</button>
+            <button class="neon-btn neon-btn--primary" @click="$emit('close')">✓ SAVE SETTINGS</button>
           </div>
         </template>
         <div v-else class="lsd-loading">Connecting to lobby…</div>
@@ -193,6 +193,18 @@ function packColor(name: string): string {
 }
 
 const activePacks = computed<string[]>(() => props.settings?.cardPacks ?? []);
+
+const activePacksStatLabel = computed(() => {
+  const active = activePacks.value;
+  if (active.length === 0) return "0 packs";
+  const totalCards = availablePacks.value
+    .filter((p) => active.includes(p.name))
+    .reduce((sum, p) => sum + p.count, 0);
+  const packLabel = active.length === 1 ? "pack" : "packs";
+  return totalCards > 0
+    ? `${active.length} ${packLabel} · ${totalCards} cards`
+    : `${active.length} ${packLabel}`;
+});
 
 // Inline debounce helper for text inputs — avoids flooding the Y.Doc with keystroke mutations.
 function useDebouncedWrite<T>(writeFn: (v: T) => void, delayMs = 300) {
@@ -356,7 +368,7 @@ onMounted(async () => {
   right: 0;
   top: 0;
   height: 100%;
-  width: 420px;
+  width: 440px;
   max-width: 100%;
   display: flex;
   flex-direction: column;
