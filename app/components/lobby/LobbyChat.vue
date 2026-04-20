@@ -117,7 +117,8 @@ watch(open, async (isOpen) => {
 <style scoped>
 .lobby-chat-panel {
   position: fixed;
-  bottom: 20px;
+  /* Sit above the start bar which occupies the bottom of the viewport. */
+  bottom: calc(var(--lb-startbar-height, 96px) + 12px);
   right: 20px;
   width: 360px;
   max-width: calc(100vw - 24px);

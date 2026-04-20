@@ -51,6 +51,7 @@
     </main>
 
     <LobbyStartBar
+      ref="startBarEl"
       :players="players"
       :my-id="myId ?? ''"
       :is-host="isHost"
@@ -133,6 +134,34 @@ function handleKick(playerId: string) {
   const target = props.players.find((p) => p.$id === playerId);
   mutations.removePlayer(playerId, target?.name);
 }
+
+// Measure the start bar and expose its height as a CSS var so the floating
+// chat can anchor just above it regardless of how tall the bar becomes.
+const startBarEl = ref<{ $el?: HTMLElement } | HTMLElement | null>(null);
+let resizeObserver: ResizeObserver | null = null;
+
+function applyStartBarHeight(h: number) {
+  if (typeof document === "undefined") return;
+  document.documentElement.style.setProperty("--lb-startbar-height", `${Math.round(h)}px`);
+}
+
+onMounted(() => {
+  const el = startBarEl.value && "$el" in startBarEl.value ? startBarEl.value.$el : startBarEl.value as HTMLElement | null;
+  if (!el || typeof ResizeObserver === "undefined") return;
+  applyStartBarHeight(el.getBoundingClientRect().height);
+  resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) applyStartBarHeight(entry.contentRect.height);
+  });
+  resizeObserver.observe(el);
+});
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  if (typeof document !== "undefined") {
+    document.documentElement.style.removeProperty("--lb-startbar-height");
+  }
+});
 </script>
 
 <style scoped>
