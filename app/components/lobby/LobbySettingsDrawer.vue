@@ -2,48 +2,115 @@
   <Transition name="lobby-drawer">
     <aside v-if="open" class="lobby-settings-panel lobby-panel">
       <div class="lsd-header">
-        <span class="lobby-chip">
-          <span class="live-dot" />
-          Game Settings
-        </span>
-        <button class="neon-btn neon-btn--ghost lsd-close" @click="$emit('close')">✕</button>
+        <div class="lsd-header-left">
+          <button class="neon-btn neon-btn--ghost lsd-close" aria-label="Close settings" @click="$emit('close')">✕</button>
+          <div class="lsd-header-title">GAME SETTINGS</div>
+        </div>
+        <span class="lobby-chip">Host only</span>
       </div>
 
       <div class="lsd-body">
         <template v-if="settings">
-          <!-- Points to Win -->
+          <!-- Lobby Name -->
           <div class="lsd-field">
-            <div class="lsd-field-label">Points to Win</div>
-            <div class="lsd-stepper">
-              <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.maxPoints <= 1" @click="update('maxPoints', settings.maxPoints - 1)">−</button>
-              <span class="lsd-step-val">{{ settings.maxPoints }}</span>
-              <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.maxPoints >= 20" @click="update('maxPoints', settings.maxPoints + 1)">+</button>
+            <div class="lsd-field-label">Lobby Name</div>
+            <input
+              class="lobby-input"
+              :value="settings.lobbyName"
+              :disabled="!isHost"
+              placeholder="Name this lobby"
+              @input="(e) => isHost && update('lobbyName', (e.target as HTMLInputElement).value)"
+            />
+          </div>
+
+          <!-- Points + Cards Per Player -->
+          <div class="lsd-grid-2">
+            <div class="lsd-field">
+              <div class="lsd-field-label">Points to Win</div>
+              <div class="lsd-stepper">
+                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.maxPoints <= 1" @click="update('maxPoints', settings.maxPoints - 1)">−</button>
+                <span class="lsd-step-val">{{ settings.maxPoints }}</span>
+                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.maxPoints >= 20" @click="update('maxPoints', settings.maxPoints + 1)">+</button>
+              </div>
+            </div>
+
+            <div class="lsd-field">
+              <div class="lsd-field-label">Cards Per Player</div>
+              <div class="lsd-stepper">
+                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.cardsPerPlayer <= 3" @click="update('cardsPerPlayer', settings.cardsPerPlayer - 1)">−</button>
+                <span class="lsd-step-val">{{ settings.cardsPerPlayer }}</span>
+                <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.cardsPerPlayer >= 15" @click="update('cardsPerPlayer', settings.cardsPerPlayer + 1)">+</button>
+              </div>
             </div>
           </div>
 
-          <!-- Cards Per Player -->
+          <!-- Max Pick -->
           <div class="lsd-field">
-            <div class="lsd-field-label">Cards Per Player</div>
-            <div class="lsd-stepper">
-              <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.cardsPerPlayer <= 3" @click="update('cardsPerPlayer', settings.cardsPerPlayer - 1)">−</button>
-              <span class="lsd-step-val">{{ settings.cardsPerPlayer }}</span>
-              <button class="neon-btn neon-btn--ghost lsd-step-btn" :disabled="!isHost || settings.cardsPerPlayer >= 15" @click="update('cardsPerPlayer', settings.cardsPerPlayer + 1)">+</button>
+            <div class="lsd-field-label">
+              Max Pick<span class="lsd-field-hint">Prompts with pick ≤ this allowed</span>
+            </div>
+            <div class="lobby-segmented">
+              <button
+                v-for="n in [1, 2, 3]"
+                :key="n"
+                :class="{ on: settings.maxPick === n }"
+                :disabled="!isHost"
+                @click="isHost && update('maxPick', n)"
+              >PICK {{ n }}</button>
             </div>
           </div>
 
-          <!-- Private Lobby -->
-          <div class="lsd-field lsd-field--row">
-            <div>
-              <div class="lsd-field-label">Private Lobby</div>
-              <div class="lsd-field-hint">Hidden from public lobby list</div>
-            </div>
+          <!-- Private / Password / Manual draw -->
+          <div class="lsd-check-group">
             <button
-              class="neon-btn"
-              :class="settings.isPrivate ? 'neon-btn--primary' : 'neon-btn--ghost'"
+              class="lsd-check-row"
               :disabled="!isHost"
               @click="isHost && update('isPrivate', !settings.isPrivate)"
             >
-              {{ settings.isPrivate ? "ON" : "OFF" }}
+              <span class="lobby-check" :class="{ 'lobby-check--on': settings.isPrivate }">
+                <span v-if="settings.isPrivate">✓</span>
+              </span>
+              <div>
+                <div class="lsd-check-label">Private Lobby</div>
+                <div class="lsd-check-sub">Hidden from public lobby list</div>
+              </div>
+            </button>
+
+            <button
+              class="lsd-check-row"
+              :disabled="!isHost"
+              @click="isHost && toggleRequirePassword()"
+            >
+              <span class="lobby-check" :class="{ 'lobby-check--on': requirePassword }">
+                <span v-if="requirePassword">✓</span>
+              </span>
+              <div>
+                <div class="lsd-check-label">Require password to join</div>
+                <div class="lsd-check-sub">Players must enter a password before joining</div>
+              </div>
+            </button>
+
+            <input
+              v-if="requirePassword"
+              class="lobby-input lsd-password-input"
+              :value="settings.password ?? ''"
+              :disabled="!isHost"
+              placeholder="Lobby password"
+              @input="(e) => isHost && update('password', (e.target as HTMLInputElement).value)"
+            />
+
+            <button
+              class="lsd-check-row"
+              :disabled="!isHost"
+              @click="isHost && update('manualDraw', !settings.manualDraw)"
+            >
+              <span class="lobby-check" :class="{ 'lobby-check--on': settings.manualDraw }">
+                <span v-if="settings.manualDraw">✓</span>
+              </span>
+              <div>
+                <div class="lsd-check-label">Manual card draw</div>
+                <div class="lsd-check-sub">Players click the deck to draw cards each round</div>
+              </div>
             </button>
           </div>
 
@@ -51,24 +118,26 @@
           <div class="lsd-field">
             <div class="lsd-field-label">
               Card Packs
-              <span class="lsd-field-hint" style="margin-left:6px;">{{ activePacks.length }} active</span>
+              <span class="lsd-field-hint">{{ activePacks.length }} active</span>
             </div>
             <div v-if="loadingPacks" class="lsd-packs-loading">Loading packs…</div>
-            <div v-else class="lsd-packs-list">
+            <div v-else class="lsd-packs-chips">
               <button
                 v-for="pack in availablePacks"
                 :key="pack"
-                class="lsd-pack-row"
-                :class="{ 'lsd-pack-row--active': activePacks.includes(pack) }"
+                class="lobby-pack-chip"
+                :class="{ 'lobby-pack-chip--on': activePacks.includes(pack) }"
                 :disabled="!isHost"
                 @click="isHost && togglePack(pack)"
-              >
-                <span class="lsd-pack-dot" :class="{ 'lsd-pack-dot--active': activePacks.includes(pack) }" />
-                <span class="lsd-pack-name">{{ pack }}</span>
-                <span v-if="activePacks.includes(pack)" class="lsd-pack-check">✓</span>
-              </button>
+              >{{ pack }}</button>
               <div v-if="availablePacks.length === 0" class="lsd-packs-empty">No packs found</div>
             </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="lsd-footer">
+            <button class="neon-btn" @click="$emit('close')">CANCEL</button>
+            <button class="neon-btn neon-btn--primary" @click="$emit('close')">✓ SAVE</button>
           </div>
         </template>
         <div v-else class="lsd-loading">Connecting to lobby…</div>
@@ -101,8 +170,21 @@ const availablePacks = ref<string[]>([]);
 
 const activePacks = computed<string[]>(() => props.settings?.cardPacks ?? []);
 
+const requirePassword = computed(
+  () => typeof props.settings?.password === "string" && props.settings.password.length > 0,
+);
+
 function update(key: string, value: unknown) {
   mutations.updateSettings({ [key]: value });
+}
+
+function toggleRequirePassword() {
+  if (requirePassword.value) {
+    mutations.updateSettings({ password: "" });
+  } else {
+    // Seed an empty password string so input renders and user can type
+    mutations.updateSettings({ password: " " });
+  }
 }
 
 function togglePack(pack: string) {
@@ -176,7 +258,8 @@ onMounted(async () => {
   right: 0;
   top: 0;
   height: 100vh;
-  width: 340px;
+  width: 420px;
+  max-width: 100%;
   z-index: 55;
   display: flex;
   flex-direction: column;
@@ -191,20 +274,42 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--lb-line);
   flex-shrink: 0;
+  backdrop-filter: blur(12px);
+  background: rgba(10, 13, 28, 0.85);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
-.lsd-close { padding: 4px 8px; font-size: 12px; }
+.lsd-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lsd-close {
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.lsd-header-title {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--lb-ink);
+}
 
 .lsd-body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   scrollbar-width: thin;
   scrollbar-color: var(--lb-line-strong) transparent;
 }
@@ -215,83 +320,106 @@ onMounted(async () => {
   gap: 10px;
 }
 
-.lsd-field--row {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
+.lsd-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
 .lsd-field-label {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   color: var(--lb-ink-dim);
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
 .lsd-field-hint {
   font-size: 9px;
   color: var(--lb-ink-muted);
   letter-spacing: 0.04em;
+  text-transform: none;
+  font-family: 'JetBrains Mono', monospace;
+  margin-left: auto;
 }
 
 .lsd-stepper {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
-.lsd-step-btn { padding: 4px 10px; font-size: 16px; }
+.lsd-step-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 16px;
+  flex-shrink: 0;
+}
 
 .lsd-step-val {
-  font-family: 'Archivo Black', sans-serif;
-  font-size: 24px;
-  color: var(--lb-ink);
-  min-width: 32px;
-  text-align: center;
-}
-
-.lsd-packs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.lsd-pack-row {
+  flex: 1;
+  height: 36px;
+  border: 1px solid var(--lb-line-strong);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  justify-content: center;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 18px;
+  color: var(--lb-ink);
+}
+
+.lsd-check-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lsd-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
   border-radius: 8px;
   border: 1px solid var(--lb-line);
   background: transparent;
   cursor: pointer;
-  color: var(--lb-ink-dim);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
   text-align: left;
-  transition: background 120ms, border-color 120ms;
+  transition: background 120ms;
+  width: 100%;
 }
-.lsd-pack-row:hover:not(:disabled)   { background: rgba(255,255,255,0.04); }
-.lsd-pack-row--active { border-color: var(--lb-accent); color: var(--lb-ink); }
-.lsd-pack-row:disabled { opacity: 0.5; cursor: default; }
+.lsd-check-row:hover:not(:disabled) { background: rgba(255, 255, 255, 0.04); }
+.lsd-check-row:disabled { opacity: 0.6; cursor: default; }
 
-.lsd-pack-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--lb-line-strong);
-  flex-shrink: 0;
+.lsd-check-label {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 13px;
+  color: var(--lb-ink);
+  line-height: 1.2;
 }
-.lsd-pack-dot--active { background: var(--lb-accent); }
 
-.lsd-pack-name { flex: 1; }
+.lsd-check-sub {
+  margin-top: 3px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  color: var(--lb-ink-dim);
+  line-height: 1.3;
+}
 
-.lsd-pack-check { color: var(--lb-accent); font-size: 12px; }
+.lsd-password-input {
+  margin-top: -2px;
+}
+
+.lsd-packs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
 .lsd-packs-loading,
 .lsd-packs-empty,
@@ -301,5 +429,12 @@ onMounted(async () => {
   font-family: 'JetBrains Mono', monospace;
   text-align: center;
   padding: 12px 0;
+}
+
+.lsd-footer {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 </style>
