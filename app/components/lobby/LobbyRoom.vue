@@ -9,18 +9,42 @@
       @open-settings="settingsOpen = !settingsOpen"
     />
 
-    <div class="lobby-room-stage">
-      <LobbyTable
-        :players="players"
-        :max-seats="maxSeats"
-        :is-host-user="isHost"
-        class="lobby-room-table"
-        @add-bot="addBot"
-      />
-      <div class="lobby-room-code-slot">
-        <LobbyCodePanel :code="lobby.code" />
+    <main class="lobby-room-main">
+      <div class="lobby-room-grid">
+        <!-- LEFT: Table + Round Preview -->
+        <section class="lobby-room-left">
+          <div class="lobby-room-table-wrap lobby-panel lobby-panel-striped">
+            <LobbyTable
+              :players="players"
+              :max-seats="maxSeats"
+              :is-host-user="isHost"
+              @add-bot="addBot"
+            />
+          </div>
+          <LobbyRoundPreview
+            :cards-per-player="reactive.settings.value?.cardsPerPlayer ?? 0"
+            :max-pick="reactive.settings.value?.maxPick ?? 0"
+            :active-packs-count="(reactive.settings.value?.cardPacks ?? []).length"
+          />
+        </section>
+
+        <!-- RIGHT: Sidebar stack -->
+        <aside class="lobby-room-sidebar">
+          <LobbyCodePanel :code="lobby.code" />
+          <LobbyPlayerList
+            :players="players"
+            :max-seats="maxSeats"
+            :is-host-user="isHost"
+            @add-bot="addBot"
+            @kick="handleKick"
+          />
+          <LobbySettingsSummary
+            :settings="reactive.settings.value"
+            @edit="settingsOpen = true"
+          />
+        </aside>
       </div>
-    </div>
+    </main>
 
     <LobbyStartBar
       :players="players"
@@ -99,43 +123,76 @@ function handleToggleReady() {
   const me = props.players.find((p) => p.userId === myId.value);
   mutations.setPlayerReady(myId.value, !(me?.ready ?? false));
 }
+
+function handleKick(playerId: string) {
+  if (!isHost.value) return;
+  const target = props.players.find((p) => p.$id === playerId);
+  mutations.removePlayer(playerId, target?.name);
+}
 </script>
 
 <style scoped>
 .lobby-room {
-  position: relative;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.lobby-room-stage {
+  min-height: 100vh;
   position: relative;
+  overflow-x: hidden;
+}
+
+.lobby-room-main {
   flex: 1;
-  min-height: 0;
-  display: flex;
+  padding: 16px 20px 20px;
+  overflow-y: auto;
 }
 
-.lobby-room-table {
-  flex: 1;
-  min-height: 0;
+.lobby-room-grid {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
 }
 
-.lobby-room-code-slot {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 5;
-  width: 280px;
-}
-
-@media (max-width: 900px) {
-  .lobby-room-code-slot {
-    position: static;
-    width: auto;
-    margin: 12px 20px 0;
+@media (min-width: 1024px) {
+  .lobby-room-grid {
+    grid-template-columns: minmax(0, 8fr) minmax(280px, 3fr);
+    align-items: start;
   }
+}
+
+@media (min-width: 1440px) {
+  .lobby-room-grid {
+    grid-template-columns: minmax(0, 9fr) minmax(320px, 3fr);
+  }
+}
+
+.lobby-room-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.lobby-room-table-wrap {
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  min-height: 520px;
+}
+
+.lobby-room-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* panel-striped variant */
+.lobby-panel-striped {
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.02) 0 10px, rgba(255, 255, 255, 0) 10px 20px),
+    rgba(10, 13, 28, 0.72);
 }
 </style>
 

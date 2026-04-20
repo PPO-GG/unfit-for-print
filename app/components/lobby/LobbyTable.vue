@@ -72,8 +72,7 @@ const seatPositions = computed(() => {
 .lobby-table-root {
   position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 0;
+  height: 480px;
   overflow: hidden;
 }
 
