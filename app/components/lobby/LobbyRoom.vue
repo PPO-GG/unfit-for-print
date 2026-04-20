@@ -9,13 +9,18 @@
       @open-settings="settingsOpen = !settingsOpen"
     />
 
-    <LobbyTable
-      :players="players"
-      :max-seats="maxSeats"
-      :is-host-user="isHost"
-      class="lobby-room-table"
-      @add-bot="addBot"
-    />
+    <div class="lobby-room-stage">
+      <LobbyTable
+        :players="players"
+        :max-seats="maxSeats"
+        :is-host-user="isHost"
+        class="lobby-room-table"
+        @add-bot="addBot"
+      />
+      <div class="lobby-room-code-slot">
+        <LobbyCodePanel :code="lobby.code" />
+      </div>
+    </div>
 
     <LobbyStartBar
       :players="players"
@@ -98,15 +103,39 @@ function handleToggleReady() {
 
 <style scoped>
 .lobby-room {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
 }
 
+.lobby-room-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 .lobby-room-table {
   flex: 1;
   min-height: 0;
+}
+
+.lobby-room-code-slot {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 5;
+  width: 280px;
+}
+
+@media (max-width: 900px) {
+  .lobby-room-code-slot {
+    position: static;
+    width: auto;
+    margin: 12px 20px 0;
+  }
 }
 </style>
 
