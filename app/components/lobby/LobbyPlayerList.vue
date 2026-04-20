@@ -6,20 +6,22 @@
     </div>
     <div class="lpl-list">
       <div v-for="p in players" :key="p.$id" class="lpl-row">
-        <div
-          class="lpl-avatar"
-          :class="{ 'lpl-avatar--image': avatarUrlFor(p) && !imgErrors[p.$id] }"
-          :style="avatarUrlFor(p) && !imgErrors[p.$id] ? {} : avatarStyle(p)"
-        >
-          <img
-            v-if="avatarUrlFor(p) && !imgErrors[p.$id]"
-            :src="avatarUrlFor(p) ?? ''"
-            :alt="p.name"
-            referrerpolicy="no-referrer"
-            @error="imgErrors[p.$id] = true"
-          />
-          <span v-else>{{ initials(p) }}</span>
-        </div>
+        <AvatarDecoration :decoration-id="p.activeDecoration ?? null">
+          <div
+            class="lpl-avatar"
+            :class="{ 'lpl-avatar--image': avatarUrlFor(p) && !imgErrors[p.$id] }"
+            :style="avatarUrlFor(p) && !imgErrors[p.$id] ? {} : avatarStyle(p)"
+          >
+            <img
+              v-if="avatarUrlFor(p) && !imgErrors[p.$id]"
+              :src="avatarUrlFor(p) ?? ''"
+              :alt="p.name"
+              referrerpolicy="no-referrer"
+              @error="imgErrors[p.$id] = true"
+            />
+            <span v-else>{{ initials(p) }}</span>
+          </div>
+        </AvatarDecoration>
         <div class="lpl-body">
           <div class="lpl-name">
             <span>{{ p.name }}</span>
