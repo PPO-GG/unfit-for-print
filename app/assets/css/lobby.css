@@ -161,11 +161,19 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 .lobby-seat-avatar--empty {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  background: transparent;
+  border: 2px dashed var(--lb-line-strong);
   color: var(--lb-ink-muted);
   font-size: 28px;
   font-family: inherit;
+  transition: transform 200ms, border-color 200ms, color 200ms;
+}
+
+/* Hover: whole seat scales up, border + icon turn accent */
+.lobby-seat--clickable:hover .lobby-seat-avatar--empty {
+  border-color: var(--lb-accent);
+  color: var(--lb-accent);
+  transform: scale(1.05);
 }
 .lobby-seat-name {
   font-family: 'Archivo Black', sans-serif;

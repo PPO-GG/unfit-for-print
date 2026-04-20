@@ -9,7 +9,7 @@
   >
     <div class="lobby-seat-avatar lobby-seat-avatar--empty">+</div>
     <div class="lobby-seat-name" style="color: var(--lb-ink-muted)">OPEN SEAT</div>
-    <div class="lobby-seat-status" v-if="isHostUser">click · add bot</div>
+    <div class="lobby-seat-status">{{ isHostUser ? "Add bot · Share code" : "Share code" }}</div>
   </div>
 
   <!-- Filled seat -->
