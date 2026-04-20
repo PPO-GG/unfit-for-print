@@ -22,8 +22,10 @@
       :my-id="myId ?? ''"
       :is-host="isHost"
       :is-starting="isStarting"
+      :max-seats="maxSeats"
       @toggle-ready="handleToggleReady"
       @start="startGameWrapper"
+      @add-bot="addBot"
     />
 
     <LobbyChat :messages="reactive.chat.value" />

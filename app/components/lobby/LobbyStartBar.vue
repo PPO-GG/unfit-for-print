@@ -1,54 +1,66 @@
 <template>
-  <footer class="lobby-startbar lobby-panel">
-    <!-- Left: stats -->
-    <div class="lsb-stats">
-      <span class="lsb-stat">
-        <span class="lsb-stat-val">{{ players.length }}</span>
-        <span class="lsb-stat-lbl">Players</span>
-      </span>
-      <span class="lsb-divider" />
-      <span class="lsb-stat">
-        <span class="lsb-stat-val">{{ readyCount }}</span>
-        <span class="lsb-stat-lbl">Ready</span>
-      </span>
-      <span class="lsb-progress">
-        <span class="lsb-progress-bar" :style="{ width: progressPct + '%' }" />
-      </span>
+  <footer class="lobby-startbar lobby-panel" :style="panelStyle">
+    <div class="lsb-state">
+      <div class="lsb-ring">
+        <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
+          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--lb-line-strong)" stroke-width="3" />
+          <circle
+            cx="24"
+            cy="24"
+            r="20"
+            fill="none"
+            :stroke="ringColor"
+            stroke-width="3"
+            :stroke-dasharray="`${ringDash} 126`"
+            stroke-linecap="round"
+            transform="rotate(-90 24 24)"
+          />
+        </svg>
+        <div class="lsb-ring-count">
+          {{ players.length }}<span>/{{ maxSeats }}</span>
+        </div>
+      </div>
+      <div class="lsb-labels">
+        <div class="lsb-label-main">{{ stateLabel }}</div>
+        <div class="lsb-label-sub">{{ stateSubLabel }}</div>
+      </div>
     </div>
 
-    <!-- Right: actions -->
+    <div class="lsb-spacer" />
+
     <div class="lsb-actions">
-      <!-- Ready toggle (all players) -->
       <button
-        class="neon-btn"
-        :class="myReady ? 'neon-btn--ready-active' : 'neon-btn--ghost'"
-        @click="$emit('toggle-ready')"
+        v-if="isHost"
+        class="neon-btn neon-btn--ghost lsb-btn"
+        @click="$emit('add-bot')"
       >
-        <span
-          class="lsb-ready-dot"
-          :class="{ 'lsb-ready-dot--on': myReady }"
-        />
-        {{ myReady ? "I'm Ready ✓" : "I'm Ready" }}
+        <span aria-hidden="true">🤖</span> ADD BOT
       </button>
 
-      <!-- Start button (host only) -->
-      <template v-if="isHost">
-        <button
-          v-if="!isStarting"
-          class="neon-btn neon-btn--primary"
-          :disabled="!canStart"
-          @click="$emit('start')"
-        >
-          ▶ START GAME
-        </button>
-        <button v-else class="neon-btn neon-btn--primary" disabled>
-          Starting…
-        </button>
-      </template>
+      <button
+        class="neon-btn lsb-btn"
+        :class="{ 'neon-btn--ready-active': myReady }"
+        @click="$emit('toggle-ready')"
+      >
+        <span aria-hidden="true">✓</span>
+        {{ myReady ? "READY" : "READY UP" }}
+      </button>
 
-      <!-- Non-host status -->
+      <button
+        v-if="isHost"
+        class="neon-btn lsb-btn lsb-btn--start"
+        :class="{ 'neon-btn--primary': canStart }"
+        :disabled="!canStart || isStarting"
+        @click="handleStart"
+      >
+        <span aria-hidden="true">▶</span>
+        <template v-if="isStarting">STARTING…</template>
+        <template v-else-if="canStart && countdown !== null && countdown > 0">START · {{ countdown }}</template>
+        <template v-else>START NOW</template>
+      </button>
+
       <div v-else class="lsb-waiting-label">
-        {{ allNonBotsReady ? "Waiting for host…" : "Waiting for players to ready up…" }}
+        {{ allNonBotsReady ? "Waiting for host…" : "Waiting for players…" }}
       </div>
     </div>
   </footer>
@@ -62,12 +74,16 @@ const props = defineProps<{
   myId: string;
   isHost: boolean;
   isStarting: boolean;
+  maxSeats: number;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: "toggle-ready"): void;
   (e: "start"): void;
+  (e: "add-bot"): void;
 }>();
+
+const COUNTDOWN_SECONDS = 5;
 
 const nonBotPlayers = computed(() =>
   props.players.filter((p) => p.playerType !== "bot"),
@@ -86,107 +102,206 @@ const canStart = computed(
   () => props.players.length >= 3 && allNonBotsReady.value,
 );
 
+const enoughPlayers = computed(() => props.players.length >= 3);
+
 const myReady = computed(() => {
   const me = props.players.find((p) => p.userId === props.myId);
   return me?.ready ?? false;
 });
 
-const progressPct = computed(() =>
-  props.players.length === 0
-    ? 0
-    : Math.round((readyCount.value / props.players.length) * 100),
-);
+// ── Countdown logic ─────────────────────────────────────────────
+const countdown = ref<number | null>(null);
+let timer: ReturnType<typeof setInterval> | null = null;
+let startFired = false;
+
+function clearTimer() {
+  if (timer !== null) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+
+function startCountdown() {
+  clearTimer();
+  startFired = false;
+  countdown.value = COUNTDOWN_SECONDS;
+  timer = setInterval(() => {
+    if (countdown.value === null) {
+      clearTimer();
+      return;
+    }
+    countdown.value -= 1;
+    if (countdown.value <= 0) {
+      clearTimer();
+      if (!startFired && props.isHost) {
+        startFired = true;
+        emit("start");
+      }
+    }
+  }, 1000);
+}
+
+function handleStart() {
+  if (!canStart.value || props.isStarting) return;
+  clearTimer();
+  if (!startFired) {
+    startFired = true;
+    emit("start");
+  }
+}
+
+watch(canStart, (now) => {
+  if (now) {
+    startCountdown();
+  } else {
+    clearTimer();
+    countdown.value = null;
+    startFired = false;
+  }
+});
+
+onBeforeUnmount(() => {
+  clearTimer();
+});
+
+// ── State labels + visual treatment ─────────────────────────────
+const stateLabel = computed(() => {
+  if (!enoughPlayers.value) {
+    const need = Math.max(0, 3 - props.players.length);
+    return `NEED ${need} MORE`;
+  }
+  if (!allNonBotsReady.value) return "WAITING FOR READY";
+  if (countdown.value !== null && countdown.value > 0) return `STARTING IN ${countdown.value}`;
+  return "DEALING CARDS…";
+});
+
+const stateSubLabel = computed(() => {
+  if (!enoughPlayers.value) return "At least 3 players required";
+  if (!allNonBotsReady.value) return `${readyCount.value}/${props.players.length} ready`;
+  return "Press cancel to stop auto-start";
+});
+
+const ringColor = computed(() => canStart.value ? "var(--lb-accent-lime)" : "var(--lb-accent)");
+
+const ringDash = computed(() => {
+  if (props.maxSeats <= 0) return 0;
+  const pct = Math.min(1, props.players.length / props.maxSeats);
+  return pct * 126;
+});
+
+const panelStyle = computed(() => {
+  if (canStart.value) {
+    return {
+      borderColor: "var(--lb-accent-lime)",
+      boxShadow: "0 0 40px -10px var(--lb-accent-lime)",
+    };
+  }
+  if (enoughPlayers.value) {
+    return {
+      borderColor: "var(--lb-accent)",
+      boxShadow: "0 0 30px -15px var(--lb-accent)",
+    };
+  }
+  return {
+    borderColor: "var(--lb-line-strong)",
+    boxShadow: "none",
+  };
+});
 </script>
 
 <style scoped>
 .lobby-startbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  padding: 12px 20px;
-  border-radius: 0;
-  border-left: none;
-  border-right: none;
-  border-bottom: none;
+  padding: 14px 18px;
+  margin: 0 20px 18px;
   flex-shrink: 0;
-  z-index: 10;
-  position: relative;
   flex-wrap: wrap;
+  transition: border-color 240ms ease, box-shadow 240ms ease;
 }
 
-.lsb-stats {
+.lsb-state {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
-.lsb-stat {
+.lsb-ring {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lsb-ring-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 13px;
+  color: var(--lb-ink);
+}
+
+.lsb-ring-count span {
+  color: var(--lb-ink-muted);
+  font-size: 11px;
+  margin-left: 1px;
+}
+
+.lsb-labels {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1px;
+  gap: 4px;
+  min-width: 0;
 }
 
-.lsb-stat-val {
+.lsb-label-main {
   font-family: 'Archivo Black', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
+  letter-spacing: 0.03em;
   color: var(--lb-ink);
   line-height: 1;
 }
 
-.lsb-stat-lbl {
+.lsb-label-sub {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 8px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
   color: var(--lb-ink-muted);
+  line-height: 1;
 }
 
-.lsb-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--lb-line);
-}
-
-.lsb-progress {
-  width: 80px;
-  height: 3px;
-  background: var(--lb-line);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.lsb-progress-bar {
-  height: 100%;
-  background: var(--lb-accent-lime);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
+.lsb-spacer { flex: 1; }
 
 .lsb-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.lsb-ready-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--lb-ink-muted);
-  flex-shrink: 0;
+.lsb-btn {
+  padding: 8px 12px;
+  font-size: 11px;
 }
 
-.lsb-ready-dot--on {
-  background: #0d0f1a;
+.lsb-btn--start {
+  padding: 10px 14px;
 }
 
 .lsb-waiting-label {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--lb-ink-muted);
 }
 </style>
