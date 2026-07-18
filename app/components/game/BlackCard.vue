@@ -17,34 +17,37 @@
           <slot name="front">
             <div class="card-content cursor-pointer">
               <div class="card-spine" />
-              <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
-              <div class="card-body">
-                <p class="card-body-text cursor-pointer" v-html="formattedCardText" />
+              <div ref="cardBodyRef" class="card-body">
+                <p
+                  ref="cardBodyTextRef"
+                  class="card-body-text cursor-pointer"
+                  v-html="formattedCardText"
+                />
               </div>
-              <img
-                class="card-watermark"
-                src="/img/unfit_logo_alt.png"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-              />
               <div class="card-footer">
-                <span class="card-footer-pack">{{ cardPack || '' }}</span>
-                <span v-if="computedNumPick" class="card-footer-pick">PICK {{ computedNumPick }}</span>
+                <span class="card-footer-pack">{{ cardPack || "" }}</span>
+                <span v-if="computedNumPick" class="card-footer-pick"
+                  >PICK {{ computedNumPick }}</span
+                >
               </div>
               <div class="card-report-btn" @click.stop>
                 <UPopover
-                  :ui="{ content: 'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg' }"
+                  :ui="{
+                    content:
+                      'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg',
+                  }"
                   arrow
                 >
                   <span class="flex cursor-pointer">⋯</span>
                   <template #content>
                     <div class="flex-1 p-4">
                       <p class="text-md p-1">
-                        <span class="text-yellow-500">Card ID: </span>{{ cardId ?? '' }}
+                        <span class="text-yellow-500">Card ID: </span
+                        >{{ cardId ?? "" }}
                       </p>
                       <p class="text-md p-1">
-                        <span class="text-yellow-500">Card Pack: </span>{{ cardPack }}
+                        <span class="text-yellow-500">Card Pack: </span
+                        >{{ cardPack }}
                       </p>
                       <UButton
                         class="mt-2"
@@ -66,7 +69,9 @@
           <slot name="back">
             <div class="card-content cursor-pointer">
               <div class="card-spine" />
-              <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
+              <span class="card-spine-label" aria-hidden="true"
+                >UNFIT · FOR · PRINT</span
+              >
               <div class="card-back-logo-wrap">
                 <img
                   class="card-back-logo-img"
@@ -74,10 +79,6 @@
                   alt="Unfit For Print"
                   draggable="false"
                 />
-              </div>
-              <div class="card-back-footer">
-                <span>ED. 001 · PROMPTS</span>
-                <span class="card-back-footer-mark">✶ 18+</span>
               </div>
             </div>
           </slot>
@@ -125,21 +126,24 @@ function playRandomFlip() {
   playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
 }
 
-const props = withDefaults(defineProps<{
-  cardId?: string;
-  text?: string;
-  cardPack?: string;
-  numPick?: number;
-  flipped?: boolean;
-  threeDeffect?: boolean;
-  shine?: boolean;
-  backLogoUrl?: string;
-  maskUrl?: string;
-  /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
-  scale?: number;
-}>(), {
-  scale: 100,
-});
+const props = withDefaults(
+  defineProps<{
+    cardId?: string;
+    text?: string;
+    cardPack?: string;
+    numPick?: number;
+    flipped?: boolean;
+    threeDeffect?: boolean;
+    shine?: boolean;
+    backLogoUrl?: string;
+    maskUrl?: string;
+    /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
+    scale?: number;
+  }>(),
+  {
+    scale: 100,
+  },
+);
 
 const fallbackNumPick = ref<number | undefined>(undefined);
 
@@ -179,6 +183,9 @@ watch(
 );
 
 const card = ref<HTMLElement | null>(null);
+const cardBodyRef = ref<HTMLElement | null>(null);
+const cardBodyTextRef = ref<HTMLElement | null>(null);
+useFitText(cardBodyRef, cardBodyTextRef, cardText);
 const rotation = ref({ x: 0, y: 0 });
 const shineOffset = ref({ x: 0, y: 0 });
 const showReportModal = ref(false);
@@ -473,14 +480,20 @@ onMounted(async () => {
   border-radius: 14px;
 }
 
-.card__front { background-color: #0d0f1a; }
-.card__back  { background-color: #0d0f1a; }
+.card__front {
+  background-color: #0d0f1a;
+}
+.card__back {
+  background-color: #0d0f1a;
+}
 
 .card__front .card__shine,
-.card__back  .card__shine {
+.card__back .card__shine {
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 14px;
   opacity: 0.25;
 }
@@ -513,7 +526,7 @@ onMounted(async () => {
   --card-scale: 1;
   width: clamp(
     calc(10rem * var(--card-scale)),
-    calc(12vw  * var(--card-scale)),
+    calc(12vw * var(--card-scale)),
     calc(18rem * var(--card-scale))
   );
   container-type: inline-size;
@@ -533,11 +546,12 @@ onMounted(async () => {
   border-radius: inherit;
   background: rgba(0, 0, 0, var(--shadow-opacity));
   filter: blur(var(--shadow-blur));
-  transform: translate(var(--shadow-x), var(--shadow-y)) scaleX(var(--shadow-scale-x));
+  transform: translate(var(--shadow-x), var(--shadow-y))
+    scaleX(var(--shadow-scale-x));
   z-index: -1;
   pointer-events: none;
   transition:
-    filter    0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     background 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -546,7 +560,9 @@ onMounted(async () => {
 
 .card-spine {
   position: absolute;
-  left: 0; top: 0; bottom: 0;
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: 10cqi;
   background: #f5d442;
   pointer-events: none;
@@ -558,9 +574,9 @@ onMounted(async () => {
   top: 50%;
   transform: translateY(-50%) rotate(-90deg);
   transform-origin: center;
-  font-family: 'Archivo Black', sans-serif;
+  font-family: "Archivo Black", sans-serif;
   font-size: 2.6cqi;
-  letter-spacing: .28em;
+  letter-spacing: 0.28em;
   color: #0d0f1a;
   white-space: nowrap;
   pointer-events: none;
@@ -569,31 +585,31 @@ onMounted(async () => {
 
 .card-body {
   position: absolute;
-  left: 14cqi; right: 6cqi;
-  top: 7cqi; bottom: 22cqi;
+  left: 16cqi;
+  right: 6cqi;
+  top: 7cqi;
+  bottom: 14cqi;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   overflow: hidden;
 }
 
 .card-body-text {
-  font-family: 'Archivo Black', sans-serif;
-  font-size: clamp(0.7rem, 9.5cqi, 2.2rem);
+  font-family: "Archivo Black", sans-serif;
   line-height: 1.08;
   letter-spacing: -0.015em;
   text-transform: uppercase;
   color: #f6f3ea;
   margin: 0;
-  overflow-wrap: break-word;
-  word-break: break-word;
-  hyphens: auto;
   width: 100%;
 }
 
 .card-watermark {
   position: absolute;
-  right: -6cqi; bottom: -4cqi;
-  width: 62cqi; height: auto;
+  right: -6cqi;
+  bottom: -4cqi;
+  width: 62cqi;
+  height: auto;
   opacity: 0.07;
   pointer-events: none;
   user-select: none;
@@ -601,7 +617,9 @@ onMounted(async () => {
 
 .card-footer {
   position: absolute;
-  left: 14cqi; right: 6cqi; bottom: 5cqi;
+  left: 16cqi;
+  right: 6cqi;
+  bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -609,17 +627,17 @@ onMounted(async () => {
 }
 
 .card-footer-pack {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 2.6cqi;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, .55);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .card-footer-pick {
-  font-family: 'Archivo Black', sans-serif;
+  font-family: "Archivo Black", sans-serif;
   font-size: 4.2cqi;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   line-height: 1;
   color: #f6f3ea;
 }
@@ -627,7 +645,7 @@ onMounted(async () => {
 .card-report-btn {
   position: absolute;
   bottom: 4cqi;
-  left: 14cqi;
+  left: 16cqi;
   font-size: 5.5cqi;
   opacity: 0.18;
   color: #f6f3ea;
@@ -636,21 +654,26 @@ onMounted(async () => {
   line-height: 1;
   transition: opacity 0.3s ease;
 }
-.card-report-btn:hover { opacity: 0.5; }
+.card-report-btn:hover {
+  opacity: 0.5;
+}
 
 /* ── Back face ──────────────────────────────────────────────────── */
 
 .card-back-logo-wrap {
   position: absolute;
-  left: 14cqi; right: 6cqi;
-  top: 10cqi; bottom: 14cqi;
+  left: 14cqi;
+  right: 6cqi;
+  top: 10cqi;
+  bottom: 14cqi;
   display: flex;
   align-items: center;
   justify-content: flex-start;
 }
 
 .card-back-logo-img {
-  width: 100%; height: auto;
+  width: 100%;
+  height: auto;
   max-height: 100%;
   object-fit: contain;
   object-position: left center;
@@ -658,22 +681,24 @@ onMounted(async () => {
 
 .card-back-footer {
   position: absolute;
-  left: 14cqi; right: 6cqi; bottom: 5cqi;
+  left: 14cqi;
+  right: 6cqi;
+  bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1.5px solid rgba(255, 255, 255, .25);
+  border-top: 1.5px solid rgba(255, 255, 255, 0.25);
   padding-top: 2cqi;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 2.3cqi;
-  letter-spacing: .14em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, .6);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .card-back-footer-mark {
-  font-family: 'Archivo Black', sans-serif;
-  letter-spacing: .2em;
+  font-family: "Archivo Black", sans-serif;
+  letter-spacing: 0.2em;
   color: #f6f3ea;
 }
 </style>

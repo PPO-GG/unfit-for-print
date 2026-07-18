@@ -1,0 +1,817 @@
+/* ============================================================
+   ADMIN — Styles
+   Matches UFP brand (dark, condensed type, neon accents)
+   but tuned for dense ops use.
+
+   Scoped under .admin-root so it doesn't leak into the rest
+   of the app. All selectors below are wrapped in .admin-root {}.
+   ============================================================ */
+
+.admin-root {
+  --bg-0: #05060d;
+  --bg-1: #0a0d1c;
+  --bg-2: #121735;
+  --bg-panel: rgba(10, 13, 28, 0.72);
+  --bg-row: rgba(255, 255, 255, 0.015);
+  --bg-row-hover: rgba(255, 255, 255, 0.04);
+
+  --ink: #f6f3ea;
+  --ink-dim: #8891b4;
+  --ink-muted: #565d7e;
+
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+
+  --accent: oklch(82% 0.18 95);
+  --accent-2: oklch(72% 0.22 355);
+  --accent-3: oklch(78% 0.20 195);
+  --accent-4: oklch(80% 0.20 140);
+  --danger: oklch(68% 0.22 25);
+  --discord: #5865f2;
+
+  --sidebar-w: 248px;
+
+  background: var(--bg-0);
+  color: var(--ink);
+
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.admin-root .font-display { font-family: 'Archivo Black', sans-serif; letter-spacing: -0.01em; }
+.admin-root .font-cond { font-family: 'Barlow Condensed', sans-serif; }
+.admin-root .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+.admin-root button { font-family: inherit; cursor: pointer; }
+.admin-root a { color: inherit; text-decoration: none; }
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.admin-root {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 500px at -10% 10%, rgba(120, 200, 255, 0.04), transparent 60%),
+    radial-gradient(700px 400px at 110% 90%, rgba(255, 90, 160, 0.04), transparent 60%),
+    var(--bg-0);
+}
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+.admin-root .admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 11, 23, 0.85);
+  border-right: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.admin-root .brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-root .brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: #0d0f1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  box-shadow: 0 4px 12px -4px rgba(255, 205, 60, 0.4);
+}
+.admin-root .brand-name {
+  font-family: 'Archivo Black';
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.admin-root .brand-sub {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.admin-root .nav-section-label {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  padding: 8px 12px 6px;
+}
+
+.admin-root .nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 1px 4px;
+  border-radius: 6px;
+  color: var(--ink-dim);
+  font-family: 'Barlow Condensed';
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  position: relative;
+  transition: background 140ms, color 140ms;
+}
+.admin-root .nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+.admin-root .nav-item.active {
+  background: rgba(120, 200, 255, 0.08);
+  color: var(--ink);
+}
+.admin-root .nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--accent-3);
+  border-radius: 0 3px 3px 0;
+}
+.admin-root .nav-item.soon { opacity: 0.45; cursor: not-allowed; }
+.admin-root .nav-icon {
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-muted);
+}
+.admin-root .nav-item.active .nav-icon { color: var(--accent-3); }
+.admin-root .nav-label { flex: 1; }
+.admin-root .nav-badge {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #0d0f1a;
+  letter-spacing: 0.04em;
+}
+.admin-root .nav-badge.danger {
+  background: var(--danger);
+  color: #fff;
+}
+.admin-root .nav-soon {
+  font-family: 'JetBrains Mono';
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.admin-root .user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+.admin-root .user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Archivo Black';
+  font-size: 11px;
+}
+.admin-root .user-name {
+  font-family: 'Archivo Black';
+  font-size: 12px;
+  line-height: 1;
+}
+.admin-root .user-role {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.admin-root .role-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-4);
+  box-shadow: 0 0 6px var(--accent-4);
+}
+.admin-root .user-action {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-root .user-action:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ============================================================
+   Top bar
+   ============================================================ */
+.admin-root .admin-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.admin-root .admin-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(5, 6, 13, 0.6);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.admin-root .search-wrap {
+  flex: 1;
+  max-width: 520px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink-muted);
+}
+.admin-root .search-wrap input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: 'Barlow Condensed';
+  font-size: 13px;
+  color: var(--ink);
+}
+.admin-root .search-wrap input::placeholder { color: var(--ink-muted); }
+.admin-root .search-wrap kbd {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--ink-muted);
+}
+.admin-root .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.admin-root .env-pill {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--accent-4);
+  background: rgba(130, 255, 170, 0.08);
+  color: var(--accent-4);
+}
+.admin-root .icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.admin-root .icon-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+.admin-root .icon-btn .dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  box-shadow: 0 0 6px var(--accent-2);
+}
+
+/* ============================================================
+   Content area
+   ============================================================ */
+.admin-root .admin-content {
+  padding: 24px 32px 60px;
+  max-width: 1480px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   Page header
+   ============================================================ */
+.admin-root .page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.admin-root .eyebrow {
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+.admin-root .page-title {
+  font-family: 'Archivo Black';
+  font-size: 32px;
+  line-height: 1;
+  margin: 6px 0 0;
+  letter-spacing: -0.02em;
+}
+.admin-root .page-sub {
+  font-family: 'Barlow Condensed';
+  font-size: 14px;
+  color: var(--ink-dim);
+  margin-top: 8px;
+  max-width: 640px;
+}
+.admin-root .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.admin-root .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink);
+  font-family: 'Barlow Condensed';
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 140ms, border-color 140ms, transform 140ms;
+}
+.admin-root .btn:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--ink-dim); }
+.admin-root .btn:active { transform: translateY(1px); }
+.admin-root .btn.primary {
+  background: var(--accent);
+  color: #0d0f1a;
+  border-color: var(--accent);
+}
+.admin-root .btn.primary:hover { background: oklch(86% 0.18 95); }
+.admin-root .btn.danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+.admin-root .btn.cyan {
+  background: var(--accent-3);
+  color: #0d0f1a;
+  border-color: var(--accent-3);
+}
+.admin-root .btn.ghost {
+  background: transparent;
+}
+.admin-root .btn.sm {
+  padding: 5px 9px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   Panel
+   ============================================================ */
+.admin-root .panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+.admin-root .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-root .panel-title {
+  font-family: 'Archivo Black';
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.admin-root .panel-eyebrow {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* ============================================================
+   KPI tile
+   ============================================================ */
+.admin-root .kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 1200px) { .admin-root .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px) { .admin-root .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.admin-root .kpi {
+  position: relative;
+  padding: 16px 16px 14px;
+  border-radius: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.admin-root .kpi::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+.admin-root .kpi.cyan::before { background: var(--accent-3); }
+.admin-root .kpi.lime::before { background: var(--accent-4); }
+.admin-root .kpi.pink::before { background: var(--accent-2); }
+.admin-root .kpi.danger::before { background: var(--danger); }
+.admin-root .kpi-label {
+  font-family: 'JetBrains Mono';
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+.admin-root .kpi-value {
+  font-family: 'Archivo Black';
+  font-size: 28px;
+  line-height: 1;
+  margin: 8px 0 6px;
+}
+.admin-root .kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--accent-4);
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(130, 255, 170, 0.08);
+}
+.admin-root .kpi-trend.down {
+  color: var(--danger);
+  background: rgba(255, 90, 90, 0.08);
+}
+.admin-root .kpi-sub {
+  font-family: 'Barlow Condensed';
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-left: 8px;
+}
+.admin-root .kpi-spark {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0.85;
+}
+
+/* ============================================================
+   Activity feed
+   ============================================================ */
+.admin-root .activity-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.admin-root .activity-row:last-child { border-bottom: none; }
+.admin-root .activity-row:hover { background: var(--bg-row-hover); }
+.admin-root .activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 12px;
+  background: var(--accent-3);
+}
+.admin-root .activity-dot.lime { background: var(--accent-4); }
+.admin-root .activity-dot.cyan { background: var(--accent-3); }
+.admin-root .activity-dot.pink { background: var(--accent-2); }
+.admin-root .activity-dot.yellow { background: var(--accent); }
+.admin-root .activity-dot.danger { background: var(--danger); }
+.admin-root .activity-text {
+  font-family: 'Barlow Condensed';
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  min-width: 0;
+}
+.admin-root .activity-text .who {
+  font-family: 'Archivo Black';
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  margin-right: 6px;
+}
+.admin-root .activity-text .what {
+  color: var(--ink-dim);
+}
+.admin-root .activity-text .target {
+  color: var(--ink);
+  font-style: italic;
+  margin-left: 4px;
+}
+.admin-root .activity-time {
+  font-family: 'JetBrains Mono';
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Tables
+   ============================================================ */
+.admin-root .table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin-root .table th {
+  text-align: left;
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.015);
+}
+.admin-root .table td {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  vertical-align: middle;
+}
+.admin-root .table tbody tr:hover { background: var(--bg-row-hover); }
+.admin-root .table tbody tr:last-child td { border-bottom: none; }
+
+/* ============================================================
+   Status pills / chips
+   ============================================================ */
+.admin-root .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+.admin-root .status-pill.pending { color: var(--accent); background: rgba(255, 205, 60, 0.06); }
+.admin-root .status-pill.playtest { color: var(--accent-3); background: rgba(120, 200, 255, 0.06); }
+.admin-root .status-pill.live { color: var(--accent-4); background: rgba(130, 255, 170, 0.06); }
+.admin-root .status-pill.scheduled { color: var(--accent-3); background: rgba(120, 200, 255, 0.06); }
+.admin-root .status-pill.draft { color: var(--ink-dim); background: rgba(255, 255, 255, 0.02); }
+.admin-root .status-pill.ended { color: var(--ink-muted); background: rgba(255, 255, 255, 0.02); }
+.admin-root .status-pill.high { color: var(--danger); background: rgba(255, 90, 90, 0.08); }
+.admin-root .status-pill.med { color: var(--accent); background: rgba(255, 205, 60, 0.06); }
+.admin-root .status-pill.low { color: var(--ink-dim); background: rgba(255, 255, 255, 0.02); }
+
+.admin-root .kind-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-root .kind-pill.prompt { background: #0d0f1a; color: var(--accent); border: 1px solid var(--accent); }
+.admin-root .kind-pill.answer { background: #f6f3ea; color: #0d0f1a; }
+
+/* ============================================================
+   Card preview (small admin-table version)
+   ============================================================ */
+.admin-root .cah-mini {
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: 'Helvetica Neue', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.25;
+  max-width: 320px;
+}
+.admin-root .cah-mini.prompt { background: #0d0f1a; color: #f6f3ea; border: 1px solid rgba(255, 255, 255, 0.1); }
+.admin-root .cah-mini.answer { background: #f6f3ea; color: #0d0f1a; }
+
+/* ============================================================
+   Forms
+   ============================================================ */
+.admin-root .input,
+.admin-root .textarea,
+.admin-root .select {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font-family: 'Barlow Condensed';
+  font-size: 14px;
+  outline: none;
+  transition: border-color 140ms, background 140ms;
+}
+.admin-root .input:focus,
+.admin-root .textarea:focus,
+.admin-root .select:focus {
+  border-color: var(--accent-3);
+  background: rgba(120, 200, 255, 0.04);
+}
+.admin-root .textarea { min-height: 100px; resize: vertical; line-height: 1.4; }
+.admin-root .label {
+  font-family: 'JetBrains Mono';
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* ============================================================
+   Filter tabs
+   ============================================================ */
+.admin-root .filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: fit-content;
+}
+.admin-root .filter-tab {
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-family: 'Barlow Condensed';
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-root .filter-tab.active {
+  background: var(--accent-3);
+  color: #0d0f1a;
+}
+.admin-root .filter-tab .count {
+  font-family: 'JetBrains Mono';
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.admin-root .filter-tab.active .count { background: rgba(13, 15, 26, 0.2); color: #0d0f1a; }
+
+/* ============================================================
+   Banner preview (announcements)
+   ============================================================ */
+.admin-root .banner-preview {
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.admin-root .banner-preview.yellow { background: linear-gradient(90deg, oklch(82% 0.18 95), oklch(78% 0.22 60)); color: #0d0f1a; }
+.admin-root .banner-preview.pink { background: linear-gradient(90deg, oklch(72% 0.22 355), oklch(68% 0.25 20)); color: #0d0f1a; }
+.admin-root .banner-preview.cyan { background: linear-gradient(90deg, oklch(78% 0.20 195), oklch(74% 0.18 220)); color: #0d0f1a; }
+.admin-root .banner-preview.lime { background: linear-gradient(90deg, oklch(80% 0.20 140), oklch(76% 0.22 110)); color: #0d0f1a; }
+
+.admin-root .banner-title {
+  font-family: 'Archivo Black';
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.admin-root .banner-body {
+  font-family: 'Barlow Condensed';
+  font-size: 13px;
+  margin-top: 4px;
+  opacity: 0.85;
+}
+
+/* ============================================================
+   Misc
+   ============================================================ */
+.admin-root .divider {
+  height: 1px;
+  background: var(--line);
+  margin: 18px 0;
+}
+.admin-root .muted { color: var(--ink-muted); }
+.admin-root .dim { color: var(--ink-dim); }
+
+.admin-root .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.admin-root .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 1100px) {
+  .admin-root .grid-2 { grid-template-columns: 1fr; }
+  .admin-root .grid-3 { grid-template-columns: 1fr; }
+}
+
+.admin-root .flex { display: flex; }
+.admin-root .items-center { align-items: center; }
+.admin-root .gap-2 { gap: 8px; }
+.admin-root .gap-3 { gap: 12px; }
+.admin-root .gap-4 { gap: 16px; }
+.admin-root .mt-2 { margin-top: 8px; }
+.admin-root .mt-4 { margin-top: 16px; }
+.admin-root .mt-6 { margin-top: 24px; }
+.admin-root .mb-4 { margin-bottom: 16px; }
+
+.admin-root .fade-in { animation: admin-fade 200ms ease; }
+@keyframes admin-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; }
+}
+
+/* Responsive: collapse sidebar on narrow */
+@media (max-width: 900px) {
+  .admin-root {
+    --sidebar-w: 70px;
+  }
+  .admin-root .nav-label,
+  .admin-root .brand-meta,
+  .admin-root .user-card .user-name,
+  .admin-root .user-card .user-role,
+  .admin-root .nav-section-label,
+  .admin-root .nav-badge,
+  .admin-root .nav-soon { display: none; }
+  .admin-root .brand-row { justify-content: center; }
+  .admin-root .nav-item { justify-content: center; }
+}

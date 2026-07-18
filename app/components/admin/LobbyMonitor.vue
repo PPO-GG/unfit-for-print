@@ -214,6 +214,41 @@ const gcAll = async () => {
   }
 };
 
+const deleteAllOrphaned = async () => {
+  const orphaned = status.value?.lobbies.filter((l) => !l.hasLiveDoc && l.registry) ?? [];
+  if (orphaned.length === 0) return;
+
+  const confirmed = await confirm({
+    title: "Delete All Orphaned",
+    message: `Delete ${orphaned.length} orphaned Appwrite lobby record(s)?\n\nThis cascade-deletes all players and lobby documents. Cannot be undone.`,
+    confirmButtonText: "Delete All",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
+
+  let deleted = 0;
+  let failed = 0;
+  for (const lobby of orphaned) {
+    try {
+      await $fetch("/api/admin/lobby/delete", {
+        method: "POST",
+        headers: authHeaders(),
+        body: { lobbyId: lobby.registry!.lobbyId },
+      });
+      deleted++;
+    } catch {
+      failed++;
+    }
+  }
+
+  notify({
+    title: "Orphaned Lobbies Deleted",
+    description: `${deleted} deleted${failed > 0 ? `, ${failed} failed` : ""}`,
+    color: failed > 0 ? "warning" : "success",
+  });
+  await fetchStatus();
+};
+
 // ── Auto-Refresh ──────────────────────────────────────────────────────────
 function startAutoRefresh() {
   stopAutoRefresh();
@@ -298,6 +333,18 @@ onUnmounted(() => {
           :tooltip="{ text: 'Force GC all lobbies' }"
         >
           GC All
+        </UButton>
+
+        <UButton
+          color="warning"
+          variant="soft"
+          size="xs"
+          icon="i-solar-ghost-bold-duotone"
+          @click="deleteAllOrphaned"
+          :disabled="!status?.lobbies.some((l) => !l.hasLiveDoc && l.registry)"
+          :tooltip="{ text: 'Delete all orphaned Appwrite records' }"
+        >
+          Delete Orphaned
         </UButton>
 
         <UButton

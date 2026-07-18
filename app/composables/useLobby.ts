@@ -4,7 +4,7 @@ import { useUserStore } from "~/stores/userStore";
 import { isAnonymousUser } from "~/composables/useUserUtils";
 import { usePlayers } from "~/composables/usePlayers";
 import { getAppwrite } from "~/utils/appwrite";
-import { getRandomHexString } from "~/composables/useCrypto";
+import { getRandomLetterCode } from "~/composables/useCrypto";
 import { useLobbyDoc } from "~/composables/useLobbyDoc";
 import { useLobbyMutations } from "~/composables/useLobbyMutations";
 import { useLobbyReactive } from "~/composables/useLobbyReactive";
@@ -209,9 +209,16 @@ export const useLobby = () => {
       );
     }
 
-    // Generate a cryptographically secure random lobby code
-    const randomValue = getRandomHexString(4);
-    const lobbyCode = randomValue.substring(0, 6).toUpperCase();
+    // Generate a 4-letter lobby code using crypto-secure sampling. Matches
+    // the join-takeover UI's 4-slot input. Collisions are rare (≈1/280k)
+    // but we retry a handful of times just in case. Existing 6-char hex
+    // codes still work — getLobbyByCode doesn't care about length.
+    let lobbyCode = getRandomLetterCode(4);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const existing = await getLobbyByCode(lobbyCode);
+      if (!existing) break;
+      lobbyCode = getRandomLetterCode(4);
+    }
 
     try {
       const displayName =

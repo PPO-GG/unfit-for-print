@@ -1,0 +1,1068 @@
+/* ============================================================
+   UFP BRAND — shared design tokens, typography, primitives.
+
+   Used by all pages that adopt the "brand" redesign (index, lobby,
+   game, gameover, labs, store, profile). Scoped under .ufp-brand so
+   it doesn't cascade into other pages (which still use the slate
+   Nuxt UI defaults).
+
+   Pages opt in via `layout: "brand"` — the brand layout wraps its
+   slot in a <div class="ufp-brand"> that activates every rule below.
+   ============================================================ */
+
+.ufp-brand {
+  /* ── Tokens (shared with admin.css but redeclared to keep the
+        brand scope self-contained) ─────────────────────────────── */
+  --bg-0: #05060d;
+  --bg-1: #0a0d1c;
+  --bg-2: #121735;
+
+  --ink: #f6f3ea;
+  --ink-dim: #8891b4;
+  --ink-muted: #565d7e;
+
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+
+  --accent: oklch(82% 0.18 95); /* acid yellow — signature */
+  --accent-2: oklch(72% 0.22 355); /* hot pink */
+  --accent-3: oklch(78% 0.2 195); /* cyan */
+  --accent-4: oklch(80% 0.2 140); /* electric lime */
+
+  --danger: oklch(68% 0.22 25);
+  --discord: #5865f2;
+
+  color: var(--ink);
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.ufp-brand .font-display {
+  font-family: "Archivo Black", "Barlow Condensed", sans-serif;
+  letter-spacing: -0.01em;
+}
+.ufp-brand .font-cond {
+  font-family: "Barlow Condensed", sans-serif;
+}
+.ufp-brand .font-mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.ufp-brand button {
+  font-family: inherit;
+  cursor: pointer;
+}
+.ufp-brand a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ============================================================
+   Gradient wash (replaces the falling-cards layer, layered on top
+   of the existing ScrollingBackground). Pointer-events disabled so
+   it never steals clicks.
+   ============================================================ */
+.ufp-brand-gradient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      1200px 600px at 50% -10%,
+      rgba(255, 205, 60, 0.08),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 90% 100%,
+      rgba(255, 90, 160, 0.07),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 10% 100%,
+      rgba(90, 200, 255, 0.06),
+      transparent 60%
+    );
+}
+
+/* ============================================================
+   Neon buttons — the big clacky call-to-action buttons.
+   ============================================================ */
+.ufp-brand .neon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1.4rem;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 200ms ease,
+    background 200ms ease,
+    border-color 200ms ease;
+}
+.ufp-brand .neon-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.04);
+}
+.ufp-brand .neon-btn:active {
+  transform: translateY(0);
+}
+.ufp-brand .neon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ufp-brand .neon-btn.primary {
+  color: var(--bg-0);
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 0 var(--accent),
+    0 6px 0 0 oklch(65% 0.18 95),
+    0 10px 24px -8px var(--accent);
+}
+.ufp-brand .neon-btn.primary:hover {
+  box-shadow:
+    0 0 30px -6px var(--accent),
+    0 6px 0 0 oklch(65% 0.18 95),
+    0 14px 30px -6px var(--accent);
+}
+.ufp-brand .neon-btn.primary:active {
+  box-shadow:
+    0 0 0 0 var(--accent),
+    0 2px 0 0 oklch(65% 0.18 95);
+  transform: translateY(4px);
+}
+
+.ufp-brand .neon-btn.pink {
+  color: var(--bg-0);
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  box-shadow: 0 6px 0 0 oklch(55% 0.22 355);
+}
+.ufp-brand .neon-btn.pink:active {
+  box-shadow: 0 2px 0 0 oklch(55% 0.22 355);
+  transform: translateY(4px);
+}
+
+.ufp-brand .neon-btn.cyan {
+  color: var(--bg-0);
+  background: var(--accent-3);
+  border-color: var(--accent-3);
+  box-shadow: 0 6px 0 0 oklch(58% 0.2 195);
+}
+.ufp-brand .neon-btn.cyan:active {
+  box-shadow: 0 2px 0 0 oklch(58% 0.2 195);
+  transform: translateY(4px);
+}
+
+.ufp-brand .neon-btn.lime {
+  color: var(--bg-0);
+  background: var(--accent-4);
+  border-color: var(--accent-4);
+  box-shadow: 0 6px 0 0 oklch(60% 0.2 140);
+}
+.ufp-brand .neon-btn.lime:active {
+  box-shadow: 0 2px 0 0 oklch(60% 0.2 140);
+  transform: translateY(4px);
+}
+
+.ufp-brand .neon-btn.ghost {
+  background: transparent;
+  border: 1.5px dashed var(--line-strong);
+  color: var(--ink-dim);
+}
+.ufp-brand .neon-btn.ghost:hover {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+}
+
+/* ============================================================
+   Game cards (UFP card primitive).
+   ============================================================ */
+.ufp-brand .ufp-card {
+  position: relative;
+  width: 200px;
+  height: 280px;
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  box-shadow:
+    0 30px 60px -20px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition:
+    transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1.4),
+    box-shadow 300ms;
+  transform-origin: center bottom;
+}
+.ufp-brand .ufp-card.black {
+  background: #0d0f1a;
+  color: var(--ink);
+}
+.ufp-brand .ufp-card.white {
+  background: #f6f3ea;
+  color: #0d0f1a;
+}
+.ufp-brand .ufp-card .brand-chip {
+  position: absolute;
+  bottom: 14px;
+  font-family: "Archivo Black";
+  font-size: 8.5px;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.ufp-brand .ufp-card .brand-chip.left {
+  left: 18px;
+}
+.ufp-brand .ufp-card .brand-chip.right {
+  right: 18px;
+  text-align: right;
+}
+.ufp-brand .ufp-card.black .brand-chip {
+  color: rgba(255, 255, 255, 0.45);
+}
+.ufp-brand .ufp-card.white .brand-chip {
+  color: rgba(13, 15, 26, 0.55);
+}
+.ufp-brand .ufp-card .blank {
+  display: inline-block;
+  min-width: 90px;
+  border-bottom: 2px solid currentColor;
+  vertical-align: -2px;
+  height: 1em;
+  margin: 0 2px;
+}
+
+/* ============================================================
+   Panels, striping, dividers.
+   ============================================================ */
+.ufp-brand .panel {
+  background: rgba(10, 13, 28, 0.32);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.ufp-brand .panel-striped {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.02) 0 10px,
+      rgba(255, 255, 255, 0) 10px 20px
+    ),
+    rgba(10, 13, 28, 0.72);
+}
+.ufp-brand .ticket-sep {
+  height: 2px;
+  background-image: linear-gradient(
+    90deg,
+    var(--line-strong) 50%,
+    transparent 0
+  );
+  background-size: 8px 2px;
+  background-repeat: repeat-x;
+}
+
+/* ============================================================
+   Chips, stamps, live dot.
+   ============================================================ */
+.ufp-brand .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-family: "JetBrains Mono";
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ufp-brand .stamp {
+  display: inline-block;
+  border: 2.5px solid currentColor;
+  padding: 3px 8px 2px;
+  font-family: "Archivo Black";
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  animation: ufp-stamp-wobble 4s ease-in-out infinite;
+}
+@keyframes ufp-stamp-wobble {
+  0%,
+  100% {
+    transform: rotate(-6deg) scale(1);
+  }
+  50% {
+    transform: rotate(-4deg) scale(1.02);
+  }
+}
+
+.ufp-brand .live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent-4);
+  animation: ufp-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ufp-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(130, 255, 170, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(130, 255, 170, 0);
+  }
+}
+
+/* ============================================================
+   Tickertape (footer scrolling status strip).
+   ============================================================ */
+.ufp-brand .tickertape {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
+.ufp-brand .tickertape-inner {
+  display: inline-block;
+  animation: ufp-ticker 40s linear infinite;
+  padding-left: 100%;
+}
+@keyframes ufp-ticker {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* ============================================================
+   Menu cards — large colored-tile CTAs on the index arcade layout.
+   ============================================================ */
+.ufp-brand .menu-card {
+  position: relative;
+  border-radius: 12px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  aspect-ratio: 2 / 3;
+  min-height: 230px;
+  background: #0d0f1a;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1.4),
+    box-shadow 200ms,
+    border-color 200ms;
+  font-family: "Archivo Black";
+  width: 100%;
+}
+.ufp-brand .menu-card:hover {
+  transform: translateY(-6px) rotate(-0.5deg);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+}
+.ufp-brand .menu-card:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.ufp-brand .menu-card:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+.ufp-brand .menu-card.accent-yellow {
+  background: var(--accent);
+  color: #0d0f1a;
+  border-color: transparent;
+}
+.ufp-brand .menu-card.accent-pink {
+  background: var(--accent-2);
+  color: #0d0f1a;
+  border-color: transparent;
+}
+.ufp-brand .menu-card.accent-cyan {
+  background: var(--accent-3);
+  color: #0d0f1a;
+  border-color: transparent;
+}
+.ufp-brand .menu-card.accent-lime {
+  background: var(--accent-4);
+  color: #0d0f1a;
+  border-color: transparent;
+}
+
+/* ============================================================
+   Join Game takeover — fullscreen modal with 4 big letter slots.
+   Port of .join-takeover from the prototype.
+   ============================================================ */
+.ufp-brand .join-takeover {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(5, 6, 13, 0.86);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ufp-join-fadein 240ms ease;
+  padding: 24px;
+}
+@keyframes ufp-join-fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ufp-join-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ufp-brand .join-takeover-card {
+  position: relative;
+  width: min(720px, 92vw);
+  background: var(--accent-2);
+  color: #0d0f1a;
+  border-radius: 20px;
+  padding: 40px 48px 32px;
+  box-shadow:
+    0 40px 80px -20px rgba(255, 90, 160, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: ufp-join-rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1.2);
+  outline: none;
+}
+
+.ufp-brand .join-corner {
+  position: absolute;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  opacity: 0.5;
+  line-height: 0.95;
+}
+.ufp-brand .join-corner.tl {
+  top: 18px;
+  left: 20px;
+}
+.ufp-brand .join-corner.br {
+  bottom: 18px;
+  right: 20px;
+  text-align: right;
+}
+
+.ufp-brand .join-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(13, 15, 26, 0.1);
+  color: #0d0f1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: background 160ms;
+}
+.ufp-brand .join-close:hover {
+  background: rgba(13, 15, 26, 0.2);
+}
+
+.ufp-brand .join-slot {
+  width: 80px;
+  height: 96px;
+  border-radius: 10px;
+  border: 2.5px solid rgba(13, 15, 26, 0.25);
+  background: rgba(255, 255, 255, 0.15);
+  color: #0d0f1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 56px;
+  position: relative;
+  transition:
+    border-color 160ms,
+    background 160ms;
+}
+.ufp-brand .join-slot.filled {
+  border-color: #0d0f1a;
+  background: rgba(13, 15, 26, 0.1);
+  animation: ufp-join-slot-pop 300ms cubic-bezier(0.2, 0.8, 0.2, 1.6);
+}
+.ufp-brand .join-slot.caret {
+  border-color: #0d0f1a;
+  box-shadow: 0 0 0 4px rgba(13, 15, 26, 0.12);
+}
+.ufp-brand .join-slot.err {
+  border-color: var(--danger);
+  animation: ufp-join-shake 360ms;
+  color: var(--danger);
+}
+.ufp-brand .join-slot-corner {
+  position: absolute;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: rgba(13, 15, 26, 0.6);
+  letter-spacing: 0.08em;
+}
+.ufp-brand .join-slot-corner.tl {
+  top: 6px;
+  left: 8px;
+}
+.ufp-brand .join-slot-corner.br {
+  bottom: 6px;
+  right: 8px;
+  transform: rotate(180deg);
+}
+
+@keyframes ufp-join-slot-pop {
+  0% {
+    transform: translateY(-10px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes ufp-join-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.ufp-brand .join-tray {
+  margin-top: 32px;
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-height: 78px;
+  background: rgba(13, 15, 26, 0.08);
+  border: 1px dashed rgba(13, 15, 26, 0.25);
+  display: flex;
+  align-items: center;
+}
+
+.ufp-brand .join-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  border: 1px solid rgba(13, 15, 26, 0.3);
+  border-radius: 4px;
+  background: rgba(13, 15, 26, 0.1);
+  color: rgba(13, 15, 26, 0.75);
+}
+
+.ufp-brand .join-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin: 0 2px;
+  animation: ufp-join-dot-bounce 1.2s ease-in-out infinite;
+}
+.ufp-brand .join-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.ufp-brand .join-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes ufp-join-dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.ufp-brand .join-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: oklch(50% 0.22 140);
+  animation: ufp-join-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ufp-join-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(40, 120, 60, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(40, 120, 60, 0);
+  }
+}
+
+.ufp-brand .join-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: #0d0f1a;
+  border: 1.5px solid #0d0f1a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    transform 120ms,
+    box-shadow 200ms;
+}
+.ufp-brand .join-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.4);
+}
+
+.ufp-brand .join-confetti {
+  position: absolute;
+  width: 8px;
+  height: 12px;
+  pointer-events: none;
+}
+@keyframes ufp-join-confetti {
+  0% {
+    transform: translateY(-20px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(420px) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   Settings drawer — slides in from the right (420px wide).
+   ============================================================ */
+.ufp-brand .settings-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  transition: opacity 200ms ease;
+}
+
+.ufp-brand .settings-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 92vw;
+  z-index: 201;
+  background: linear-gradient(180deg, #0a0d1c 0%, #06070f 100%);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -30px 0 60px -10px rgba(0, 0, 0, 0.7);
+  transform: translateX(100%);
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+.ufp-brand .settings-drawer.open {
+  transform: translateX(0);
+}
+
+.ufp-brand .settings-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ufp-brand .settings-back,
+.ufp-brand .settings-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+  transition: color 140ms;
+}
+.ufp-brand .settings-back:hover,
+.ufp-brand .settings-close:hover {
+  color: var(--ink);
+}
+
+.ufp-brand .settings-eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+
+.ufp-brand .settings-title {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.ufp-brand .settings-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.ufp-brand .settings-footer {
+  padding: 12px 22px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.ufp-brand .settings-section-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: var(--ink-muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 8px 8px 4px;
+}
+
+.ufp-brand .settings-drill {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 140ms,
+    border-color 140ms;
+}
+.ufp-brand .settings-drill:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ufp-brand .settings-drill.selected {
+  border-color: var(--accent-3);
+  background: rgba(120, 200, 255, 0.05);
+}
+
+.ufp-brand .settings-drill-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ufp-brand .settings-drill-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ufp-brand .settings-drill-label {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ufp-brand .settings-drill-value {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  color: var(--ink-muted);
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ufp-brand .settings-chev {
+  width: 10px;
+  height: 10px;
+  color: var(--ink-muted);
+}
+
+.ufp-brand .settings-vol-row {
+  padding: 12px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.ufp-brand .settings-vol-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ufp-brand .settings-vol-count {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  min-width: 32px;
+  text-align: right;
+  color: var(--ink-dim);
+}
+.ufp-brand .settings-vol-count.muted {
+  color: var(--ink-muted);
+}
+
+.ufp-brand .settings-mute {
+  width: 30px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink-dim);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+.ufp-brand .settings-mute.on {
+  border-color: var(--accent-2);
+  background: var(--accent-2);
+  color: #0d0f1a;
+}
+
+.ufp-brand .settings-vol-slider {
+  padding-left: 36px;
+  padding-right: 4px;
+}
+
+.ufp-brand .settings-vol-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent-3);
+}
+
+.ufp-brand .settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  cursor: pointer;
+}
+
+.ufp-brand .settings-toggle-sub {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: var(--ink-muted);
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+.ufp-brand .settings-toggle {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-strong);
+  position: relative;
+  flex-shrink: 0;
+  transition:
+    background 180ms,
+    border-color 180ms;
+}
+.ufp-brand .settings-toggle.on {
+  background: var(--accent-3);
+  border-color: var(--accent-3);
+}
+.ufp-brand .settings-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+  transition:
+    left 180ms cubic-bezier(0.2, 0.8, 0.2, 1.4),
+    background 180ms;
+}
+.ufp-brand .settings-toggle.on .settings-toggle-knob {
+  left: 18px;
+  background: #0d0f1a;
+}
+
+.ufp-brand .settings-link-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-dim);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 140ms,
+    background 140ms;
+}
+.ufp-brand .settings-link-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.ufp-brand .settings-link-row.danger {
+  color: var(--accent-2);
+}
+
+.ufp-brand .settings-discord {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(88, 101, 242, 0.12) 0%,
+    rgba(138, 74, 243, 0.06) 100%
+  );
+}
+
+.ufp-brand .settings-discord-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #5865f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 14px;
+  color: #fff;
+}
+
+.ufp-brand .settings-discord-linked {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 8.5px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: rgba(130, 255, 170, 0.1);
+  color: var(--accent-4);
+  letter-spacing: 0.15em;
+}
+
+.ufp-brand .settings-active-pill {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: var(--accent-3);
+  letter-spacing: 0.15em;
+}
+
+/* ============================================================
+   Variant transition — used when pages fade in.
+   ============================================================ */
+.ufp-brand .variant-enter {
+  animation: ufp-variant-in 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes ufp-variant-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   Utility helpers (subset — we prefer Tailwind for most utilities,
+   but these are used by brand components that don't have Tailwind
+   scoped inside them).
+   ============================================================ */
+.ufp-brand .hide-scroll::-webkit-scrollbar {
+  display: none;
+}
+.ufp-brand .muted {
+  color: var(--ink-muted);
+}
+.ufp-brand .dim {
+  color: var(--ink-dim);
+}

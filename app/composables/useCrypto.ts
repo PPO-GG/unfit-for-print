@@ -71,6 +71,34 @@ export const getRandomHexString = (numBytes: number): string => {
 };
 
 /**
+ * Alphabet for lobby codes — all uppercase letters minus the glyphs
+ * that look like digits or each other (I / L / O). Using 23 letters
+ * gives 23^4 = 279,841 possible 4-letter codes, which is more than
+ * enough headroom for concurrent lobbies.
+ */
+const LOBBY_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ";
+
+/**
+ * Generates a random lobby-style code — `length` uppercase letters drawn
+ * from {@link LOBBY_CODE_ALPHABET} using unbiased crypto sampling.
+ *
+ * Defaults to 4 letters to match the join-takeover UI. Collision checking
+ * is the caller's responsibility (retry on conflict if creating rows in a
+ * unique-indexed column).
+ *
+ * @param length Number of letters to emit. Defaults to 4.
+ * @returns A string of `length` letters, e.g. "WXYZ".
+ */
+export const getRandomLetterCode = (length = 4): string => {
+  const alphabet = LOBBY_CODE_ALPHABET;
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += alphabet[getRandomInt(alphabet.length)];
+  }
+  return out;
+};
+
+/**
  * Utility composable for cryptographically secure random number generation
  */
 export const useCrypto = () => {
@@ -79,5 +107,6 @@ export const useCrypto = () => {
     getRandomFloat,
     getRandomInRange,
     getRandomHexString,
+    getRandomLetterCode,
   };
 };

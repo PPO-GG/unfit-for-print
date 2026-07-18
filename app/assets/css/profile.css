@@ -1,0 +1,549 @@
+/* ============================================================
+   UFP PROFILE — design tokens + primitives for /profile
+
+   Scoped under .ufp-profile so styles never leak onto other
+   brand-themed pages. The parent .ufp-brand (from brand.css)
+   still provides the global font/bg tokens.
+   ============================================================ */
+
+.ufp-profile {
+  --rare-common: #8891b4;
+  --rare-rare: oklch(72% 0.18 220);
+  --rare-epic: oklch(72% 0.22 295);
+  --rare-legendary: oklch(82% 0.18 80);
+
+  --accent-cyan: oklch(78% 0.20 195);
+  --accent-yellow: oklch(82% 0.18 95);
+  --accent-pink: oklch(72% 0.22 355);
+  --accent-lime: oklch(80% 0.20 140);
+  --accent-purple: oklch(70% 0.20 295);
+  --danger: oklch(68% 0.22 25);
+}
+
+/* ── Panels (override brand panel for stronger bg on profile) ─ */
+.ufp-profile .profile-panel {
+  background: rgba(10, 13, 28, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+/* ── Chips ─────────────────────────────────────────────────── */
+.ufp-profile .profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.12em;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-strong);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink-dim);
+}
+.ufp-profile .profile-chip.yellow { background: rgba(255, 220, 80, 0.14); border-color: rgba(255, 220, 80, 0.45); color: var(--accent-yellow); }
+.ufp-profile .profile-chip.pink { background: rgba(255, 120, 180, 0.14); border-color: rgba(255, 120, 180, 0.45); color: var(--accent-pink); }
+.ufp-profile .profile-chip.cyan { background: rgba(120, 220, 255, 0.14); border-color: rgba(120, 220, 255, 0.45); color: var(--accent-cyan); }
+.ufp-profile .profile-chip.lime { background: rgba(140, 220, 120, 0.14); border-color: rgba(140, 220, 120, 0.45); color: var(--accent-lime); }
+.ufp-profile .profile-chip.purple { background: rgba(180, 140, 255, 0.14); border-color: rgba(180, 140, 255, 0.45); color: var(--accent-purple); }
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.ufp-profile .profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.ufp-profile .profile-btn:hover { border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.05); }
+.ufp-profile .profile-btn.primary {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  color: #052028;
+  box-shadow: 0 0 24px -4px var(--accent-cyan);
+}
+.ufp-profile .profile-btn.primary:hover { box-shadow: 0 0 32px -2px var(--accent-cyan); transform: translateY(-1px); }
+.ufp-profile .profile-btn.discord { background: #5865f2; border-color: #5865f2; color: #fff; }
+.ufp-profile .profile-btn.discord:hover { background: #4a55e0; border-color: #4a55e0; }
+
+.ufp-profile .profile-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--ink-dim);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.ufp-profile .profile-icon-btn:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.25); }
+
+/* ── Hero card ─────────────────────────────────────────────── */
+.ufp-profile .hero-card {
+  position: relative;
+  border-radius: 18px;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(120, 220, 255, 0.1), transparent 55%),
+    linear-gradient(180deg, rgba(30, 40, 80, 0.4), rgba(10, 13, 28, 0.85));
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+}
+.ufp-profile .hero-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 38px, rgba(255, 255, 255, 0.02) 38px 39px),
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(255, 255, 255, 0.02) 38px 39px);
+  pointer-events: none;
+}
+.ufp-profile .hero-card::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(120, 220, 255, 0.18), transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Hero avatar frame ─────────────────────────────────────── */
+.ufp-profile .hero-frame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ufp-profile .hero-frame .ring-shell {
+  position: absolute;
+  inset: -18px;
+  border-radius: 50%;
+  border: 2px solid var(--rare, var(--rare-common));
+  box-shadow: 0 0 40px -4px var(--rare, var(--rare-common)), inset 0 0 20px -4px var(--rare, var(--rare-common));
+  z-index: 1;
+  pointer-events: none;
+}
+.ufp-profile .hero-frame .ring-legendary {
+  position: absolute;
+  inset: -36px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--rare-legendary) 60deg, transparent 180deg, transparent 240deg, var(--rare-legendary) 300deg, transparent 360deg);
+  animation: profile-spin 8s linear infinite;
+  opacity: 0.7;
+  filter: blur(6px);
+  z-index: 0;
+  pointer-events: none;
+}
+@keyframes profile-spin { to { transform: rotate(360deg); } }
+
+.ufp-profile .rare-common { --rare: var(--rare-common); }
+.ufp-profile .rare-rare { --rare: var(--rare-rare); }
+.ufp-profile .rare-epic { --rare: var(--rare-epic); }
+.ufp-profile .rare-legendary { --rare: var(--rare-legendary); }
+
+/* ── Level badge + XP bar ──────────────────────────────────── */
+.ufp-profile .level-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(120, 220, 255, 0.18), rgba(120, 220, 255, 0.04));
+  border: 1px solid rgba(120, 220, 255, 0.4);
+  font-family: "Archivo Black", sans-serif;
+  color: var(--accent-cyan);
+  min-width: 66px;
+}
+.ufp-profile .level-badge .l { font-size: 9px; letter-spacing: 0.2em; opacity: 0.8; font-family: "JetBrains Mono", monospace; font-weight: 700; }
+.ufp-profile .level-badge .n { font-size: 22px; line-height: 1; margin-top: 1px; }
+
+.ufp-profile .xp-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.ufp-profile .xp-bar .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-pink));
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(120, 220, 255, 0.5);
+}
+
+/* ── Stat tiles ────────────────────────────────────────────── */
+.ufp-profile .stat-tile {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(10, 13, 28, 0.8);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.ufp-profile .stat-tile .k {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.ufp-profile .stat-tile .v {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--ink);
+}
+.ufp-profile .stat-tile .sub {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+.ufp-profile .stat-tile.accent-yellow { border-color: rgba(255, 220, 80, 0.3); background: linear-gradient(180deg, rgba(255, 220, 80, 0.06), rgba(255, 220, 80, 0.01)); }
+.ufp-profile .stat-tile.accent-yellow .v { color: var(--accent-yellow); }
+.ufp-profile .stat-tile.accent-cyan { border-color: rgba(120, 220, 255, 0.3); background: linear-gradient(180deg, rgba(120, 220, 255, 0.06), rgba(120, 220, 255, 0.01)); }
+.ufp-profile .stat-tile.accent-cyan .v { color: var(--accent-cyan); }
+.ufp-profile .stat-tile.accent-pink { border-color: rgba(255, 120, 180, 0.3); background: linear-gradient(180deg, rgba(255, 120, 180, 0.06), rgba(255, 120, 180, 0.01)); }
+.ufp-profile .stat-tile.accent-pink .v { color: var(--accent-pink); }
+.ufp-profile .stat-tile.accent-lime { border-color: rgba(140, 220, 120, 0.3); background: linear-gradient(180deg, rgba(140, 220, 120, 0.06), rgba(140, 220, 120, 0.01)); }
+.ufp-profile .stat-tile.accent-lime .v { color: var(--accent-lime); }
+
+/* ── Win-rate donut ────────────────────────────────────────── */
+.ufp-profile .wr-donut {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+.ufp-profile .wr-donut svg { transform: rotate(-90deg); }
+.ufp-profile .wr-donut .center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: "Archivo Black", sans-serif;
+}
+.ufp-profile .wr-donut .pct { font-size: 26px; color: var(--accent-cyan); line-height: 1; }
+.ufp-profile .wr-donut .lbl {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+
+/* ── Sparkline ─────────────────────────────────────────────── */
+.ufp-profile .sparkline { width: 100%; display: block; }
+
+/* ── Section headers / dividers ────────────────────────────── */
+.ufp-profile .sect-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.ufp-profile .sect-h .title {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.ufp-profile .sect-h .count-badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-dim);
+}
+
+.ufp-profile .hr-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 28px 0 14px;
+}
+.ufp-profile .hr-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.ufp-profile .profile-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.ufp-profile .profile-tab {
+  padding: 12px 18px;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.12s ease;
+  background: transparent;
+  border: none;
+}
+.ufp-profile .profile-tab:hover { color: var(--ink); }
+.ufp-profile .profile-tab.active { color: var(--ink); }
+.ufp-profile .profile-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 12px var(--accent-cyan);
+}
+.ufp-profile .profile-tab .count {
+  display: inline-block;
+  margin-left: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink-muted);
+}
+.ufp-profile .profile-tab.active .count { background: rgba(120, 220, 255, 0.14); color: var(--accent-cyan); }
+
+/* ── Rarity dots + labels ──────────────────────────────────── */
+.ufp-profile .rarity-dots { display: flex; gap: 4px; }
+.ufp-profile .rarity-dots .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rare);
+  box-shadow: 0 0 6px var(--rare);
+}
+.ufp-profile .rarity-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rare);
+}
+
+/* ── Decoration tile ───────────────────────────────────────── */
+.ufp-profile .deco-tile {
+  position: relative;
+  aspect-ratio: 1 / 1.15;
+  border-radius: 14px;
+  background: rgba(10, 13, 28, 0.8);
+  border: 1px solid var(--line);
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+}
+.ufp-profile .deco-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 30%, color-mix(in oklch, var(--rare) 18%, transparent) 0%, transparent 60%);
+  opacity: 0.7;
+}
+.ufp-profile .deco-tile:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--rare) 50%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px color-mix(in oklch, var(--rare) 30%, transparent);
+}
+.ufp-profile .deco-tile.equipped {
+  border-color: color-mix(in oklch, var(--rare) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--rare) 60%, transparent), 0 0 40px -10px var(--rare);
+}
+.ufp-profile .deco-tile.locked { opacity: 0.9; }
+.ufp-profile .deco-tile.locked::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.15) 0 8px, transparent 8px 16px);
+  border-radius: 14px;
+}
+
+.ufp-profile .deco-preview {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 8px 0 6px;
+}
+.ufp-profile .deco-name {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.ufp-profile .deco-corner {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: var(--ink-muted);
+}
+.ufp-profile .lock-overlay {
+  position: absolute;
+  top: 32px;
+  left: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+}
+
+/* ── Filter pills ──────────────────────────────────────────── */
+.ufp-profile .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.ufp-profile .filter-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.ufp-profile .filter-pill:hover { color: var(--ink); }
+.ufp-profile .filter-pill.active { background: var(--accent-cyan); color: #052028; border-color: var(--accent-cyan); }
+.ufp-profile .filter-pill.active.rare-rare { background: var(--rare-rare); border-color: var(--rare-rare); color: #081e28; }
+.ufp-profile .filter-pill.active.rare-epic { background: var(--rare-epic); border-color: var(--rare-epic); color: #1e0b28; }
+.ufp-profile .filter-pill.active.rare-legendary { background: var(--rare-legendary); border-color: var(--rare-legendary); color: #1e1708; }
+.ufp-profile .filter-pill.active.rare-common { background: var(--rare-common); border-color: var(--rare-common); color: #0a0d1c; }
+
+/* ── Achievement tile ──────────────────────────────────────── */
+.ufp-profile .ach-tile {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(10, 13, 28, 0.8);
+  border: 1px solid var(--line);
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+.ufp-profile .ach-tile.unlocked { border-color: color-mix(in oklch, var(--rare) 40%, transparent); }
+.ufp-profile .ach-tile.locked { opacity: 0.5; }
+.ufp-profile .ach-icon {
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: radial-gradient(circle, color-mix(in oklch, var(--rare) 30%, rgba(255, 255, 255, 0.04)), rgba(0, 0, 0, 0.2));
+  border: 1px solid color-mix(in oklch, var(--rare) 40%, var(--line));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  position: relative;
+}
+.ufp-profile .ach-tile.locked .ach-icon { filter: grayscale(1); }
+.ufp-profile .ach-name {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+.ufp-profile .ach-desc {
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.3;
+}
+
+/* ── Match row ─────────────────────────────────────────────── */
+.ufp-profile .match-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(10, 13, 28, 0.8);
+  border: 1px solid var(--line);
+  transition: border-color 0.15s ease;
+}
+.ufp-profile .match-row:hover { border-color: var(--line-strong); }
+.ufp-profile .match-row.win { border-left: 3px solid var(--accent-yellow); }
+.ufp-profile .match-row.loss { border-left: 3px solid var(--ink-muted); }
+
+/* ── Friends row ───────────────────────────────────────────── */
+.ufp-profile .friend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+/* ── Fade-in ───────────────────────────────────────────────── */
+.ufp-profile .fade-in { animation: profile-fadein 0.3s ease both; }
+@keyframes profile-fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
