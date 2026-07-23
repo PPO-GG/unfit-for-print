@@ -9,18 +9,18 @@
     "start": "node dist/src/server.js"
   },
   "dependencies": {
-    "crossws": "^0.4.4",
-    "dotenv": "^17.2.3",
+    "crossws": "^0.4.10",
+    "dotenv": "^17.4.2",
     "teleportal": "0.0.4",
     "unstorage": "latest",
-    "ws": "^8.18.0",
+    "ws": "^8.21.1",
     "y-protocols": "^1.0.7",
-    "yjs": "^13.6.29"
+    "yjs": "^13.6.31"
   },
   "devDependencies": {
-    "@types/node": "^25.0.10",
-    "@types/ws": "^8.5.13",
-    "tsx": "^4.21.0",
+    "@types/node": "^25.9.5",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3"
   }
 }
