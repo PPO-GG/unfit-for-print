@@ -2,6 +2,68 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.13.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.12.0...v3.13.0) (2026-07-23)
+
+
+### ✨ Features
+
+* add carousel rendering path with submit bar for tablet touch ([cdc1dec](https://github.com/PPO-GG/unfit-for-print/commit/cdc1decb54ef17ada7a96fd9abfb5fcb33e4414a))
+* add i18n keys, UI scale store, and global zoom application ([72c618a](https://github.com/PPO-GG/unfit-for-print/commit/72c618a3789f708dea147d8a1bbd345bf49efbc6))
+* add UI Scale slider to profile settings page ([26e7d8a](https://github.com/PPO-GG/unfit-for-print/commit/26e7d8a78bfe6ecd3029ef52a90db74711107adb))
+* add UI Scale slider with presets to game settings menu ([edf480d](https://github.com/PPO-GG/unfit-for-print/commit/edf480d636a60a9f9422a297b108efb4466e8cd5))
+* add useTouchDevice composable for pointer:coarse detection ([e38f9db](https://github.com/PPO-GG/unfit-for-print/commit/e38f9dbfeb6ffb6afa5d6ade59ee2aa21ba1a008))
+* **cards:** apply Showbill V4 design to BlackCard ([3904e49](https://github.com/PPO-GG/unfit-for-print/commit/3904e49e1407a874fd567871c4dfba045aa105ba))
+* **cards:** apply Showbill V4 design to WhiteCard ([39d9a46](https://github.com/PPO-GG/unfit-for-print/commit/39d9a462f6a0ccc6a82f184cb61dd01caab60e29))
+* handle card animations for carousel mode (skip fan GSAP, add simple exit) ([6b69c4f](https://github.com/PPO-GG/unfit-for-print/commit/6b69c4fa4e96369e64346465cbb3764f8c406274))
+* **lobby:** add design tokens for code tiles, segmented control, pack chips, form inputs ([0bc9d94](https://github.com/PPO-GG/unfit-for-print/commit/0bc9d94179ce8a04b03e190a9f53e47c018fa97e))
+* **lobby:** add lobby.css design tokens and utility classes ([a749efb](https://github.com/PPO-GG/unfit-for-print/commit/a749efbebfa24d82f5d178279af2fff57bdc8741))
+* **lobby:** add LobbyChat floating overlay component ([35f5cda](https://github.com/PPO-GG/unfit-for-print/commit/35f5cda415ce7fbf18aec4dbcfdec6238a19f621))
+* **lobby:** add LobbyCodePanel with code tiles and invite link ([4c825f2](https://github.com/PPO-GG/unfit-for-print/commit/4c825f2e6a3f04e7c7af4e8c9c41f60f77829a3b))
+* **lobby:** add LobbyPlayerList sidebar panel ([a427fc2](https://github.com/PPO-GG/unfit-for-print/commit/a427fc203542687edf694215eabdc9dd684c37e6))
+* **lobby:** add LobbyRoom root orchestrator ([a5a73d4](https://github.com/PPO-GG/unfit-for-print/commit/a5a73d464c787b9c0cbcc68ef605a270d0032c4c))
+* **lobby:** add LobbyRoundPreview stats bar ([c275ae2](https://github.com/PPO-GG/unfit-for-print/commit/c275ae29ffedc68c88777507cf37e235787a4e6e))
+* **lobby:** add LobbySeat component ([e8e2c84](https://github.com/PPO-GG/unfit-for-print/commit/e8e2c8496a86a87cfb3882fcd4b6a0d4c1702119))
+* **lobby:** add LobbySettingsDrawer component ([55f40a6](https://github.com/PPO-GG/unfit-for-print/commit/55f40a61da7e612de0529ec839b251d1d0132c6f))
+* **lobby:** add LobbySettingsSummary sidebar panel ([178079d](https://github.com/PPO-GG/unfit-for-print/commit/178079d58fe4b9d4ad1f7477fa52096c3e064575))
+* **lobby:** add LobbyStartBar component with ready toggle and start button ([f2578f5](https://github.com/PPO-GG/unfit-for-print/commit/f2578f560c14f981fe4a95b39a0f3f03e3207b99))
+* **lobby:** add LobbyTable component with oval seat layout ([eed0f21](https://github.com/PPO-GG/unfit-for-print/commit/eed0f21869fff4ca1c77e8c65afbf6d0d3105dc5))
+* **lobby:** add LobbyTopBar component ([af42967](https://github.com/PPO-GG/unfit-for-print/commit/af42967b972d7b558139a190832a92b3eea9d6d9))
+* **lobby:** add ready state to Y.Doc player map and setPlayerReady mutation ([4c4a1dc](https://github.com/PPO-GG/unfit-for-print/commit/4c4a1dcec1f5d34ceb36766c8707b002b539fdf1))
+* **lobby:** integrate LobbyRoom into game page, remove WaitingRoom and WaitingHero ([8aa0f8f](https://github.com/PPO-GG/unfit-for-print/commit/8aa0f8f26a2110fb42de0558a831e9857dda444b))
+* **lobby:** render avatar decorations in seats and sidebar list ([79ed681](https://github.com/PPO-GG/unfit-for-print/commit/79ed68196f5e4cb5415364fd215cc5db108dfdb3))
+* **lobby:** render player avatars in seats and sidebar list ([65ceccd](https://github.com/PPO-GG/unfit-for-print/commit/65ceccd0d165843b89579669d143b21d9c829e4b))
+* **lobby:** restructure LobbyRoom into grid with table + sidebar layout ([4e6f72c](https://github.com/PPO-GG/unfit-for-print/commit/4e6f72c1329985bdebd487db927638ee7e325061))
+* **lobby:** restyle pack chips with color dot, name, and card count ([4578a31](https://github.com/PPO-GG/unfit-for-print/commit/4578a3183a7f0ebe2b40d678141b478ff0454c01))
+* **lobby:** rework LobbyChat as bottom-right collapsible panel ([f2a6e4b](https://github.com/PPO-GG/unfit-for-print/commit/f2a6e4b6f7a37e7672965f2f927915643804976c))
+* **lobby:** rework LobbySettingsDrawer with all game settings fields ([45c60b8](https://github.com/PPO-GG/unfit-for-print/commit/45c60b88d79eec5c9fe6bcb9984fa64c7783a84d))
+* **lobby:** rework LobbyStartBar with progress ring and auto-countdown ([0cf1885](https://github.com/PPO-GG/unfit-for-print/commit/0cf1885d7d952981be1cf6ca4f8ab21887a34e5c))
+* **lobby:** rework LobbyTopBar with lobby name and settings summary ([dabdd06](https://github.com/PPO-GG/unfit-for-print/commit/dabdd064f7e611131b1ab67c4b87a5d0b1deea9b))
+* **lobby:** wire LobbyCodePanel, update chat/start/top bar props in LobbyRoom ([188cd0b](https://github.com/PPO-GG/unfit-for-print/commit/188cd0b8151e03237780767cafcd0ceac9987897))
+
+
+### 🐛 Bug Fixes
+
+* account for CSS zoom in custom cursor positioning ([76f53f5](https://github.com/PPO-GG/unfit-for-print/commit/76f53f5f89bf6b9cd8c7a6945beb33b0807ddae0))
+* detect touch via touchstart event fallback for DevTools simulation ([7ad2777](https://github.com/PPO-GG/unfit-for-print/commit/7ad2777b0eed53eb5091f9f5eb729fca8d4f5522))
+* **game:** advance out of roundEnd when host skips the judge ([6f48c21](https://github.com/PPO-GG/unfit-for-print/commit/6f48c216d9ad5f2617892c70253078945cdeefe2)), closes [#99](https://github.com/PPO-GG/unfit-for-print/issues/99)
+* improve gesture discrimination with angle-based direction locking and higher threshold ([0e6290f](https://github.com/PPO-GG/unfit-for-print/commit/0e6290f9c178d67e0b31178560289475b0b4ea29))
+* **lobby:** guard setPlayerReady against malformed JSON, complete PlayerPayload type ([3dfc1a1](https://github.com/PPO-GG/unfit-for-print/commit/3dfc1a1d6922282185dcd77d865619d34e4ed7ec))
+* **lobby:** match design empty-seat hover state and always show share hint ([4355e65](https://github.com/PPO-GG/unfit-for-print/commit/4355e6507a3750d6bbe4a4e68012709bc23d4feb))
+* **lobby:** match settings drawer to Showbill design ([2ffe3c0](https://github.com/PPO-GG/unfit-for-print/commit/2ffe3c0e7e130a637a2564916fbfeeb652fa5c76))
+* **lobby:** move chat into sidebar column instead of fixed overlay ([892baa7](https://github.com/PPO-GG/unfit-for-print/commit/892baa77322bdec674e7fcdf91ba5588870e504c))
+* **lobby:** move host crown out of avatar clip region ([3178241](https://github.com/PPO-GG/unfit-for-print/commit/3178241c550ea27d76631b2e0b122ee303b74259))
+* **lobby:** move ScrollingBackground to page-level layer behind all content ([20d86a5](https://github.com/PPO-GG/unfit-for-print/commit/20d86a5b0d1641c96e13cd7508c5b23aa4e9064e))
+* **lobby:** position chat above start bar via measured CSS var ([1ca9826](https://github.com/PPO-GG/unfit-for-print/commit/1ca98265622a05711288024c46d11b3efac72284))
+* **lobby:** register lobby.css, guard empty name/userId in LobbySeat, stable seat keys ([a7122a5](https://github.com/PPO-GG/unfit-for-print/commit/a7122a58b91a6876d25e069ec79ecf9de9f67336))
+* **lobby:** rejoin logic to redirect users to active game ([0cc1e00](https://github.com/PPO-GG/unfit-for-print/commit/0cc1e00e8ff68b0201131110b2cd9bb33e293036))
+* **lobby:** remove password space hack, debounce text inputs, cancel stale fetches ([c01b0f6](https://github.com/PPO-GG/unfit-for-print/commit/c01b0f6889a14f44b5a2fdd79ac7990e13d7036b))
+* **lobby:** reset isStarting in finally, remove redundant imports in LobbyRoom ([16817c3](https://github.com/PPO-GG/unfit-for-print/commit/16817c360ff8c9cdda00b8508fb277d40511bf39))
+* **lobby:** scale table panel to viewport height with clamp ([049ce53](https://github.com/PPO-GG/unfit-for-print/commit/049ce53ce46088c3e26cb6ed547016f56d009cfe))
+* **lobby:** server-side active filter for packs, inline types, aria-labels ([41ded91](https://github.com/PPO-GG/unfit-for-print/commit/41ded9179f3c3ca878244b21f7cbd294e00197eb))
+* **lobby:** teleport settings drawer to body to escape stacking-context trap ([12b4107](https://github.com/PPO-GG/unfit-for-print/commit/12b410701ef924ff36e83e60806baa8066fb76c7))
+* remove dangling CSS imports for files that don't exist on main ([b4a695d](https://github.com/PPO-GG/unfit-for-print/commit/b4a695d420900cc52162fe3e0ef8ac233e0c1333))
+* switch UI scale from CSS zoom to root font-size to prevent layout overflow ([323763d](https://github.com/PPO-GG/unfit-for-print/commit/323763d9bacdc0c6749dd00dfd73a2df3e556ace))
+
 ## [3.12.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.11.0...v3.12.0) (2026-04-08)
 
 
