@@ -224,6 +224,48 @@ function tryStartNextRound(): boolean {
   return result.success;
 }
 
+// Schedules the auto-advance to the next round after `delayMs`. Shared by
+// the winner-celebration flow and the no-winner (judge skipped) flow so
+// both paths always leave roundEnd instead of soft-locking.
+function scheduleNextRound(delayMs: number) {
+  hasTriggeredNextRound = false;
+  if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
+
+  nextRoundTimeout = setTimeout(() => {
+    if (isHost.value && !hasTriggeredNextRound && !isComplete.value) {
+      hasTriggeredNextRound = true;
+      const ok = tryStartNextRound();
+      if (ok) {
+        if (!isComplete.value) winnerSelected.value = false;
+      } else {
+        hasTriggeredNextRound = false;
+        startStalePhaseWatchdog();
+      }
+    } else if (!isComplete.value) {
+      // Non-host: schedule a fallback attempt in case host is unavailable.
+      // nextRound() is idempotent — first client to succeed transitions the
+      // phase; subsequent calls return { success: false } harmlessly.
+      winnerSelected.value = false;
+      if (!hasTriggeredNextRound) {
+        setTimeout(() => {
+          if (isRoundEnd.value && !isComplete.value && !hasTriggeredNextRound) {
+            console.info(
+              "[GameBoard] Non-host fallback: advancing stuck round",
+            );
+            hasTriggeredNextRound = true;
+            const ok = tryStartNextRound();
+            if (ok) {
+              if (!isComplete.value) winnerSelected.value = false;
+            } else {
+              hasTriggeredNextRound = false;
+            }
+          }
+        }, 3000);
+      }
+    }
+  }, delayMs);
+}
+
 // ── Phase staleness watchdog ────────────────────────────────
 // If the game stays stuck in roundEnd (all retries exhausted during a
 // transient outage that later resolves), periodically re-attempt.
@@ -306,47 +348,23 @@ watch(
         playSfx(SFX.winRound, { volume: 0.25 });
 
         // Auto-start next round after 5 seconds
-        hasTriggeredNextRound = false;
-        if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
-
-        nextRoundTimeout = setTimeout(() => {
-          if (isHost.value && !hasTriggeredNextRound && !isComplete.value) {
-            hasTriggeredNextRound = true;
-            const ok = tryStartNextRound();
-            if (ok) {
-              if (!isComplete.value) winnerSelected.value = false;
-            } else {
-              hasTriggeredNextRound = false;
-              startStalePhaseWatchdog();
-            }
-          } else if (!isComplete.value) {
-            // Non-host: schedule a fallback attempt in case host is unavailable.
-            // nextRound() is idempotent — first client to succeed transitions the
-            // phase; subsequent calls return { success: false } harmlessly.
-            winnerSelected.value = false;
-            if (!hasTriggeredNextRound) {
-              setTimeout(() => {
-                if (
-                  isRoundEnd.value &&
-                  !isComplete.value &&
-                  !hasTriggeredNextRound
-                ) {
-                  console.info(
-                    "[GameBoard] Non-host fallback: advancing stuck round",
-                  );
-                  hasTriggeredNextRound = true;
-                  const ok = tryStartNextRound();
-                  if (ok) {
-                    if (!isComplete.value) winnerSelected.value = false;
-                  } else {
-                    hasTriggeredNextRound = false;
-                  }
-                }
-              }, 3000);
-            }
-          }
-        }, 5000);
+        scheduleNextRound(5000);
       }, 2000); // 2s delay to show winning card highlight before celebration
+    }
+  },
+);
+
+// Watch for entering roundEnd with no winner — this happens when the host
+// skips the judge (useYjsGameEngine.skipJudge sets phase to roundEnd but
+// roundWinner stays null). The roundWinner watch above only fires the
+// auto-advance for a truthy winner, so without this the game would soft-lock
+// in roundEnd forever: no timer gets scheduled and (on desktop) the
+// celebration/continue UI never appears since it's gated on winnerSelected.
+watch(
+  () => state.value?.phase,
+  (newPhase) => {
+    if (newPhase === "roundEnd" && !state.value?.roundWinner) {
+      scheduleNextRound(5000);
     }
   },
 );
