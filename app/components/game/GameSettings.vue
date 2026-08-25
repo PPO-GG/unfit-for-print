@@ -115,7 +115,6 @@
               v-model="localSettings.cardPacks"
               :items="availablePacks"
               :loading="loadingPacks"
-              option-attribute="pack"
               multiple
               class="w-full"
             />
@@ -189,32 +188,19 @@ watch(
   { deep: true },
 );
 
-const availablePacks = ref<{ pack: string; total: number; active: number }[]>([]);
+const availablePacks = ref<string[]>([]);
 const loadingPacks = ref(false);
 
 onMounted(async () => {
   loadingPacks.value = true;
   try {
     const { white, black } = await $fetch("/api/cards/packs");
-    const packMap = new Map<string, { pack: string; total: number; active: number }>();
+    const packSet = new Set<string>();
 
-    white.forEach(p => packMap.set(p.pack, p));
-    black.forEach(p => {
-      if (packMap.has(p.pack)) {
-        const existing = packMap.get(p.pack)!;
-        packMap.set(p.pack, {
-          pack: p.pack,
-          total: existing.total + p.total,
-          active: existing.active + p.active,
-        });
-      } else {
-        packMap.set(p.pack, p);
-      }
-    });
+    white.forEach(p => packSet.add(p.pack));
+    black.forEach(p => packSet.add(p.pack));
 
-    availablePacks.value = Array.from(packMap.values())
-      .filter(p => p.active > 0)
-      .sort((a, b) => a.pack.localeCompare(b.pack));
+    availablePacks.value = Array.from(packSet).sort();
   } catch {
     notify({
       title: t("game.settings.fetch_packs_error"),
