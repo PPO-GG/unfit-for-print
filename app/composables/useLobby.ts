@@ -197,11 +197,11 @@ export const useLobby = () => {
 
     // Check if player is already in the Y.Doc
     const existingPlayer = lobbyDoc.getPlayers().get(enrichedUser.$id);
-    let serverPlayer: { id: string; [key: string]: any } | null = null;
+    const avatarUrl = isActivitySession
+      ? enrichedUser.prefs?.avatarUrl ?? null
+      : getUserAvatarUrl(enrichedUser as any, provider);
+
     if (!existingPlayer) {
-      const avatarUrl = isActivitySession
-        ? enrichedUser.prefs?.avatarUrl ?? null
-        : getUserAvatarUrl(enrichedUser as any, provider);
       const activeDecoration = enrichedUser.prefs?.activeDecoration || "";
 
       mutations.addPlayer({
@@ -217,29 +217,34 @@ export const useLobby = () => {
         playerType,
         activeDecoration,
       });
+    }
 
-      // Server-side player row so requirePlayerInLobby/requireHost can
-      // find this player.
-      try {
-        const joinResult = await $activityFetch<{
-          lobby: Lobby;
-          player: { id: string; [key: string]: any };
-        }>("/api/lobby/join", {
-          method: "POST",
-          body: {
-            code,
-            playerName: username,
-            avatar:
-              avatarUrl ||
-              (enrichedUser.prefs as Record<string, any>)?.avatar ||
-              "",
-            playerType,
-          },
-        });
-        serverPlayer = joinResult?.player ?? null;
-      } catch (err) {
-        console.warn("[useLobby] Failed to create player row:", err);
-      }
+    // Server-side player row so requirePlayerInLobby/requireHost can find
+    // this player. Always called (not just when the Y.Doc lacked the
+    // player) — the route is idempotent (returns the existing row rather
+    // than erroring/duplicating), and this guarantees `serverPlayer` is
+    // populated even on a rejoin/refresh where the Y.Doc already had this
+    // player locally but the caller still needs the player row's id.
+    let serverPlayer: { id: string; [key: string]: any } | null = null;
+    try {
+      const joinResult = await $activityFetch<{
+        lobby: Lobby;
+        player: { id: string; [key: string]: any };
+      }>("/api/lobby/join", {
+        method: "POST",
+        body: {
+          code,
+          playerName: username,
+          avatar:
+            avatarUrl ||
+            (enrichedUser.prefs as Record<string, any>)?.avatar ||
+            "",
+          playerType,
+        },
+      });
+      serverPlayer = joinResult?.player ?? null;
+    } catch (err) {
+      console.warn("[useLobby] Failed to create player row:", err);
     }
 
     return { ...lobby, player: serverPlayer };
