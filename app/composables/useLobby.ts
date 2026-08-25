@@ -323,23 +323,38 @@ export const useLobby = () => {
     code: string,
     options?: { username?: string; isHost?: boolean; skipSession?: boolean },
   ) => {
-    const { account } = getAppwrite();
-    if (!userStore.session && !options?.skipSession) {
-      await account.createAnonymousSession();
+    const { isDiscordActivity } = useDiscordSDK();
+    const isActivitySession = isDiscordActivity.value && !!userStore.user;
+    let enrichedUser: typeof userStore.user;
+    let rawUser: any;
+    let provider: string;
+
+    if (isActivitySession) {
+      enrichedUser = userStore.user;
+      rawUser = enrichedUser;
+      provider = "discord";
+    } else {
+      const { account } = getAppwrite();
+      if (!userStore.session && !options?.skipSession) {
+        await account.createAnonymousSession();
+      }
+
+      // Fetch the session to know the provider
+      const session = await account.getSession("current");
+
+      // Enrich the store with OAuth prefs (avatar hash, discordUserId, etc.)
+      await userStore.fetchUserSession();
+
+      enrichedUser = userStore.user;
+      if (!enrichedUser) throw new Error("User session could not be loaded");
+
+      // Also fetch raw Appwrite user for avatar resolution
+      rawUser = await account.get();
+      rawUser.prefs = { ...rawUser.prefs, ...enrichedUser.prefs };
+      provider = session.provider;
     }
 
-    // Fetch the session to know the provider
-    const session = await account.getSession("current");
-
-    // Enrich the store with OAuth prefs (avatar hash, discordUserId, etc.)
-    await userStore.fetchUserSession();
-
-    const enrichedUser = userStore.user;
     if (!enrichedUser) throw new Error("User session could not be loaded");
-
-    // Also fetch raw Appwrite user for avatar resolution
-    const rawUser = await account.get();
-    rawUser.prefs = { ...rawUser.prefs, ...enrichedUser.prefs };
 
     const username =
       options?.username ??
@@ -350,7 +365,10 @@ export const useLobby = () => {
     const lobby = await getLobbyByCode(code);
     if (!lobby) throw new Error("Lobby not found");
 
-    await account.updatePrefs({ name: username });
+    if (!isActivitySession) {
+      const { account } = getAppwrite();
+      await account.updatePrefs({ name: username });
+    }
 
     // Connect to the existing Y.Doc (if not already connected for this code)
     if (lobbyDoc.lobbyCode.value !== code) {
@@ -365,7 +383,9 @@ export const useLobby = () => {
     // Check if player is already in the Y.Doc
     const existingPlayer = lobbyDoc.getPlayers().get(rawUser.$id);
     if (!existingPlayer) {
-      const avatarUrl = getUserAvatarUrl(rawUser as any, session.provider);
+      const avatarUrl = isActivitySession
+        ? enrichedUser.prefs?.avatarUrl ?? null
+        : getUserAvatarUrl(rawUser as any, provider);
       const activeDecoration = enrichedUser.prefs?.activeDecoration || "";
 
       mutations.addPlayer({
@@ -375,39 +395,41 @@ export const useLobby = () => {
           avatarUrl || (rawUser.prefs as Record<string, any>)?.avatar || "",
         isHost: !!options?.isHost,
         joinedAt: new Date().toISOString(),
-        provider: session.provider,
+        provider,
         playerType,
         activeDecoration,
       });
 
       // Compatibility shim: create Appwrite player doc so server-side
       // APIs (requirePlayerInLobby) can find this player.
-      const { tables } = getAppwrite();
-      const config = getConfig();
-      try {
-        await tables.createRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwritePlayerCollectionId,
-          rowId: ID.unique(),
-          data: {
-            userId: rawUser.$id,
-            lobbyId: lobby.$id,
-            name: username,
-            avatar:
-              avatarUrl || (rawUser.prefs as Record<string, any>)?.avatar || "",
-            isHost: !!options?.isHost,
-            joinedAt: new Date().toISOString(),
-            provider: session.provider,
-            playerType,
-          },
-          permissions: [
-            Permission.read(Role.any()),
-            Permission.update(Role.user(rawUser.$id)),
-            Permission.delete(Role.user(rawUser.$id)),
-          ],
-        });
-      } catch (err) {
-        console.warn("[useLobby] Failed to create Appwrite player shim:", err);
+      if (!isActivitySession) {
+        const { tables } = getAppwrite();
+        const config = getConfig();
+        try {
+          await tables.createRow({
+            databaseId: config.public.appwriteDatabaseId,
+            tableId: config.public.appwritePlayerCollectionId,
+            rowId: ID.unique(),
+            data: {
+              userId: rawUser.$id,
+              lobbyId: lobby.$id,
+              name: username,
+              avatar:
+                avatarUrl || (rawUser.prefs as Record<string, any>)?.avatar || "",
+              isHost: !!options?.isHost,
+              joinedAt: new Date().toISOString(),
+              provider,
+              playerType,
+            },
+            permissions: [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(rawUser.$id)),
+              Permission.delete(Role.user(rawUser.$id)),
+            ],
+          });
+        } catch (err) {
+          console.warn("[useLobby] Failed to create Appwrite player shim:", err);
+        }
       }
     }
 

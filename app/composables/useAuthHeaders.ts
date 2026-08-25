@@ -2,8 +2,23 @@ import { ref } from "vue";
 
 const activityToken = ref<string | null>(null);
 
-export function isActivityApiRequest(request: string | Request | URL): boolean {
-  return typeof request === "string" && request.startsWith("/api/");
+export function isActivityApiRequest(
+  request: string | Request | URL,
+  baseURL?: string,
+  origin = globalThis.location?.origin,
+): boolean {
+  if (!origin) return false;
+
+  const target = typeof request === "string" || request instanceof URL
+    ? request.toString()
+    : request.url;
+
+  try {
+    const effectiveURL = new URL(target, baseURL ? new URL(baseURL, origin) : origin);
+    return effectiveURL.origin === origin && effectiveURL.pathname.startsWith("/api/");
+  } catch {
+    return false;
+  }
 }
 
 export function getActivityUserId(): string | null {

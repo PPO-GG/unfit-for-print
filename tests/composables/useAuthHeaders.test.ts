@@ -25,6 +25,16 @@ describe("useAuthHeaders", () => {
     expect(isActivityApiRequest("https://unfit.cards/api/decorations/list")).toBe(false);
   });
 
+  it("rejects a relative API path when its base URL is third-party", () => {
+    expect(
+      isActivityApiRequest(
+        "/api/decorations/list",
+        "https://discord.com",
+        "https://unfit.cards",
+      ),
+    ).toBe(false);
+  });
+
   it("reads the authenticated user ID from the current Activity token", () => {
     const { setActivityToken } = useAuthHeaders();
     const payload = btoa(JSON.stringify({ userId: "6ac4a08e-0000-4000-8000-000000000001" }))
