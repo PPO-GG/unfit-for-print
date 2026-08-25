@@ -12,6 +12,26 @@ export const useUserStore = defineStore("user", {
   }),
 
   actions: {
+    setActivityUser(activityUser: {
+      id: string;
+      name: string;
+      avatarUrl: string | null;
+      discordUserId: string;
+    }) {
+      this.user = {
+        $id: activityUser.id,
+        name: activityUser.name,
+        prefs: {
+          avatarUrl: activityUser.avatarUrl ?? undefined,
+          discordUserId: activityUser.discordUserId,
+        },
+        provider: "discord",
+      } as AuthUser;
+      this.session = null;
+      this.accessToken = null;
+      this.isLoggedIn = true;
+    },
+
     getAccount() {
       if (import.meta.server) return null;
 

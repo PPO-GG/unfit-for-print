@@ -1,6 +1,8 @@
 export default defineNuxtPlugin(() => {
   const activityFetch = $fetch.create({
-    onRequest({ options }) {
+    onRequest({ request, options }) {
+      if (!isActivityApiRequest(request)) return;
+
       const { authHeaders } = useAuthHeaders();
       const headers = authHeaders();
       if (Object.keys(headers).length === 0) return;
