@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: unfit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-unfit}
+      POSTGRES_USER: ${POSTGRES_USER:-unfit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unfit}
+    volumes:
+      - unfit-pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-unfit} -d ${POSTGRES_DB:-unfit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  unfit-pgdata:
