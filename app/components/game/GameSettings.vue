@@ -115,6 +115,7 @@
               v-model="localSettings.cardPacks"
               :items="availablePacks"
               :loading="loadingPacks"
+              option-attribute="pack"
               multiple
               class="w-full"
             />
@@ -161,13 +162,9 @@
 import { onMounted, ref, watch } from "vue";
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 import { useNotifications } from "~/composables/useNotifications";
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
 
 const { t } = useI18n();
 const { notify } = useNotifications();
-const { databases, tables } = getAppwrite();
-const config = useRuntimeConfig();
 
 const props = defineProps<{
   settings: LobbySettings;
@@ -192,59 +189,32 @@ watch(
   { deep: true },
 );
 
-const availablePacks = ref<string[]>([]);
+const availablePacks = ref<{ pack: string; total: number; active: number }[]>([]);
 const loadingPacks = ref(false);
 
-const DB_ID = config.public.appwriteDatabaseId;
-const CARD_COLLECTIONS = {
-  black: config.public.appwriteBlackCardCollectionId as string,
-  white: config.public.appwriteWhiteCardCollectionId as string,
-};
-
 onMounted(async () => {
-  if (!databases) return;
   loadingPacks.value = true;
   try {
-    const blackCountResult = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTIONS.black,
-      queries: [Query.limit(1)],
+    const { white, black } = await $fetch("/api/cards/packs");
+    const packMap = new Map<string, { pack: string; total: number; active: number }>();
+
+    white.forEach(p => packMap.set(p.pack, p));
+    black.forEach(p => {
+      if (packMap.has(p.pack)) {
+        const existing = packMap.get(p.pack)!;
+        packMap.set(p.pack, {
+          pack: p.pack,
+          total: existing.total + p.total,
+          active: existing.active + p.active,
+        });
+      } else {
+        packMap.set(p.pack, p);
+      }
     });
-    const totalBlackCards = blackCountResult.total;
-    const chunkSize = 1000;
-    const blackPacks = new Set<string>();
 
-    for (let offset = 0; offset < totalBlackCards; offset += chunkSize) {
-      const blackCardsChunk = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTIONS.black,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-      blackCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && card.active) blackPacks.add(card.pack);
-      });
-    }
-
-    const whiteCountResult = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTIONS.white,
-      queries: [Query.limit(1)],
-    });
-    const totalWhiteCards = whiteCountResult.total;
-    const whitePacks = new Set<string>();
-
-    for (let offset = 0; offset < totalWhiteCards; offset += chunkSize) {
-      const whiteCardsChunk = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTIONS.white,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-      whiteCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && card.active) whitePacks.add(card.pack);
-      });
-    }
-
-    availablePacks.value = [...new Set([...blackPacks, ...whitePacks])].sort();
+    availablePacks.value = Array.from(packMap.values())
+      .filter(p => p.active > 0)
+      .sort((a, b) => a.pack.localeCompare(b.pack));
   } catch {
     notify({
       title: t("game.settings.fetch_packs_error"),
