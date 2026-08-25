@@ -244,6 +244,15 @@ export const useUserStore = defineStore("user", {
       }
     },
 
+    async loginAsGuest(username: string) {
+      const { user } = await $fetch("/api/auth/guest", {
+        method: "POST",
+        body: { username },
+      });
+      this.user = user as AuthUser;
+      this.isLoggedIn = true;
+    },
+
     async createAnonymousSession(username: string) {
       if (import.meta.server) return;
 

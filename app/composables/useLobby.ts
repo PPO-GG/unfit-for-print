@@ -197,6 +197,7 @@ export const useLobby = () => {
 
     // Check if player is already in the Y.Doc
     const existingPlayer = lobbyDoc.getPlayers().get(enrichedUser.$id);
+    let serverPlayer: { id: string; [key: string]: any } | null = null;
     if (!existingPlayer) {
       const avatarUrl = isActivitySession
         ? enrichedUser.prefs?.avatarUrl ?? null
@@ -220,7 +221,10 @@ export const useLobby = () => {
       // Server-side player row so requirePlayerInLobby/requireHost can
       // find this player.
       try {
-        await $activityFetch("/api/lobby/join", {
+        const joinResult = await $activityFetch<{
+          lobby: Lobby;
+          player: { id: string; [key: string]: any };
+        }>("/api/lobby/join", {
           method: "POST",
           body: {
             code,
@@ -232,12 +236,13 @@ export const useLobby = () => {
             playerType,
           },
         });
+        serverPlayer = joinResult?.player ?? null;
       } catch (err) {
         console.warn("[useLobby] Failed to create player row:", err);
       }
     }
 
-    return { ...lobby };
+    return { ...lobby, player: serverPlayer };
   };
 
   // ── Is In Lobby ───────────────────────────────────────────────────────

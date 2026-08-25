@@ -4,7 +4,6 @@ import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import { useProfanityFilter } from "~/composables/useProfanityFilter";
 import { getAppwrite } from "~/utils/appwrite";
-import { ID, Query } from "appwrite";
 
 export const useJoinLobby = () => {
   const router = useRouter();
@@ -52,7 +51,14 @@ export const useJoinLobby = () => {
       setError?.("");
       setJoining?.(true);
 
-      await initSessionIfNeeded();
+      // Bootstrap a guest session transparently if the user has no
+      // session yet — replaces the old separate initSessionIfNeeded pass
+      // (which used Appwrite's createAnonymousSession) for the join flow
+      // specifically, since we already have the username here.
+      if (!userStore.isLoggedIn) {
+        await userStore.loginAsGuest(username);
+      }
+
       const user = userStore.user!;
       if (!user) new Error("No user session");
 
@@ -70,45 +76,19 @@ export const useJoinLobby = () => {
       }
 
       // If user is already in the lobby, redirect directly
-      if (await isInLobby(user.$id, lobby.$id)) {
+      if (await isInLobby(user.$id, lobby.id)) {
         await router.push(`/game/${lobby.code}`);
         return true;
       }
 
-      // Check if the chosen username is already taken in this lobby
-      // (exclude the current user's own stale doc — they may be rejoining)
-      const { databases, tables } = getAppwrite();
-      const config = useRuntimeConfig();
-      const existingPlayers = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwritePlayerCollectionId,
-        queries: [Query.equal("lobbyId", lobby.$id), Query.limit(100)],
-      });
-      const nameTaken = existingPlayers.rows.some(
-        (doc: Record<string, any>) =>
-          doc.name?.toLowerCase() === username.trim().toLowerCase() &&
-          doc.userId !== user.$id,
-      );
-      if (nameTaken) {
-        setError?.(t("lobby.username_taken"));
-        return false;
-      }
+      // Perform join: creates the players row. Name-uniqueness is no
+      // longer pre-checked client-side (that required a direct Appwrite
+      // query against the players collection); /api/lobby/join currently
+      // allows duplicate names within a lobby.
+      const result = await joinLobby(code, { username });
 
-      // Perform join: creates the players doc
-      await joinLobby(code, { username });
-
-      // Fetch *your* newly created players-doc to capture its $id
-      const res = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwritePlayerCollectionId,
-        queries: [
-          Query.equal("userId", user.$id),
-          Query.equal("lobbyId", lobby.$id),
-          Query.limit(1),
-        ],
-      });
-      const myDoc = res.rows[0];
-      if (myDoc) userStore.playerDocId = myDoc.$id;
+      // Capture your newly created player row's id
+      if (result.player) userStore.playerDocId = result.player.id;
 
       // Navigate into the game
       await router.push(`/game/${lobby.code}`);
