@@ -24,7 +24,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "test:db": "vitest run tests/server/db"
+    "test:db": "vitest run tests/server/db --no-file-parallelism"
   },
   "dependencies": {
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
