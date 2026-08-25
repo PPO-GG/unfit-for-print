@@ -1,70 +1,23 @@
-import { defineEventHandler, getRouterParam } from "h3";
-import { Query } from "node-appwrite";
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { lobbies, players } from "~/server/db/schema";
 
 export default defineEventHandler(async (event) => {
-  const code = getRouterParam(event, "code")?.toUpperCase();
+  const code = getRouterParam(event, "code");
+  const db = useDb();
 
-  if (!code) {
-    return { error: "Missing lobby code" };
-  }
+  const [lobby] = await db
+    .select()
+    .from(lobbies)
+    .where(eq(lobbies.code, code!))
+    .limit(1);
+  if (!lobby) throw createError({ statusCode: 404, statusMessage: "Lobby not found" });
 
-  const tables = getAdminTables();
-  const config = useRuntimeConfig();
+  const [host] = await db
+    .select({ name: players.name })
+    .from(players)
+    .where(eq(players.userId, lobby.hostUserId))
+    .limit(1);
 
-  const dbId = config.public.appwriteDatabaseId as string;
-  const collectionId = config.public.appwriteLobbyCollectionId as string;
-
-  let res;
-  try {
-    res = await tables.listRows({
-      databaseId: dbId,
-      tableId: collectionId,
-      queries: [Query.equal("code", code)],
-    });
-  } catch (err: any) {
-    return createError({
-      statusCode: 500,
-      statusMessage: "Failed to fetch from Appwrite database: " + err.message,
-    });
-  }
-
-  if (!res || !res.total || res.rows.length === 0) {
-    return { error: "Lobby not found" };
-  }
-
-  const lobby = res.rows[0]!;
-
-  // ── Read lobbyName directly from lobby doc ─────────────────────────────────
-  const lobbyName = (lobby.lobbyName as string | null) ?? null;
-
-  // ── Enrich with host display name from players collection ─────────────
-  let hostName: string | null = null;
-  if (lobby.hostUserId) {
-    try {
-      const playerRes = await tables.listRows({
-        databaseId: dbId,
-        tableId: config.public.appwritePlayerCollectionId as string,
-        queries: [
-          Query.equal("userId", lobby.hostUserId as string),
-          Query.limit(1),
-        ],
-      });
-      if (playerRes.total > 0 && playerRes.rows[0]?.name) {
-        hostName = playerRes.rows[0].name as string;
-      }
-    } catch {
-      // Non-critical — fall through with null
-    }
-  }
-
-  // Only return safe data to the frontend
-  return {
-    name: lobby.name,
-    code: lobby.code,
-    hostUserId: lobby.hostUserId,
-    isPrivate: lobby.isPrivate,
-    currentPlayers: lobby.currentPlayers,
-    lobbyName,
-    hostName,
-  };
+  return { ...lobby, hostName: host?.name ?? null };
 });

@@ -106,10 +106,10 @@ watch(
   },
 );
 
-// ─── Sync Y.Doc status → Appwrite (host only) ──────────────────────────────
+// ─── Sync Y.Doc status → Postgres (host only) ──────────────────────────────
 // When the Y.Doc meta.status changes (game complete, reset to waiting), the
-// host writes the new value back to the Appwrite lobby document so that
-// discovery queries (getActiveLobbyForUser, browse games) stay accurate.
+// host writes the new value back to the lobby row so that discovery queries
+// (getActiveLobbyForUser, browse games) stay accurate.
 watch(
   () => reactive.meta.value?.status,
   async (newStatus, oldStatus) => {
@@ -119,17 +119,14 @@ watch(
     // Only sync actionable transitions — "playing" is handled by start.post.ts
     if (newStatus === "complete" || newStatus === "waiting") {
       try {
-        const { tables } = getAppwrite();
-        await tables.updateRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteLobbyCollectionId,
-          rowId: lobby.value.id,
-          data: { status: newStatus },
+        await nuxtApp.$activityFetch("/api/lobby/status", {
+          method: "POST",
+          body: { lobbyId: lobby.value.id, status: newStatus },
         });
       } catch (err) {
         // Non-critical — the Y.Doc is the authority.
-        // If this fails, the Appwrite doc is stale but gameplay is unaffected.
-        console.warn("[GamePage] Failed to sync status to Appwrite:", err);
+        // If this fails, the lobby row is stale but gameplay is unaffected.
+        console.warn("[GamePage] Failed to sync status to server:", err);
       }
     }
   },

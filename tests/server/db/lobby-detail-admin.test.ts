@@ -1,0 +1,66 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { users, lobbies, players } from "~/server/db/schema";
+
+const db = useDb();
+
+vi.mock("~/server/utils/session", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("~/server/utils/session")>();
+  return { ...actual, requireAdmin: async () => "admin-id" };
+});
+
+function mockEvent(params: Record<string, string> = {}, body?: unknown) {
+  globalThis.getRouterParam = (_e: unknown, name: string) => params[name];
+  globalThis.readBody = async () => body;
+  return {} as any;
+}
+
+beforeEach(async () => {
+  await db.delete(players);
+  await db.delete(lobbies);
+  await db.delete(users);
+});
+
+describe("GET /api/lobby/[code]", () => {
+  it("returns lobbyName populated (regression check for the $id/lobbyName bug)", async () => {
+    const [host] = await db
+      .insert(users)
+      .values({ name: "Host" })
+      .returning();
+    await db
+      .insert(lobbies)
+      .values({ code: "NAME", hostUserId: host.id, lobbyName: "Fun Lobby" });
+
+    const handler = (await import("~/server/api/lobby/[code]")).default;
+    const result = await handler(mockEvent({ code: "NAME" }));
+    expect(result.lobbyName).toBe("Fun Lobby");
+  });
+});
+
+describe("admin lobby delete", () => {
+  it("cascades player deletion via the FK, no manual loop needed", async () => {
+    const [host] = await db
+      .insert(users)
+      .values({ name: "Host" })
+      .returning();
+    const [lobby] = await db
+      .insert(lobbies)
+      .values({ code: "DELX", hostUserId: host.id })
+      .returning();
+    await db
+      .insert(players)
+      .values({ userId: host.id, lobbyId: lobby.id, name: "Host", isHost: true });
+
+    const handler = (await import("~/server/api/admin/lobby/delete.post"))
+      .default;
+    await handler(mockEvent({}, { lobbyId: lobby.id }));
+
+    const remainingPlayers = await db
+      .select()
+      .from(players)
+      .where(eq(players.lobbyId, lobby.id));
+    expect(remainingPlayers).toHaveLength(0);
+  });
+});
