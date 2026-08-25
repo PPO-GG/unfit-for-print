@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { users, lobbies, players } from "~/server/db/schema";
 
@@ -101,5 +101,26 @@ describe("lobby registry", () => {
     await expect(
       promote(mockEvent({ lobbyId: lobby.id, newHostUserId: other.id })),
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("promote-host rejects a newHostUserId who is not a player in the lobby", async () => {
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));
+
+    // A real user, but never joined this lobby (no player row).
+    const [nonMember] = await db.insert(users).values({ name: "NonMember" }).returning();
+    const promote = (await import("~/server/api/lobby/promote-host.post")).default;
+    await expect(
+      promote(mockEvent({ lobbyId: lobby.id, newHostUserId: nonMember.id })),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    const [unchangedLobby] = await db.select().from(lobbies).where(eq(lobbies.id, lobby.id));
+    expect(unchangedLobby.hostUserId).toBe(currentUserId);
+
+    const [hostPlayer] = await db
+      .select()
+      .from(players)
+      .where(and(eq(players.userId, currentUserId), eq(players.lobbyId, lobby.id)));
+    expect(hostPlayer.isHost).toBe(true);
   });
 });

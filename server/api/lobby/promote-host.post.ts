@@ -10,6 +10,15 @@ export default defineEventHandler(async (event) => {
   const db = useDb();
   if (newHostUserId === currentHostId) return { success: true };
 
+  const [newHostPlayer] = await db
+    .select({ id: players.id })
+    .from(players)
+    .where(and(eq(players.userId, newHostUserId), eq(players.lobbyId, lobbyId)))
+    .limit(1);
+  if (!newHostPlayer) {
+    throw createError({ statusCode: 400, statusMessage: "newHostUserId is not a player in this lobby" });
+  }
+
   await db.update(lobbies).set({ hostUserId: newHostUserId }).where(eq(lobbies.id, lobbyId));
   await db
     .update(players)
