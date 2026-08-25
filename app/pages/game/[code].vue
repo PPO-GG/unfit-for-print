@@ -51,7 +51,7 @@ const {
   engine,
   mutations,
 } = useLobby();
-const { initSessionIfNeeded } = useJoinLobby();
+const { initializeGamePageSession } = useJoinLobby();
 
 // ─── Discord Activity ─────────────────────────────────────────────────────
 const { isDiscordActivity } = useDiscordSDK();
@@ -389,8 +389,7 @@ onMounted(async () => {
   loading.value = true;
 
   try {
-    await initSessionIfNeeded();
-    await userStore.fetchUserSession();
+    await initializeGamePageSession();
 
     const user = userStore.user;
     if (!user) {

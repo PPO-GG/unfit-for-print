@@ -16,10 +16,18 @@ export const useJoinLobby = () => {
 
   const initSessionIfNeeded = async () => {
     if (import.meta.server) return;
+    if (userStore.isActivitySession) return;
     const { account } = getAppwrite();
     await userStore.fetchUserSession();
     if (!userStore.session) {
       await account.createAnonymousSession();
+      await userStore.fetchUserSession();
+    }
+  };
+
+  const initializeGamePageSession = async () => {
+    await initSessionIfNeeded();
+    if (!userStore.isActivitySession) {
       await userStore.fetchUserSession();
     }
   };
@@ -137,6 +145,7 @@ export const useJoinLobby = () => {
     joinLobbyWithSession,
     autoRedirectIfActive,
     initSessionIfNeeded,
+    initializeGamePageSession,
     validateUsername,
     checkJoinAccess,
   };

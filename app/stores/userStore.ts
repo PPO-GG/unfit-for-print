@@ -8,6 +8,7 @@ export const useUserStore = defineStore("user", {
     session: null as Models.Session | null,
     accessToken: "" as string | null,
     isLoggedIn: false,
+    isActivitySession: false,
     playerDocId: "" as string,
   }),
 
@@ -30,6 +31,7 @@ export const useUserStore = defineStore("user", {
       this.session = null;
       this.accessToken = null;
       this.isLoggedIn = true;
+      this.isActivitySession = true;
     },
 
     getAccount() {
@@ -82,6 +84,8 @@ export const useUserStore = defineStore("user", {
 
     async fetchUserSession() {
       if (import.meta.server) return;
+
+      if (this.isActivitySession) return "ok";
 
       // Already verified this page load — skip redundant SDK calls
       if (
@@ -214,6 +218,7 @@ export const useUserStore = defineStore("user", {
         this.session = null;
         this.accessToken = "";
         this.isLoggedIn = false;
+        this.isActivitySession = false;
 
         const router = useRouter();
         await router.push("/");
@@ -257,6 +262,7 @@ export const useUserStore = defineStore("user", {
         };
         this.session = JSON.parse(JSON.stringify(session));
         this.isLoggedIn = true;
+        this.isActivitySession = false;
       } catch (err) {
         console.error("Anonymous login failed:", err);
       }
