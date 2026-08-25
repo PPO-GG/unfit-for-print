@@ -27,6 +27,7 @@
     "test:db": "vitest run tests/server/db --no-file-parallelism"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1118.0",
     "@basitcodeenv/vue3-device-detect": "^1.0.3",
     "@discord/embedded-app-sdk": "^2.5.0",
     "@elevenlabs/elevenlabs-js": "^2.59.0",
