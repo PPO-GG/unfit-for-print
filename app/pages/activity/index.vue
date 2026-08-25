@@ -228,8 +228,6 @@ async function launch() {
     statusText.value = "Setting up your profile...";
     stage = "session";
     if (!userStore.isLoggedIn) {
-      const { client } = useAppwrite();
-      client.setSession(authData.secret);
       await userStore.fetchUserSession();
 
       if (!userStore.user) {

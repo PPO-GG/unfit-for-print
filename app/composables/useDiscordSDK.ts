@@ -11,8 +11,6 @@ export interface DiscordParticipant {
 
 let sdkInstance: any = null;
 let cachedAuthResult: {
-  userId: string;
-  secret: string;
   discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
 } | null = null;
 
@@ -70,8 +68,6 @@ export function useDiscordSDK() {
   }
 
   async function authenticate(): Promise<{
-    userId: string;
-    secret: string;
     discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
   }> {
     // If already authenticated, return cached result
@@ -117,12 +113,13 @@ export function useDiscordSDK() {
       access_token: authData.accessToken,
     });
 
+    const { setActivityToken } = useAuthHeaders();
+    setActivityToken(authData.token);
+
     isAuthenticated.value = true;
     discordUser.value = authData.discordUser;
 
     cachedAuthResult = {
-      userId: authData.userId,
-      secret: authData.secret,
       discordUser: authData.discordUser,
     };
 
