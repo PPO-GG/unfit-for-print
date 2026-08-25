@@ -386,10 +386,12 @@ onMounted(async () => {
   // Fetch card data only if text AND numPick are not provided, but cardId is.
   if ((!props.text || props.numPick === undefined) && props.cardId) {
     try {
-      const [doc] = await $fetch<{ id: string; text: string; pack: string }[]>(
-        "/api/cards/resolve",
-        { method: "POST", body: { ids: [props.cardId] } },
-      );
+      const [doc] = await $fetch<
+        { id: string; text: string; pack: string; pick?: number }[]
+      >("/api/cards/resolve", {
+        method: "POST",
+        body: { ids: [props.cardId], type: "black" },
+      });
       if (!doc) {
         throw new Error(`Card not found for ID ${props.cardId}`);
       }
@@ -399,6 +401,9 @@ onMounted(async () => {
       if (!props.cardId) {
         fallbackText.value = "CARD TEXT HERE";
         return;
+      }
+      if (props.numPick === undefined) {
+        fallbackNumPick.value = doc.pick;
       }
       cardPack.value = doc.pack || null;
     } catch (error) {
