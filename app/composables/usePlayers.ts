@@ -1,32 +1,15 @@
 // composables/usePlayers.ts
-import { Query, type Models } from "appwrite";
-import { getAppwrite } from "~/utils/appwrite";
+import type { Models } from "appwrite";
 import type { Player } from "~/types/player";
-import { useUserStore } from "~/stores/userStore";
 
 export const usePlayers = () => {
-  const getConfig = () => useRuntimeConfig();
+  const { $activityFetch } = useNuxtApp();
+
   const getPlayersForLobby = async (lobbyId: string): Promise<Player[]> => {
     try {
-      const { databases, tables } = getAppwrite();
-      const config = getConfig();
-      const res = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwritePlayerCollectionId,
-        queries: [Query.equal("lobbyId", lobbyId)],
+      return await $activityFetch<Player[]>("/api/players/list", {
+        query: { lobbyId },
       });
-
-      return res.rows.map((doc: any) => ({
-        $id: doc.$id,
-        userId: doc.userId,
-        lobbyId: doc.lobbyId,
-        name: doc.name,
-        avatar: doc.avatar,
-        isHost: doc.isHost,
-        joinedAt: doc.joinedAt,
-        provider: doc.provider,
-        playerType: doc.playerType || "player",
-      })) satisfies Player[];
     } catch (err) {
       console.error("Failed to fetch players for lobby:", err);
       return [];
@@ -77,13 +60,9 @@ export const usePlayers = () => {
     avatarUrl: string | null,
   ) => {
     try {
-      const { databases, tables } = getAppwrite();
-      const config = getConfig();
-      await tables.updateRow({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwritePlayerCollectionId,
-        rowId: playerId,
-        data: { avatar: avatarUrl },
+      await $activityFetch("/api/players/avatar", {
+        method: "POST",
+        body: { playerId, avatarUrl },
       });
     } catch (err) {
       console.error("Failed to update player avatar:", err);
