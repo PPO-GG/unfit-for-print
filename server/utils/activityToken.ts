@@ -18,7 +18,10 @@ export function signActivityToken(userId: string): string {
 }
 
 export function verifyActivityToken(token: string): { userId: string } | null {
-  const [payloadB64, sig] = token.split(".");
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+
+  const [payloadB64, sig] = parts;
   if (!payloadB64 || !sig) return null;
 
   const expectedSig = createHmac("sha256", getSecret()).update(payloadB64).digest("base64url");

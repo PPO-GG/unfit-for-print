@@ -27,6 +27,16 @@ describe("activity token", () => {
     expect(verifyActivityToken("not-a-real-token")).toBeNull();
   });
 
+  it("rejects a token with a non-empty trailing segment", () => {
+    const token = signActivityToken("user-123");
+    expect(verifyActivityToken(`${token}.junk`)).toBeNull();
+  });
+
+  it("rejects a token with an empty trailing segment", () => {
+    const token = signActivityToken("user-123");
+    expect(verifyActivityToken(`${token}.`)).toBeNull();
+  });
+
   it("rejects an expired token", () => {
     vi.useFakeTimers();
     const token = signActivityToken("user-123");
