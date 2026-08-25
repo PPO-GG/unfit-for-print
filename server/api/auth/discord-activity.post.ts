@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { users } from "~/server/db/schema";
 import { signActivityToken } from "~/server/utils/activityToken";
@@ -48,28 +47,16 @@ export default defineEventHandler(async (event) => {
     : null;
 
   const db = useDb();
-  const [existing] = await db
-    .select()
-    .from(users)
-    .where(eq(users.discordUserId, discordUserId))
-    .limit(1);
+  const [user] = await db
+    .insert(users)
+    .values({ discordUserId, name: discordUsername, avatarUrl, isGuest: false })
+    .onConflictDoUpdate({
+      target: users.discordUserId,
+      set: { name: discordUsername, avatarUrl, isGuest: false },
+    })
+    .returning({ id: users.id });
 
-  let userId: string;
-  if (existing) {
-    userId = existing.id;
-    await db
-      .update(users)
-      .set({ name: discordUsername, avatarUrl })
-      .where(eq(users.id, userId));
-  } else {
-    const [created] = await db
-      .insert(users)
-      .values({ discordUserId, name: discordUsername, avatarUrl, isGuest: false })
-      .returning({ id: users.id });
-    userId = created.id;
-  }
-
-  const token = signActivityToken(userId);
+  const token = signActivityToken(user.id);
 
   return {
     token,
