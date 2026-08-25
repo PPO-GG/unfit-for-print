@@ -97,7 +97,7 @@ export function useBots(
         method: "POST",
         headers: authHeaders(),
         body: {
-          lobbyId: lobby.value.$id,
+          lobbyId: lobby.value.id,
           activeBotUserIds: botPlayers.value.map((b) => b.userId),
         },
       });
@@ -143,7 +143,7 @@ export function useBots(
         method: "POST",
         headers: authHeaders(),
         body: {
-          lobbyId: lobby.value.$id,
+          lobbyId: lobby.value.id,
           botUserId,
         },
       });

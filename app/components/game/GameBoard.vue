@@ -454,7 +454,7 @@ function convertToPlayer(playerId: string) {
 function handleLeave() {
   const nuxtApp = useNuxtApp();
   nuxtApp.payload.state.selfLeaving = true;
-  leaveLobby(props.lobby.$id, myId);
+  leaveLobby(props.lobby.id, myId);
   emit("leave");
 }
 

@@ -109,7 +109,7 @@ async function startGameWrapper() {
   isStarting.value = true;
   try {
     const s = reactive.settings.value;
-    await startGame(props.lobby.$id, s ? {
+    await startGame(props.lobby.id, s ? {
       maxPoints: s.maxPoints,
       numPlayerCards: s.cardsPerPlayer,
       cardPacks: s.cardPacks,

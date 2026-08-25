@@ -55,7 +55,7 @@
       <!-- Right column: Games + Actions -->
       <div class="col-right">
         <!-- Active Games -->
-        <div v-for="lobby in channelLobbies" :key="lobby.$id" class="panel panel--accent">
+        <div v-for="lobby in channelLobbies" :key="lobby.id" class="panel panel--accent">
           <div class="panel-label">Active Game</div>
           <div class="game-card">
             <div class="game-info">
@@ -251,7 +251,7 @@ async function handleJoin(lobby: Lobby) {
 async function togglePrivacy() {
   if (!hostedLobby.value) return
   const newValue = hostedLobby.value.vcOnly === false
-  await updateLobbyPrivacy(hostedLobby.value.$id, newValue)
+  await updateLobbyPrivacy(hostedLobby.value.id, newValue)
   // Refresh the list to get updated data
   await loadChannelLobbies()
 }

@@ -114,7 +114,7 @@ watch(
   () => reactive.meta.value?.status,
   async (newStatus, oldStatus) => {
     if (!newStatus || newStatus === oldStatus) return;
-    if (!isHost.value || !lobby.value?.$id) return;
+    if (!isHost.value || !lobby.value?.id) return;
 
     // Only sync actionable transitions — "playing" is handled by start.post.ts
     if (newStatus === "complete" || newStatus === "waiting") {
@@ -123,7 +123,7 @@ watch(
         await tables.updateRow({
           databaseId: config.public.appwriteDatabaseId,
           tableId: config.public.appwriteLobbyCollectionId,
-          rowId: lobby.value.$id,
+          rowId: lobby.value.id,
           data: { status: newStatus },
         });
       } catch (err) {
@@ -456,7 +456,7 @@ onMounted(async () => {
 
         // Final fallback: Appwrite player doc check for this lobby
         const stillInLobby = fetchedLobby
-          ? await isInLobby(user.$id, fetchedLobby.$id)
+          ? await isInLobby(user.$id, fetchedLobby.id)
           : false;
 
         if (!stillInLobby) {
@@ -555,7 +555,7 @@ const handleLeave = async () => {
   if (typeof sessionStorage !== "undefined") {
     sessionStorage.removeItem(ACTIVE_GAME_KEY);
   }
-  await leaveLobby(lobby.value.$id, userStore.user.$id);
+  await leaveLobby(lobby.value.id, userStore.user.$id);
   // Discord Activity users return to VC Hub; others go home
   return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
 };
@@ -567,7 +567,7 @@ const startGameWrapper = async () => {
     isStarting.value = true;
     const s = reactive.settings.value;
     if (!s) return;
-    await startGame(lobby.value.$id, {
+    await startGame(lobby.value.id, {
       maxPoints: s.maxPoints,
       numPlayerCards: s.cardsPerPlayer,
       cardPacks: s.cardPacks,
