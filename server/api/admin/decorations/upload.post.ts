@@ -55,7 +55,7 @@ export function isValidDotLottie(buffer: Buffer): boolean {
 }
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const formData = await readMultipartFormData(event);
   if (!formData || formData.length === 0) {

@@ -1,10 +1,8 @@
 /**
- * Constructs a public URL for a decoration image stored in Appwrite Storage.
- * Uses the 'decoration-images' bucket.
+ * Constructs a same-origin URL for a decoration image stored in R2.
+ * Served by the `server/api/decorations/images/[key].get.ts` proxy route,
+ * which streams the object straight from the R2 bucket.
  */
 export function getDecorationImageUrl(fileId: string): string {
-  const config = useRuntimeConfig();
-  const endpoint = config.public.appwriteEndpoint as string;
-  const projectId = config.public.appwriteProjectId as string;
-  return `${endpoint}/storage/buckets/decoration-images/files/${fileId}/view?project=${projectId}`;
+  return `/api/decorations/images/${fileId}`;
 }
