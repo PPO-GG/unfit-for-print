@@ -1,34 +1,15 @@
 <script setup lang="ts">
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
 import { useNotifications } from "~/composables/useNotifications";
 import { useCardSearch } from "~/composables/useCardSearch";
-import { useUserStore } from "~/stores/userStore";
 import { watchDebounced } from "@vueuse/core";
 
 definePageMeta({ middleware: "admin" });
 
-const { tables } = getAppwrite();
-const config = useRuntimeConfig();
+const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
-const userStore = useUserStore();
-
-const authHeaders = () => ({
-  Authorization: `Bearer ${userStore.session?.$id}`,
-  "x-appwrite-user-id": userStore.user?.$id ?? "",
-});
 
 // ── Shared search state (persists across navigation) ──────────────────────────
 const { searchTerm, cardType, selectedPack } = useCardSearch();
-
-const DB_ID = config.public.appwriteDatabaseId as string;
-const CARD_COLLECTIONS: Record<string, string> = {
-  black: config.public.appwriteBlackCardCollectionId as string,
-  white: config.public.appwriteWhiteCardCollectionId as string,
-};
-const CARD_COLLECTION = computed(
-  () => CARD_COLLECTIONS[cardType.value] as string,
-);
 
 // ── Pack sidebar state ─────────────────────────────────────────────────────────
 interface PackTypeStat {
@@ -114,47 +95,28 @@ const handleAddCard = async (cardData: {
 };
 
 // ── Load packs ────────────────────────────────────────────────────────────────
-const loadPackStatsForType = async (
-  collectionId: string,
-): Promise<Record<string, PackTypeStat>> => {
+// Consolidated pack-stats route (Task 10) — one request covers both types.
+function toStatsMap(
+  rows: { pack: string; total: number; active: number }[],
+): Record<string, PackTypeStat> {
   const stats: Record<string, PackTypeStat> = {};
-  try {
-    const countRes = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: collectionId,
-      queries: [Query.limit(1)],
-    });
-    const total = countRes.total;
-    const chunkSize = 1000;
-    for (let offset = 0; offset < total; offset += chunkSize) {
-      const res = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: collectionId,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-      for (const doc of res.rows) {
-        const p: string = doc.pack || "(no pack)";
-        if (!stats[p]) stats[p] = { total: 0, active: 0 };
-        stats[p].total++;
-        if (doc.active) stats[p].active++;
-      }
-      if (res.rows.length < chunkSize) break;
-    }
-  } catch (err) {
-    console.error("Failed to load pack stats:", err);
+  for (const row of rows) {
+    stats[row.pack] = { total: row.total, active: row.active };
   }
   return stats;
-};
+}
 
 const loadPacks = async () => {
-  if (!tables) return;
   loadingPacks.value = true;
   packStats.value = {};
   try {
-    const [blackStats, whiteStats] = await Promise.all([
-      loadPackStatsForType(CARD_COLLECTIONS.black!),
-      loadPackStatsForType(CARD_COLLECTIONS.white!),
-    ]);
+    const { white, black } = await $activityFetch<{
+      white: { pack: string; total: number; active: number }[];
+      black: { pack: string; total: number; active: number }[];
+    }>("/api/cards/packs");
+
+    const blackStats = toStatsMap(black);
+    const whiteStats = toStatsMap(white);
     const allNames = new Set([
       ...Object.keys(blackStats),
       ...Object.keys(whiteStats),
@@ -177,68 +139,22 @@ const loadPacks = async () => {
 
 // ── Fetch cards for selected pack / search ────────────────────────────────────
 const fetchCards = async () => {
-  if (!tables) return;
   loadingCards.value = true;
   cards.value = [];
 
   try {
-    const queries: any[] = [];
-
-    if (selectedPack.value)
-      queries.push(Query.equal("pack", selectedPack.value));
+    const query: Record<string, string> = { type: cardType.value };
+    if (selectedPack.value) query.pack = selectedPack.value;
     if (cardType.value === "black" && numPick.value > 0)
-      queries.push(Query.equal("pick", numPick.value));
+      query.pick = String(numPick.value);
+    if (searchTerm.value) query.search = searchTerm.value;
 
-    let clientFilter = false;
-    if (searchTerm.value) {
-      try {
-        queries.push(Query.search("text", searchTerm.value));
-        await tables.listRows({
-          databaseId: DB_ID,
-          tableId: CARD_COLLECTION.value,
-          queries: [...queries, Query.limit(1)],
-        });
-      } catch {
-        queries.pop();
-        clientFilter = true;
-      }
-    }
-
-    const countRes = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      queries: [...queries, Query.limit(1)],
+    const result = await $activityFetch<any[]>("/api/admin/cards/list", {
+      query,
     });
-    const matchTotal = countRes.total;
-    if (matchTotal === 0) {
-      loadingCards.value = false;
-      return;
-    }
 
-    const chunkSize = 1000;
-    const all: any[] = [];
-    for (let offset = 0; offset < matchTotal; offset += chunkSize) {
-      const res = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTION.value,
-        queries: [...queries, Query.limit(chunkSize), Query.offset(offset)],
-      });
-      all.push(...res.rows);
-      if (res.rows.length < chunkSize) break;
-    }
-
-    let filtered = all;
-    if (clientFilter && searchTerm.value) {
-      const term = searchTerm.value.toLowerCase();
-      filtered = all.filter(
-        (c) =>
-          c.text?.toLowerCase().includes(term) ||
-          c.$id?.toLowerCase().includes(term),
-      );
-    }
-
-    cards.value = filtered;
-    totalCards.value = filtered.length;
+    cards.value = result;
+    totalCards.value = result.length;
     currentPage.value = 1;
   } catch (err) {
     console.error("Failed to fetch cards:", err);
@@ -250,12 +166,10 @@ const fetchCards = async () => {
 // ── Card CRUD ─────────────────────────────────────────────────────────────────
 const toggleCardActive = async (card: any) => {
   try {
-    const updated = await tables.updateRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: card.$id,
-      data: { active: !card.active },
-    });
+    const updated = await $activityFetch<{ active: boolean }>(
+      "/api/admin/cards/toggle",
+      { method: "POST", body: { id: card.id, type: cardType.value } },
+    );
     card.active = updated.active;
     // Update pack stat for the currently loaded type
     const packName = card.pack || "(no pack)";
@@ -278,16 +192,10 @@ const togglePackActive = async (pack: string, setActive: boolean) => {
 
   loadingCards.value = true;
   try {
-    await Promise.all(
-      packCards.map((card) =>
-        tables.updateRow({
-          databaseId: DB_ID,
-          tableId: CARD_COLLECTION.value,
-          rowId: card.$id,
-          data: { active: setActive },
-        }),
-      ),
-    );
+    await $activityFetch("/api/admin/cards/toggle-pack", {
+      method: "POST",
+      body: { pack, type: cardType.value, active: setActive },
+    });
     packCards.forEach((c) => (c.active = setActive));
     if (packStats.value[pack]) {
       const typeKey = cardType.value as "black" | "white";
@@ -318,16 +226,19 @@ const openEditModal = (card: any) => {
 
 const saveCardEdit = async (updateData: any) => {
   try {
-    const updated = await tables.updateRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: updateData.$id,
-      data: {
-        text: updateData.text,
-        ...(updateData.pick ? { pick: updateData.pick } : {}),
+    const updated = await $activityFetch<{ id: string; text: string; pick?: number }>(
+      "/api/admin/cards/edit",
+      {
+        method: "POST",
+        body: {
+          id: updateData.id,
+          type: cardType.value,
+          text: updateData.text,
+          ...(updateData.pick ? { pick: updateData.pick } : {}),
+        },
       },
-    });
-    const idx = cards.value.findIndex((c) => c.$id === updated.$id);
+    );
+    const idx = cards.value.findIndex((c) => c.id === updated.id);
     if (idx !== -1) {
       cards.value[idx].text = updated.text;
       if (updated.pick) cards.value[idx].pick = updated.pick;
@@ -341,12 +252,11 @@ const saveCardEdit = async (updateData: any) => {
 
 const deleteCard = async (card: any) => {
   try {
-    await tables.deleteRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: card.$id,
+    await $activityFetch("/api/admin/cards/delete", {
+      method: "POST",
+      body: { id: card.id, type: cardType.value },
     });
-    cards.value = cards.value.filter((c) => c.$id !== card.$id);
+    cards.value = cards.value.filter((c) => c.id !== card.id);
     totalCards.value--;
     const packName = card.pack || "(no pack)";
     if (packStats.value[packName]) {
@@ -368,19 +278,16 @@ const addSingleCard = async () => {
 
   loadingCards.value = true;
   try {
-    const collectionId = CARD_COLLECTION.value;
-    const cardData: any = {
+    const body: Record<string, unknown> = {
+      type: newCardType.value,
       text: newCardText.value.trim(),
       pack: newCardPack.value,
-      active: true,
     };
-    if (newCardType.value === "black") cardData.pick = newCardPicks.value;
+    if (newCardType.value === "black") body.pick = newCardPicks.value;
 
-    const newCard = await tables.createRow({
-      databaseId: DB_ID,
-      tableId: collectionId,
-      rowId: "unique()",
-      data: cardData,
+    const newCard = await $activityFetch<any>("/api/admin/cards/create", {
+      method: "POST",
+      body,
     });
 
     // Add to grid if currently viewing this pack/type
@@ -856,8 +763,8 @@ onMounted(async () => {
             >
               <AdminCardPreview
                 v-for="card in visibleCards"
-                :key="card.$id"
-                v-memo="[card.$id, card.active, card.text, card.pick]"
+                :key="card.id"
+                v-memo="[card.id, card.active, card.text, card.pick]"
                 :text="card.text"
                 :pack="card.pack"
                 :active="card.active"

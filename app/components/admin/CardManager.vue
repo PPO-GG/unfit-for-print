@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
-import type { Databases } from "appwrite";
 import { useNotifications } from "~/composables/useNotifications";
 import { ref, computed, watch, onMounted } from "vue";
 import { watchDebounced } from "@vueuse/core";
@@ -10,13 +7,13 @@ import type { RadioGroupItem, RadioGroupValue } from "@nuxt/ui";
 import { useCardSearch } from "~/composables/useCardSearch";
 import { useUserStore } from "~/stores/userStore";
 
-const { databases, tables } = getAppwrite();
-const config = useRuntimeConfig();
+const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
 const userStore = useUserStore();
 
-// Auth headers for admin API calls (matches UserManager pattern)
+// Auth headers for the legacy (still-Appwrite) /api/dev/seed upload flow.
+// Card CRUD below goes through $activityFetch, which carries auth itself.
 const authHeaders = () => ({
   Authorization: `Bearer ${userStore.session?.$id}`,
   "x-appwrite-user-id": userStore.user?.$id ?? "",
@@ -99,226 +96,58 @@ const selectedPackStatus = computed(() => {
   return "partial";
 });
 
-const DB_ID = config.public.appwriteDatabaseId;
-
-const CARD_COLLECTIONS = {
-  black: config.public.appwriteBlackCardCollectionId as string,
-  white: config.public.appwriteWhiteCardCollectionId as string,
-};
-const CARD_COLLECTION = computed(() => CARD_COLLECTIONS[cardType.value]);
-
 // Computed property to determine if numPick input should be disabled
 const isNumPickDisabled = computed(() => cardType.value === "white");
 
-// Fetch available card packs on mount
-onMounted(async () => {
-  if (!databases) return;
+// Load the available pack names for the current card type from the
+// consolidated pack-stats route (Task 10), then refresh the card grid.
+const loadPacks = async () => {
   try {
-    // First get total count of cards
-    const countResult = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      queries: [Query.limit(1)],
-    });
-    const totalCards = countResult.total;
-
-    // Fetch all cards to extract packs (using a reasonable chunk size)
-    const chunkSize = 1000;
-    const allPacks = new Set<string>();
-
-    // Fetch cards in chunks to get all packs
-    for (let offset = 0; offset < totalCards; offset += chunkSize) {
-      const result = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTION.value,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-
-      // Extract packs from this chunk
-      result.rows.forEach((doc) => {
-        if (doc.pack) allPacks.add(doc.pack);
-      });
-
-      // If we got fewer documents than requested, we've reached the end
-      if (result.rows.length < chunkSize) break;
-    }
-
-    availablePacks.value = Array.from(allPacks).sort();
-    console.log(`Found ${availablePacks.value.length} card packs`);
-
-    // Initial fetch of cards
-    await fetchCards();
+    const { white, black } = await $activityFetch<{
+      white: { pack: string }[];
+      black: { pack: string }[];
+    }>("/api/cards/packs");
+    const packs = cardType.value === "black" ? black : white;
+    availablePacks.value = packs.map((p) => p.pack).sort();
   } catch (err) {
     console.error("Failed to load packs:", err);
   }
+};
+
+// Fetch available card packs on mount
+onMounted(async () => {
+  await loadPacks();
+  await fetchCards();
 });
 
 // Watch for card type changes to reload packs
 watch(cardType, async () => {
-  if (!databases) return;
-  try {
-    // First get total count of cards
-    const countResult = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      queries: [Query.limit(1)],
-    });
-    const totalCards = countResult.total;
-
-    // Fetch all cards to extract packs (using a reasonable chunk size)
-    const chunkSize = 1000;
-    const allPacks = new Set<string>();
-
-    // Fetch cards in chunks to get all packs
-    for (let offset = 0; offset < totalCards; offset += chunkSize) {
-      const result = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTION.value,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-
-      // Extract packs from this chunk
-      result.rows.forEach((doc) => {
-        if (doc.pack) allPacks.add(doc.pack);
-      });
-
-      // If we got fewer documents than requested, we've reached the end
-      if (result.rows.length < chunkSize) break;
-    }
-
-    availablePacks.value = Array.from(allPacks).sort();
-    console.log(
-      `Found ${availablePacks.value.length} card packs for ${cardType.value} cards`,
-    );
-
-    // Reset page and refetch cards
-    currentPage.value = 1;
-    await fetchCards();
-  } catch (err) {
-    console.error("Failed to load packs:", err);
-  }
+  await loadPacks();
+  currentPage.value = 1;
+  await fetchCards();
 });
 
 // Fetch cards
 const fetchCards = async () => {
-  if (!databases) return;
   loading.value = true;
 
   try {
-    // First get total count of cards with filters applied
-    const queries = [];
-
-    // Apply filters for pack selection
-    if (selectedPack.value) {
-      queries.push(Query.equal("pack", selectedPack.value));
-    }
-
-    // Apply filter for numPick when card type is black
+    const query: Record<string, string> = { type: cardType.value };
+    if (selectedPack.value) query.pack = selectedPack.value;
     if (cardType.value === "black" && numPick.value > 0) {
-      queries.push(Query.equal("pick", numPick.value));
+      query.pick = String(numPick.value);
     }
+    if (searchTerm.value) query.search = searchTerm.value;
 
-    // Handle text search - try server-side search first, but be prepared to fall back to client-side filtering
-    let useServerSideSearch = false;
-    let clientSideFilterNeeded = false;
-
-    if (searchTerm.value) {
-      try {
-        // Check if the search term might be an ID (no spaces, alphanumeric)
-        const isIdSearch =
-          /^[a-zA-Z0-9]+$/.test(searchTerm.value) &&
-          !searchTerm.value.includes(" ");
-
-        if (isIdSearch) {
-          // If it looks like an ID, try to search by ID first
-          queries.push(Query.search("$id", searchTerm.value));
-        } else {
-          // Otherwise, search by text content
-          queries.push(Query.search("text", searchTerm.value));
-        }
-        useServerSideSearch = true;
-
-        // Test the query to see if it works
-        await tables.listRows({
-          databaseId: DB_ID,
-          tableId: CARD_COLLECTION.value,
-          queries: [...queries, Query.limit(1)],
-        });
-      } catch (searchErr) {
-        // If server-side search fails, remove the search query and note that we'll need client-side filtering
-        // This is expected behavior if fulltext indexes are still being created or propagated
-        console.info(
-          "Using client-side filtering (fulltext indexes may still be propagating)",
-        );
-        queries.pop(); // Remove the search query
-        useServerSideSearch = false;
-        clientSideFilterNeeded = true;
-      }
-    }
-
-    // First get count of matching cards (without search if we're doing client-side filtering)
-    const countResult = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      queries: [...queries, Query.limit(1)],
+    const result = await $activityFetch<any[]>("/api/admin/cards/list", {
+      query,
     });
-    let totalMatchingCards = countResult.total;
 
-    // If no cards match the filters, return early
-    if (totalMatchingCards === 0) {
-      cards.value = [];
-      currentPage.value = 1;
-      loading.value = false;
-      return;
-    }
-
-    // Fetch all matching cards in chunks
-    const chunkSize = 1000;
-    const allCards = [];
-
-    // Fetch cards in chunks
-    for (let offset = 0; offset < totalMatchingCards; offset += chunkSize) {
-      const result = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTION.value,
-        queries: [...queries, Query.limit(chunkSize), Query.offset(offset)],
-      });
-
-      allCards.push(...result.rows);
-
-      // If we got fewer documents than requested, we've reached the end
-      if (result.rows.length < chunkSize) break;
-    }
-
-    // Apply client-side text filtering if needed
-    let filteredCards = allCards;
-    if (clientSideFilterNeeded && searchTerm.value) {
-      const searchTermLower = searchTerm.value.toLowerCase();
-      filteredCards = allCards.filter(
-        (card) =>
-          // Search by text content
-          card.text.toLowerCase().includes(searchTermLower) ||
-          // Search by ID
-          card.$id.toLowerCase().includes(searchTermLower),
-      );
-      // Only log this at debug level since it's expected behavior while indexes propagate
-      if (filteredCards.length !== allCards.length) {
-        console.debug(
-          `Client-side filtering: ${filteredCards.length}/${allCards.length} cards match`,
-        );
-      }
-    }
-
-    cards.value = filteredCards;
-    totalCards.value = filteredCards.length;
-
-    // Reset to page 1 when fetching new cards
+    cards.value = result;
+    totalCards.value = result.length;
     currentPage.value = 1;
 
-    // Use debug level for routine operation logs
-    console.debug(
-      `Fetched ${filteredCards.length}/${totalMatchingCards} cards`,
-    );
+    console.debug(`Fetched ${result.length} cards`);
   } catch (err) {
     console.error("Failed to fetch cards:", err);
   } finally {
@@ -369,14 +198,10 @@ watch(currentPage, (newPage) => {
 
 const toggleCardActive = async (card: any) => {
   try {
-    const updated = await tables.updateRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: card.$id,
-      data: {
-        active: !card.active,
-      },
-    });
+    const updated = await $activityFetch<{ active: boolean }>(
+      "/api/admin/cards/toggle",
+      { method: "POST", body: { id: card.id, type: cardType.value } },
+    );
     card.active = updated.active;
     notify({
       title: `Card ${updated.active ? "Activated" : "Deactivated"}`,
@@ -399,24 +224,13 @@ const togglePackActive = async (pack: string, setActive: boolean) => {
   try {
     loading.value = true;
 
-    // Get all cards from the selected pack
-    const packCards = cards.value.filter((card) => card.pack === pack);
-
-    // Update each card in the pack
-    const updatePromises = packCards.map((card) =>
-      tables.updateRow({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTION.value,
-        rowId: card.$id,
-        data: {
-          active: setActive,
-        },
-      }),
-    );
-
-    await Promise.all(updatePromises);
+    await $activityFetch("/api/admin/cards/toggle-pack", {
+      method: "POST",
+      body: { pack, type: cardType.value, active: setActive },
+    });
 
     // Update local state
+    const packCards = cards.value.filter((card) => card.pack === pack);
     packCards.forEach((card) => {
       card.active = setActive;
     });
@@ -448,13 +262,12 @@ const deleteCard = async (card: any) => {
   if (!confirmed) return;
 
   try {
-    await tables.deleteRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: card.$id,
+    await $activityFetch("/api/admin/cards/delete", {
+      method: "POST",
+      body: { id: card.id, type: cardType.value },
     });
     // Remove from local list
-    cards.value = cards.value.filter((c) => c.$id !== card.$id);
+    cards.value = cards.value.filter((c) => c.id !== card.id);
     totalCards.value--;
 
     notify({
@@ -490,26 +303,24 @@ const saveCardEdit = async () => {
   }
 
   try {
-    // Create update data object
-    const updateData = {
+    const body: Record<string, unknown> = {
+      id: editingCard.value.id,
+      type: cardType.value,
       text: newCardText.value.trim(),
     };
 
     // Add pick property for black cards
     if (cardType.value === "black") {
-      // @ts-ignore - Adding pick property dynamically
-      updateData.pick = parseInt(editingCardPicks.value.toString()) || 1;
+      body.pick = parseInt(editingCardPicks.value.toString()) || 1;
     }
 
-    const updated = await tables.updateRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: editingCard.value.$id,
-      data: updateData,
-    });
+    const updated = await $activityFetch<{ id: string; text: string; pick?: number }>(
+      "/api/admin/cards/edit",
+      { method: "POST", body },
+    );
 
     // Update in local list
-    const index = cards.value.findIndex((c) => c.$id === updated.$id);
+    const index = cards.value.findIndex((c) => c.id === updated.id);
     if (index !== -1) {
       cards.value[index].text = updated.text;
       // Update pick value for black cards
@@ -547,28 +358,21 @@ const addSingleCard = async () => {
   try {
     loading.value = true;
 
-    // Get the collection ID based on the selected card type
-    const collectionId = CARD_COLLECTIONS[newSingleCardType.value];
-
     // Create card data object
-    const cardData = {
+    const body: Record<string, unknown> = {
+      type: newSingleCardType.value,
       text: newSingleCardText.value.trim(),
       pack: newSingleCardPack.value,
-      active: true, // Default to active
     };
 
     // Add pick property for black cards
     if (newSingleCardType.value === "black") {
-      // @ts-ignore - Adding pick property dynamically
-      cardData.pick = parseInt(newSingleCardPicks.value.toString()) || 1;
+      body.pick = parseInt(newSingleCardPicks.value.toString()) || 1;
     }
 
-    // Create the new card document
-    const newCard = await tables.createRow({
-      databaseId: DB_ID,
-      tableId: collectionId,
-      rowId: "unique()",
-      data: cardData,
+    const newCard = await $activityFetch<any>("/api/admin/cards/create", {
+      method: "POST",
+      body,
     });
 
     // Add to local list if the current view includes this pack and type
@@ -613,7 +417,7 @@ const findSimilarCards = (card: any) => {
   try {
     // Get all cards of the same type (excluding the selected card)
     // Also ensure we only include cards that still exist (haven't been deleted)
-    const otherCards = cards.value.filter((c) => c.$id !== card.$id);
+    const otherCards = cards.value.filter((c) => c.id !== card.id);
 
     // Prefilter by text length to reduce the number of expensive comparisons
     const filteredOtherCards = otherCards.filter((otherCard) => {
@@ -702,7 +506,7 @@ const findAllSimilarCards = () => {
         totalPairs++;
 
         // Skip if we've already processed this pair
-        const pairKey = [card1.$id, card2.$id].sort().join("-");
+        const pairKey = [card1.id, card2.id].sort().join("-");
         if (processedPairs.has(pairKey)) continue;
 
         // Skip cards with very different lengths (unlikely to be similar)
@@ -785,14 +589,13 @@ const handleSimilarCardAction = async (similarCard: any) => {
       cardToKeep.value === "original" ? similarCard : selectedCard.value;
 
     // Delete the card
-    await tables.deleteRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: cardToDelete.$id,
+    await $activityFetch("/api/admin/cards/delete", {
+      method: "POST",
+      body: { id: cardToDelete.id, type: cardType.value },
     });
 
     // Remove from local list
-    cards.value = cards.value.filter((c) => c.$id !== cardToDelete.$id);
+    cards.value = cards.value.filter((c) => c.id !== cardToDelete.id);
     totalCards.value--;
 
     // If we're deleting the original card, we need to update the selected card
@@ -800,19 +603,19 @@ const handleSimilarCardAction = async (similarCard: any) => {
       selectedCard.value = similarCard;
       // Remove the current similar card from the list
       similarCards.value = similarCards.value.filter(
-        (c) => c.$id !== similarCard.$id,
+        (c) => c.id !== similarCard.id,
       );
     } else {
       // Just remove the current similar card from the list
       similarCards.value = similarCards.value.filter(
-        (c) => c.$id !== similarCard.$id,
+        (c) => c.id !== similarCard.id,
       );
     }
 
     // Filter out any cards that have been deleted in other comparisons
     // This ensures we don't show cards that no longer exist
     similarCards.value = similarCards.value.filter((c) =>
-      cards.value.some((card) => card.$id === c.$id),
+      cards.value.some((card) => card.id === c.id),
     );
 
     // If no more similar cards, close the modal
@@ -853,8 +656,8 @@ const handleAllSimilarCardAction = async () => {
     // Filter out any pairs that contain cards that have been deleted in other comparisons
     allSimilarPairs.value = allSimilarPairs.value.filter(
       (pair) =>
-        cards.value.some((card) => card.$id === pair.card1.$id) &&
-        cards.value.some((card) => card.$id === pair.card2.$id),
+        cards.value.some((card) => card.id === pair.card1.id) &&
+        cards.value.some((card) => card.id === pair.card2.id),
     );
 
     // If no more pairs after filtering, close the modal
@@ -896,14 +699,13 @@ const handleAllSimilarCardAction = async () => {
     }
 
     // Delete the card
-    await tables.deleteRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: cardToDelete.$id,
+    await $activityFetch("/api/admin/cards/delete", {
+      method: "POST",
+      body: { id: cardToDelete.id, type: cardType.value },
     });
 
     // Remove from local list
-    cards.value = cards.value.filter((c) => c.$id !== cardToDelete.$id);
+    cards.value = cards.value.filter((c) => c.id !== cardToDelete.id);
     totalCards.value--;
 
     // Remove the current pair from the list
@@ -1413,7 +1215,7 @@ const resumeUpload = () => {
     <ul v-else class="space-y-3">
       <li
         v-for="card in paginatedCards"
-        :key="card.$id"
+        :key="card.id"
         class="bg-slate-700 rounded p-4 flex justify-between items-center relative"
       >
         <div class="text-sm font-mono text-white max-w-xl mb-4">
@@ -1432,7 +1234,7 @@ const resumeUpload = () => {
               name="i-solar-info-square-bold-duotone"
               class="mr-1 text-info-300"
             />
-            ({{ card.$id }})
+            ({{ card.id }})
           </span>
         </div>
         <div class="flex items-center gap-1">
@@ -1802,7 +1604,7 @@ const resumeUpload = () => {
 
           <div
             v-for="similarCard in similarCards"
-            :key="similarCard.$id"
+            :key="similarCard.id"
             class="border border-gray-700 rounded-lg p-4"
           >
             <div class="flex justify-between items-start mb-4">
@@ -1833,7 +1635,7 @@ const resumeUpload = () => {
                   {{ selectedCard.text }}
                 </div>
                 <div class="text-xs text-gray-400">
-                  Pack: {{ selectedCard.pack }} | ID: {{ selectedCard.$id }}
+                  Pack: {{ selectedCard.pack }} | ID: {{ selectedCard.id }}
                 </div>
               </div>
 
@@ -1852,7 +1654,7 @@ const resumeUpload = () => {
                   {{ similarCard.text }}
                 </div>
                 <div class="text-xs text-gray-400">
-                  Pack: {{ similarCard.pack }} | ID: {{ similarCard.$id }}
+                  Pack: {{ similarCard.pack }} | ID: {{ similarCard.id }}
                 </div>
               </div>
             </div>
@@ -1953,7 +1755,7 @@ const resumeUpload = () => {
                 <div class="text-xs text-gray-400">
                   Pack: {{ allSimilarPairs[currentPairIndex]!.card1.pack }} |
                   ID:
-                  {{ allSimilarPairs[currentPairIndex]!.card1.$id }}
+                  {{ allSimilarPairs[currentPairIndex]!.card1.id }}
                 </div>
               </div>
 
@@ -1974,7 +1776,7 @@ const resumeUpload = () => {
                 <div class="text-xs text-gray-400">
                   Pack: {{ allSimilarPairs[currentPairIndex]!.card2.pack }} |
                   ID:
-                  {{ allSimilarPairs[currentPairIndex]!.card2.$id }}
+                  {{ allSimilarPairs[currentPairIndex]!.card2.id }}
                 </div>
               </div>
             </div>
