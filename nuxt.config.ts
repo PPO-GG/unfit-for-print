@@ -117,6 +117,7 @@ export default defineNuxtConfig({
     "@nuxt/scripts",
     "@vite-pwa/nuxt",
     "@nuxtjs/mdc",
+    "nuxt-auth-utils",
   ],
 
   // ─── PWA ──────────────────────────────────────────────────────────────
@@ -196,6 +197,7 @@ export default defineNuxtConfig({
     discordClientSecret: process.env.DISCORD_CLIENT_SECRET,
     discordPublicKey: process.env.DISCORD_PUBLIC_KEY,
     discordApplicationId: process.env.DISCORD_APPLICATION_ID,
+    sessionPassword: process.env.NUXT_SESSION_PASSWORD,
 
     // Client-side (game-specific collection IDs)
     public: {
