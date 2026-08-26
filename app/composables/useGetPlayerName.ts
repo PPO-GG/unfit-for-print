@@ -1,6 +1,4 @@
 import { ref, computed } from "vue";
-import { Query } from "appwrite";
-import { getAppwrite } from "~/utils/appwrite";
 import type { Player } from "~/types/player";
 
 /**
@@ -9,12 +7,11 @@ import type { Player } from "~/types/player";
  * @returns A function to get player name by ID
  */
 export const useGetPlayerName = () => {
+  const { $activityFetch } = useNuxtApp();
+
   // Cache for players to avoid repeated database queries
   const playerCache = ref<Record<string, Player>>({});
   const isLoading = ref(false);
-
-  // Get runtime config
-  const getConfig = () => useRuntimeConfig();
 
   /**
    * Fetch a player by userId from the database
@@ -32,30 +29,12 @@ export const useGetPlayerName = () => {
       }
 
       isLoading.value = true;
-      const { databases, tables } = getAppwrite();
-      const config = getConfig();
 
-      // Query the player collection for this userId
-      const res = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwritePlayerCollectionId,
-        queries: [Query.equal("userId", userId)],
-      });
+      const player = await $activityFetch<Player | null>(
+        "/api/players/by-user/" + userId,
+      );
 
-      if (res.rows.length > 0) {
-        const row = res.rows[0]!;
-        // Convert to Player type and cache it
-        const player = {
-          $id: row.$id,
-          userId: row.userId,
-          lobbyId: row.lobbyId,
-          name: row.name,
-          avatar: row.avatar,
-          isHost: row.isHost,
-          joinedAt: row.joinedAt,
-          provider: row.provider,
-        } as Player;
-
+      if (player) {
         // Add to cache
         playerCache.value[userId] = player;
         return player;
@@ -92,31 +71,16 @@ export const useGetPlayerName = () => {
         return player.name;
       }
 
-      // If still not found, try fetching by $id instead of userId
+      // If still not found, try fetching by row id instead of userId
       // This is a fallback for cases where playerId might be the document ID
-      const { databases, tables } = getAppwrite();
-      const config = getConfig();
-
       try {
-        const doc = await tables.getRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwritePlayerCollectionId,
-          rowId: playerId,
-        });
+        const doc = await $activityFetch<Player | null>(
+          "/api/players/" + playerId,
+        );
 
         if (doc?.name) {
           // Cache this player
-          playerCache.value[doc.userId] = {
-            $id: doc.$id,
-            userId: doc.userId,
-            lobbyId: doc.lobbyId,
-            name: doc.name,
-            avatar: doc.avatar,
-            isHost: doc.isHost,
-            joinedAt: doc.joinedAt,
-            provider: doc.provider,
-          } as Player;
-
+          playerCache.value[doc.userId] = doc;
           return doc.name;
         }
       } catch (err) {

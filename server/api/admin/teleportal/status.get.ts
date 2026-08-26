@@ -1,9 +1,12 @@
 // server/api/admin/teleportal/status.get.ts
-// Fetches Teleportal /status and Appwrite lobby registry in parallel,
+// Fetches Teleportal /status and the Postgres lobby registry in parallel,
 // merges them into a unified response for the admin lobby monitor.
 
-import { Query } from "node-appwrite";
+import { desc } from "drizzle-orm";
 import { createError } from "h3";
+import { useDb } from "~/server/db/client";
+import { lobbies } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export interface UnifiedStatusResponse {
   server: {
@@ -18,29 +21,22 @@ export interface UnifiedStatusResponse {
 }
 
 export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const url = getTeleportalHttpUrl();
-  const { databases } = useAppwriteAdmin();
-  const config = useRuntimeConfig();
-
-  const DB_ID = config.public.appwriteDatabaseId as string;
-  const LOBBY_COL = config.public.appwriteLobbyCollectionId as string;
+  const db = useDb();
 
   try {
     // Fetch both sources in parallel
-    const [teleportal, lobbiesRes] = await Promise.all([
+    const [teleportal, lobbyRows] = await Promise.all([
       $fetch<any>(`${url}/status`),
-      databases.listDocuments(DB_ID, LOBBY_COL, [
-        Query.orderDesc("$createdAt"),
-        Query.limit(500),
-      ]),
+      db.select().from(lobbies).orderBy(desc(lobbies.createdAt)).limit(500),
     ]);
 
-    const lobbies = mergeLobbies(
+    const unifiedLobbies = mergeLobbies(
       teleportal.documents ?? {},
-      lobbiesRes.documents,
-      // Game settings are now in Y.Doc — no Appwrite collection to query
+      lobbyRows,
+      // Game settings are now in Y.Doc — no separate table to query
       [],
     );
 
@@ -53,7 +49,7 @@ export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> 
         idleDocTtlSec: teleportal.idleDocTtlSec,
         memoryUsage: teleportal.memoryUsage,
       },
-      lobbies,
+      lobbies: unifiedLobbies,
     };
   } catch (err: any) {
     console.error("[admin/teleportal/status] Fetch failed:", err);

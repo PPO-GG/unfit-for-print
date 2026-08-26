@@ -2,6 +2,7 @@
 
 import { readBody, createError } from "h3";
 import Ajv from "ajv";
+import { requireAdmin } from "~/server/utils/session";
 
 // JSON schema for validation
 const cardPackSchema = {
@@ -45,10 +46,8 @@ const cardPackSchema = {
 
 export default defineEventHandler(async (event) => {
   // Only authenticated admins may seed card data.
-  await assertAdmin(event);
+  await requireAdmin(event);
 
-  const config = useRuntimeConfig();
-  const { databases } = createAppwriteClient();
   const method = event.node.req.method || "GET";
 
   // Only allow POST requests for data submission
@@ -85,7 +84,7 @@ export default defineEventHandler(async (event) => {
 
     // Generate a session ID if not provided
     if (!sessionId) {
-      sessionId = Date.now().toString();
+      sessionId = crypto.randomUUID();
     }
 
     if (!jsonContent) {
@@ -123,10 +122,6 @@ export default defineEventHandler(async (event) => {
       // This will be handled asynchronously, and progress will be reported via the progress endpoint
       // Start the processing in a separate "thread" so we can return a response immediately
       const processingPromise = seedCardsFromJson({
-        databases,
-        databaseId: config.public.appwriteDatabaseId,
-        whiteCollection: config.public.appwriteWhiteCardCollectionId,
-        blackCollection: config.public.appwriteBlackCardCollectionId,
         jsonContent,
         onProgress: (progress, stats) => {
           // Emit progress event with session ID

@@ -1,8 +1,5 @@
-import { ID } from "node-appwrite";
-import { InputFile } from "node-appwrite/file";
 import type { ImageFormat } from "~/types/decoration";
 
-const BUCKET_ID = "decoration-images";
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = [
   "image/png",
@@ -58,7 +55,7 @@ export function isValidDotLottie(buffer: Buffer): boolean {
 }
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const formData = await readMultipartFormData(event);
   if (!formData || formData.length === 0) {
@@ -112,20 +109,24 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const { storage } = useAppwriteAdmin();
-  const fileId = ID.unique();
+  const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const fileId = crypto.randomUUID();
+  const key = `${fileId}-${file.filename}`;
 
-  const uploaded = await storage.createFile(
-    BUCKET_ID,
-    fileId,
-    InputFile.fromBuffer(file.data, file.filename),
+  await useR2().send(
+    new PutObjectCommand({
+      Bucket: getR2Bucket(),
+      Key: key,
+      Body: file.data,
+      ContentType: mimeType,
+    }),
   );
 
   return {
-    fileId: uploaded.$id,
-    name: uploaded.name,
-    size: uploaded.sizeOriginal,
-    mimeType: uploaded.mimeType,
+    fileId: key,
+    name: file.filename,
+    size: file.data.length,
+    mimeType,
     imageFormat,
   };
 });

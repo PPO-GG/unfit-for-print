@@ -51,7 +51,7 @@ const {
   engine,
   mutations,
 } = useLobby();
-const { initSessionIfNeeded } = useJoinLobby();
+const { initializeGamePageSession } = useJoinLobby();
 
 // ─── Discord Activity ─────────────────────────────────────────────────────
 const { isDiscordActivity } = useDiscordSDK();
@@ -106,30 +106,27 @@ watch(
   },
 );
 
-// ─── Sync Y.Doc status → Appwrite (host only) ──────────────────────────────
+// ─── Sync Y.Doc status → Postgres (host only) ──────────────────────────────
 // When the Y.Doc meta.status changes (game complete, reset to waiting), the
-// host writes the new value back to the Appwrite lobby document so that
-// discovery queries (getActiveLobbyForUser, browse games) stay accurate.
+// host writes the new value back to the lobby row so that discovery queries
+// (getActiveLobbyForUser, browse games) stay accurate.
 watch(
   () => reactive.meta.value?.status,
   async (newStatus, oldStatus) => {
     if (!newStatus || newStatus === oldStatus) return;
-    if (!isHost.value || !lobby.value?.$id) return;
+    if (!isHost.value || !lobby.value?.id) return;
 
     // Only sync actionable transitions — "playing" is handled by start.post.ts
     if (newStatus === "complete" || newStatus === "waiting") {
       try {
-        const { tables } = getAppwrite();
-        await tables.updateRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteLobbyCollectionId,
-          rowId: lobby.value.$id,
-          data: { status: newStatus },
+        await nuxtApp.$activityFetch("/api/lobby/status", {
+          method: "POST",
+          body: { lobbyId: lobby.value.id, status: newStatus },
         });
       } catch (err) {
         // Non-critical — the Y.Doc is the authority.
-        // If this fails, the Appwrite doc is stale but gameplay is unaffected.
-        console.warn("[GamePage] Failed to sync status to Appwrite:", err);
+        // If this fails, the lobby row is stale but gameplay is unaffected.
+        console.warn("[GamePage] Failed to sync status to server:", err);
       }
     }
   },
@@ -389,8 +386,7 @@ onMounted(async () => {
   loading.value = true;
 
   try {
-    await initSessionIfNeeded();
-    await userStore.fetchUserSession();
+    await initializeGamePageSession();
 
     const user = userStore.user;
     if (!user) {
@@ -436,7 +432,7 @@ onMounted(async () => {
       // Priority 1: Check the Y.Doc players map (already synced above).
       const inYDoc = (() => {
         try {
-          return !!lobbyDoc.getPlayers().get(user.$id);
+          return !!lobbyDoc.getPlayers().get(user.id);
         } catch {
           return false;
         }
@@ -445,7 +441,7 @@ onMounted(async () => {
       if (!inYDoc && !wasInThisGame) {
         // Not found in Y.Doc and no session memory of this game.
         // Check if they belong to a *different* active lobby.
-        const activeLobby = await getActiveLobbyForUser(user.$id);
+        const activeLobby = await getActiveLobbyForUser(user.id);
         if (activeLobby && activeLobby.code !== code) {
           notify({
             title: t("lobby.return_active_game"),
@@ -457,7 +453,7 @@ onMounted(async () => {
 
         // Final fallback: Appwrite player doc check for this lobby
         const stillInLobby = fetchedLobby
-          ? await isInLobby(user.$id, fetchedLobby.$id)
+          ? await isInLobby(user.id, fetchedLobby.id)
           : false;
 
         if (!stillInLobby) {
@@ -474,15 +470,14 @@ onMounted(async () => {
           const meta = lobbyDoc.getMeta();
           const docStatus = meta.get("status") || "waiting";
           mutations.addPlayer({
-            userId: user.$id,
+            userId: user.id,
             name: user.name || "Unknown",
-            avatar: (user.prefs as Record<string, any>)?.avatar || "",
+            avatar: user.avatarUrl || "",
             isHost: false,
             joinedAt: new Date().toISOString(),
-            provider: userStore.session?.provider || "",
+            provider: user.discordUserId ? "discord" : "anonymous",
             playerType: docStatus === "playing" ? "spectator" : "player",
-            activeDecoration:
-              (user.prefs as Record<string, any>)?.activeDecoration || "",
+            activeDecoration: user.activeDecoration || "",
           });
           console.log("[GamePage] Re-added player to Y.Doc after reconnect");
         } catch (err) {
@@ -550,13 +545,13 @@ const handleJoinSuccess = async (joinedCode: string) => {
 };
 
 const handleLeave = async () => {
-  if (!lobby.value || !userStore.user?.$id) return;
+  if (!lobby.value || !userStore.user?.id) return;
   selfLeaving.value = true;
   // Clear session marker so a future visit to this code shows the join form
   if (typeof sessionStorage !== "undefined") {
     sessionStorage.removeItem(ACTIVE_GAME_KEY);
   }
-  await leaveLobby(lobby.value.$id, userStore.user.$id);
+  await leaveLobby(lobby.value.id, userStore.user.id);
   // Discord Activity users return to VC Hub; others go home
   return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
 };
@@ -568,7 +563,7 @@ const startGameWrapper = async () => {
     isStarting.value = true;
     const s = reactive.settings.value;
     if (!s) return;
-    await startGame(lobby.value.$id, {
+    await startGame(lobby.value.id, {
       maxPoints: s.maxPoints,
       numPlayerCards: s.cardsPerPlayer,
       cardPacks: s.cardPacks,

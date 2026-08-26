@@ -48,8 +48,8 @@ function extractCode(docId: string): string {
  * Merges Teleportal live documents with Appwrite lobby registry and settings.
  *
  * @param teleportalDocs - The `documents` map from Teleportal /status response
- * @param appwriteLobbies - Array of Appwrite lobby documents (must have $id, code, status, hostUserId, $createdAt)
- * @param appwriteSettings - Array of Appwrite game settings documents (must have lobbyId, lobbyName)
+ * @param appwriteLobbies - Array of lobby documents (must have id, code, status, hostUserId, createdAt)
+ * @param appwriteSettings - Array of game settings documents (must have lobbyId, lobbyName)
  */
 export function mergeLobbies(
   teleportalDocs: Record<string, TeleportalDocDetails>,
@@ -60,8 +60,8 @@ export function mergeLobbies(
   const settingsMap = new Map<string, string | null>();
   for (const s of appwriteSettings) {
     const lobbyId =
-      typeof s.lobbyId === "object" && s.lobbyId?.$id
-        ? s.lobbyId.$id
+      typeof s.lobbyId === "object" && s.lobbyId?.id
+        ? s.lobbyId.id
         : String(s.lobbyId);
     settingsMap.set(lobbyId, s.lobbyName ?? null);
   }
@@ -73,11 +73,11 @@ export function mergeLobbies(
   >();
   for (const lobby of appwriteLobbies) {
     appwriteByCode.set(lobby.code, {
-      lobbyId: lobby.$id,
+      lobbyId: lobby.id,
       status: lobby.status,
-      lobbyName: settingsMap.get(lobby.$id) ?? null,
+      lobbyName: settingsMap.get(lobby.id) ?? null,
       hostUserId: lobby.hostUserId,
-      createdAt: lobby.$createdAt,
+      createdAt: lobby.createdAt,
     });
   }
 
@@ -126,11 +126,11 @@ export function mergeLobbies(
       hasRegistry: true,
       teleportal: null,
       registry: {
-        lobbyId: lobby.$id,
+        lobbyId: lobby.id,
         status: lobby.status,
-        lobbyName: settingsMap.get(lobby.$id) ?? null,
+        lobbyName: settingsMap.get(lobby.id) ?? null,
         hostUserId: lobby.hostUserId,
-        createdAt: lobby.$createdAt,
+        createdAt: lobby.createdAt,
       },
     });
   }

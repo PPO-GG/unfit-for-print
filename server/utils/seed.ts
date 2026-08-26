@@ -1,10 +1,7 @@
 // server/utils/seed.ts
-import fs from "fs";
-import path from "path";
 import { compareTwoStrings } from "string-similarity";
-import { Query } from "appwrite";
-
-const config = useRuntimeConfig();
+import { useDb } from "../db/client";
+import { blackCards, whiteCards } from "../db/schema";
 
 const renderProgressBar = (current: number, total: number, barLength = 40) => {
   const percent = current / total;
@@ -15,19 +12,11 @@ const renderProgressBar = (current: number, total: number, barLength = 40) => {
 };
 
 export const seedCardsFromJson = async ({
-  databases,
-  databaseId,
-  whiteCollection = config.public.appwriteWhiteCardCollectionId,
-  blackCollection = config.public.appwriteBlackCardCollectionId,
   jsonContent = null,
   onProgress = null,
   similarityThreshold = 0.85, // Configurable threshold (0.0 to 1.0)
   resumeFrom = null, // For resuming from a specific point after failure
 }: {
-  databases: any;
-  databaseId: string;
-  whiteCollection?: string;
-  blackCollection?: string;
   jsonContent?: string | null;
   onProgress?: ((progress: number, stats?: any) => void) | null;
   similarityThreshold?: number;
@@ -38,20 +27,16 @@ export const seedCardsFromJson = async ({
   } | null;
 }) => {
   let data;
-  const tables = getAdminTables();
+  const db = useDb();
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  if (!jsonContent) {
+    return { success: false, message: "No JSON content provided" };
+  }
+
   try {
-    if (jsonContent) {
-      // Use provided JSON content
-      data = JSON.parse(jsonContent);
-    } else {
-      // Fallback to default file
-      const filePath = path.resolve("assets/data/cah-cards-full.json");
-      const raw = fs.readFileSync(filePath, "utf-8");
-      data = JSON.parse(raw);
-    }
+    data = JSON.parse(jsonContent);
   } catch (err: any) {
     const errorMsg = `Failed to parse JSON: ${err.message}`;
     console.error(errorMsg);
@@ -72,11 +57,11 @@ export const seedCardsFromJson = async ({
   let blackCardCount = 0;
 
   for (const pack of data) {
-    const whiteCards = pack.white?.length || 0;
-    const blackCards = pack.black?.length || 0;
-    whiteCardCount += whiteCards;
-    blackCardCount += blackCards;
-    totalCards += whiteCards + blackCards;
+    const packWhite = pack.white?.length || 0;
+    const packBlack = pack.black?.length || 0;
+    whiteCardCount += packWhite;
+    blackCardCount += packBlack;
+    totalCards += packWhite + packBlack;
   }
 
   console.log(
@@ -114,25 +99,20 @@ export const seedCardsFromJson = async ({
     logs,
   };
 
-  // Fetch existing cards (we'll need to do this in batches for large collections)
   try {
     logLine("Fetching existing white cards...");
     if (onProgress) onProgress(0, { ...stats });
-    const existingWhiteCards = await fetchAllCards(
-      databases,
-      databaseId,
-      whiteCollection,
-    );
+    const existingWhiteCards = await db
+      .select({ text: whiteCards.text })
+      .from(whiteCards);
     logLine(`Found ${existingWhiteCards.length} existing white cards`);
     if (onProgress) onProgress(0, { ...stats });
 
     logLine("Fetching existing black cards...");
     if (onProgress) onProgress(0, { ...stats });
-    const existingBlackCards = await fetchAllCards(
-      databases,
-      databaseId,
-      blackCollection,
-    );
+    const existingBlackCards = await db
+      .select({ text: blackCards.text })
+      .from(blackCards);
     logLine(`Found ${existingBlackCards.length} existing black cards`);
     if (onProgress) onProgress(0, { ...stats });
 
@@ -161,7 +141,6 @@ export const seedCardsFromJson = async ({
 
       // Skip packs if resuming
       if (packIndex < startPackIndex) {
-        // Calculate cards to skip for progress reporting
         const skippedWhite = pack.white?.length || 0;
         const skippedBlack = pack.black?.length || 0;
         insertedCards += skippedWhite + skippedBlack;
@@ -173,7 +152,6 @@ export const seedCardsFromJson = async ({
         stats.currentCardType = "white";
 
         for (let cardIndex = 0; cardIndex < pack.white.length; cardIndex++) {
-          // Skip cards if resuming and in the first pack
           if (
             packIndex === startPackIndex &&
             startCardType === "white" &&
@@ -195,14 +173,12 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
-          // Save current position for potential resume
           const currentPosition = {
             packIndex,
             cardIndex,
             cardType: "white" as const,
           };
 
-          // Skip cards with text longer than 255 characters
           if (card.text.length > 255) {
             skippedLongText++;
             stats.skippedLongText = skippedLongText;
@@ -220,7 +196,6 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
-          // Check for exact duplicates first (faster than similarity check)
           const exactDuplicate = existingWhiteCards.some(
             (existingCard) =>
               existingCard.text.toLowerCase() === card.text.toLowerCase(),
@@ -240,7 +215,6 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
-          // Check for similar cards
           const similarCard = findSimilarCard(
             card.text,
             existingWhiteCards,
@@ -264,42 +238,27 @@ export const seedCardsFromJson = async ({
           }
 
           try {
-            const newCard = await tables.createRow({
-              databaseId: databaseId,
-              tableId: whiteCollection,
-              rowId: "unique()",
-              data: {
-                text: card.text,
-                pack: packName,
-                active: true,
-              },
+            await db.insert(whiteCards).values({
+              text: card.text,
+              pack: packName,
+              active: true,
             });
 
-            // Add to our local cache of existing cards
-            existingWhiteCards.push(newCard);
+            existingWhiteCards.push({ text: card.text });
             stats.insertedCards++;
           } catch (err: any) {
-            if (err.code === 409) {
-              skippedDuplicates++;
-              stats.skippedDuplicates = skippedDuplicates;
-              warnings.push(
-                `Duplicate white card detected: "${card.text}" in pack "${packName}"`,
-              );
-            } else {
-              failedCards++;
-              stats.failedCards = failedCards;
-              const errorMsg = `White card insert error: ${err.message} for card "${card.text}" in pack "${packName}"`;
-              console.error(errorMsg);
-              errors.push(errorMsg);
+            failedCards++;
+            stats.failedCards = failedCards;
+            const errorMsg = `White card insert error: ${err.message} for card "${card.text}" in pack "${packName}"`;
+            console.error(errorMsg);
+            errors.push(errorMsg);
 
-              // Return current position for potential resume
-              return {
-                success: false,
-                message: `Failed at white card "${card.text}" in pack "${packName}"`,
-                resumePosition: currentPosition,
-                stats: { ...stats },
-              };
-            }
+            return {
+              success: false,
+              message: `Failed at white card "${card.text}" in pack "${packName}"`,
+              resumePosition: currentPosition,
+              stats: { ...stats },
+            };
           }
 
           insertedCards++;
@@ -318,7 +277,6 @@ export const seedCardsFromJson = async ({
         stats.currentCardType = "black";
 
         for (let cardIndex = 0; cardIndex < pack.black.length; cardIndex++) {
-          // Skip cards if resuming and in the first pack
           if (
             packIndex === startPackIndex &&
             startCardType === "black" &&
@@ -337,14 +295,12 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
-          // Save current position for potential resume
           const currentPosition = {
             packIndex,
             cardIndex,
             cardType: "black" as const,
           };
 
-          // Skip cards with text longer than 255 characters
           if (card.text.length > 255) {
             skippedLongText++;
             stats.skippedLongText = skippedLongText;
@@ -362,7 +318,6 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
-          // Check for exact duplicates first
           const exactDuplicate = existingBlackCards.some(
             (existingCard) =>
               existingCard.text.toLowerCase() === card.text.toLowerCase(),
@@ -382,7 +337,6 @@ export const seedCardsFromJson = async ({
             continue;
           }
 
-          // Check for similar cards
           const similarCard = findSimilarCard(
             card.text,
             existingBlackCards,
@@ -406,43 +360,28 @@ export const seedCardsFromJson = async ({
           }
 
           try {
-            const newCard = await tables.createRow({
-              databaseId: databaseId,
-              tableId: blackCollection,
-              rowId: "unique()",
-              data: {
-                text: card.text,
-                pick: card.pick || 1,
-                pack: packName,
-                active: true,
-              },
+            await db.insert(blackCards).values({
+              text: card.text,
+              pick: card.pick || 1,
+              pack: packName,
+              active: true,
             });
 
-            // Add to our local cache of existing cards
-            existingBlackCards.push(newCard);
+            existingBlackCards.push({ text: card.text });
             stats.insertedCards++;
           } catch (err: any) {
-            if (err.code === 409) {
-              skippedDuplicates++;
-              stats.skippedDuplicates = skippedDuplicates;
-              warnings.push(
-                `Duplicate black card detected: "${card.text}" in pack "${packName}"`,
-              );
-            } else {
-              failedCards++;
-              stats.failedCards = failedCards;
-              const errorMsg = `Black card insert error: ${err.message} for card "${card.text}" in pack "${packName}"`;
-              console.error(errorMsg);
-              errors.push(errorMsg);
+            failedCards++;
+            stats.failedCards = failedCards;
+            const errorMsg = `Black card insert error: ${err.message} for card "${card.text}" in pack "${packName}"`;
+            console.error(errorMsg);
+            errors.push(errorMsg);
 
-              // Return current position for potential resume
-              return {
-                success: false,
-                message: `Failed at black card "${card.text}" in pack "${packName}"`,
-                resumePosition: currentPosition,
-                stats: { ...stats },
-              };
-            }
+            return {
+              success: false,
+              message: `Failed at black card "${card.text}" in pack "${packName}"`,
+              resumePosition: currentPosition,
+              stats: { ...stats },
+            };
           }
 
           insertedCards++;
@@ -495,45 +434,10 @@ export const seedCardsFromJson = async ({
   };
 };
 
-// Helper function to fetch all cards from a collection (with pagination)
-async function fetchAllCards(
-  databases: any,
-  databaseId: string,
-  collectionId: string,
-) {
-  const limit = 100;
-  let offset = 0;
-  const tables = getAdminTables();
-  let allCards: any[] = [];
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await tables.listRows({
-      databaseId: databaseId,
-      tableId: collectionId,
-      queries: [
-        // Appwrite uses Query.limit and Query.offset for pagination
-        Query.limit(limit),
-        Query.offset(offset),
-      ],
-    });
-
-    allCards = [...allCards, ...response.rows];
-
-    if (response.rows.length < limit) {
-      hasMore = false;
-    } else {
-      offset += limit;
-    }
-  }
-
-  return allCards;
-}
-
 // Helper function to find similar cards
 function findSimilarCard(
   cardText: string,
-  existingCards: any[],
+  existingCards: { text: string }[],
   threshold: number,
 ) {
   const normalizedText = cardText.toLowerCase().trim();

@@ -90,13 +90,16 @@ async function readAloud(playerId: string) {
   const missingIds = sub.filter((cardId) => !props.cardTexts?.[cardId]?.text);
 
   // Resolve missing texts on-demand (submitted cards aren't always in cardTexts)
-  let resolvedTexts: Record<string, { text: string; pack: string }> = {};
+  const resolvedTexts: Record<string, { text: string; pack: string }> = {};
   if (missingIds.length > 0) {
     try {
-      resolvedTexts = await $fetch("/api/cards/resolve", {
-        method: "POST",
-        body: { cardIds: missingIds },
-      });
+      const resolved = await $fetch<{ id: string; text: string; pack: string }[]>(
+        "/api/cards/resolve",
+        { method: "POST", body: { ids: missingIds } },
+      );
+      for (const card of resolved) {
+        resolvedTexts[card.id] = { text: card.text, pack: card.pack };
+      }
     } catch (err) {
       console.error("[ReadAloud] Failed to resolve card texts:", err);
     }

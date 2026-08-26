@@ -55,7 +55,7 @@
       <ul v-if="sortedLobbies.length" class="space-y-3">
         <li
           v-for="lobby in sortedLobbies"
-          :key="lobby.$id"
+          :key="lobby.id"
           class="lobby-tile glass-panel rounded-xl shadow-lg"
           @click="handleJoined(lobby.code)"
         >
@@ -119,15 +119,15 @@
                 </span>
               </div>
 
-              <!-- Player avatar stack (Appwrite fallback) -->
+              <!-- Player avatar stack (fallback when no live Teleportal data) -->
               <div
-                v-if="!getLiveInfo(lobby.code) && lobbyPlayers[lobby.$id]?.length"
+                v-if="!getLiveInfo(lobby.code) && lobbyPlayers[lobby.id]?.length"
                 class="flex items-center gap-1 mt-1.5"
               >
                 <div class="flex items-center -space-x-1.5">
                   <div
-                    v-for="player in lobbyPlayers[lobby.$id]!.slice(0, 6)"
-                    :key="player.$id"
+                    v-for="player in lobbyPlayers[lobby.id]!.slice(0, 6)"
+                    :key="player.id"
                     class="relative shrink-0 w-6 h-6 rounded-full border-2 border-slate-800 overflow-hidden bg-slate-700"
                     :title="player.name"
                   >
@@ -158,10 +158,10 @@
                   </div>
                 </div>
                 <span
-                  v-if="lobbyPlayers[lobby.$id]!.length > 6"
+                  v-if="lobbyPlayers[lobby.id]!.length > 6"
                   class="text-[10px] font-semibold text-slate-500 ml-1"
                 >
-                  +{{ lobbyPlayers[lobby.$id]!.length - 6 }}
+                  +{{ lobbyPlayers[lobby.id]!.length - 6 }}
                 </span>
               </div>
             </div>
@@ -244,25 +244,16 @@ import { useRouter } from "vue-router";
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
 import { useUserAccess } from "~/composables/useUserUtils";
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
-import type { TablesDB } from "appwrite";
 import { useGetPlayerName } from "~/composables/useGetPlayerName";
 import type { Lobby } from "~/types/lobby";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 
-let tables: TablesDB | undefined;
-if (import.meta.client) {
-  ({ tables } = getAppwrite());
-}
+const { $activityFetch } = useNuxtApp();
 const config = useRuntimeConfig();
 const showJoin = ref(false);
 const creatingLobby = ref(false);
 const { getPlayerName, getPlayerNameSync, playerCache } = useGetPlayerName();
-
-const DB_ID = config.public.appwriteDatabaseId;
-const LOBBY_COL = config.public.appwriteLobbyCollectionId;
 
 type LobbyWithName = Lobby & {
   lobbyName?: string | null;
@@ -435,25 +426,17 @@ const sortedLobbies = computed(() => {
   });
 });
 
-// ─── Appwrite Data Fetch ──────────────────────────────────────────────────
+// ─── Public Lobby Data Fetch ─────────────────────────────────────────────
 
 const fetchPublicLobbies = async () => {
-  if (!tables) return;
   try {
-    const lobbyRes = await tables.listRows<Lobby>({
-      databaseId: DB_ID,
-      tableId: LOBBY_COL,
-      queries: [
-        Query.equal("status", "waiting"),
-        Query.notEqual("vcOnly", true),
-        Query.orderDesc("$createdAt"),
-        Query.limit(100),
-      ],
+    const lobbyRows = await $activityFetch<Lobby[]>("/api/lobby/list", {
+      query: { status: "waiting" },
     });
 
     const publicLobbies: LobbyWithName[] = [];
 
-    for (const lobby of lobbyRes.rows) {
+    for (const lobby of lobbyRows) {
       // Start fetching the host name in the background
       if (lobby.hostUserId) {
         getPlayerName(lobby.hostUserId).then((name) => {
@@ -462,8 +445,8 @@ const fetchPublicLobbies = async () => {
       }
 
       // Fetch all players for this lobby in the background
-      getPlayersForLobby(lobby.$id).then((players) => {
-        lobbyPlayers.value[lobby.$id] = players;
+      getPlayersForLobby(lobby.id).then((players) => {
+        lobbyPlayers.value[lobby.id] = players;
       });
 
       publicLobbies.push({
@@ -496,13 +479,13 @@ const getHostAvatar = (lobby: LobbyWithName): string | null => {
 onMounted(async () => {
   // Only fetch if session isn't already established
   if (!userStore.isLoggedIn) {
-    await userStore.fetchUserSession();
+    await userStore.fetchSession();
   }
 
-  // Fetch Appwrite lobbies and Teleportal live data in parallel
+  // Fetch public lobbies and Teleportal live data in parallel
   await Promise.all([fetchPublicLobbies(), fetchLiveSummary()]);
 
-  const userId = userStore.user?.$id;
+  const userId = userStore.user?.id;
   if (userId) {
     const activeLobby = await getActiveLobbyForUser(userId);
     if (activeLobby?.code) {
@@ -522,10 +505,10 @@ onBeforeUnmount(() => {
 });
 
 const handleCreateLobby = async () => {
-  if (!userStore.user?.$id) return;
+  if (!userStore.user?.id) return;
   try {
     creatingLobby.value = true;
-    const lobby = await createLobby(userStore.user.$id);
+    const lobby = await createLobby(userStore.user.id);
     if (!lobby?.code) throw new Error("Invalid lobby response");
     router.replace(`/game/${lobby.code}`);
   } catch (error: unknown) {

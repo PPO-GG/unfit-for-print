@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { useUserStore } from "~/stores/userStore";
-import { getAppwrite } from "~/utils/appwrite";
 
 interface ReportReason {
   label: string;
@@ -44,9 +43,9 @@ const items = ref<ReportReason[]>([
   },
 ]);
 const selectedReason = ref<string>("Spelling");
+const { $activityFetch } = useNuxtApp();
 
 // Emit the selected reason when the user submits the report
-// post the report to the reports appwrite collection
 const handleSubmit = async () => {
   if (!userStore.isLoggedIn) {
     errorMessage.value = "You must be logged in to report a card";
@@ -67,27 +66,19 @@ const handleSubmit = async () => {
   errorMessage.value = "";
 
   try {
-    const config = useRuntimeConfig();
-    const { tables } = getAppwrite();
+    const reason =
+      selectedReason.value === "Other"
+        ? otherReason.value
+        : items.value.find((item) => item.id === selectedReason.value)
+            ?.description || selectedReason.value;
 
-    // Create a report object
-    const report = {
-      reason:
-        selectedReason.value === "Other"
-          ? otherReason.value
-          : items.value.find((item) => item.id === selectedReason.value)
-              ?.description || selectedReason.value,
-      cardId: props.cardId,
-      reportedBy: userStore.user?.$id,
-      cardType: props.cardType,
-    };
-
-    // Submit the report to the Appwrite database
-    await tables.createRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteReportsCollectionId,
-      rowId: "unique()",
-      data: report,
+    await $activityFetch("/api/reports/create", {
+      method: "POST",
+      body: {
+        cardId: props.cardId,
+        cardType: props.cardType,
+        reason,
+      },
     });
 
     successMessage.value = "Report submitted successfully";

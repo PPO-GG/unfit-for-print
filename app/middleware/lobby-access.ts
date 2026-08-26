@@ -6,13 +6,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
     const code = to.params.code || to.query.code;
 
-    await userStore.fetchUserSession();
+    await userStore.fetchSession();
 
     const user = userStore.user;
     const lobby = await getLobbyByCode(<string>code);
     if (!user || !lobby) return navigateTo('/join');
 
-    const stillIn = await isInLobby(user.$id, lobby.$id);
+    const stillIn = await isInLobby(user.id, lobby.id);
     if (!stillIn) {
         return navigateTo(`/join?code=${code}&error=kicked`);
     }

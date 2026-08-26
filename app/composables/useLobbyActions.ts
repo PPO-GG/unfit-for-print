@@ -25,7 +25,7 @@ export function useLobbyActions() {
       isJoining.value = true;
 
       if (userStore.user) {
-        const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
+        const activeLobby = await getActiveLobbyForUser(userStore.user.id);
         if (activeLobby) {
           notify({
             title: t("notification.redirecting"),
@@ -48,11 +48,11 @@ export function useLobbyActions() {
   };
 
   const checkForActiveLobbyAndCreate = async (): Promise<void> => {
-    if (!userStore.user?.$id) return;
+    if (!userStore.user?.id) return;
     try {
       isCreating.value = true;
 
-      const activeLobby = await getActiveLobbyForUser(userStore.user.$id);
+      const activeLobby = await getActiveLobbyForUser(userStore.user.id);
       if (activeLobby) {
         notify({
           title: t("notification.redirecting"),
@@ -64,7 +64,7 @@ export function useLobbyActions() {
         return;
       }
 
-      const lobby = await createLobby(userStore.user.$id);
+      const lobby = await createLobby(userStore.user.id);
       if (!lobby?.code) throw new Error("Invalid lobby response");
       await router.push(`/game/${lobby.code}?creator=true`);
     } catch (error: unknown) {

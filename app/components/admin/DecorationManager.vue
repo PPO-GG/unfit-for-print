@@ -7,14 +7,8 @@ import type {
 } from "~/types/decoration";
 import { DEFAULT_ATTACHMENT_CONFIG } from "~/utils/decorationDefaults";
 import { getDecorationImageUrl } from "~/utils/decorationImage";
-import { useUserStore } from "~/stores/userStore";
 
-const userStore = useUserStore();
-
-const authHeaders = () => ({
-  Authorization: `Bearer ${userStore.session?.$id}`,
-  "x-appwrite-user-id": userStore.user?.$id ?? "",
-});
+const { $activityFetch } = useNuxtApp();
 
 // State
 const catalog = ref<(DecorationCatalogEntry & { hasComponent: boolean })[]>([]);
@@ -92,9 +86,9 @@ async function uploadImage(e: Event) {
   try {
     const form = new FormData();
     form.append("file", file);
-    const result = await $fetch<{ fileId: string; imageFormat: ImageFormat }>(
+    const result = await $activityFetch<{ fileId: string; imageFormat: ImageFormat }>(
       "/api/admin/decorations/upload",
-      { method: "POST", headers: authHeaders(), body: form },
+      { method: "POST", body: form },
     );
     imageFileId.value = result.fileId;
     imageFormat.value = result.imageFormat;
@@ -109,9 +103,8 @@ async function uploadImage(e: Event) {
 async function removeImage() {
   if (!imageFileId.value) return;
   try {
-    await $fetch(`/api/admin/decorations/upload/${imageFileId.value}`, {
+    await $activityFetch(`/api/admin/decorations/upload/${imageFileId.value}`, {
       method: "DELETE",
-      headers: authHeaders(),
     });
   } catch {
     /* ignore — may already be deleted */
@@ -128,9 +121,8 @@ async function fetchCatalog() {
   loading.value = true;
   fetchError.value = null;
   try {
-    const data = await $fetch<DecorationCatalogEntry[]>(
+    const data = await $activityFetch<DecorationCatalogEntry[]>(
       "/api/admin/decorations/list",
-      { headers: authHeaders() },
     );
     catalog.value = data.map((d) => ({
       ...d,
@@ -148,13 +140,12 @@ async function syncRegistry() {
   syncing.value = true;
   try {
     const registryKeys = Object.keys(decorationRegistry);
-    const result = await $fetch<{
+    const result = await $activityFetch<{
       created: string[];
       existing: string[];
       orphaned: string[];
     }>("/api/admin/decorations/sync", {
       method: "POST",
-      headers: authHeaders(),
       body: { registryKeys },
     });
     await fetchCatalog();
@@ -219,9 +210,8 @@ async function deleteDecoration() {
   if (!confirm(`Delete "${editingDecoration.value.name}"? This cannot be undone.`)) return;
   saving.value = true;
   try {
-    await $fetch(`/api/admin/decorations/${editingDecoration.value.$id}`, {
+    await $activityFetch(`/api/admin/decorations/${editingDecoration.value.$id}`, {
       method: "DELETE",
-      headers: authHeaders(),
     });
     showEditModal.value = false;
     await fetchCatalog();
@@ -261,16 +251,14 @@ async function saveEdit() {
 
     if (isCreating.value) {
       // Create new decoration
-      await $fetch("/api/admin/decorations", {
+      await $activityFetch("/api/admin/decorations", {
         method: "POST",
-        headers: authHeaders(),
         body,
       });
     } else {
       // Update existing decoration
-      await $fetch(`/api/admin/decorations/${editingDecoration.value!.$id}`, {
+      await $activityFetch(`/api/admin/decorations/${editingDecoration.value!.$id}`, {
         method: "PUT",
-        headers: authHeaders(),
         body,
       });
     }
@@ -287,9 +275,8 @@ async function grantDecoration() {
   if (!grantUserId.value || !grantDecorationId.value) return;
   granting.value = true;
   try {
-    await $fetch("/api/admin/decorations/grant", {
+    await $activityFetch("/api/admin/decorations/grant", {
       method: "POST",
-      headers: authHeaders(),
       body: {
         userId: grantUserId.value,
         decorationId: grantDecorationId.value,
@@ -308,9 +295,8 @@ async function revokeDecoration() {
   if (!grantUserId.value || !grantDecorationId.value) return;
   granting.value = true;
   try {
-    await $fetch("/api/admin/decorations/grant", {
+    await $activityFetch("/api/admin/decorations/grant", {
       method: "DELETE",
-      headers: authHeaders(),
       body: {
         userId: grantUserId.value,
         decorationId: grantDecorationId.value,

@@ -366,17 +366,6 @@ watch(
 onMounted(async () => {
   if (!props.text) {
     try {
-      const { databases, tables } = getAppwrite();
-      if (!databases || !tables) {
-        console.warn(
-          "Appwrite databases or tables not available for card:",
-          props.cardId,
-        );
-        fallbackText.value = "This card will be revealed soon";
-        return;
-      }
-
-      const config = useRuntimeConfig();
       if (!props.cardId) {
         fallbackText.value = "CARD TEXT HERE";
         return;
@@ -390,21 +379,20 @@ onMounted(async () => {
       }
 
       try {
-        const doc = await tables.getRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteWhiteCardCollectionId,
-          rowId: props.cardId,
-        });
+        const [doc] = await $fetch<{ id: string; text: string; pack: string }[]>(
+          "/api/cards/resolve",
+          { method: "POST", body: { ids: [props.cardId] } },
+        );
 
-        if (doc && (doc as any).text) {
-          fallbackText.value = (doc as any).text;
-          cardPack.value = (doc as any).pack || null;
+        if (doc && doc.text) {
+          fallbackText.value = doc.text;
+          cardPack.value = doc.pack || null;
         } else {
           console.warn(
-            "Card document found but text is missing for ID:",
+            "Card not found or text is missing for ID:",
             props.cardId,
           );
-          fallbackText.value = "Card text unavailable";
+          fallbackText.value = "This card is from another game";
         }
       } catch (docError: any) {
         console.error("Error fetching card text:", docError);
@@ -412,14 +400,7 @@ onMounted(async () => {
         const errorMessage =
           typeof docError === "string" ? docError : docError?.message || "";
 
-        // Provide a more specific error message for document not found
         if (
-          errorMessage.includes(
-            "Document with the requested ID could not be found",
-          )
-        ) {
-          fallbackText.value = "This card is from another game";
-        } else if (
           errorMessage.includes("Network error") ||
           errorMessage.includes("fetch")
         ) {

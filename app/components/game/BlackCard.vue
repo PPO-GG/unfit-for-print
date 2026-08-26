@@ -385,30 +385,27 @@ watch(
 onMounted(async () => {
   // Fetch card data only if text AND numPick are not provided, but cardId is.
   if ((!props.text || props.numPick === undefined) && props.cardId) {
-    const { databases, tables } = getAppwrite();
-    const config = useRuntimeConfig();
-    if (!databases) {
-      console.error("Appwrite database service not available.");
-      return;
-    }
     try {
-      // `Fetching full card data for ID: ${props.cardId}`);
-      const doc = await tables.getRow({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwriteBlackCardCollectionId,
-        rowId: props.cardId,
+      const [doc] = await $fetch<
+        { id: string; text: string; pack: string; pick?: number }[]
+      >("/api/cards/resolve", {
+        method: "POST",
+        body: { ids: [props.cardId], type: "black" },
       });
+      if (!doc) {
+        throw new Error(`Card not found for ID ${props.cardId}`);
+      }
       if (!props.text) {
-        fallbackText.value = (doc as any).text;
+        fallbackText.value = doc.text;
       }
       if (!props.cardId) {
         fallbackText.value = "CARD TEXT HERE";
         return;
       }
       if (props.numPick === undefined) {
-        fallbackNumPick.value = (doc as any).pick; // Store the fetched pick value
+        fallbackNumPick.value = doc.pick;
       }
-      cardPack.value = (doc as any).pack || null;
+      cardPack.value = doc.pack || null;
     } catch (error) {
       console.error(`Failed to fetch card data for ID ${props.cardId}:`, error);
       // Set sensible defaults on error if needed

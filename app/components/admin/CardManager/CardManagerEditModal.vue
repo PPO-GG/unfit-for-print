@@ -33,7 +33,7 @@ const saveCardEdit = () => {
   }
 
   const updateData: any = {
-    $id: props.card.$id,
+    id: props.card.id,
     text: newCardText.value.trim(),
   };
 

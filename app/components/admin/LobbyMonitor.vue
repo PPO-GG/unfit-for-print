@@ -1,18 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
-import { useUserStore } from "~/stores/userStore";
 import type { UnifiedLobby } from "~~/server/utils/mergeLobbies";
 import type { UnifiedStatusResponse } from "~~/server/api/admin/teleportal/status.get";
 
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
-const userStore = useUserStore();
-
-const authHeaders = () => ({
-  Authorization: `Bearer ${userStore.session?.$id}`,
-  "x-appwrite-user-id": userStore.user?.$id ?? "",
-});
+const { $activityFetch } = useNuxtApp();
 
 // ── State ─────────────────────────────────────────────────────────────────
 const status = ref<UnifiedStatusResponse | null>(null);
@@ -74,9 +68,8 @@ const fetchStatus = async () => {
   loading.value = true;
   error.value = null;
   try {
-    status.value = await $fetch<UnifiedStatusResponse>(
+    status.value = await $activityFetch<UnifiedStatusResponse>(
       "/api/admin/teleportal/status",
-      { headers: authHeaders() },
     );
   } catch (err: any) {
     console.error("[LobbyMonitor] Fetch failed:", err);
@@ -97,9 +90,8 @@ const gcLobby = async (lobby: UnifiedLobby) => {
   });
   if (!confirmed) return;
   try {
-    await $fetch("/api/admin/teleportal/gc", {
+    await $activityFetch("/api/admin/teleportal/gc", {
       method: "DELETE",
-      headers: authHeaders(),
       body: { docId: lobby.teleportal.docId },
     });
     notify({ title: "Lobby Removed", description: `${lobby.code} GC'd from Teleportal`, color: "success" });
@@ -121,9 +113,8 @@ const deleteLobby = async (lobby: UnifiedLobby) => {
   });
   if (!confirmed) return;
   try {
-    await $fetch("/api/admin/lobby/delete", {
+    await $activityFetch("/api/admin/lobby/delete", {
       method: "POST",
-      headers: authHeaders(),
       body: { lobbyId: lobby.registry.lobbyId },
     });
     notify({ title: "Registry Deleted", description: `${lobby.code} removed from Appwrite`, color: "success" });
@@ -138,9 +129,8 @@ const deleteLobby = async (lobby: UnifiedLobby) => {
 const markComplete = async (lobby: UnifiedLobby) => {
   if (!lobby.registry) return;
   try {
-    await $fetch("/api/admin/lobby/update-status", {
+    await $activityFetch("/api/admin/lobby/update-status", {
       method: "POST",
-      headers: authHeaders(),
       body: { lobbyId: lobby.registry.lobbyId, status: "complete" },
     });
     notify({ title: "Marked Complete", description: `${lobby.code} status set to complete`, color: "success" });
@@ -163,15 +153,13 @@ const fullCleanup = async (lobby: UnifiedLobby) => {
   if (!confirmed) return;
   let gcDone = false;
   try {
-    await $fetch("/api/admin/teleportal/gc", {
+    await $activityFetch("/api/admin/teleportal/gc", {
       method: "DELETE",
-      headers: authHeaders(),
       body: { docId: lobby.teleportal.docId },
     });
     gcDone = true;
-    await $fetch("/api/admin/lobby/delete", {
+    await $activityFetch("/api/admin/lobby/delete", {
       method: "POST",
-      headers: authHeaders(),
       body: { lobbyId: lobby.registry.lobbyId },
     });
     notify({ title: "Full Cleanup Done", description: `${lobby.code} removed from both systems`, color: "success" });
@@ -197,9 +185,9 @@ const gcAll = async () => {
   });
   if (!confirmed) return;
   try {
-    const result = await $fetch<{ flushed: number; remaining: number }>(
+    const result = await $activityFetch<{ flushed: number; remaining: number }>(
       "/api/admin/teleportal/gc-all",
-      { method: "DELETE", headers: authHeaders() },
+      { method: "DELETE" },
     );
     notify({
       title: "All Lobbies Flushed",

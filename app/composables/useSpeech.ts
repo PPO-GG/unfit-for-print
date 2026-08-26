@@ -133,13 +133,13 @@ export function useSpeech(options: TTSOptions = {}) {
         throw new Error(`Unknown provider: ${provider}`);
       }
 
-      const userStore = useUserStore();
+      // /api/*-speak routes authenticate via requireAuth, which reads the
+      // session cookie automatically sent with same-origin requests — no
+      // manual Authorization header needed.
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${userStore.session?.$id}`,
-          "x-appwrite-user-id": userStore.user?.$id ?? "",
         },
         body: JSON.stringify(payload),
       });

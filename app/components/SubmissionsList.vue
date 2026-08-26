@@ -2,7 +2,7 @@
   <div class="submissions-grid">
     <div
       v-for="submission in submissions"
-      :key="submission.$id"
+      :key="submission.id"
       class="submission-widget"
     >
       <!-- Card Preview -->
@@ -49,8 +49,8 @@
               v-if="isLoggedIn"
               class="vote-btn"
               :class="{ 'vote-active': hasUserUpvoted(submission) }"
-              :disabled="upvotingId === submission.$id"
-              @click="upvote(submission.$id)"
+              :disabled="upvotingId === submission.id"
+              @click="upvote(submission.id)"
             >
               <Icon
                 :name="
@@ -74,7 +74,7 @@
               v-if="isAdmin"
               class="admin-btn adopt-btn"
               :disabled="
-                adoptingId === submission.$id || deletingId === submission.$id
+                adoptingId === submission.id || deletingId === submission.id
               "
               @click="adoptSubmission(submission)"
             >
@@ -86,9 +86,9 @@
               v-if="isAdmin"
               class="admin-btn delete-btn"
               :disabled="
-                deletingId === submission.$id || adoptingId === submission.$id
+                deletingId === submission.id || adoptingId === submission.id
               "
-              @click="deleteSubmission(submission.$id)"
+              @click="deleteSubmission(submission.id)"
             >
               <Icon
                 name="solar:trash-bin-trash-bold-duotone"
@@ -216,7 +216,7 @@ function formatDate(dateString: string) {
 function hasUserUpvoted(submission: any) {
   if (!isLoggedIn.value || !userStore.user) return false;
   const upvoterIds = submission.upvoterIds || [];
-  return upvoterIds.includes(userStore.user.$id);
+  return upvoterIds.includes(userStore.user.id);
 }
 
 async function upvote(submissionId: string) {
@@ -233,7 +233,7 @@ async function upvote(submissionId: string) {
 
 function deleteSubmission(submissionId: string) {
   if (!isAdmin.value) return;
-  const submission = props.submissions.find((s) => s.$id === submissionId);
+  const submission = props.submissions.find((s) => s.id === submissionId);
   if (!submission) return;
   submissionToDelete.value = submission;
   showDeleteModal.value = true;
@@ -241,7 +241,7 @@ function deleteSubmission(submissionId: string) {
 
 async function confirmDelete() {
   if (!submissionToDelete.value) return;
-  const submissionId = submissionToDelete.value.$id;
+  const submissionId = submissionToDelete.value.id;
   deletingId.value = submissionId;
   try {
     emit("delete", submissionId);
@@ -262,7 +262,7 @@ function adoptSubmission(submission: any) {
 async function confirmAdopt() {
   if (!submissionToAdopt.value) return;
   const submission = submissionToAdopt.value;
-  adoptingId.value = submission.$id;
+  adoptingId.value = submission.id;
   try {
     emit("adopt", submission);
     showAdoptModal.value = false;

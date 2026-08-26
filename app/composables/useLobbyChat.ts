@@ -35,7 +35,7 @@ export function useLobbyChat(lobbyDoc: LobbyDocResult) {
       getChat().push([
         JSON.stringify({
           id: uuid(),
-          userId: userStore.user?.$id ?? "anonymous",
+          userId: userStore.user?.id ?? "anonymous",
           name: userStore.user?.name ?? "Anonymous",
           text: trimmed,
           timestamp: Date.now(),

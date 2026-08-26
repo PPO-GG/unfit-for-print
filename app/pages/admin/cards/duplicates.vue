@@ -1,23 +1,13 @@
 <script setup lang="ts">
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
 import { useCardSearch } from "~/composables/useCardSearch";
 import { useCardSimilarity } from "~/composables/useCardSimilarity";
 import { useNotifications } from "~/composables/useNotifications";
 
 definePageMeta({ middleware: "admin" });
 
-const { tables } = getAppwrite();
-const config = useRuntimeConfig();
+const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
 const { cardType } = useCardSearch();
-
-const DB_ID = config.public.appwriteDatabaseId as string;
-const CARD_COLLECTIONS: Record<string, string> = {
-  black: config.public.appwriteBlackCardCollectionId as string,
-  white: config.public.appwriteWhiteCardCollectionId as string,
-};
-const CARD_COLLECTION = computed(() => CARD_COLLECTIONS[cardType.value]!);
 
 const {
   processingAllSimilarCards,
@@ -42,28 +32,15 @@ const remainingPairs = computed(
   () => allSimilarPairs.value.length - currentPairIndex.value,
 );
 
-// Load all cards from Appwrite for the selected type
+// Load all cards for the selected type from the admin cards route.
+// Postgres returns the full result set in one call — no chunking needed.
 const loadCards = async () => {
-  if (!tables) return;
   loadingCards.value = true;
   allCards.value = [];
   try {
-    const countRes = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      queries: [Query.limit(1)],
+    allCards.value = await $activityFetch<any[]>("/api/admin/cards/list", {
+      query: { type: cardType.value },
     });
-    const total = countRes.total;
-    const chunkSize = 1000;
-    for (let offset = 0; offset < total; offset += chunkSize) {
-      const res = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTION.value,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-      allCards.value.push(...res.rows);
-      if (res.rows.length < chunkSize) break;
-    }
   } catch (err) {
     console.error("Failed to load cards:", err);
     notify({ title: "Failed to load cards", color: "error" });
@@ -87,21 +64,20 @@ const keepCard = async () => {
         ? currentPair.value.card2
         : currentPair.value.card1;
 
-    await tables.deleteRow({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTION.value,
-      rowId: cardToDelete.$id,
+    await $activityFetch("/api/admin/cards/delete", {
+      method: "POST",
+      body: { id: cardToDelete.id, type: cardType.value },
     });
 
     // Remove deleted card from allCards too
-    allCards.value = allCards.value.filter((c) => c.$id !== cardToDelete.$id);
+    allCards.value = allCards.value.filter((c) => c.id !== cardToDelete.id);
 
     // Remove current pair and any pairs that also reference the deleted card
     allSimilarPairs.value = allSimilarPairs.value.filter(
       (p, i) =>
         i !== currentPairIndex.value &&
-        p.card1.$id !== cardToDelete.$id &&
-        p.card2.$id !== cardToDelete.$id,
+        p.card1.id !== cardToDelete.id &&
+        p.card2.id !== cardToDelete.id,
     );
 
     // Keep index in bounds
@@ -456,7 +432,7 @@ onMounted(() => loadCards());
             </div>
             <div>
               <span class="text-slate-400">ID:</span>
-              <code class="text-xs">{{ currentPair.card1.$id }}</code>
+              <code class="text-xs">{{ currentPair.card1.id }}</code>
             </div>
             <div>
               <span class="text-slate-400">Status:</span>
@@ -519,7 +495,7 @@ onMounted(() => loadCards());
             </div>
             <div>
               <span class="text-slate-400">ID:</span>
-              <code class="text-xs">{{ currentPair.card2.$id }}</code>
+              <code class="text-xs">{{ currentPair.card2.id }}</code>
             </div>
             <div>
               <span class="text-slate-400">Status:</span>

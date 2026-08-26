@@ -1,17 +1,20 @@
 // server/api/admin/lobby/update-status.post.ts
 // Admin-only endpoint to update a lobby's status field.
-// Uses the server-side admin SDK to bypass Appwrite document-level permissions.
 
-import { readBody, createError } from "h3";
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { lobbies } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
-const ALLOWED_STATUSES = ["waiting", "active", "playing", "complete"] as const;
+const ALLOWED_STATUSES = ["waiting", "playing", "complete"] as const;
 type LobbyStatus = (typeof ALLOWED_STATUSES)[number];
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
-
-  const body = await readBody<{ lobbyId?: string; status?: string }>(event);
-  const { lobbyId, status } = body;
+  await requireAdmin(event);
+  const { lobbyId, status } = await readBody<{
+    lobbyId?: string;
+    status?: string;
+  }>(event);
 
   if (!lobbyId) {
     throw createError({ statusCode: 400, statusMessage: "Missing lobbyId" });
@@ -23,22 +26,9 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const { databases } = useAppwriteAdmin();
-  const config = useRuntimeConfig();
-
-  const DB_ID = config.public.appwriteDatabaseId as string;
-  const LOBBY_COL = config.public.appwriteLobbyCollectionId as string;
-
-  try {
-    const updated = await databases.updateDocument(DB_ID, LOBBY_COL, lobbyId, {
-      status,
-    });
-    return { success: true, document: updated };
-  } catch (err: any) {
-    console.error("[admin/lobby/update-status] Update failed:", err);
-    throw createError({
-      statusCode: 500,
-      statusMessage: err?.message || "Failed to update lobby status",
-    });
-  }
+  await useDb()
+    .update(lobbies)
+    .set({ status: status as LobbyStatus })
+    .where(eq(lobbies.id, lobbyId));
+  return { success: true };
 });

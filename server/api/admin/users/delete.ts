@@ -1,25 +1,11 @@
-import { readBody, createError } from "h3";
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { users } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
-
-  const body = await readBody<{ userId?: string }>(event);
-  const userId = body.userId;
-
-  if (!userId) {
-    throw createError({ statusCode: 400, statusMessage: "Missing userId" });
-  }
-
-  const { users } = createAppwriteClient();
-
-  try {
-    await users.delete(userId);
-    return { success: true };
-  } catch (err: any) {
-    console.error("[admin/users/delete] Failed to delete user:", err);
-    throw createError({
-      statusCode: 500,
-      statusMessage: "Failed to delete user",
-    });
-  }
+  await requireAdmin(event);
+  const { userId } = await readBody<{ userId: string }>(event);
+  await useDb().delete(users).where(eq(users.id, userId));
+  return { success: true };
 });

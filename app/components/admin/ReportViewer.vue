@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { useUserStore } from "~/stores/userStore";
 import { useNotifications } from "~/composables/useNotifications";
 
-const userStore = useUserStore();
 const { notify } = useNotifications();
+const { $activityFetch } = useNuxtApp();
 
 const reports = ref<any[]>([]);
 const loading = ref(true);
@@ -17,19 +16,11 @@ const savingEdit = ref(false);
 const togglingId = ref<string | null>(null);
 const deletingCardId = ref<string | null>(null);
 
-// Auth header helper
-const authHeaders = () => ({
-  Authorization: `Bearer ${userStore.session?.$id}`,
-  "x-appwrite-user-id": userStore.user?.$id ?? "",
-});
-
 // Fetch reports from the API
 const fetchReports = async () => {
   loading.value = true;
   try {
-    const res = await $fetch("/api/admin/reports", {
-      headers: authHeaders(),
-    });
+    const res = await $activityFetch("/api/admin/reports");
     reports.value = res.reports || [];
   } catch (error) {
     console.error("Error fetching reports:", error);
@@ -55,7 +46,7 @@ const toggleExpand = (reportId: string) => {
 // ─── Inline Card Actions ────────────────────────────────────────────
 
 const startEdit = (report: any) => {
-  editingReportId.value = report.$id;
+  editingReportId.value = report.id;
   editText.value = report.cardText || "";
 };
 
@@ -68,9 +59,8 @@ const saveEdit = async (report: any) => {
   if (!editText.value.trim()) return;
   savingEdit.value = true;
   try {
-    await $fetch("/api/admin/reports/card-action", {
+    await $activityFetch("/api/admin/reports/card-action", {
       method: "POST",
-      headers: authHeaders(),
       body: {
         action: "edit",
         cardId: report.cardId,
@@ -99,11 +89,10 @@ const saveEdit = async (report: any) => {
 };
 
 const toggleCardActive = async (report: any) => {
-  togglingId.value = report.$id;
+  togglingId.value = report.id;
   try {
-    const res = await $fetch("/api/admin/reports/card-action", {
+    const res = await $activityFetch("/api/admin/reports/card-action", {
       method: "POST",
-      headers: authHeaders(),
       body: {
         action: "toggle",
         cardId: report.cardId,
@@ -131,11 +120,10 @@ const toggleCardActive = async (report: any) => {
 };
 
 const deleteCard = async (report: any) => {
-  deletingCardId.value = report.$id;
+  deletingCardId.value = report.id;
   try {
-    await $fetch("/api/admin/reports/card-action", {
+    await $activityFetch("/api/admin/reports/card-action", {
       method: "POST",
-      headers: authHeaders(),
       body: {
         action: "delete",
         cardId: report.cardId,
@@ -167,12 +155,11 @@ const deleteCard = async (report: any) => {
 const dismissReport = async (reportId: string) => {
   dismissingId.value = reportId;
   try {
-    await $fetch("/api/admin/reports/dismiss", {
+    await $activityFetch("/api/admin/reports/dismiss", {
       method: "POST",
-      headers: authHeaders(),
       body: { reportId },
     });
-    reports.value = reports.value.filter((r) => r.$id !== reportId);
+    reports.value = reports.value.filter((r) => r.id !== reportId);
     if (expandedId.value === reportId) expandedId.value = null;
     notify({
       title: "Report Dismissed",
@@ -193,7 +180,7 @@ const dismissReport = async (reportId: string) => {
 
 const dismissAll = async () => {
   if (!reports.value.length) return;
-  const ids = [...reports.value.map((r) => r.$id)];
+  const ids = [...reports.value.map((r) => r.id)];
   for (const id of ids) {
     await dismissReport(id);
   }
@@ -325,14 +312,14 @@ onMounted(fetchReports);
     <TransitionGroup v-else name="report-list" tag="div" class="space-y-3">
       <div
         v-for="report in reports"
-        :key="report.$id"
+        :key="report.id"
         class="report-item rounded-xl overflow-hidden transition-all duration-300"
-        :class="{ 'report-item--expanded': expandedId === report.$id }"
+        :class="{ 'report-item--expanded': expandedId === report.id }"
       >
         <!-- Main row -->
         <div
           class="report-row flex items-start gap-3 p-4 cursor-pointer"
-          @click="toggleExpand(report.$id)"
+          @click="toggleExpand(report.id)"
         >
           <!-- Card mini-preview -->
           <div
@@ -373,7 +360,7 @@ onMounted(fetchReports);
             </p>
 
             <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-              <span>{{ formatDate(report.$createdAt) }}</span>
+              <span>{{ formatDate(report.createdAt) }}</span>
               <UBadge
                 :color="report.cardType === 'black' ? 'neutral' : 'secondary'"
                 variant="subtle"
@@ -396,21 +383,21 @@ onMounted(fetchReports);
           <UIcon
             name="i-solar-alt-arrow-down-line-duotone"
             class="text-gray-500 text-lg shrink-0 transition-transform duration-300"
-            :class="{ 'rotate-180': expandedId === report.$id }"
+            :class="{ 'rotate-180': expandedId === report.id }"
           />
         </div>
 
         <!-- Expanded details -->
         <Transition name="expand">
           <div
-            v-if="expandedId === report.$id"
+            v-if="expandedId === report.id"
             class="report-details px-4 pb-4"
           >
             <div class="border-t border-gray-700/50 pt-3 space-y-3">
               <!-- Full card preview / editor -->
               <div v-if="report.cardText">
                 <!-- Editing mode -->
-                <div v-if="editingReportId === report.$id" class="space-y-2">
+                <div v-if="editingReportId === report.id" class="space-y-2">
                   <UTextarea
                     v-model="editText"
                     autoresize
@@ -487,7 +474,7 @@ onMounted(fetchReports);
                 <div class="col-span-2">
                   <span class="text-gray-500">Date</span>
                   <p class="text-gray-300">
-                    {{ new Date(report.$createdAt).toLocaleString() }}
+                    {{ new Date(report.createdAt).toLocaleString() }}
                   </p>
                 </div>
               </div>
@@ -514,7 +501,7 @@ onMounted(fetchReports);
                         ? 'i-solar-eye-closed-bold-duotone'
                         : 'i-solar-eye-bold-duotone'
                     "
-                    :loading="togglingId === report.$id"
+                    :loading="togglingId === report.id"
                     @click.stop="toggleCardActive(report)"
                   >
                     {{ report.cardActive ? "Deactivate" : "Activate" }}
@@ -524,7 +511,7 @@ onMounted(fetchReports);
                     color="error"
                     variant="soft"
                     icon="i-solar-trash-bin-trash-bold-duotone"
-                    :loading="deletingCardId === report.$id"
+                    :loading="deletingCardId === report.id"
                     @click.stop="deleteCard(report)"
                   >
                     Delete Card
@@ -540,8 +527,8 @@ onMounted(fetchReports);
                   color="neutral"
                   variant="ghost"
                   icon="i-solar-close-circle-bold-duotone"
-                  :loading="dismissingId === report.$id"
-                  @click.stop="dismissReport(report.$id)"
+                  :loading="dismissingId === report.id"
+                  @click.stop="dismissReport(report.id)"
                 >
                   Dismiss Report
                 </UButton>

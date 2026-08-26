@@ -11,7 +11,3 @@ globalThis.createError = (opts: { statusCode: number; statusMessage: string }) =
 };
 // @ts-ignore
 globalThis.readMultipartFormData = async () => [];
-// @ts-ignore
-globalThis.assertAdmin = async () => {};
-// @ts-ignore
-globalThis.useAppwriteAdmin = () => ({});

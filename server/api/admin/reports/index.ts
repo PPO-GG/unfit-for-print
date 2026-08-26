@@ -1,72 +1,36 @@
-// server/api/admin/reports/index.ts
-import { Query } from "node-appwrite";
+import { desc, eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { reports, whiteCards, blackCards } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
+  const db = useDb();
+  const allReports = await db.select().from(reports).orderBy(desc(reports.createdAt));
 
-  const config = useRuntimeConfig();
-  const tables = getAdminTables();
+  const enriched = await Promise.all(
+    allReports.map(async (report) => {
+      const primary = report.cardType === "black" ? blackCards : whiteCards;
+      const fallback = report.cardType === "black" ? whiteCards : blackCards;
 
-  // Fetch reports from the reports collection
-  const result = await tables.listRows({
-    databaseId: config.public.appwriteDatabaseId,
-    tableId: config.public.appwriteReportsCollectionId,
-    queries: [Query.orderDesc("$createdAt")],
-  });
-
-  // Enrich reports with the actual card text so admins can see what was reported.
-  // Resilience: if the card isn't found in the expected collection (e.g. due to
-  // a past bug where WhiteCard.vue reported cards as "black"), try the opposite
-  // collection before giving up.
-  const enrichedReports = await Promise.all(
-    result.rows.map(async (report: any) => {
-      const primaryCollectionId =
-        report.cardType === "black"
-          ? config.public.appwriteBlackCardCollectionId
-          : config.public.appwriteWhiteCardCollectionId;
-      const fallbackCollectionId =
-        report.cardType === "black"
-          ? config.public.appwriteWhiteCardCollectionId
-          : config.public.appwriteBlackCardCollectionId;
-
-      // Try primary collection first, then fallback
-      for (const collectionId of [primaryCollectionId, fallbackCollectionId]) {
-        try {
-          const card = await tables.getRow({
-            databaseId: config.public.appwriteDatabaseId,
-            tableId: collectionId,
-            rowId: report.cardId,
-          });
-
-          // If found in the fallback collection, correct the cardType
-          const correctedType =
-            collectionId === fallbackCollectionId
-              ? report.cardType === "black"
-                ? "white"
-                : "black"
-              : report.cardType;
-
+      for (const [table, correctedType] of [
+        [primary, report.cardType],
+        [fallback, report.cardType === "black" ? "white" : "black"],
+      ] as const) {
+        const [card] = await db.select().from(table).where(eq(table.id, report.cardId)).limit(1);
+        if (card) {
           return {
             ...report,
             cardType: correctedType,
-            cardText: card.text ?? null,
+            cardText: card.text,
             cardPack: card.pack ?? null,
-            cardActive: card.active ?? null,
+            cardActive: card.active,
           };
-        } catch {
-          // Not found in this collection, try next
         }
       }
-
-      // Card not found in either collection — likely deleted
-      return {
-        ...report,
-        cardText: null,
-        cardPack: null,
-        cardActive: null,
-      };
+      return { ...report, cardText: null, cardPack: null, cardActive: null };
     }),
   );
 
-  return { reports: enrichedReports };
+  return { reports: enriched };
 });

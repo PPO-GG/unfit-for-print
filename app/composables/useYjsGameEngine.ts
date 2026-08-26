@@ -75,7 +75,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     return doc.value;
   };
 
-  const myId = (): PlayerId => userStore.user?.$id ?? "";
+  const myId = (): PlayerId => userStore.user?.id ?? "";
 
   // ── State Readers (from Y.Doc) ─────────────────────────────────────────
 
@@ -182,13 +182,35 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       );
       const excludeIds = collectAllUsedWhiteIds();
 
+      // The Y.Doc only knows the lobby's short join code, not its Postgres
+      // row id — but /api/game/draw-cards now requires the real lobbyId to
+      // verify the caller is a player in that lobby. Resolve it via the
+      // existing by-code lookup (same one useLobby.getLobbyByCode uses).
+      const code = lobbyDoc.lobbyCode.value;
+      if (!code) {
+        console.warn(
+          "[GameEngine] Cannot replenish deck — no active lobby code",
+        );
+        return;
+      }
+      const lobbyRecord = await $fetch<{ id: string } | null>(
+        `/api/lobby/by-code/${code}`,
+      );
+      if (!lobbyRecord?.id) {
+        console.warn(
+          "[GameEngine] Cannot replenish deck — lobby not found for code",
+          code,
+        );
+        return;
+      }
+
       const result = await $fetch<{
         success: boolean;
         cardIds: string[];
         cardTexts: Record<string, { text: string; pack: string }>;
       }>("/api/game/draw-cards", {
         method: "POST",
-        body: { cardPacks: packs, excludeIds, count },
+        body: { lobbyId: lobbyRecord.id, cardPacks: packs, excludeIds, count },
       });
 
       if (!result?.success || result.cardIds.length === 0) {

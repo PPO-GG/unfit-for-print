@@ -1,45 +1,45 @@
 // server/api/admin/lobby/delete.post.ts
-// Admin-only endpoint to cascade-delete a lobby and all associated data.
-// Uses the server-side admin SDK to bypass Appwrite document-level permissions.
+// Admin-only endpoint to delete a lobby. Player rows cascade-delete via the
+// players.lobbyId FK (onDelete: "cascade") — no manual per-row loop needed.
+// Bot players' synthetic `users` rows do NOT cascade, so we capture and
+// clean those up explicitly (see server/api/lobby/leave.post.ts for the
+// same pattern).
 
-import { readBody, createError } from "h3";
-import { Query } from "node-appwrite";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { lobbies, players, users } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
-
-  const body = await readBody<{ lobbyId?: string }>(event);
-  const lobbyId = body.lobbyId;
-
+  await requireAdmin(event);
+  const { lobbyId } = await readBody<{ lobbyId?: string }>(event);
   if (!lobbyId) {
     throw createError({ statusCode: 400, statusMessage: "Missing lobbyId" });
   }
 
-  const { databases } = useAppwriteAdmin();
-  const config = useRuntimeConfig();
+  const db = useDb();
 
-  const DB_ID = config.public.appwriteDatabaseId as string;
-  const LOBBY_COL = config.public.appwriteLobbyCollectionId as string;
-  const PLAYER_COL = config.public.appwritePlayerCollectionId as string;
-  try {
-    // 1. Delete all players in the lobby
-    const playersRes = await databases.listDocuments(DB_ID, PLAYER_COL, [
-      Query.equal("lobbyId", lobbyId),
-      Query.limit(200),
-    ]);
-    for (const player of playersRes.documents) {
-      await databases.deleteDocument(DB_ID, PLAYER_COL, player.$id);
-    }
+  const bots = await db
+    .select({ userId: players.userId })
+    .from(players)
+    .where(and(eq(players.lobbyId, lobbyId), eq(players.playerType, "bot")));
 
-    // 2. Delete the lobby document itself
-    await databases.deleteDocument(DB_ID, LOBBY_COL, lobbyId);
+  await db.delete(lobbies).where(eq(lobbies.id, lobbyId));
 
-    return { success: true, lobbyId };
-  } catch (err: any) {
-    console.error("[admin/lobby/delete] Cascade delete failed:", err);
-    throw createError({
-      statusCode: 500,
-      statusMessage: err?.message || "Failed to delete lobby",
-    });
+  if (bots.length > 0) {
+    await db
+      .delete(users)
+      .where(
+        and(
+          inArray(
+            users.id,
+            bots.map((b) => b.userId),
+          ),
+          eq(users.isGuest, true),
+          isNull(users.discordUserId),
+        ),
+      );
   }
+
+  return { success: true };
 });

@@ -213,6 +213,16 @@ async function launch() {
     let authData;
     try {
       authData = await authenticate();
+      const activityUserId = getActivityUserId();
+      if (!activityUserId) {
+        throw new Error("Activity authentication did not return a valid user identity");
+      }
+      userStore.setActivityUser({
+        id: activityUserId,
+        name: authData.discordUser.username,
+        avatarUrl: authData.discordUser.avatarUrl,
+        discordUserId: authData.discordUser.id,
+      });
     } catch (authErr: any) {
       // Distinguish consent-denied from backend errors
       const msg = authErr?.message?.toLowerCase?.() ?? "";
@@ -224,18 +234,9 @@ async function launch() {
       throw authErr;
     }
 
-    // 3. Establish Appwrite session on the client
+    // 3. Activity authentication has already populated the in-memory user.
     statusText.value = "Setting up your profile...";
     stage = "session";
-    if (!userStore.isLoggedIn) {
-      const { client } = useAppwrite();
-      client.setSession(authData.secret);
-      await userStore.fetchUserSession();
-
-      if (!userStore.user) {
-        throw new Error("Failed to establish session");
-      }
-    }
 
     // 4. Fetch VC participants and subscribe to updates
     statusText.value = "Loading voice channel...";

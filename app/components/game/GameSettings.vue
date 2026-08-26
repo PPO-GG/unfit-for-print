@@ -161,13 +161,9 @@
 import { onMounted, ref, watch } from "vue";
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 import { useNotifications } from "~/composables/useNotifications";
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
 
 const { t } = useI18n();
 const { notify } = useNotifications();
-const { databases, tables } = getAppwrite();
-const config = useRuntimeConfig();
 
 const props = defineProps<{
   settings: LobbySettings;
@@ -195,56 +191,16 @@ watch(
 const availablePacks = ref<string[]>([]);
 const loadingPacks = ref(false);
 
-const DB_ID = config.public.appwriteDatabaseId;
-const CARD_COLLECTIONS = {
-  black: config.public.appwriteBlackCardCollectionId as string,
-  white: config.public.appwriteWhiteCardCollectionId as string,
-};
-
 onMounted(async () => {
-  if (!databases) return;
   loadingPacks.value = true;
   try {
-    const blackCountResult = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTIONS.black,
-      queries: [Query.limit(1)],
-    });
-    const totalBlackCards = blackCountResult.total;
-    const chunkSize = 1000;
-    const blackPacks = new Set<string>();
+    const { white, black } = await $fetch("/api/cards/packs");
+    const packSet = new Set<string>();
 
-    for (let offset = 0; offset < totalBlackCards; offset += chunkSize) {
-      const blackCardsChunk = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTIONS.black,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-      blackCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && card.active) blackPacks.add(card.pack);
-      });
-    }
+    white.forEach(p => packSet.add(p.pack));
+    black.forEach(p => packSet.add(p.pack));
 
-    const whiteCountResult = await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTIONS.white,
-      queries: [Query.limit(1)],
-    });
-    const totalWhiteCards = whiteCountResult.total;
-    const whitePacks = new Set<string>();
-
-    for (let offset = 0; offset < totalWhiteCards; offset += chunkSize) {
-      const whiteCardsChunk = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTIONS.white,
-        queries: [Query.limit(chunkSize), Query.offset(offset)],
-      });
-      whiteCardsChunk.rows.forEach((card: any) => {
-        if (card.pack && card.active) whitePacks.add(card.pack);
-      });
-    }
-
-    availablePacks.value = [...new Set([...blackPacks, ...whitePacks])].sort();
+    availablePacks.value = Array.from(packSet).sort();
   } catch {
     notify({
       title: t("game.settings.fetch_packs_error"),

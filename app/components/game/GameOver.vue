@@ -24,7 +24,7 @@ const userStore = useUserStore();
 const { notify } = useNotifications();
 
 // Get the current user ID
-const myId = computed(() => userStore.user?.$id || "");
+const myId = computed(() => userStore.user?.id || "");
 const { playSfx } = useSfx();
 
 // Auto-return timer

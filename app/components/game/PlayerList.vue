@@ -36,7 +36,7 @@ function isSpeaking(player: Player): boolean {
   return discordId !== null && speakingDiscordIds.value.has(discordId);
 }
 
-const currentUserId = computed(() => userStore.user?.$id);
+const currentUserId = computed(() => userStore.user?.id);
 const isHost = computed(() => props.hostUserId === currentUserId.value);
 
 const kick = async (player: Player) => {
@@ -44,10 +44,6 @@ const kick = async (player: Player) => {
     if (player.playerType === "bot") {
       await $fetch("/api/bot/remove", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${userStore.session?.$id}`,
-          "x-appwrite-user-id": userStore.user?.$id ?? "",
-        },
         body: {
           lobbyId: props.lobbyId,
           botUserId: player.userId,

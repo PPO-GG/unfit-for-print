@@ -18,16 +18,16 @@ const makeTeleportalDoc = (
 });
 
 const makeAppwriteLobby = (code: string, overrides: Record<string, any> = {}) => ({
-  $id: `lobby-doc-${code}`,
+  id: `lobby-doc-${code}`,
   code,
   status: "playing",
   hostUserId: "host-1",
-  $createdAt: "2026-04-04T12:00:00.000Z",
+  createdAt: "2026-04-04T12:00:00.000Z",
   ...overrides,
 });
 
 const makeSettings = (lobbyId: string, overrides: Record<string, any> = {}) => ({
-  $id: `settings-${lobbyId}`,
+  id: `settings-${lobbyId}`,
   lobbyId,
   lobbyName: "Party Night",
   ...overrides,
@@ -91,7 +91,7 @@ describe("mergeLobbies", () => {
     };
     const appLobbies = [
       makeAppwriteLobby("CCC", { status: "complete" }),
-      makeAppwriteLobby("DDD", { status: "complete", $createdAt: "2026-04-03T12:00:00.000Z" }),
+      makeAppwriteLobby("DDD", { status: "complete", createdAt: "2026-04-03T12:00:00.000Z" }),
     ];
     const settings = [
       makeSettings("lobby-doc-CCC"),

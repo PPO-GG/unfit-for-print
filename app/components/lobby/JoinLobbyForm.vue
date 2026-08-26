@@ -72,7 +72,7 @@ const formState = reactive({
  */
 const authenticatedUsername = computed(() => {
   if (userStore.user && !showIfAnonymous.value) {
-    return userStore.user.prefs?.name || userStore.user.name || "";
+    return userStore.user.name || "";
   }
   return "";
 });

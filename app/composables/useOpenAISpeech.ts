@@ -25,13 +25,12 @@ export function useOpenAISpeech(defaultVoice = "nova", model = "tts-001") {
     isSpeaking.value = true;
 
     try {
-      const userStore = useUserStore();
+      // /api/openai-speak authenticates via requireAuth, which reads the
+      // session cookie automatically sent with same-origin requests.
       const response = await fetch("/api/openai-speak", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${userStore.session?.$id}`,
-          "x-appwrite-user-id": userStore.user?.$id ?? "",
         },
         body: JSON.stringify({
           text,

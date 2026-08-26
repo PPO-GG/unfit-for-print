@@ -1,0 +1,88 @@
+services:
+  teleportal:
+    build:
+      context: ./teleportal-server
+      dockerfile: Dockerfile
+    container_name: unfit-teleportal
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DEBUG=false
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "http://localhost:3000/health",
+          "--no-verbose",
+          "--tries=1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      br0_3:
+        ipv4_address: 10.1.0.225
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: unfit-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-unfit}:${POSTGRES_PASSWORD:-unfit}@postgres:5432/${POSTGRES_DB:-unfit}
+      NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD}
+      NUXT_ACTIVITY_TOKEN_SECRET: ${NUXT_ACTIVITY_TOKEN_SECRET}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY}
+      DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID}
+      NUXT_PUBLIC_DISCORD_CLIENT_ID: ${NUXT_PUBLIC_DISCORD_CLIENT_ID}
+      NUXT_PUBLIC_BASE_URL: ${NUXT_PUBLIC_BASE_URL:-https://unfit.cards}
+      NUXT_PUBLIC_LOBBY_TELEPORTAL_URL: ${NUXT_PUBLIC_LOBBY_TELEPORTAL_URL:-wss://teleportal.unfit.cards}
+      NUXT_R2_ACCOUNT_ID: ${NUXT_R2_ACCOUNT_ID}
+      NUXT_R2_ACCESS_KEY_ID: ${NUXT_R2_ACCESS_KEY_ID}
+      NUXT_R2_SECRET_ACCESS_KEY: ${NUXT_R2_SECRET_ACCESS_KEY}
+      NUXT_R2_BUCKET: ${NUXT_R2_BUCKET:-decoration-images}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GOOGLE_TTS_API_KEY: ${GOOGLE_TTS_API_KEY}
+    ports:
+      # Host 3000 is already claimed by the `teleportal` service above, so
+      # web is published on 8080 instead. Adjust to taste / put a reverse
+      # proxy in front of both.
+      - "8080:3000"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: unfit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-unfit}
+      POSTGRES_USER: ${POSTGRES_USER:-unfit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unfit}
+    volumes:
+      - unfit-pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-unfit} -d ${POSTGRES_DB:-unfit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  unfit-pgdata:
+
+networks:
+  br0_3:
+    name: br0.3
+    external: true

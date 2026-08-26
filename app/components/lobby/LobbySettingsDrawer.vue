@@ -159,8 +159,6 @@
 <script lang="ts" setup>
 import { useLobby } from "~/composables/useLobby";
 import type { LobbySettings } from "~/composables/useLobbyReactive";
-import { getAppwrite } from "~/utils/appwrite";
-import { Query } from "appwrite";
 
 const props = defineProps<{
   open: boolean;
@@ -170,7 +168,6 @@ const props = defineProps<{
 
 defineEmits<{ (e: "close"): void }>();
 
-const config = useRuntimeConfig();
 const { notify } = useNotifications();
 const { t } = useI18n();
 const { mutations } = useLobby();
@@ -274,59 +271,22 @@ function togglePack(pack: string) {
   mutations.updateSettings({ cardPacks: next });
 }
 
-const DB_ID = config.public.appwriteDatabaseId;
-const CARD_COLLECTIONS = {
-  black: config.public.appwriteBlackCardCollectionId as string,
-  white: config.public.appwriteWhiteCardCollectionId as string,
-};
-
 let cancelled = false;
 onBeforeUnmount(() => { cancelled = true; });
 
 onMounted(async () => {
-  const { databases, tables } = getAppwrite();
-  if (!databases) return;
   loadingPacks.value = true;
   try {
-    const blackTotal = (await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTIONS.black,
-      queries: [Query.limit(1), Query.equal("active", true)],
-    })).total;
+    const { white, black } = await $fetch("/api/cards/packs");
     if (cancelled) return;
-    const chunkSize = 1000;
+
     const counts = new Map<string, number>();
-
-    for (let offset = 0; offset < blackTotal; offset += chunkSize) {
-      const chunk = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTIONS.black,
-        queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
-      });
-      if (cancelled) return;
-      chunk.rows.forEach((c: { pack?: string }) => {
-        if (c.pack) counts.set(c.pack, (counts.get(c.pack) ?? 0) + 1);
-      });
-    }
-
-    const whiteTotal = (await tables.listRows({
-      databaseId: DB_ID,
-      tableId: CARD_COLLECTIONS.white,
-      queries: [Query.limit(1), Query.equal("active", true)],
-    })).total;
-    if (cancelled) return;
-
-    for (let offset = 0; offset < whiteTotal; offset += chunkSize) {
-      const chunk = await tables.listRows({
-        databaseId: DB_ID,
-        tableId: CARD_COLLECTIONS.white,
-        queries: [Query.limit(chunkSize), Query.offset(offset), Query.equal("active", true)],
-      });
-      if (cancelled) return;
-      chunk.rows.forEach((c: { pack?: string }) => {
-        if (c.pack) counts.set(c.pack, (counts.get(c.pack) ?? 0) + 1);
-      });
-    }
+    white.forEach(p => {
+      counts.set(p.pack, (counts.get(p.pack) ?? 0) + p.active);
+    });
+    black.forEach(p => {
+      counts.set(p.pack, (counts.get(p.pack) ?? 0) + p.active);
+    });
 
     if (cancelled) return;
     availablePacks.value = Array.from(counts.entries())

@@ -19,7 +19,7 @@
               @click="userMenuOpen = !userMenuOpen"
             >
               <AvatarDecoration
-                :decoration-id="userStore.user?.prefs?.activeDecoration"
+                :decoration-id="userStore.user?.activeDecoration"
               >
                 <img
                   v-if="avatarUrl"
@@ -343,11 +343,8 @@ onClickOutside(userMenuRef, () => {
 
 const avatarUrl = computed(() => {
   const user = userStore.user;
-  if (!user?.prefs) return null;
-  if (user.prefs.avatarUrl) return user.prefs.avatarUrl;
-  if (user.prefs.discordUserId && user.prefs.avatar) {
-    return `https://cdn.discordapp.com/avatars/${user.prefs.discordUserId}/${user.prefs.avatar}.png`;
-  }
+  if (!user) return null;
+  if (user.avatarUrl) return user.avatarUrl;
   if (user.name) {
     return `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(user.name)}`;
   }

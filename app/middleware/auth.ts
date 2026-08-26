@@ -3,18 +3,23 @@ import { defineNuxtRouteMiddleware, navigateTo } from '#app'
 import { useUserStore } from '~/stores/userStore'
 
 export default defineNuxtRouteMiddleware(async () => {
-  // Session can only be verified client-side (Appwrite SDK uses cookies)
+  // Session can only be verified client-side (cookie-based session)
   if (import.meta.server) return
 
   const userStore = useUserStore()
 
   if (!userStore.isLoggedIn) {
-    const result = await userStore.fetchUserSession()
+    try {
+      await userStore.fetchSession()
+    } catch (error) {
+      // Transient failure (e.g. network error) — let the page render rather
+      // than silently redirecting a user whose session may be perfectly valid.
+      console.error('[middleware/auth] Failed to fetch session:', error)
+      return
+    }
 
-    // Only redirect for definitive auth failures — not transient network errors.
-    // 'error' means Appwrite was unreachable; let the page render rather than
-    // silently redirecting a user whose session may be perfectly valid.
-    if (result === 'unauthenticated') {
+    // Only redirect for a definitive "no session" result.
+    if (!userStore.isLoggedIn) {
       return navigateTo('/')
     }
   }

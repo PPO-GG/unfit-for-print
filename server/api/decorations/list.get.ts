@@ -1,20 +1,10 @@
-import { Query } from "node-appwrite";
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { userDecorations } from "~/server/db/schema";
+import { requireAuth } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const userId = await requireAuth(event);
-  const { DB } = getCollectionIds();
-  const config = useRuntimeConfig();
-  const tables = getAdminTables();
-
-  const result = await tables.listRows({
-    databaseId: DB,
-    tableId: config.public.appwriteUserDecorationsCollectionId as string,
-    queries: [Query.equal("userId", userId)],
-  });
-
-  return result.rows.map((doc: any) => ({
-    decorationId: doc.decorationId,
-    acquiredAt: doc.acquiredAt,
-    source: doc.source,
-  }));
+  const rows = await useDb().select().from(userDecorations).where(eq(userDecorations.userId, userId));
+  return rows.map((r) => ({ decorationId: r.decorationId, acquiredAt: r.acquiredAt, source: r.source }));
 });

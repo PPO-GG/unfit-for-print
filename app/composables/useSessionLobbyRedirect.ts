@@ -10,7 +10,7 @@ export const useSessionLobbyRedirect = () => {
     const { getActiveLobbyForUser } = useLobby();
 
     const checkAndRedirect = async () => {
-        await userStore.fetchUserSession();
+        await userStore.fetchSession();
 
         const user = userStore.user;
         if (!user) return;
@@ -19,7 +19,7 @@ export const useSessionLobbyRedirect = () => {
             return router.replace('/join');
         }
 
-        const lobby = await getActiveLobbyForUser(user.$id);
+        const lobby = await getActiveLobbyForUser(user.id);
         if (lobby?.code) {
             return router.replace(`/game/${lobby.code}`);
         }

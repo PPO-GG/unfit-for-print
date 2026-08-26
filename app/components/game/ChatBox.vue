@@ -142,7 +142,7 @@ const { reactive, lobbyDoc } = useLobby();
 const chat = useLobbyChat(lobbyDoc);
 
 const userStore = useUserStore();
-const currentUserId = computed(() => userStore.user?.$id);
+const currentUserId = computed(() => userStore.user?.id);
 
 const newMessage = ref("");
 const chatContainer = ref<HTMLDivElement | null>(null);

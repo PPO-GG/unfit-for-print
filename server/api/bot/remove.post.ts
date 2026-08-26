@@ -1,9 +1,11 @@
 // server/api/bot/remove.post.ts
 // Allows the lobby host to remove a specific bot from the lobby.
 //
-// Auth: Admin-SDK verified session via requireHost.
-// Client must send Authorization + x-appwrite-user-id headers.
-import { Query } from "node-appwrite";
+// Auth: session-based, verified via requireHost.
+import { and, eq, isNull } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { players, users } from "~/server/db/schema";
+import { requireHost } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -25,35 +27,45 @@ export default defineEventHandler(async (event) => {
   // Session-based auth: verify the caller is the authenticated host
   await requireHost(event, lobbyId);
 
-  const { DB, PLAYER } = getCollectionIds();
-  const tables = getAdminTables();
+  const db = useDb();
 
-  // --- Find the bot player document ---
-  const botRes = await tables.listRows({
-    databaseId: DB,
-    tableId: PLAYER,
-    queries: [
-      Query.equal("userId", botUserId),
-      Query.equal("lobbyId", lobbyId),
-      Query.equal("playerType", "bot"),
-      Query.limit(1),
-    ],
-  });
+  // --- Find the bot player row ---
+  const [bot] = await db
+    .select()
+    .from(players)
+    .where(
+      and(
+        eq(players.userId, botUserId),
+        eq(players.lobbyId, lobbyId),
+        eq(players.playerType, "bot"),
+      ),
+    )
+    .limit(1);
 
-  if (botRes.total === 0) {
+  if (!bot) {
     throw createError({
       statusCode: 404,
       statusMessage: "Bot not found in this lobby",
     });
   }
 
-  // --- Delete the bot player document ---
-  const botName = botRes.rows[0]!.name || botUserId;
-  await tables.deleteRow({
-    databaseId: DB,
-    tableId: PLAYER,
-    rowId: botRes.rows[0]!.$id,
-  });
+  // --- Delete the player row, then the synthetic bot user row ---
+  await db.delete(players).where(eq(players.id, bot.id));
+
+  // Defense-in-depth: only ever delete a `users` row that actually looks
+  // synthetic (guest, no Discord identity). This guards against a future
+  // bug that lets a real account's player row end up playerType='bot' —
+  // in that scenario we simply skip the user-row cleanup rather than
+  // deleting someone's real account.
+  await db
+    .delete(users)
+    .where(
+      and(
+        eq(users.id, bot.userId),
+        eq(users.isGuest, true),
+        isNull(users.discordUserId),
+      ),
+    );
 
   return { success: true };
 });

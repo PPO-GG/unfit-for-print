@@ -1,7 +1,10 @@
-import { ID, Query } from "node-appwrite";
+import { and, eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { userDecorations } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const body = await readBody(event);
   const { userId, decorationId } = body;
@@ -10,33 +13,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "userId and decorationId are required" });
   }
 
-  const { DB, USER_DECORATIONS } = getCollectionIds();
-  const tables = getAdminTables();
+  const db = useDb();
 
-  const existing = await tables.listRows({
-    databaseId: DB,
-    tableId: USER_DECORATIONS,
-    queries: [
-      Query.equal("userId", userId),
-      Query.equal("decorationId", decorationId),
-      Query.limit(1),
-    ],
-  });
+  const [existing] = await db
+    .select()
+    .from(userDecorations)
+    .where(and(eq(userDecorations.userId, userId), eq(userDecorations.decorationId, decorationId)))
+    .limit(1);
 
-  if (existing.total > 0) {
+  if (existing) {
     throw createError({ statusCode: 409, statusMessage: "User already owns this decoration" });
   }
 
-  await tables.createRow({
-    databaseId: DB,
-    tableId: USER_DECORATIONS,
-    rowId: ID.unique(),
-    data: {
-      userId,
-      decorationId,
-      acquiredAt: new Date().toISOString(),
-      source: "admin_grant",
-    },
+  await db.insert(userDecorations).values({
+    userId,
+    decorationId,
+    source: "admin_grant",
   });
 
   return { success: true };

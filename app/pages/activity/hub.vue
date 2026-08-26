@@ -55,7 +55,7 @@
       <!-- Right column: Games + Actions -->
       <div class="col-right">
         <!-- Active Games -->
-        <div v-for="lobby in channelLobbies" :key="lobby.$id" class="panel panel--accent">
+        <div v-for="lobby in channelLobbies" :key="lobby.id" class="panel panel--accent">
           <div class="panel-label">Active Game</div>
           <div class="game-card">
             <div class="game-info">
@@ -170,7 +170,7 @@ const prevParticipantIds = ref(new Set<string>())
 
 // The lobby the current user is hosting (if any)
 const hostedLobby = computed(() => {
-  const userId = userStore.user?.$id
+  const userId = userStore.user?.id
   if (!userId) return null
   return channelLobbies.value.find((l) => l.hostUserId === userId) ?? null
 })
@@ -202,7 +202,7 @@ async function loadChannelLobbies() {
 }
 
 async function handleCreate() {
-  const userId = userStore.user?.$id
+  const userId = userStore.user?.id
   if (!userId || creating.value) return
 
   createError.value = null
@@ -251,7 +251,7 @@ async function handleJoin(lobby: Lobby) {
 async function togglePrivacy() {
   if (!hostedLobby.value) return
   const newValue = hostedLobby.value.vcOnly === false
-  await updateLobbyPrivacy(hostedLobby.value.$id, newValue)
+  await updateLobbyPrivacy(hostedLobby.value.id, newValue)
   // Refresh the list to get updated data
   await loadChannelLobbies()
 }

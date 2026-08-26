@@ -1,9 +1,6 @@
 import { ref, computed } from "vue";
-import { ID, type Models, Permission, Query, Role } from "appwrite";
 import { useUserStore } from "~/stores/userStore";
 import { isAnonymousUser } from "~/composables/useUserUtils";
-import { usePlayers } from "~/composables/usePlayers";
-import { getAppwrite } from "~/utils/appwrite";
 import { getRandomHexString } from "~/composables/useCrypto";
 import { useLobbyDoc } from "~/composables/useLobbyDoc";
 import { useLobbyMutations } from "~/composables/useLobbyMutations";
@@ -13,8 +10,7 @@ import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 
 export const useLobby = () => {
-  const { getUserAvatarUrl } = usePlayers();
-  const getConfig = () => useRuntimeConfig();
+  const { $activityFetch } = useNuxtApp();
   const userStore = useUserStore();
 
   // ── Y.Doc Infrastructure ──────────────────────────────────────────────
@@ -31,43 +27,23 @@ export const useLobby = () => {
   // ── Appwrite Registry (discovery only) ────────────────────────────────
 
   const getLobbyByCode = async (code: string): Promise<Lobby | null> => {
-    const { tables } = getAppwrite();
-    const config = getConfig();
     try {
-      const result = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwriteLobbyCollectionId,
-        queries: [Query.equal("code", code), Query.limit(1)],
-      });
-      return result.rows[0] ? (result.rows[0] as unknown as Lobby) : null;
-    } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        "code" in error &&
-        error.code === 404 &&
-        error.message?.includes(
-          "Collection with the requested ID could not be found",
-        )
-      ) {
-        console.warn("Lobby collection not initialized");
-        return null;
-      }
-      throw error;
+      return await $activityFetch<Lobby | null>(
+        "/api/lobby/by-code/" + code,
+      );
+    } catch (error) {
+      console.warn("[useLobby] Failed to fetch lobby by code:", error);
+      return null;
     }
   };
 
   const getLobbyByInstanceId = async (
     instanceId: string,
   ): Promise<Lobby | null> => {
-    const { tables } = getAppwrite();
-    const config = getConfig();
     try {
-      const result = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwriteLobbyCollectionId,
-        queries: [Query.equal("discordInstanceId", instanceId), Query.limit(1)],
-      });
-      return result.rows[0] ? (result.rows[0] as unknown as Lobby) : null;
+      return await $activityFetch<Lobby | null>(
+        "/api/lobby/by-instance/" + instanceId,
+      );
     } catch {
       return null;
     }
@@ -76,20 +52,10 @@ export const useLobby = () => {
   const getLobbiesByChannelId = async (
     discordChannelId: string,
   ): Promise<Lobby[]> => {
-    const { tables } = getAppwrite();
-    const config = getConfig();
     try {
-      const result = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwriteLobbyCollectionId,
-        queries: [
-          Query.equal("discordChannelId", discordChannelId),
-          Query.notEqual("status", "complete"),
-          Query.orderDesc("$createdAt"),
-          Query.limit(10),
-        ],
-      });
-      return result.rows as unknown as Lobby[];
+      return await $activityFetch<Lobby[]>(
+        "/api/lobby/by-channel/" + discordChannelId,
+      );
     } catch {
       return [];
     }
@@ -99,95 +65,27 @@ export const useLobby = () => {
     lobbyId: string,
     vcOnly: boolean,
   ): Promise<void> => {
-    const { tables } = getAppwrite();
-    const config = getConfig();
-    await tables.updateRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteLobbyCollectionId,
-      rowId: lobbyId,
-      data: { vcOnly },
+    await $activityFetch("/api/lobby/privacy", {
+      method: "POST",
+      body: { lobbyId, vcOnly },
     });
   };
 
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
-    const { tables } = getAppwrite();
-    const config = getConfig();
-
     try {
-      const playerRes = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwritePlayerCollectionId,
-        queries: [
-          Query.equal("userId", userId),
-          Query.orderDesc("$createdAt"),
-          Query.limit(1),
-        ],
-      });
-
-      if (playerRes.total === 0) return null;
-
-      const playerDoc = playerRes.rows[0]!;
-
-      let lobby;
-      try {
-        lobby = await tables.getRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteLobbyCollectionId,
-          rowId: playerDoc.lobbyId,
-        });
-      } catch (lookupErr: any) {
-        // Stale player doc pointing to a deleted lobby — clean slate.
-        // Self-heal by deleting the orphaned player doc so this 404
-        // doesn't recur on every subsequent page visit.
-        if (
-          lookupErr?.code === 404 ||
-          lookupErr?.message?.includes("could not be found")
-        ) {
-          console.warn(
-            "[useLobby] Stale player doc references missing lobby:",
-            playerDoc.lobbyId,
-            "— deleting orphaned player doc",
-            playerDoc.$id,
-          );
-          try {
-            await tables.deleteRow({
-              databaseId: config.public.appwriteDatabaseId,
-              tableId: config.public.appwritePlayerCollectionId,
-              rowId: playerDoc.$id,
-            });
-          } catch (cleanupErr) {
-            console.warn(
-              "[useLobby] Failed to delete stale player doc:",
-              cleanupErr,
-            );
-          }
-          return null;
-        }
-        throw lookupErr;
-      }
-
-      if (lobby.status === "complete") return null;
-      return lobby as unknown as Lobby;
-    } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        "code" in error &&
-        error.code === 404 &&
-        error.message?.includes(
-          "Collection with the requested ID could not be found",
-        )
-      ) {
-        console.warn("Players or lobby collection not initialized");
-        return null;
-      }
-      throw error;
+      return await $activityFetch<Lobby | null>("/api/lobby/active");
+    } catch (error) {
+      console.warn("[useLobby] Failed to fetch active lobby:", error);
+      return null;
     }
   };
 
   // ── Create Lobby ──────────────────────────────────────────────────────
-  // Creates a minimal Appwrite registry doc, then initializes the Y.Doc.
+  // Creates the lobby registry row via the server API, then initializes
+  // the Y.Doc. Identity/session bootstrap happens before this is called
+  // (see useJoinLobby.ts).
 
   const createLobby = async (
     hostUserId: string,
@@ -198,9 +96,6 @@ export const useLobby = () => {
     discordChannelId?: string,
     vcOnly?: boolean,
   ) => {
-    const { tables } = getAppwrite();
-    const config = getConfig();
-
     // Check if the user already has an active lobby
     const existingLobby = await getActiveLobbyForUser(hostUserId);
     if (existingLobby) {
@@ -209,148 +104,79 @@ export const useLobby = () => {
       );
     }
 
-    // Generate a cryptographically secure random lobby code
-    const randomValue = getRandomHexString(4);
-    const lobbyCode = randomValue.substring(0, 6).toUpperCase();
+    const displayName =
+      lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
 
-    try {
-      const displayName =
-        lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`;
-
-      // Create minimal Appwrite registry doc (discovery only)
-      const lobbyData: Record<string, unknown> = {
+    const lobby = await $activityFetch<Lobby>("/api/lobby/create", {
+      method: "POST",
+      body: {
         hostUserId,
-        code: lobbyCode,
-        status: "waiting",
         lobbyName: displayName,
-        ...(discordInstanceId ? { discordInstanceId } : {}),
-        ...(discordChannelId ? { discordChannelId } : {}),
-        ...(vcOnly !== undefined ? { vcOnly } : {}),
-      };
+        discordInstanceId,
+        discordChannelId,
+        vcOnly,
+      },
+    });
 
-      const permissions = [
-        Permission.read(Role.any()),
-        Permission.update(Role.user(hostUserId)),
-        Permission.delete(Role.user(hostUserId)),
-      ];
+    // Connect to Teleportal Y.Doc and initialize the full structure
+    await lobbyDoc.connect(lobby.code);
 
-      const lobby = await tables.createRow({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwriteLobbyCollectionId,
-        rowId: ID.unique(),
-        data: lobbyData,
-        permissions,
-      });
+    const user = userStore.user;
+    const avatarUrl = user?.avatarUrl ?? null;
+    const activeDecoration = user?.activeDecoration || "";
 
-      // Connect to Teleportal Y.Doc and initialize the full structure
-      await lobbyDoc.connect(lobbyCode);
+    mutations.initializeLobby({
+      code: lobby.code,
+      hostUserId,
+      hostName: user?.name ?? "Anonymous",
+      hostAvatar: avatarUrl || "",
+      hostActiveDecoration: activeDecoration,
+      settings: {
+        maxPoints: 10,
+        cardsPerPlayer: 10,
+        maxPick: 3,
+        cardPacks: [
+          "CAH Base Set",
+          "CAH: Blue Box Expansion",
+          "CAH: Green Box Expansion",
+          "CAH: Red Box Expansion",
+        ],
+        isPrivate: isPrivate || false,
+        lobbyName: displayName,
+        roundEndCountdownDuration: 5,
+      },
+    });
 
-      const user = userStore.user;
-      const session = userStore.session;
-      const avatarUrl = user
-        ? getUserAvatarUrl(user as any, session?.provider)
-        : null;
-      const activeDecoration = user?.prefs?.activeDecoration || "";
-
-      mutations.initializeLobby({
-        code: lobbyCode,
-        hostUserId,
-        hostName: user?.name ?? "Anonymous",
-        hostAvatar: avatarUrl || "",
-        hostActiveDecoration: activeDecoration,
-        settings: {
-          maxPoints: 10,
-          cardsPerPlayer: 10,
-          maxPick: 3,
-          cardPacks: [
-            "CAH Base Set",
-            "CAH: Blue Box Expansion",
-            "CAH: Green Box Expansion",
-            "CAH: Red Box Expansion",
-          ],
-          isPrivate: isPrivate || false,
-          lobbyName: displayName,
-          roundEndCountdownDuration: 5,
-        },
-      });
-
-      // Compatibility shim: create Appwrite player doc so server-side
-      // APIs (requirePlayerInLobby, requireHost) can find the host.
-      try {
-        await tables.createRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwritePlayerCollectionId,
-          rowId: ID.unique(),
-          data: {
-            userId: hostUserId,
-            lobbyId: lobby.$id,
-            name: user?.name ?? "Anonymous",
-            avatar: avatarUrl || "",
-            isHost: true,
-            joinedAt: new Date().toISOString(),
-            provider: userStore.session?.provider || "anonymous",
-            playerType: "player",
-          },
-          permissions: [
-            Permission.read(Role.any()),
-            Permission.update(Role.user(hostUserId)),
-            Permission.delete(Role.user(hostUserId)),
-          ],
-        });
-      } catch (err) {
-        console.warn("[useLobby] Failed to create Appwrite player shim:", err);
-      }
-
-      return { ...lobby };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        const message =
-          error.message ===
-          "Unable to create lobby: Database not properly configured"
-            ? `Database configuration error. Please verify collections exist: Lobby (${config.public.appwriteLobbyCollectionId})`
-            : error.message;
-        throw new Error(message);
-      }
-      throw error;
-    }
+    return { ...lobby };
   };
 
   // ── Join Lobby ────────────────────────────────────────────────────────
-  // Looks up the Appwrite registry, connects to the existing Y.Doc,
-  // and adds the player via Y.Doc mutations.
+  // Looks up the lobby registry, connects to the existing Y.Doc, and adds
+  // the player via Y.Doc mutations. Identity/session bootstrap happens
+  // before this is called (see useJoinLobby.ts) — by the time this runs,
+  // requireAuth on the server already has a valid session to resolve the
+  // user from.
 
   const joinLobby = async (
     code: string,
     options?: { username?: string; isHost?: boolean; skipSession?: boolean },
   ) => {
-    const { account } = getAppwrite();
-    if (!userStore.session && !options?.skipSession) {
-      await account.createAnonymousSession();
-    }
-
-    // Fetch the session to know the provider
-    const session = await account.getSession("current");
-
-    // Enrich the store with OAuth prefs (avatar hash, discordUserId, etc.)
-    await userStore.fetchUserSession();
+    const { isDiscordActivity } = useDiscordSDK();
+    const isActivitySession = isDiscordActivity.value && !!userStore.user;
 
     const enrichedUser = userStore.user;
     if (!enrichedUser) throw new Error("User session could not be loaded");
 
-    // Also fetch raw Appwrite user for avatar resolution
-    const rawUser = await account.get();
-    rawUser.prefs = { ...rawUser.prefs, ...enrichedUser.prefs };
+    const provider = isActivitySession
+      ? "discord"
+      : enrichedUser.discordUserId
+        ? "discord"
+        : "anonymous";
 
-    const username =
-      options?.username ??
-      enrichedUser.name ??
-      rawUser.prefs?.name ??
-      "Unknown";
+    const username = options?.username ?? enrichedUser.name ?? "Unknown";
 
     const lobby = await getLobbyByCode(code);
     if (!lobby) throw new Error("Lobby not found");
-
-    await account.updatePrefs({ name: username });
 
     // Connect to the existing Y.Doc (if not already connected for this code)
     if (lobbyDoc.lobbyCode.value !== code) {
@@ -363,59 +189,55 @@ export const useLobby = () => {
     const playerType = status === "playing" ? "spectator" : "player";
 
     // Check if player is already in the Y.Doc
-    const existingPlayer = lobbyDoc.getPlayers().get(rawUser.$id);
+    const existingPlayer = lobbyDoc.getPlayers().get(enrichedUser.id);
+    const avatarUrl = enrichedUser.avatarUrl ?? null;
+
     if (!existingPlayer) {
-      const avatarUrl = getUserAvatarUrl(rawUser as any, session.provider);
-      const activeDecoration = enrichedUser.prefs?.activeDecoration || "";
+      const activeDecoration = enrichedUser.activeDecoration || "";
 
       mutations.addPlayer({
-        userId: rawUser.$id,
+        userId: enrichedUser.id,
         name: username,
-        avatar:
-          avatarUrl || (rawUser.prefs as Record<string, any>)?.avatar || "",
+        avatar: avatarUrl || "",
         isHost: !!options?.isHost,
         joinedAt: new Date().toISOString(),
-        provider: session.provider,
+        provider,
         playerType,
         activeDecoration,
       });
-
-      // Compatibility shim: create Appwrite player doc so server-side
-      // APIs (requirePlayerInLobby) can find this player.
-      const { tables } = getAppwrite();
-      const config = getConfig();
-      try {
-        await tables.createRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwritePlayerCollectionId,
-          rowId: ID.unique(),
-          data: {
-            userId: rawUser.$id,
-            lobbyId: lobby.$id,
-            name: username,
-            avatar:
-              avatarUrl || (rawUser.prefs as Record<string, any>)?.avatar || "",
-            isHost: !!options?.isHost,
-            joinedAt: new Date().toISOString(),
-            provider: session.provider,
-            playerType,
-          },
-          permissions: [
-            Permission.read(Role.any()),
-            Permission.update(Role.user(rawUser.$id)),
-            Permission.delete(Role.user(rawUser.$id)),
-          ],
-        });
-      } catch (err) {
-        console.warn("[useLobby] Failed to create Appwrite player shim:", err);
-      }
     }
 
-    return { ...lobby };
+    // Server-side player row so requirePlayerInLobby/requireHost can find
+    // this player. Always called (not just when the Y.Doc lacked the
+    // player) — the route is idempotent (returns the existing row rather
+    // than erroring/duplicating), and this guarantees `serverPlayer` is
+    // populated even on a rejoin/refresh where the Y.Doc already had this
+    // player locally but the caller still needs the player row's id.
+    let serverPlayer: { id: string; [key: string]: any } | null = null;
+    try {
+      const joinResult = await $activityFetch<{
+        lobby: Lobby;
+        player: { id: string; [key: string]: any };
+      }>("/api/lobby/join", {
+        method: "POST",
+        body: {
+          code,
+          playerName: username,
+          avatar: avatarUrl || "",
+          playerType,
+        },
+      });
+      serverPlayer = joinResult?.player ?? null;
+    } catch (err) {
+      console.warn("[useLobby] Failed to create player row:", err);
+    }
+
+    return { ...lobby, player: serverPlayer };
   };
 
   // ── Is In Lobby ───────────────────────────────────────────────────────
-  // Checks Y.Doc players map first, falls back to Appwrite for pre-connect state.
+  // Checks Y.Doc players map first, falls back to the server for
+  // pre-connect state (e.g. page refresh before the Y.Doc reconnects).
 
   const isInLobby = async (userId: string, lobbyId: string) => {
     // If Y.Doc is connected, check the players map directly
@@ -423,32 +245,19 @@ export const useLobby = () => {
       try {
         return !!lobbyDoc.getPlayers().get(userId);
       } catch {
-        // Y.Doc not ready — fall through to Appwrite
+        // Y.Doc not ready — fall through to the server
       }
     }
 
-    // Fallback: Appwrite query (for pre-connect state, e.g., page refresh)
-    const { tables } = getAppwrite();
-    const config = getConfig();
-    const res = await tables.listRows({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwritePlayerCollectionId,
-      queries: [
-        Query.equal("userId", userId),
-        Query.equal("lobbyId", lobbyId),
-        Query.limit(1),
-      ],
-    });
-    return res.total > 0;
+    // Fallback: derive from the user's active lobby (for pre-connect state)
+    const activeLobby = await getActiveLobbyForUser(userId);
+    return !!activeLobby && activeLobby.id === lobbyId;
   };
 
   // ── Leave Lobby ───────────────────────────────────────────────────────
   // Removes player from Y.Doc, handles host promotion, disconnects if last human.
 
   const leaveLobby = async (lobbyId: string, userId: string) => {
-    const { tables } = getAppwrite();
-    const config = getConfig();
-
     // Get player name before removing (for system message)
     const playerJson = lobbyDoc.doc.value
       ? lobbyDoc.getPlayers().get(userId)
@@ -476,31 +285,16 @@ export const useLobby = () => {
     // Remove from Y.Doc
     mutations.removePlayer(userId, playerName);
 
-    // Clean up the Appwrite player doc so the username is freed for rejoin.
-    // Without this, the join flow's name-uniqueness check finds the stale
-    // doc and incorrectly blocks the player from rejoining the same lobby.
+    // Remove the player row on the server, and tear down the lobby
+    // registry row too if this was the last human (self-heal logic moved
+    // server-side — see /api/lobby/leave).
     try {
-      const res = await tables.listRows({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwritePlayerCollectionId,
-        queries: [
-          Query.equal("userId", userId),
-          Query.equal("lobbyId", lobbyId),
-          Query.limit(1),
-        ],
+      await $activityFetch("/api/lobby/leave", {
+        method: "POST",
+        body: { lobbyId },
       });
-      if (res.total > 0 && res.rows[0]) {
-        await tables.deleteRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwritePlayerCollectionId,
-          rowId: res.rows[0].$id,
-        });
-      }
     } catch (err) {
-      console.warn(
-        "[useLobby] Failed to delete Appwrite player doc on leave:",
-        err,
-      );
+      console.warn("[useLobby] Failed to leave lobby on server:", err);
     }
 
     // Check remaining human players
@@ -523,44 +317,6 @@ export const useLobby = () => {
     if (remainingHumans.length === 0) {
       // Disconnect Y.Doc — Teleportal will GC the doc
       lobbyDoc.disconnect();
-
-      // Clean up all remaining Appwrite player docs for this lobby
-      // (e.g., bot player shims that would otherwise be orphaned).
-      try {
-        const allPlayers = await tables.listRows({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwritePlayerCollectionId,
-          queries: [Query.equal("lobbyId", lobbyId), Query.limit(100)],
-        });
-        for (const playerDoc of allPlayers.rows) {
-          try {
-            await tables.deleteRow({
-              databaseId: config.public.appwriteDatabaseId,
-              tableId: config.public.appwritePlayerCollectionId,
-              rowId: playerDoc.$id,
-            });
-          } catch {
-            // Best-effort: permissions may prevent deletion of other users' docs
-          }
-        }
-      } catch (err) {
-        console.warn(
-          "[useLobby] Failed to clean up remaining player docs on teardown:",
-          err,
-        );
-      }
-
-      // Clean up Appwrite lobby registry
-      try {
-        await tables.deleteRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteLobbyCollectionId,
-          rowId: lobbyId,
-        });
-      } catch (err) {
-        console.warn("Failed to delete Appwrite lobby registry:", err);
-      }
-
       return;
     }
 
@@ -671,7 +427,7 @@ export const useLobby = () => {
                   : (gameSettings as any).lobbyId,
             }
           : undefined,
-        userId: userStore.user?.$id,
+        userId: userStore.user?.id,
       },
     });
 
@@ -764,70 +520,19 @@ export const useLobby = () => {
       }
     });
 
-    // 4. Sync the new hostUserId to the Appwrite lobby registry.
-    //    This keeps server-side checks (requireHost) and discovery queries accurate.
-    //    Fire-and-forget — Y.Doc is the authority; Appwrite is a best-effort mirror.
+    // 4. Sync the new host to the server (lobby registry row + player rows).
+    //    This keeps server-side checks (requireHost) and discovery queries
+    //    accurate. Fire-and-forget — Y.Doc is the authority; the server
+    //    record is a best-effort mirror.
     if (lobbyId) {
-      const { tables } = getAppwrite();
-      const config = getConfig();
       try {
-        await tables.updateRow({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwriteLobbyCollectionId,
-          rowId: lobbyId,
-          data: { hostUserId: newHostPlayer.userId },
+        await $activityFetch("/api/lobby/promote-host", {
+          method: "POST",
+          body: { lobbyId, newHostUserId: newHostPlayer.userId },
         });
       } catch (err) {
         console.warn(
-          "[useLobby] Failed to sync new hostUserId to Appwrite lobby:",
-          err,
-        );
-      }
-
-      // 5. Update Appwrite player shims so requireHost can verify via DB as well.
-      try {
-        // Promote the new host's shim
-        const newHostRes = await tables.listRows({
-          databaseId: config.public.appwriteDatabaseId,
-          tableId: config.public.appwritePlayerCollectionId,
-          queries: [
-            Query.equal("userId", newHostPlayer.userId),
-            Query.equal("lobbyId", lobbyId),
-            Query.limit(1),
-          ],
-        });
-        if (newHostRes.total > 0 && newHostRes.rows[0]) {
-          await tables.updateRow({
-            databaseId: config.public.appwriteDatabaseId,
-            tableId: config.public.appwritePlayerCollectionId,
-            rowId: newHostRes.rows[0].$id,
-            data: { isHost: true },
-          });
-        }
-
-        // Demote the old host's shim
-        if (currentHostId && currentHostId !== newHostPlayer.userId) {
-          const oldHostRes = await tables.listRows({
-            databaseId: config.public.appwriteDatabaseId,
-            tableId: config.public.appwritePlayerCollectionId,
-            queries: [
-              Query.equal("userId", currentHostId),
-              Query.equal("lobbyId", lobbyId),
-              Query.limit(1),
-            ],
-          });
-          if (oldHostRes.total > 0 && oldHostRes.rows[0]) {
-            await tables.updateRow({
-              databaseId: config.public.appwriteDatabaseId,
-              tableId: config.public.appwritePlayerCollectionId,
-              rowId: oldHostRes.rows[0].$id,
-              data: { isHost: false },
-            });
-          }
-        }
-      } catch (err) {
-        console.warn(
-          "[useLobby] Failed to sync isHost to Appwrite player shims:",
+          "[useLobby] Failed to sync new host to server:",
           err,
         );
       }

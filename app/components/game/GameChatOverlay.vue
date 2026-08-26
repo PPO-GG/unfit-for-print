@@ -11,7 +11,7 @@ const { sanitize } = useSanitize();
 const { reactive, lobbyDoc } = useLobby();
 const chat = useLobbyChat(lobbyDoc);
 const userStore = useUserStore();
-const currentUserId = computed(() => userStore.user?.$id);
+const currentUserId = computed(() => userStore.user?.id);
 
 const filter = new Filter();
 const maxLength = 255;

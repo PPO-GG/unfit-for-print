@@ -1,4 +1,6 @@
-import { ID, Query } from "node-appwrite";
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { decorations, userDecorations, users } from "~/server/db/schema";
 import { verifyDiscordSignature } from "../../utils/discord-verify";
 
 export default defineEventHandler(async (event) => {
@@ -54,82 +56,46 @@ export default defineEventHandler(async (event) => {
       return "";
     }
 
-    const { DB, DECORATIONS, USER_DECORATIONS } = getCollectionIds();
-    const tables = getAdminTables();
+    const db = useDb();
 
     // Look up decoration by SKU ID
-    const decorationResult = await tables.listRows({
-      databaseId: DB,
-      tableId: DECORATIONS,
-      queries: [Query.equal("discordSkuId", skuId), Query.limit(1)],
-    });
+    const [decoration] = await db
+      .select({ id: decorations.id })
+      .from(decorations)
+      .where(eq(decorations.discordSkuId, skuId))
+      .limit(1);
 
-    if (decorationResult.total === 0) {
+    if (!decoration) {
       console.warn(`[discord-webhook] Unknown SKU ID: ${skuId}`);
       setResponseStatus(event, 204);
       return "";
     }
 
-    const decorationId: string = decorationResult.rows[0].decorationId;
+    const decorationId = decoration.id;
 
-    // Look up Appwrite user by Discord ID — try OAuth identity first, then label fallback
-    const { users } = useAppwriteAdmin();
-    let userId: string | undefined;
+    // Look up the user by Discord ID — single source of truth for both
+    // web (OAuth) and Activity users since Task 1/4/5/15's schema/auth work.
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.discordUserId, discordUserId))
+      .limit(1);
 
-    // Step 1: OAuth identity (web users — most common path)
-    try {
-      const identities = await users.listIdentities([
-        Query.equal("providerUid", discordUserId),
-        Query.equal("provider", "discord"),
-        Query.limit(1),
-      ]);
-      if (identities.total > 0) {
-        userId = identities.identities[0].userId;
-      }
-    } catch {
-      // listIdentities may not be available in all Appwrite versions — fall through
-    }
-
-    // Step 2: Label fallback (Discord Activity users)
-    if (!userId) {
-      const labeled = await users.list([
-        Query.contains("labels", [`discord:${discordUserId}`]),
-        Query.limit(1),
-      ]);
-      if (labeled.total > 0) {
-        userId = labeled.users[0].$id;
-      }
-    }
-
-    if (!userId) {
-      console.warn(`[discord-webhook] No Appwrite user for Discord ID: ${discordUserId}`);
+    if (!user) {
+      console.warn(`[discord-webhook] No user for Discord ID: ${discordUserId}`);
       setResponseStatus(event, 204);
       return "";
     }
 
-    // Grant the decoration — unique index handles idempotency
-    try {
-      await tables.createRow({
-        databaseId: DB,
-        tableId: USER_DECORATIONS,
-        rowId: ID.unique(),
-        data: {
-          userId,
-          decorationId,
-          acquiredAt: new Date().toISOString(),
-          source: "discord_purchase",
-        },
-      });
-    } catch (err: any) {
-      const isDuplicate =
-        err?.code === 409 ||
-        err?.type === "document_already_exists" ||
-        String(err?.message).includes("already exists");
-      if (!isDuplicate) {
-        throw err;
-      }
-      console.info(`[discord-webhook] User ${userId} already owns ${decorationId}`);
-    }
+    // Grant the decoration — composite PK (userId, decorationId) handles idempotency
+    await db
+      .insert(userDecorations)
+      .values({
+        userId: user.id,
+        decorationId,
+        source: "discord_purchase",
+      })
+      .onConflictDoNothing();
 
     setResponseStatus(event, 204);
     return "";

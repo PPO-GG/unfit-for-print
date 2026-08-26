@@ -3,8 +3,10 @@
 // NOTE: The Teleportal server expects POST /gc for gc-all,
 // and DELETE /gc/:docId for single-lobby GC.
 
+import { requireAdmin } from "~/server/utils/session";
+
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const url = getTeleportalHttpUrl();
   return $fetch(`${url}/gc`, { method: "POST" });
