@@ -13,56 +13,6 @@ const authHeaders = () => ({
 
 const users = ref<any[]>([]);
 const loading = ref(true);
-const teams = ref<any[]>([]);
-const userTeams = ref<
-  Record<string, { teamId: string; membershipId: string }[]>
->({});
-const selectedTeam = ref("");
-
-const fetchTeams = async () => {
-  const res = await $fetch("/api/admin/teams", {
-    headers: authHeaders(),
-    navigate: false,
-  });
-  teams.value = res.teams;
-};
-
-const fetchUserTeams = async (userId: string) => {
-  userTeams.value[userId] = await $fetch("/api/admin/teams/memberships", {
-    headers: authHeaders(),
-    navigate: false,
-    method: "POST",
-    body: { userId },
-  });
-};
-
-const getTeamName = (teamId: string) => {
-  return teams.value.find((t) => t.$id === teamId)?.name || "Unknown";
-};
-
-const addUserToTeam = async (userId: string, teamId: string) => {
-  await $fetch("/api/admin/teams/update", {
-    headers: authHeaders(),
-    navigate: false,
-    method: "POST",
-    body: { action: "add", teamId, userId },
-  });
-  await fetchUserTeams(userId);
-};
-
-const removeUserFromTeam = async (
-  userId: string,
-  teamId: string,
-  membershipId: string,
-) => {
-  await $fetch("/api/admin/teams/update", {
-    headers: authHeaders(),
-    navigate: false,
-    method: "POST",
-    body: { action: "remove", teamId, membershipId },
-  });
-  await fetchUserTeams(userId);
-};
 
 const deleteUser = async (userId: string) => {
   const confirmed = await confirm({
@@ -81,7 +31,7 @@ const deleteUser = async (userId: string) => {
       body: { userId },
     });
     if (res.success) {
-      users.value = users.value.filter((u) => u.$id !== userId);
+      users.value = users.value.filter((u) => u.id !== userId);
     } else {
       console.error("Delete failed:", (res as any).message);
     }
@@ -108,18 +58,12 @@ onMounted(async () => {
         headers: authHeaders(),
         navigate: false,
       });
-      users.value = res.users;
-
-      await fetchTeams();
-
-      for (const user of users.value) {
-        await fetchUserTeams(user.$id);
-      }
+      users.value = res;
     } catch (apiErr) {
       console.error("UserManager: API request failed:", apiErr);
     }
   } catch (err) {
-    console.error("UserManager: Failed to fetch users or teams:", err);
+    console.error("UserManager: Failed to fetch users:", err);
   } finally {
     loading.value = false;
   }
@@ -158,58 +102,26 @@ onMounted(async () => {
     <ul v-else class="space-y-4">
       <li
         v-for="user in users"
-        :key="user.$id"
+        :key="user.id"
         class="bg-slate-700 p-4 rounded text-white space-y-2"
       >
         <div class="flex justify-between items-center">
           <div class="flex gap-4 items-center flex-wrap">
             <div class="flex items-center gap-2">
               <span class="text-xl">{{ user.name || "Unnamed User" }}</span>
-              <UBadge v-if="user.emailVerification" color="primary"
-                >Verified</UBadge
-              >
-            </div>
-            <div class="flex gap-2">
-              <UBadge
-                v-for="team in userTeams[user.$id] || []"
-                :key="team.teamId"
-                color="info"
-                class="flex items-center gap-1"
-              >
-                {{ getTeamName(team.teamId) }}
-                <UButton
-                  icon="i-solar-close-square-bold-duotone"
-                  size="xs"
-                  variant="link"
-                  color="error"
-                  @click="
-                    removeUserFromTeam(user.$id, team.teamId, team.membershipId)
-                  "
-                />
-              </UBadge>
+              <UBadge v-if="user.isAdmin" color="primary">Admin</UBadge>
+              <UBadge v-if="user.isGuest" color="neutral">Guest</UBadge>
             </div>
           </div>
           <div class="text-right">
-            <p class="text-sm text-gray-300">
-              {{ user.email || "(anonymous)" }}
-            </p>
             <p class="text-sm text-gray-500">
-              Created: {{ new Date(user.$createdAt).toLocaleString() }}
+              Created: {{ new Date(user.createdAt).toLocaleString() }}
             </p>
           </div>
           <UButton
             icon="i-solar-trash-bin-trash-bold-duotone"
             color="error"
-            @click="deleteUser(user.$id)"
-          />
-        </div>
-        <div>
-          <USelectMenu
-            v-model="selectedTeam"
-            :items="teams.map((t) => t.$id)"
-            placeholder="Add to team"
-            class="mt-2"
-            @change="addUserToTeam(user.$id, selectedTeam)"
+            @click="deleteUser(user.id)"
           />
         </div>
       </li>
