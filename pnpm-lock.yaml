@@ -136,15 +136,12 @@ importers:
       markdown-it:
         specifier: ^14.3.0
         version: 14.3.0
-      node-appwrite:
-        specifier: ^22.1.3
-        version: 22.1.3
       nuxt:
         specifier: ^4.5.0
         version: 4.5.0(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@netlify/blobs@9.1.2)(@types/node@24.3.0)(@vue/compiler-sfc@3.5.40)(better-sqlite3@11.10.0)(cac@7.0.0)(db0@0.3.4(better-sqlite3@11.10.0)(drizzle-orm@0.45.2(@types/pg@8.23.1)(better-sqlite3@11.10.0)(pg@8.23.0)))(drizzle-orm@0.45.2(@types/pg@8.23.1)(better-sqlite3@11.10.0)(pg@8.23.0))(esbuild@0.28.1)(eslint@9.28.0(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.33.0)(magicast@0.5.3)(meow@13.2.0)(optionator@0.9.4)(oxc-parser@0.140.0)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.40(typescript@5.9.3)))(rollup-plugin-visualizer@6.0.11(rolldown@1.2.0)(rollup@4.62.2))(rollup@4.62.2)(srvx@0.12.4)(terser@5.49.0)(tsx@4.23.1)(typescript@5.9.3)(vite@8.1.5(@types/node@24.3.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))(vue-tsc@3.3.8(typescript@5.9.3))(yaml@2.9.0)
       nuxt-appwrite:
         specifier: github:Stagepoint-Systems/nuxt-appwrite
-        version: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382(appwrite@22.4.1)(magicast@0.5.3)(node-appwrite@22.1.3)
+        version: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382(appwrite@22.4.1)(magicast@0.5.3)(node-appwrite@28.0.0)
       nuxt-auth-utils:
         specifier: ^0.5.30
         version: 0.5.30(magic-string@1.1.0)(magicast@0.5.3)(oxc-parser@0.140.0)(rolldown@1.2.0)(unplugin@3.3.0(esbuild@0.28.1)(rolldown@1.2.0)(rollup@4.62.2)(vite@8.1.5(@types/node@24.3.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)))
@@ -248,6 +245,9 @@ importers:
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      node-appwrite:
+        specifier: ^28.0.0
+        version: 28.0.0
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
@@ -7132,8 +7132,8 @@ packages:
     resolution: {integrity: sha512-W5ZNO5KRPB5TkYmGVD9F6YqhsglXJzE6etpbmT+f6EQElhiX/UTG551cnsRGvLG3fyZEg9HwaDmNmj5nwJ4z9g==}
     engines: {node: '>=10'}
 
-  node-appwrite@22.1.3:
-    resolution: {integrity: sha512-pXxvojqgYY3HAiJAj+P6xb/CXVNsMUd+JXVOLrCCDzqZmpKeMF6OEt4mAoDEyKTnRaixUDHlPrdh7y1G/w3sbw==}
+  node-appwrite@28.0.0:
+    resolution: {integrity: sha512-3pLMannNwZf1WUJYdZ998B/ckgAkUGI+Wis31GEwy2NJlx0PooghXe6U3ZJvH86oFaLGl+evnjFWcaQJXu+PZg==}
 
   node-domexception@1.0.0:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==}
@@ -7143,9 +7143,6 @@ packages:
   node-emoji@2.2.0:
     resolution: {integrity: sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw==}
     engines: {node: '>=18'}
-
-  node-fetch-native-with-agent@1.7.2:
-    resolution: {integrity: sha512-5MaOOCuJEvcckoz7/tjdx1M6OusOY6Xc5f459IaruGStWnKzlI1qpNgaAwmn4LmFYcsSlj+jBMk84wmmRxfk5g==}
 
   node-fetch-native@1.6.7:
     resolution: {integrity: sha512-g9yhqoedzIUm0nTnTqAQvueMPVOuIY16bqgAJJC8XOOubYFNwz6IER9qs0Gq2Xd0+CecCKFjtdDTMA4u4xG06Q==}
@@ -9128,6 +9125,10 @@ packages:
 
   undici-types@7.10.0:
     resolution: {integrity: sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag==}
+
+  undici@6.28.0:
+    resolution: {integrity: sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==}
+    engines: {node: '>=18.17'}
 
   undici@8.8.0:
     resolution: {integrity: sha512-ubshXMXwF3MQIMF1y/WxZdNBnjEKeSg2wF5mcGUtU55YTw34tnVVpKRlLf7ruDXZ5344KokPVX4RBx1wJm64Bw==}
@@ -17992,10 +17993,10 @@ snapshots:
       semver: 7.8.5
     optional: true
 
-  node-appwrite@22.1.3:
+  node-appwrite@28.0.0:
     dependencies:
       json-bigint: 1.0.0
-      node-fetch-native-with-agent: 1.7.2
+      undici: 6.28.0
 
   node-domexception@1.0.0:
     optional: true
@@ -18006,8 +18007,6 @@ snapshots:
       char-regex: 1.0.2
       emojilib: 2.4.0
       skin-tone: 2.0.0
-
-  node-fetch-native-with-agent@1.7.2: {}
 
   node-fetch-native@1.6.7: {}
 
@@ -18094,13 +18093,13 @@ snapshots:
     dependencies:
       boolbase: 1.0.0
 
-  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382(appwrite@22.4.1)(magicast@0.5.3)(node-appwrite@22.1.3):
+  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382(appwrite@22.4.1)(magicast@0.5.3)(node-appwrite@28.0.0):
     dependencies:
       '@nuxt/kit': 3.21.9(magicast@0.5.3)
       appwrite: 22.4.1
       defu: 6.1.7
     optionalDependencies:
-      node-appwrite: 22.1.3
+      node-appwrite: 28.0.0
     transitivePeerDependencies:
       - magicast
 
@@ -20333,6 +20332,8 @@ snapshots:
       unplugin: 3.3.0(esbuild@0.28.1)(rolldown@1.2.0)(rollup@4.62.2)(vite@8.1.5(@types/node@24.3.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
 
   undici-types@7.10.0: {}
+
+  undici@6.28.0: {}
 
   undici@8.8.0: {}
 

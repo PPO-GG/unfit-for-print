@@ -24,7 +24,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "test:db": "vitest run tests/server/db --no-file-parallelism"
+    "test:db": "vitest run tests/server/db --no-file-parallelism",
+    "migrate:appwrite": "tsx scripts/migrate-appwrite.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1118.0",
@@ -61,7 +62,6 @@
     "html-to-image": "^1.11.13",
     "lodash-es": "^4.18.1",
     "markdown-it": "^14.3.0",
-    "node-appwrite": "^22.1.3",
     "nuxt": "^4.5.0",
     "nuxt-appwrite": "github:Stagepoint-Systems/nuxt-appwrite",
     "nuxt-auth-utils": "^0.5.30",
@@ -129,6 +129,7 @@
     "conventional-changelog-conventionalcommits": "^9.3.1",
     "drizzle-kit": "^0.31.10",
     "jsdom": "^26.1.0",
+    "node-appwrite": "^28.0.0",
     "prompts": "^2.4.2",
     "rollup-plugin-visualizer": "^6.0.11",
     "semantic-release": "^24.2.9",
