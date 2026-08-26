@@ -6,10 +6,11 @@
 // needs a real (if synthetic) user row to satisfy the constraint.
 //
 // Auth: session-based, verified via requireHost.
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { lobbies, players, users } from "~/server/db/schema";
 import { requireHost } from "~/server/utils/session";
+import { generateBotName, getBotAvatarUrl } from "~/server/utils/botNames";
 
 const MAX_BOTS_PER_LOBBY = 5;
 
@@ -56,9 +57,22 @@ export default defineEventHandler(async (event) => {
       await Promise.all(
         orphans.map((p) => db.delete(players).where(eq(players.id, p.id))),
       );
-      // Clean up the synthetic user rows too, now that nothing references them.
+      // Clean up the synthetic user rows too, now that nothing references
+      // them. Defense-in-depth: only delete rows that actually look
+      // synthetic (guest, no Discord identity) in case a bug elsewhere
+      // ever let a real account's player row end up playerType='bot'.
       await Promise.all(
-        orphans.map((p) => db.delete(users).where(eq(users.id, p.userId))),
+        orphans.map((p) =>
+          db
+            .delete(users)
+            .where(
+              and(
+                eq(users.id, p.userId),
+                eq(users.isGuest, true),
+                isNull(users.discordUserId),
+              ),
+            ),
+        ),
       );
     }
     // Recompute list after pruning

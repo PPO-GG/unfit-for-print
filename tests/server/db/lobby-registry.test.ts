@@ -91,6 +91,50 @@ describe("lobby registry", () => {
     expect(remaining).toHaveLength(0);
   });
 
+  it("never persists a client-supplied playerType of 'bot' via join", async () => {
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));
+
+    const [joiner] = await db.insert(users).values({ name: "Sneaky" }).returning();
+    currentUserId = joiner.id;
+    const join = (await import("~/server/api/lobby/join.post")).default;
+    const result = await join(
+      mockEvent({ code: lobby.code, playerName: "Sneaky", playerType: "bot" }),
+    );
+
+    expect(result.player.playerType).toBe("player");
+    const [stored] = await db
+      .select()
+      .from(players)
+      .where(and(eq(players.userId, joiner.id), eq(players.lobbyId, lobby.id)));
+    expect(stored.playerType).toBe("player");
+  });
+
+  it("cleans up a bot's synthetic users row when the last human leaves", async () => {
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));
+
+    const [botUser] = await db
+      .insert(users)
+      .values({ name: "Bot1", isGuest: true })
+      .returning();
+    await db.insert(players).values({
+      userId: botUser.id,
+      lobbyId: lobby.id,
+      name: "Bot1",
+      playerType: "bot",
+    });
+
+    const leave = (await import("~/server/api/lobby/leave.post")).default;
+    await leave(mockEvent({ lobbyId: lobby.id }));
+
+    const remainingLobby = await db.select().from(lobbies).where(eq(lobbies.id, lobby.id));
+    expect(remainingLobby).toHaveLength(0);
+
+    const remainingBotUser = await db.select().from(users).where(eq(users.id, botUser.id));
+    expect(remainingBotUser).toHaveLength(0);
+  });
+
   it("promote-host rejects a non-host caller", async () => {
     const create = (await import("~/server/api/lobby/create.post")).default;
     const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));

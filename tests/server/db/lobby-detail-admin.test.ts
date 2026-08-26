@@ -63,4 +63,38 @@ describe("admin lobby delete", () => {
       .where(eq(players.lobbyId, lobby.id));
     expect(remainingPlayers).toHaveLength(0);
   });
+
+  it("cleans up a bot's synthetic users row alongside the lobby", async () => {
+    const [host] = await db
+      .insert(users)
+      .values({ name: "Host" })
+      .returning();
+    const [lobby] = await db
+      .insert(lobbies)
+      .values({ code: "DELB", hostUserId: host.id })
+      .returning();
+    await db
+      .insert(players)
+      .values({ userId: host.id, lobbyId: lobby.id, name: "Host", isHost: true });
+    const [botUser] = await db
+      .insert(users)
+      .values({ name: "Bot1", isGuest: true })
+      .returning();
+    await db
+      .insert(players)
+      .values({ userId: botUser.id, lobbyId: lobby.id, name: "Bot1", playerType: "bot" });
+
+    const handler = (await import("~/server/api/admin/lobby/delete.post"))
+      .default;
+    await handler(mockEvent({}, { lobbyId: lobby.id }));
+
+    const remainingBotUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, botUser.id));
+    expect(remainingBotUser).toHaveLength(0);
+    // The host's real user row must survive.
+    const remainingHost = await db.select().from(users).where(eq(users.id, host.id));
+    expect(remainingHost).toHaveLength(1);
+  });
 });

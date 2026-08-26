@@ -9,7 +9,11 @@ export default defineEventHandler(async (event) => {
     code: string;
     playerName: string;
     avatar?: string;
-    playerType?: "spectator" | "player" | "bot";
+    // "bot" is intentionally not accepted here — bots may only be created
+    // via the dedicated /api/bot/add route (host-only, synthetic user).
+    // A client-supplied "bot" is clamped to "player" below so a real user
+    // can never get themselves classified (and later deleted) as a bot.
+    playerType?: "spectator" | "player";
   }>(event);
 
   const db = useDb();
@@ -23,6 +27,10 @@ export default defineEventHandler(async (event) => {
     .limit(1);
   if (existing) return { lobby, player: existing };
 
+  // Runtime clamp: TypeScript's narrowed body type doesn't stop a raw
+  // request body from smuggling "bot" (or anything else) past readBody.
+  const playerType = body.playerType === "spectator" ? "spectator" : "player";
+
   const [player] = await db
     .insert(players)
     .values({
@@ -31,7 +39,7 @@ export default defineEventHandler(async (event) => {
       name: body.playerName,
       avatar: body.avatar,
       isHost: false,
-      playerType: body.playerType ?? "player",
+      playerType,
     })
     .returning();
 
