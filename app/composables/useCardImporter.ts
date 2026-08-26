@@ -3,8 +3,12 @@ import { useNotifications } from "~/composables/useNotifications";
 
 export const useCardImporter = (options?: { onComplete?: () => void }) => {
   const { notify } = useNotifications();
-  // /api/dev/seed has no auth check of its own (dev-only tool) — the old
-  // Appwrite Bearer/x-appwrite-user-id headers are no longer needed.
+  // /api/dev/seed is admin-gated server-side via assertAdmin (which calls
+  // requireAuth, reading the session cookie automatically sent with
+  // same-origin requests) — no manual Authorization header needed. The old
+  // Appwrite Bearer/x-appwrite-user-id headers are dropped; sending a bogus
+  // `Authorization: Bearer undefined` would incorrectly route through
+  // requireAuth's activity-token branch and break admin auth entirely.
   const uploadState = reactive({
     file: null as File | null,
     fileContent: null as string | null,

@@ -60,6 +60,9 @@ export const useUserStore = defineStore("user", {
       this.isLoggedIn = false;
       this.isActivitySession = false;
       this.playerDocId = "";
+      if (import.meta.client) {
+        await navigateTo("/");
+      }
     },
   },
 });

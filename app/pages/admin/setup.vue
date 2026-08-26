@@ -25,6 +25,13 @@ async function runSetup() {
   result.value = null;
 
   try {
+    // /api/setup is admin-gated server-side via assertAdmin (which calls
+    // requireAuth, reading the session cookie automatically sent with
+    // same-origin requests) — no manual Authorization header needed. The
+    // old Appwrite Bearer/x-appwrite-user-id headers built from removed
+    // userStore.session/user.$id fields are dropped; sending a bogus
+    // `Authorization: Bearer undefined` would incorrectly route through
+    // requireAuth's activity-token branch and break admin auth entirely.
     const response = await $fetch("/api/setup", {
       method: "POST",
       body: {

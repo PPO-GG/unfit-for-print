@@ -10,11 +10,14 @@ const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
 
-// /api/dev/seed has no auth check of its own (dev-only tool) — the old
+// /api/dev/seed is admin-gated server-side via assertAdmin (which calls
+// requireAuth, reading the session cookie automatically sent with
+// same-origin requests) — no manual Authorization header needed. The old
 // Appwrite Bearer/x-appwrite-user-id headers built from removed
-// userStore.session/user.$id fields were never actually required by it, so
-// they're just dropped. Card CRUD below goes through $activityFetch, which
-// carries auth itself.
+// userStore.session/user.$id fields have been dropped; sending a bogus
+// `Authorization: Bearer undefined` would incorrectly route through
+// requireAuth's activity-token branch and break admin auth entirely. Card
+// CRUD below goes through $activityFetch, which carries auth itself.
 
 // Use the shared card search state
 const { searchTerm, cardType } = useCardSearch();
