@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq, and } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users, decorations, userDecorations } from "~/server/db/schema";
+import { users, decorations, userDecorations, players } from "~/server/db/schema";
 
 const db = useDb();
 let currentUserId: string;
@@ -23,6 +23,7 @@ function mockEvent(body?: unknown) {
 beforeEach(async () => {
   await db.delete(userDecorations);
   await db.delete(decorations);
+  await db.delete(players);
   await db.delete(users);
   const [user] = await db.insert(users).values({ name: "U" }).returning();
   currentUserId = user.id;

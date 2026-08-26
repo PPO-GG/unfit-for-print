@@ -3,11 +3,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users } from "~/server/db/schema";
+import { users, players } from "~/server/db/schema";
 
 const db = useDb();
 
 beforeEach(async () => {
+  await db.delete(players);
   await db.delete(users);
 });
 

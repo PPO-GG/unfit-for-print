@@ -1,5 +1,5 @@
 // tests/server/db/players.test.ts
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { users, lobbies, players } from "~/server/db/schema";
@@ -25,6 +25,14 @@ beforeEach(async () => {
   await db.delete(users);
   const [user] = await db.insert(users).values({ name: "P1" }).returning();
   currentUserId = user.id;
+});
+
+afterEach(async () => {
+  // Guard against leaking a lobby/player/user into other test files that
+  // share this database (run with --no-file-parallelism).
+  await db.delete(players);
+  await db.delete(lobbies);
+  await db.delete(users);
 });
 
 describe("players routes", () => {

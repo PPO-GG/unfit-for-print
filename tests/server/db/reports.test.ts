@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users, reports, whiteCards, blackCards, lobbies } from "~/server/db/schema";
+import { users, reports, whiteCards, blackCards, lobbies, players } from "~/server/db/schema";
 
 const db = useDb();
 let currentUserId: string;
@@ -27,9 +27,17 @@ beforeEach(async () => {
   // Also clear lobbies: leftover rows from other suites can reference users
   // via a NOT NULL FK, which would otherwise block deleting users below.
   await db.delete(lobbies);
+  await db.delete(players);
   await db.delete(users);
   const [user] = await db.insert(users).values({ name: "Reporter" }).returning();
   currentUserId = user.id;
+});
+
+afterEach(async () => {
+  // Guard against leaking a report/user into other test files that share
+  // this database (run with --no-file-parallelism).
+  await db.delete(reports);
+  await db.delete(users);
 });
 
 describe("reports", () => {
