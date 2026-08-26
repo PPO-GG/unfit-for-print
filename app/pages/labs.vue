@@ -219,7 +219,6 @@
 import { useUserStore } from "~/stores/userStore";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useIsAdmin } from "~/composables/useAdminCheck";
-import { Query } from "appwrite";
 import { watchDebounced } from "@vueuse/core";
 
 useHead({ title: "Unfit Labs" });
@@ -230,15 +229,12 @@ const userStore = useUserStore();
 const isLoggedIn = computed(() => isAuthenticatedUser(userStore.user));
 const isAdmin = useIsAdmin();
 
-// Appwrite
-import { getAppwrite } from "~/utils/appwrite";
-const { client, tables } = getAppwrite();
-const config = useRuntimeConfig();
+const { $activityFetch } = useNuxtApp();
 
 // State
 const submissions = ref<any[]>([]);
 const loading = ref(true);
-const lastLoadedId = ref<string | null>(null);
+const listLimit = ref(50);
 const hasMoreSubmissions = ref(true);
 const upvoteInProgress = ref(false);
 
@@ -318,8 +314,8 @@ const filteredSubmissions = computed(() => {
 
     switch (filters.value.sortBy) {
       case "timestamp":
-        valueA = new Date(a.timestamp).getTime();
-        valueB = new Date(b.timestamp).getTime();
+        valueA = new Date(a.createdAt).getTime();
+        valueB = new Date(b.createdAt).getTime();
         break;
       case "upvotes":
         valueA = a.upvotes;
@@ -334,8 +330,8 @@ const filteredSubmissions = computed(() => {
         valueB = b.pick || 1;
         break;
       default:
-        valueA = new Date(a.timestamp).getTime();
-        valueB = new Date(b.timestamp).getTime();
+        valueA = new Date(a.createdAt).getTime();
+        valueB = new Date(b.createdAt).getTime();
     }
 
     return filters.value.sortDirection === "asc"
@@ -358,30 +354,15 @@ const paginatedSubmissions = computed(() => {
 
 // Methods
 async function fetchSubmissions() {
-  if (!tables) return;
-
   try {
     loading.value = true;
 
-    const response = await tables.listRows({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteSubmissionCollectionId,
-      queries: [
-        lastLoadedId.value
-          ? Query.cursorAfter(lastLoadedId.value)
-          : Query.orderDesc("$createdAt"),
-        Query.limit(50),
-      ],
+    const result = await $activityFetch<any[]>("/api/submissions/list", {
+      query: { limit: listLimit.value },
     });
 
-    if (response.rows.length < 50) {
-      hasMoreSubmissions.value = false;
-    }
-
-    if (response.rows.length > 0) {
-      lastLoadedId.value = response.rows[response.rows.length - 1]!.$id;
-      submissions.value = [...submissions.value, ...response.rows];
-    }
+    hasMoreSubmissions.value = result.length === listLimit.value;
+    submissions.value = result;
   } catch (error) {
     console.error("Error fetching submissions:", error);
     useToast().add({
@@ -396,6 +377,7 @@ async function fetchSubmissions() {
 
 async function loadMoreSubmissions() {
   if (hasMoreSubmissions.value && !loading.value) {
+    listLimit.value += 50;
     await fetchSubmissions();
   }
 }
@@ -407,38 +389,15 @@ async function handleUpvote(submissionId: string) {
     upvoteInProgress.value = true;
 
     const submissionIndex = submissions.value.findIndex(
-      (s) => s.$id === submissionId,
+      (s) => s.id === submissionId,
     );
     if (submissionIndex === -1) return;
 
-    const submission = submissions.value[submissionIndex];
-    const userId = userStore.user?.$id;
-    if (!userId) return;
-
-    const upvoterIds = submission.upvoterIds || [];
-    const alreadyUpvoted = upvoterIds.includes(userId);
-
-    if (alreadyUpvoted) {
-      submissions.value[submissionIndex] = await tables.updateRow({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwriteSubmissionCollectionId,
-        rowId: submissionId,
-        data: {
-          upvotes: submission.upvotes - 1,
-          upvoterIds: upvoterIds.filter((id: string) => id !== userId),
-        },
-      });
-    } else {
-      submissions.value[submissionIndex] = await tables.updateRow({
-        databaseId: config.public.appwriteDatabaseId,
-        tableId: config.public.appwriteSubmissionCollectionId,
-        rowId: submissionId,
-        data: {
-          upvotes: submission.upvotes + 1,
-          upvoterIds: [...upvoterIds, userId],
-        },
-      });
-    }
+    const updated = await $activityFetch("/api/submissions/upvote", {
+      method: "POST",
+      body: { submissionId },
+    });
+    submissions.value[submissionIndex] = updated;
   } catch (error) {
     console.error("Error upvoting submission:", error);
     useToast().add({
@@ -472,15 +431,11 @@ async function handleDelete(submissionId: string) {
   }
 
   try {
-    await $fetch("/api/admin/submissions/delete", {
+    await $activityFetch("/api/admin/submissions/delete", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${userStore.session!.$id}`,
-        "x-appwrite-user-id": userStore.user!.$id,
-      },
       body: { submissionId },
     });
-    submissions.value = submissions.value.filter((s) => s.$id !== submissionId);
+    submissions.value = submissions.value.filter((s) => s.id !== submissionId);
     useToast().add({
       title: "Success",
       description: "Submission deleted successfully",
@@ -507,37 +462,13 @@ async function handleAdopt(submission: any) {
   }
 
   try {
-    const collectionId =
-      submission.cardType === "white"
-        ? config.public.appwriteWhiteCardCollectionId
-        : config.public.appwriteBlackCardCollectionId;
-
-    const cardData: any = {
-      text: submission.text,
-      pack: "Unfit Labs",
-      active: true,
-      submittedBy: submission.submitterName,
-    };
-
-    if (submission.cardType === "black" && submission.pick) {
-      cardData.pick = submission.pick;
-    }
-
-    await tables.createRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: collectionId,
-      rowId: "unique()",
-      data: cardData,
-    });
-
-    await tables.deleteRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteSubmissionCollectionId,
-      rowId: submission.$id,
+    await $activityFetch("/api/submissions/adopt", {
+      method: "POST",
+      body: { submissionId: submission.id },
     });
 
     submissions.value = submissions.value.filter(
-      (s) => s.$id !== submission.$id,
+      (s) => s.id !== submission.id,
     );
 
     useToast().add({
@@ -555,48 +486,8 @@ async function handleAdopt(submission: any) {
   }
 }
 
-// Real-time subscription
-function subscribeToSubmissions() {
-  if (!client) return;
-
-  const dbId = config.public.appwriteDatabaseId;
-  const collectionId = config.public.appwriteSubmissionCollectionId;
-
-  return client.subscribe(
-    [`databases.${dbId}.collections.${collectionId}.documents`],
-    (response: any) => {
-      const { events, payload } = response;
-
-      if (events.some((e: string) => e.endsWith(".create"))) {
-        if (!submissions.value.some((s) => s.$id === payload.$id)) {
-          submissions.value.unshift(payload);
-        }
-      }
-
-      if (events.some((e: string) => e.endsWith(".update"))) {
-        const index = submissions.value.findIndex((s) => s.$id === payload.$id);
-        if (index !== -1) {
-          submissions.value[index] = payload;
-        }
-      }
-
-      if (events.some((e: string) => e.endsWith(".delete"))) {
-        submissions.value = submissions.value.filter(
-          (s) => s.$id !== payload.$id,
-        );
-      }
-    },
-  );
-}
-
-let unsubscribe: (() => void) | undefined;
 onMounted(async () => {
   await fetchSubmissions();
-  unsubscribe = subscribeToSubmissions();
-});
-
-onUnmounted(() => {
-  if (unsubscribe) unsubscribe();
 });
 
 watch([() => filters.value.cardType, () => filters.value.search], () => {

@@ -1,26 +1,11 @@
-// server/api/admin/submissions/delete.post.ts
-// Admin-only endpoint to delete a lab submission
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { submissions } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
-
-  const { submissionId } = await readBody(event);
-
-  if (!submissionId) {
-    throw createError({
-      statusCode: 400,
-      message: "submissionId is required",
-    });
-  }
-
-  const config = useRuntimeConfig();
-  const tables = getAdminTables();
-
-  await tables.deleteRow({
-    databaseId: config.public.appwriteDatabaseId,
-    tableId: config.public.appwriteSubmissionCollectionId,
-    rowId: submissionId,
-  });
-
+  await requireAdmin(event);
+  const { submissionId } = await readBody<{ submissionId: string }>(event);
+  await useDb().delete(submissions).where(eq(submissions.id, submissionId));
   return { success: true };
 });

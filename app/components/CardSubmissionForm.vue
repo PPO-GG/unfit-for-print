@@ -186,9 +186,7 @@ const { sanitize } = useSanitize();
 const userStore = useUserStore();
 const isLoggedIn = computed(() => isAuthenticatedUser(userStore.user));
 
-import { getAppwrite } from "~/utils/appwrite";
-const { tables } = getAppwrite();
-const config = useRuntimeConfig();
+const { $activityFetch } = useNuxtApp();
 
 const cardType = ref("white");
 const cardText = ref("");
@@ -227,28 +225,14 @@ async function submitCard() {
     submitting.value = true;
 
     const sanitizedCardText = sanitizeText(cardText.value);
-    const submissionData: Record<string, unknown> = {
-      submitterId: userStore.user?.$id,
-      submitterName:
-        userStore.user?.name ||
-        (userStore.user?.prefs as Record<string, unknown>)?.username ||
-        "Anonymous",
-      cardType: cardType.value,
-      text: sanitizedCardText,
-      timestamp: new Date().toISOString(),
-      upvotes: 0,
-      upvoterIds: [],
-    };
 
-    if (cardType.value === "black") {
-      submissionData.pick = calculatePicks.value;
-    }
-
-    const newSubmission = await tables.createRow({
-      databaseId: config.public.appwriteDatabaseId,
-      tableId: config.public.appwriteSubmissionCollectionId,
-      rowId: "unique()",
-      data: submissionData,
+    const newSubmission = await $activityFetch("/api/submissions/create", {
+      method: "POST",
+      body: {
+        cardType: cardType.value,
+        text: sanitizedCardText,
+        pick: cardType.value === "black" ? calculatePicks.value : undefined,
+      },
     });
 
     emit("card-submitted", newSubmission);
