@@ -79,4 +79,69 @@ describe("decorations", () => {
     const result = await handler(mockEvent({ decorationId: "cape" }));
     expect(result.activeDecoration).toBe("cape");
   });
+
+  it("catalog returns the legacy DecorationCatalogEntry compat shape", async () => {
+    await db.insert(decorations).values({
+      id: "cape",
+      name: "Cape",
+      description: "A cape",
+      type: "cape",
+      rarity: "rare",
+      category: "custom",
+      enabled: true,
+      freeForAll: false,
+      discordSkuId: "sku_123",
+      price: "4.99",
+      sortOrder: 3,
+      imageKey: "cape-image-key",
+      imageFormat: "png",
+    });
+
+    const handler = (await import("~/server/api/decorations/catalog.get")).default;
+    const result = await handler({} as any);
+
+    expect(result).toHaveLength(1);
+    const entry = result[0];
+    expect(entry.$id).toBe("cape");
+    expect(entry.decorationId).toBe("cape");
+    expect(entry.imageFileId).toBe("cape-image-key");
+    expect(entry.imageFormat).toBe("png");
+    expect(entry.attachment).toBeNull();
+    expect(entry.price).toBe(4.99);
+    expect(typeof entry.price).toBe("number");
+    expect(entry.category).toBe("custom");
+    expect(entry.discordSkuId).toBe("sku_123");
+  });
+
+  it("catalog omits disabled decorations and defaults missing fields", async () => {
+    await db.insert(decorations).values([
+      {
+        id: "hidden",
+        name: "Hidden",
+        description: "Not visible",
+        type: "effect",
+        rarity: "common",
+        enabled: false,
+        freeForAll: false,
+      },
+      {
+        id: "plain",
+        name: "Plain",
+        description: "No category or image",
+        type: "effect",
+        rarity: "common",
+        enabled: true,
+        freeForAll: true,
+      },
+    ]);
+
+    const handler = (await import("~/server/api/decorations/catalog.get")).default;
+    const result = await handler({} as any);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].decorationId).toBe("plain");
+    expect(result[0].category).toBe("custom");
+    expect(result[0].imageFileId).toBeNull();
+    expect(result[0].discordSkuId).toBeNull();
+  });
 });
