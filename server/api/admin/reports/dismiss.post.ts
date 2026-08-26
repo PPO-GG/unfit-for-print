@@ -1,6 +1,11 @@
 // server/api/admin/reports/dismiss.post.ts
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { reports } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
+
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const body = await readBody(event);
   const { reportId } = body;
@@ -9,14 +14,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: "reportId is required" });
   }
 
-  const config = useRuntimeConfig();
-  const tables = getAdminTables();
-
-  await tables.deleteRow({
-    databaseId: config.public.appwriteDatabaseId,
-    tableId: config.public.appwriteReportsCollectionId,
-    rowId: reportId,
-  });
+  await useDb().delete(reports).where(eq(reports.id, reportId));
 
   return { success: true };
 });

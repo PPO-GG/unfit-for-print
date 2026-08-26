@@ -1,11 +1,16 @@
 // server/api/admin/reports/card-action.post.ts
 // Inline card actions from the report viewer: edit text, toggle active, delete card
 
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { cardTable } from "~/server/utils/cardTable";
+import { requireAdmin } from "~/server/utils/session";
+
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const body = await readBody(event);
-  const { action, cardId, cardType, text, active } = body;
+  const { action, cardId, cardType, text } = body;
 
   if (!cardId || !cardType) {
     throw createError({
@@ -14,14 +19,8 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const config = useRuntimeConfig();
-  const tables = getAdminTables();
-  const collectionId =
-    cardType === "black"
-      ? config.public.appwriteBlackCardCollectionId
-      : config.public.appwriteWhiteCardCollectionId;
-
-  const dbId = config.public.appwriteDatabaseId;
+  const table = cardTable(cardType);
+  const db = useDb();
 
   switch (action) {
     case "edit": {
@@ -31,36 +30,28 @@ export default defineEventHandler(async (event) => {
           message: "text is required for edit",
         });
       }
-      const updated = await tables.updateRow({
-        databaseId: dbId,
-        tableId: collectionId,
-        rowId: cardId,
-        data: { text: text.trim() },
-      });
+      const [updated] = await db
+        .update(table)
+        .set({ text: text.trim() })
+        .where(eq(table.id, cardId))
+        .returning();
       return { success: true, card: updated };
     }
 
     case "toggle": {
-      const card = await tables.getRow({
-        databaseId: dbId,
-        tableId: collectionId,
-        rowId: cardId,
-      });
-      const updated = await tables.updateRow({
-        databaseId: dbId,
-        tableId: collectionId,
-        rowId: cardId,
-        data: { active: !card.active },
-      });
+      const [card] = await db.select().from(table).where(eq(table.id, cardId)).limit(1);
+      if (!card) throw createError({ statusCode: 404, statusMessage: "Card not found" });
+
+      const [updated] = await db
+        .update(table)
+        .set({ active: !card.active })
+        .where(eq(table.id, cardId))
+        .returning();
       return { success: true, card: updated };
     }
 
     case "delete": {
-      await tables.deleteRow({
-        databaseId: dbId,
-        tableId: collectionId,
-        rowId: cardId,
-      });
+      await db.delete(table).where(eq(table.id, cardId));
       return { success: true };
     }
 
