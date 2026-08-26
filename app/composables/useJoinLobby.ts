@@ -3,7 +3,6 @@ import { useRouter } from "vue-router";
 import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import { useProfanityFilter } from "~/composables/useProfanityFilter";
-import { getAppwrite } from "~/utils/appwrite";
 
 export const useJoinLobby = () => {
   const router = useRouter();
@@ -13,21 +12,22 @@ export const useJoinLobby = () => {
   const userStore = useUserStore();
   const { isBadUsername } = useProfanityFilter();
 
+  // Checks for an existing session (Discord or a previously-established
+  // guest session) but no longer force-creates a fresh anonymous session —
+  // that responsibility now belongs to joinLobbyWithSession's loginAsGuest
+  // call, which has the username needed to create one.
   const initSessionIfNeeded = async () => {
     if (import.meta.server) return;
     if (userStore.isActivitySession) return;
-    const { account } = getAppwrite();
-    await userStore.fetchUserSession();
-    if (!userStore.session) {
-      await account.createAnonymousSession();
-      await userStore.fetchUserSession();
+    if (!userStore.isLoggedIn) {
+      await userStore.fetchSession();
     }
   };
 
   const initializeGamePageSession = async () => {
     await initSessionIfNeeded();
-    if (!userStore.isActivitySession) {
-      await userStore.fetchUserSession();
+    if (!userStore.isActivitySession && !userStore.isLoggedIn) {
+      await userStore.fetchSession();
     }
   };
 
@@ -76,7 +76,7 @@ export const useJoinLobby = () => {
       }
 
       // If user is already in the lobby, redirect directly
-      if (await isInLobby(user.$id, lobby.id)) {
+      if (await isInLobby(user.id, lobby.id)) {
         await router.push(`/game/${lobby.code}`);
         return true;
       }
@@ -106,14 +106,14 @@ export const useJoinLobby = () => {
     await initSessionIfNeeded();
     const user = userStore.user;
     if (!user) return onFail();
-    const activeLobby = await getActiveLobbyForUser(user.$id);
+    const activeLobby = await getActiveLobbyForUser(user.id);
     if (!activeLobby || activeLobby.code !== lobbyCode) return onFail();
     return true;
   };
 
   const autoRedirectIfActive = async () => {
     await initSessionIfNeeded();
-    const userId = userStore.user?.$id;
+    const userId = userStore.user?.id;
     if (!userId) return;
     const activeLobby = await getActiveLobbyForUser(userId);
     if (activeLobby) {

@@ -18,7 +18,7 @@ export default defineNuxtPlugin(() => {
   }
 
   if (!userStore.isLoggedIn) {
-    void userStore.fetchUserSession().catch((error) => {
+    void userStore.fetchSession().catch((error) => {
       console.error("Failed to fetch user session:", error);
     });
   }

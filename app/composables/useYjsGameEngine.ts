@@ -75,7 +75,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     return doc.value;
   };
 
-  const myId = (): PlayerId => userStore.user?.$id ?? "";
+  const myId = (): PlayerId => userStore.user?.id ?? "";
 
   // ── State Readers (from Y.Doc) ─────────────────────────────────────────
 

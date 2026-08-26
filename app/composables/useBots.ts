@@ -36,8 +36,6 @@ export function useBots(
   players: Ref<Player[]>,
   isHost: ComputedRef<boolean>,
 ) {
-  const userStore = useUserStore();
-
   // ─── Y.Doc Integration ──────────────────────────────────────────────
   // Bots are written to Y.Doc (the source of truth for real-time state)
   // in addition to Appwrite (for server-side auth/validation).
@@ -49,14 +47,6 @@ export function useBots(
 
   // Y.Doc reactive state — used to watch game state changes
   const reactive = useLobbyReactive(lobbyDoc);
-
-  // ─── Auth Headers ──────────────────────────────────────────────────
-  // Sends session ID + user ID in headers for secure admin-SDK verification
-  // server-side. Only used for add/remove bot Appwrite shim calls.
-  const authHeaders = () => ({
-    Authorization: `Bearer ${userStore.session?.$id}`,
-    "x-appwrite-user-id": userStore.user?.$id ?? "",
-  });
 
   // ─── Derived state ────────────────────────────────────────────────────
 
@@ -95,7 +85,6 @@ export function useBots(
         };
       }>("/api/bot/add", {
         method: "POST",
-        headers: authHeaders(),
         body: {
           lobbyId: lobby.value.id,
           activeBotUserIds: botPlayers.value.map((b) => b.userId),
@@ -141,7 +130,6 @@ export function useBots(
     try {
       await $fetch("/api/bot/remove", {
         method: "POST",
-        headers: authHeaders(),
         body: {
           lobbyId: lobby.value.id,
           botUserId,

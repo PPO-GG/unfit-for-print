@@ -432,7 +432,7 @@ onMounted(async () => {
       // Priority 1: Check the Y.Doc players map (already synced above).
       const inYDoc = (() => {
         try {
-          return !!lobbyDoc.getPlayers().get(user.$id);
+          return !!lobbyDoc.getPlayers().get(user.id);
         } catch {
           return false;
         }
@@ -441,7 +441,7 @@ onMounted(async () => {
       if (!inYDoc && !wasInThisGame) {
         // Not found in Y.Doc and no session memory of this game.
         // Check if they belong to a *different* active lobby.
-        const activeLobby = await getActiveLobbyForUser(user.$id);
+        const activeLobby = await getActiveLobbyForUser(user.id);
         if (activeLobby && activeLobby.code !== code) {
           notify({
             title: t("lobby.return_active_game"),
@@ -453,7 +453,7 @@ onMounted(async () => {
 
         // Final fallback: Appwrite player doc check for this lobby
         const stillInLobby = fetchedLobby
-          ? await isInLobby(user.$id, fetchedLobby.id)
+          ? await isInLobby(user.id, fetchedLobby.id)
           : false;
 
         if (!stillInLobby) {
@@ -470,15 +470,14 @@ onMounted(async () => {
           const meta = lobbyDoc.getMeta();
           const docStatus = meta.get("status") || "waiting";
           mutations.addPlayer({
-            userId: user.$id,
+            userId: user.id,
             name: user.name || "Unknown",
-            avatar: (user.prefs as Record<string, any>)?.avatar || "",
+            avatar: user.avatarUrl || "",
             isHost: false,
             joinedAt: new Date().toISOString(),
-            provider: userStore.session?.provider || "",
+            provider: user.discordUserId ? "discord" : "anonymous",
             playerType: docStatus === "playing" ? "spectator" : "player",
-            activeDecoration:
-              (user.prefs as Record<string, any>)?.activeDecoration || "",
+            activeDecoration: user.activeDecoration || "",
           });
           console.log("[GamePage] Re-added player to Y.Doc after reconnect");
         } catch (err) {
@@ -546,13 +545,13 @@ const handleJoinSuccess = async (joinedCode: string) => {
 };
 
 const handleLeave = async () => {
-  if (!lobby.value || !userStore.user?.$id) return;
+  if (!lobby.value || !userStore.user?.id) return;
   selfLeaving.value = true;
   // Clear session marker so a future visit to this code shows the join form
   if (typeof sessionStorage !== "undefined") {
     sessionStorage.removeItem(ACTIVE_GAME_KEY);
   }
-  await leaveLobby(lobby.value.id, userStore.user.$id);
+  await leaveLobby(lobby.value.id, userStore.user.id);
   // Discord Activity users return to VC Hub; others go home
   return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
 };

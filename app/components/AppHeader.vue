@@ -119,16 +119,11 @@ const handleLogout = async () => {
 
 const avatarUrl = computed(() => {
   const user = userStore.user;
-  if (!user?.prefs) return null;
+  if (!user) return null;
 
   // Prefer the full CDN URL persisted during OAuth callback / session fetch
-  if (user.prefs.avatarUrl) {
-    return user.prefs.avatarUrl;
-  }
-
-  // Legacy fallback: reconstruct from hash if avatarUrl wasn't persisted yet
-  if (user.prefs.discordUserId && user.prefs.avatar) {
-    return `https://cdn.discordapp.com/avatars/${user.prefs.discordUserId}/${user.prefs.avatar}.png`;
+  if (user.avatarUrl) {
+    return user.avatarUrl;
   }
 
   // Anonymous users: generate a fun DiceBear avatar from their name
@@ -330,7 +325,7 @@ const isAdmin = useIsAdmin();
               <!-- Avatar + Welcome Message -->
               <div class="flex items-center gap-2">
                 <AvatarDecoration
-                  :decoration-id="userStore.user?.prefs?.activeDecoration"
+                  :decoration-id="userStore.user?.activeDecoration"
                 >
                   <img
                     v-if="avatarUrl"

@@ -3,26 +3,14 @@ import { useUserStore } from "~/stores/userStore";
 import { ref, watch } from "vue";
 
 /**
- * Checks if the current user is an admin by checking their Appwrite labels.
+ * Checks if the current user is an admin, via the `isAdmin` flag on the
+ * flat AuthUser object (backed by the `users.isAdmin` Postgres column).
  *
- * Admin access is granted by assigning the "admin" label to a user in
- * the Appwrite console (Users → select user → Labels).
- * No team membership or env var required — the label is part of the user
- * object already loaded in the store.
- *
- * Safe for anonymous users — will return false.
+ * Safe for anonymous/guest users — will return false.
  */
 export const useAdminCheck = (): boolean => {
   const userStore = useUserStore();
-  const user = userStore.user;
-
-  if (!user) return false;
-
-  // Labels come back as a string[] on the Appwrite user object
-  return (
-    Array.isArray((user as any).labels) &&
-    (user as any).labels.includes("admin")
-  );
+  return !!userStore.user?.isAdmin;
 };
 
 /**

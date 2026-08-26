@@ -170,7 +170,7 @@ const prevParticipantIds = ref(new Set<string>())
 
 // The lobby the current user is hosting (if any)
 const hostedLobby = computed(() => {
-  const userId = userStore.user?.$id
+  const userId = userStore.user?.id
   if (!userId) return null
   return channelLobbies.value.find((l) => l.hostUserId === userId) ?? null
 })
@@ -202,7 +202,7 @@ async function loadChannelLobbies() {
 }
 
 async function handleCreate() {
-  const userId = userStore.user?.$id
+  const userId = userStore.user?.id
   if (!userId || creating.value) return
 
   createError.value = null

@@ -1,18 +1,20 @@
 import { defineStore } from "pinia";
-import type { Models } from "appwrite";
 import type { AuthUser } from "~/types/auth";
 
 export const useUserStore = defineStore("user", {
   state: () => ({
     user: null as AuthUser | null,
-    session: null as Models.Session | null,
-    accessToken: "" as string | null,
     isLoggedIn: false,
     isActivitySession: false,
     playerDocId: "" as string,
   }),
 
   actions: {
+    /**
+     * Used by the Discord Activity (embedded iframe) login flow, which
+     * authenticates via a signed activity token rather than a browser
+     * session cookie — see useDiscordSDK.ts.
+     */
     setActivityUser(activityUser: {
       id: string;
       name: string;
@@ -20,228 +22,27 @@ export const useUserStore = defineStore("user", {
       discordUserId: string;
     }) {
       this.user = {
-        $id: activityUser.id,
+        id: activityUser.id,
         name: activityUser.name,
-        prefs: {
-          avatarUrl: activityUser.avatarUrl ?? undefined,
-          discordUserId: activityUser.discordUserId,
-        },
-        provider: "discord",
-      } as AuthUser;
-      this.session = null;
-      this.accessToken = null;
+        avatarUrl: activityUser.avatarUrl,
+        discordUserId: activityUser.discordUserId,
+        isGuest: false,
+        isAdmin: false,
+        activeDecoration: null,
+      };
       this.isLoggedIn = true;
       this.isActivitySession = true;
     },
 
-    getAccount() {
-      if (import.meta.server) return null;
-
-      try {
-        const { account } = useAppwrite();
-        return account;
-      } catch (err) {
-        console.warn("useAppwrite() failed in getAccount()", err);
-        return null;
-      }
+    async fetchSession() {
+      const { user } = await $fetch("/api/auth/session");
+      this.user = user as AuthUser | null;
+      this.isLoggedIn = !!user;
     },
 
-    getClient() {
-      if (import.meta.server) return null;
-
-      try {
-        const { client } = useAppwrite();
-        return client;
-      } catch (err) {
-        console.warn("useAppwrite() failed in getClient()", err);
-        return null;
-      }
-    },
-
-    /**
-     * Initiate Discord OAuth login.
-     * Navigates to our server-side handler which uses createOAuth2Token
-     * to avoid cross-origin cookie issues on localhost.
-     */
-    async loginWithDiscord() {
+    loginWithDiscord() {
       if (import.meta.server) return;
-
-      const account = this.getAccount();
-      if (account) {
-        try {
-          const current = await account.getSession("current");
-          if (current.provider === "anonymous") {
-            await account.deleteSession({ sessionId: "current" });
-          }
-        } catch {
-          // No existing session to clear
-        }
-      }
-
-      // Navigate to the server-side OAuth initiation route
-      await navigateTo("/api/auth/discord", { external: true });
-    },
-
-    async fetchUserSession() {
-      if (import.meta.server) return;
-
-      if (this.isActivitySession) return "ok";
-
-      // Already verified this page load — skip redundant SDK calls
-      if (
-        typeof window !== "undefined" &&
-        (window as any).__auth_verified &&
-        this.isLoggedIn
-      ) {
-        return;
-      }
-
-      // Deduplication: if a fetch is already in flight, piggyback on it
-      if ((this as any)._sessionFetchPromise) {
-        return (this as any)._sessionFetchPromise;
-      }
-
-      const account = this.getAccount();
-      if (!account) {
-        console.error("No account instance available");
-        return;
-      }
-
-      (this as any)._sessionFetchPromise = (async (): Promise<'ok' | 'unauthenticated' | 'error'> => {
-        try {
-          const [session, rawUser] = await Promise.all([
-            account.getSession("current"),
-            account.get(),
-          ]);
-
-          this.session = JSON.parse(JSON.stringify(session));
-          this.accessToken = session.providerAccessToken ?? null;
-          this.isLoggedIn = isAuthenticatedSession(session);
-          this.user = {
-            ...JSON.parse(JSON.stringify(rawUser)),
-            provider: session.provider,
-          };
-
-          // Always re-fetch Discord identity so username and avatar stay
-          // fresh across logins even if the user changed them on Discord.
-          try {
-            const avatarData = await $fetch("/api/auth/discord-avatar", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${this.session!.$id}`,
-                "x-appwrite-user-id": this.user!.$id,
-              },
-              body: { userId: this.user!.$id },
-            });
-
-            // Sync Discord @handle to Appwrite display name if it changed.
-            const freshName = avatarData?.discordUsername ?? null;
-            if (freshName && freshName !== this.user!.name) {
-              try {
-                await account.updateName({ name: freshName });
-                this.user!.name = freshName;
-                console.log("[userStore] Discord username updated:", freshName);
-              } catch {
-                console.warn("[userStore] Failed to update Appwrite name");
-              }
-            }
-
-            if (avatarData?.avatarUrl) {
-              this.user!.prefs.avatarUrl = avatarData.avatarUrl;
-              this.user!.prefs.avatar = avatarData.avatar ?? undefined;
-              this.user!.prefs.discordUserId =
-                avatarData.discordUserId ?? undefined;
-
-              // Write back to Appwrite prefs so it survives across devices
-              try {
-                await account.updatePrefs({
-                  ...this.user!.prefs,
-                  avatarUrl: avatarData.avatarUrl,
-                  avatar: avatarData.avatar ?? undefined,
-                  discordUserId: avatarData.discordUserId ?? undefined,
-                });
-              } catch {
-                // Non-fatal — we still have it in memory for this session
-                console.warn("[userStore] Failed to persist avatar prefs");
-              }
-            }
-          } catch {
-            // Non-fatal — stale avatar/name is acceptable for this session
-            console.warn("[userStore] Discord identity refresh failed");
-          }
-
-          // Mark as verified so subsequent callers skip the SDK round-trip
-          if (typeof window !== "undefined") {
-            (window as any).__auth_verified = true;
-          }
-
-          return this.isLoggedIn ? 'ok' : 'unauthenticated';
-        } catch (error: any) {
-          // Distinguish definitive auth failures (401/guest) from transient errors
-          const isAuthError = error?.code === 401 || error?.type === 'general_unauthorized_scope';
-          console.error("Error fetching session:", error);
-          this.isLoggedIn = false;
-          this.user = null;
-          this.session = null;
-          return isAuthError ? 'unauthenticated' : 'error';
-        } finally {
-          (this as any)._sessionFetchPromise = null;
-        }
-      })();
-
-      return (this as any)._sessionFetchPromise;
-    },
-
-    async fetchDiscordUserData(accessToken: string) {
-      const response = await fetch("https://discord.com/api/users/@me", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch Discord user data");
-      }
-
-      return response.json();
-    },
-
-    async logout() {
-      if (import.meta.server) return;
-
-      const account = this.getAccount();
-      if (!account) return;
-
-      try {
-        await account.deleteSessions();
-        this.user = null;
-        this.session = null;
-        this.accessToken = "";
-        this.isLoggedIn = false;
-        this.isActivitySession = false;
-
-        const router = useRouter();
-        await router.push("/");
-      } catch (error) {
-        console.error("Error logging out:", error);
-      }
-    },
-
-    async refreshSession() {
-      if (import.meta.server) return;
-      const account = this.getAccount();
-      if (!account || !this.session) return;
-
-      const expiry = Number(this.session.providerAccessTokenExpiry);
-      if (expiry && Date.now() / 1000 > expiry) {
-        try {
-          await account.updateSession(this.session.$id);
-          await this.fetchUserSession();
-        } catch (error) {
-          console.error("Error refreshing session:", error);
-          await this.logout();
-        }
-      }
+      return navigateTo("/api/auth/discord", { external: true });
     },
 
     async loginAsGuest(username: string) {
@@ -253,28 +54,12 @@ export const useUserStore = defineStore("user", {
       this.isLoggedIn = true;
     },
 
-    async createAnonymousSession(username: string) {
-      if (import.meta.server) return;
-
-      const account = this.getAccount();
-      if (!account) return;
-
-      try {
-        const session = await account.createAnonymousSession();
-        const rawUser = await account.get();
-        await account.updatePrefs({ username });
-
-        this.user = {
-          ...JSON.parse(JSON.stringify(rawUser)),
-          name: username,
-          provider: session.provider,
-        };
-        this.session = JSON.parse(JSON.stringify(session));
-        this.isLoggedIn = true;
-        this.isActivitySession = false;
-      } catch (err) {
-        console.error("Anonymous login failed:", err);
-      }
+    async logout() {
+      await $fetch("/api/auth/logout", { method: "POST" });
+      this.user = null;
+      this.isLoggedIn = false;
+      this.isActivitySession = false;
+      this.playerDocId = "";
     },
   },
 });

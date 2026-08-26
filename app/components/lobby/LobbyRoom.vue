@@ -87,17 +87,17 @@ const { startGame, reactive, mutations } = useLobby();
 const { addBot } = useBots(
   computed(() => props.lobby),
   computed(() => props.players),
-  computed(() => props.lobby.hostUserId === userStore.user?.$id),
+  computed(() => props.lobby.hostUserId === userStore.user?.id),
 );
 
 const settingsOpen = ref(false);
 const isStarting = ref(false);
 
 const isHost = computed(
-  () => props.lobby.hostUserId === userStore.user?.$id,
+  () => props.lobby.hostUserId === userStore.user?.id,
 );
 
-const myId = computed(() => userStore.user?.$id ?? null);
+const myId = computed(() => userStore.user?.id ?? null);
 
 // Show all current players + 2 open seats, minimum 8, capped at 16 for visual sanity.
 // The lobby itself has no hard player limit.

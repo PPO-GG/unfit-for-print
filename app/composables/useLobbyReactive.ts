@@ -336,7 +336,7 @@ export function useLobbyReactive(lobbyDoc: LobbyDocResult) {
 
   const userStore = useUserStore();
 
-  const myId = computed<PlayerId>(() => userStore.user?.$id ?? "");
+  const myId = computed<PlayerId>(() => userStore.user?.id ?? "");
 
   const isWaiting = computed(() => {
     const phase = gameState.value?.phase;

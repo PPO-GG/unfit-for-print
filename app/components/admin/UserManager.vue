@@ -5,12 +5,6 @@ import { useUserStore } from "~/stores/userStore";
 const userStore = useUserStore();
 const { confirm } = useConfirm();
 
-// Auth header helper
-const authHeaders = () => ({
-  Authorization: `Bearer ${userStore.session?.$id}`,
-  "x-appwrite-user-id": userStore.user?.$id ?? "",
-});
-
 const users = ref<any[]>([]);
 const loading = ref(true);
 
@@ -25,7 +19,6 @@ const deleteUser = async (userId: string) => {
 
   try {
     const res = await $fetch("/api/admin/users/delete", {
-      headers: authHeaders(),
       navigate: false,
       method: "POST",
       body: { userId },
@@ -43,11 +36,11 @@ const deleteUser = async (userId: string) => {
 onMounted(async () => {
   try {
     // Ensure user session is initialized before making admin API requests
-    if (!userStore.session) {
-      await userStore.fetchUserSession();
+    if (!userStore.isLoggedIn) {
+      await userStore.fetchSession();
     }
 
-    if (!userStore.session) {
+    if (!userStore.isLoggedIn) {
       console.error("UserManager: No session available after initialization");
       loading.value = false;
       return;
@@ -55,7 +48,6 @@ onMounted(async () => {
 
     try {
       const res = await $fetch("/api/admin/users", {
-        headers: authHeaders(),
         navigate: false,
       });
       users.value = res;

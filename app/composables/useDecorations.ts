@@ -14,15 +14,8 @@ export function useDecorations() {
   const ownedDecorations = ref<OwnedDecoration[]>([]);
   const loading = ref(false);
 
-  // `userStore.user` is still Appwrite-shaped (`.prefs.activeDecoration`)
-  // for regular OAuth sessions until Task 25's userStore/AuthUser rewrite
-  // lands; guest/activity sessions already carry a flat `activeDecoration`
-  // column. Read both so neither session shape regresses.
   const activeDecorationId = computed(
-    () =>
-      (userStore.user as any)?.activeDecoration ??
-      userStore.user?.prefs?.activeDecoration ??
-      null,
+    () => userStore.user?.activeDecoration ?? null,
   );
 
   const fetchCatalog = async () => {
@@ -63,10 +56,7 @@ export function useDecorations() {
       body: { decorationId },
     });
     if (userStore.user) {
-      (userStore.user as any).activeDecoration = decorationId;
-      if (userStore.user.prefs) {
-        userStore.user.prefs.activeDecoration = decorationId;
-      }
+      userStore.user.activeDecoration = decorationId;
     }
   };
 
@@ -76,10 +66,7 @@ export function useDecorations() {
       body: { decorationId: null },
     });
     if (userStore.user) {
-      (userStore.user as any).activeDecoration = undefined;
-      if (userStore.user.prefs) {
-        userStore.user.prefs.activeDecoration = undefined;
-      }
+      userStore.user.activeDecoration = null;
     }
   };
 

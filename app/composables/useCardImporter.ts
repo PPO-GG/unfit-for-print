@@ -1,16 +1,10 @@
 import { ref, reactive } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
-import { useUserStore } from "~/stores/userStore";
 
 export const useCardImporter = (options?: { onComplete?: () => void }) => {
   const { notify } = useNotifications();
-  const userStore = useUserStore();
-
-  const authHeaders = () => ({
-    Authorization: `Bearer ${userStore.session?.$id}`,
-    "x-appwrite-user-id": userStore.user?.$id ?? "",
-  });
-
+  // /api/dev/seed has no auth check of its own (dev-only tool) — the old
+  // Appwrite Bearer/x-appwrite-user-id headers are no longer needed.
   const uploadState = reactive({
     file: null as File | null,
     fileContent: null as string | null,
@@ -145,7 +139,6 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...authHeaders(),
         },
         body: JSON.stringify(payload),
       });

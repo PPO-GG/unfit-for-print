@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { useUserStore } from "~/stores/userStore";
 import { useNotifications } from "~/composables/useNotifications";
 
-const userStore = useUserStore();
 const { notify } = useNotifications();
 
 const reports = ref<any[]>([]);
@@ -17,19 +15,21 @@ const savingEdit = ref(false);
 const togglingId = ref<string | null>(null);
 const deletingCardId = ref<string | null>(null);
 
-// Auth header helper
-const authHeaders = () => ({
-  Authorization: `Bearer ${userStore.session?.$id}`,
-  "x-appwrite-user-id": userStore.user?.$id ?? "",
-});
+// Note: admin routes now authenticate via the session cookie automatically
+// sent with same-origin $fetch calls (see server/utils/session.ts
+// requireAdmin) — no manual Authorization headers needed. Swapping these
+// $fetch calls for $activityFetch is Task 26's job; this file just needs to
+// keep working in the interim, so the old (now-broken, since
+// userStore.session no longer exists) header-building has been dropped
+// rather than fixing its field names, since sending a bogus
+// `Authorization: Bearer undefined` header would incorrectly route through
+// requireAuth's activity-token branch and break admin auth entirely.
 
 // Fetch reports from the API
 const fetchReports = async () => {
   loading.value = true;
   try {
-    const res = await $fetch("/api/admin/reports", {
-      headers: authHeaders(),
-    });
+    const res = await $fetch("/api/admin/reports");
     reports.value = res.reports || [];
   } catch (error) {
     console.error("Error fetching reports:", error);
@@ -70,7 +70,6 @@ const saveEdit = async (report: any) => {
   try {
     await $fetch("/api/admin/reports/card-action", {
       method: "POST",
-      headers: authHeaders(),
       body: {
         action: "edit",
         cardId: report.cardId,
@@ -103,7 +102,6 @@ const toggleCardActive = async (report: any) => {
   try {
     const res = await $fetch("/api/admin/reports/card-action", {
       method: "POST",
-      headers: authHeaders(),
       body: {
         action: "toggle",
         cardId: report.cardId,
@@ -135,7 +133,6 @@ const deleteCard = async (report: any) => {
   try {
     await $fetch("/api/admin/reports/card-action", {
       method: "POST",
-      headers: authHeaders(),
       body: {
         action: "delete",
         cardId: report.cardId,
@@ -169,7 +166,6 @@ const dismissReport = async (reportId: string) => {
   try {
     await $fetch("/api/admin/reports/dismiss", {
       method: "POST",
-      headers: authHeaders(),
       body: { reportId },
     });
     reports.value = reports.value.filter((r) => r.id !== reportId);

@@ -82,7 +82,7 @@ onMounted(async () => {
     }
 
     // Hydrate the store from the now-active session
-    await userStore.fetchUserSession();
+    await userStore.fetchSession();
     // Mark verified so downstream pages skip redundant SDK calls
     (window as any).__auth_verified = true;
 

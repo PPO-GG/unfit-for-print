@@ -5,19 +5,16 @@ import { watchDebounced } from "@vueuse/core";
 import stringSimilarity from "string-similarity";
 import type { RadioGroupItem, RadioGroupValue } from "@nuxt/ui";
 import { useCardSearch } from "~/composables/useCardSearch";
-import { useUserStore } from "~/stores/userStore";
 
 const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
-const userStore = useUserStore();
 
-// Auth headers for the legacy (still-Appwrite) /api/dev/seed upload flow.
-// Card CRUD below goes through $activityFetch, which carries auth itself.
-const authHeaders = () => ({
-  Authorization: `Bearer ${userStore.session?.$id}`,
-  "x-appwrite-user-id": userStore.user?.$id ?? "",
-});
+// /api/dev/seed has no auth check of its own (dev-only tool) — the old
+// Appwrite Bearer/x-appwrite-user-id headers built from removed
+// userStore.session/user.$id fields were never actually required by it, so
+// they're just dropped. Card CRUD below goes through $activityFetch, which
+// carries auth itself.
 
 // Use the shared card search state
 const { searchTerm, cardType } = useCardSearch();
@@ -922,7 +919,6 @@ const uploadJsonFile = async (resumeFromPosition: string | null = null) => {
     // Send the initial POST request to submit the data
     const responseData = await $fetch("/api/dev/seed", {
       method: "POST",
-      headers: authHeaders(),
       navigate: false,
       body: payload,
     });

@@ -55,7 +55,7 @@ const submissions = computed(() => state.value?.submissions ?? {});
 
 const { playSfx } = useSfx();
 const userStore = useUserStore();
-const myId = userStore.user?.$id ?? "";
+const myId = userStore.user?.id ?? "";
 const { notify } = useNotifications();
 
 // ── TTS (read-aloud broadcast) ──────────────────────────────────

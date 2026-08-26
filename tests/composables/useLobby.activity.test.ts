@@ -93,7 +93,7 @@ describe("useLobby Activity reconnect", () => {
     expect(activityState.account.getSession).not.toHaveBeenCalled();
     expect(activityState.account.get).not.toHaveBeenCalled();
     expect(activityState.account.updatePrefs).not.toHaveBeenCalled();
-    expect(userStore.user?.$id).toBe("6ac4a08e-0000-4000-8000-000000000001");
+    expect(userStore.user?.id).toBe("6ac4a08e-0000-4000-8000-000000000001");
     expect(activityState.addPlayer).toHaveBeenCalledWith(expect.objectContaining({
       userId: "6ac4a08e-0000-4000-8000-000000000001",
       provider: "discord",

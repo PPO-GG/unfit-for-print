@@ -216,7 +216,7 @@ function formatDate(dateString: string) {
 function hasUserUpvoted(submission: any) {
   if (!isLoggedIn.value || !userStore.user) return false;
   const upvoterIds = submission.upvoterIds || [];
-  return upvoterIds.includes(userStore.user.$id);
+  return upvoterIds.includes(userStore.user.id);
 }
 
 async function upvote(submissionId: string) {

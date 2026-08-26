@@ -1,7 +1,6 @@
 import { ref, computed } from "vue";
 import { useUserStore } from "~/stores/userStore";
 import { isAnonymousUser } from "~/composables/useUserUtils";
-import { usePlayers } from "~/composables/usePlayers";
 import { getRandomHexString } from "~/composables/useCrypto";
 import { useLobbyDoc } from "~/composables/useLobbyDoc";
 import { useLobbyMutations } from "~/composables/useLobbyMutations";
@@ -12,7 +11,6 @@ import type { Player } from "~/types/player";
 
 export const useLobby = () => {
   const { $activityFetch } = useNuxtApp();
-  const { getUserAvatarUrl } = usePlayers();
   const userStore = useUserStore();
 
   // ── Y.Doc Infrastructure ──────────────────────────────────────────────
@@ -124,11 +122,8 @@ export const useLobby = () => {
     await lobbyDoc.connect(lobby.code);
 
     const user = userStore.user;
-    const session = userStore.session;
-    const avatarUrl = user
-      ? getUserAvatarUrl(user as any, session?.provider)
-      : null;
-    const activeDecoration = user?.prefs?.activeDecoration || "";
+    const avatarUrl = user?.avatarUrl ?? null;
+    const activeDecoration = user?.activeDecoration || "";
 
     mutations.initializeLobby({
       code: lobby.code,
@@ -174,13 +169,11 @@ export const useLobby = () => {
 
     const provider = isActivitySession
       ? "discord"
-      : userStore.session?.provider || "anonymous";
+      : enrichedUser.discordUserId
+        ? "discord"
+        : "anonymous";
 
-    const username =
-      options?.username ??
-      enrichedUser.name ??
-      (enrichedUser.prefs as Record<string, any>)?.name ??
-      "Unknown";
+    const username = options?.username ?? enrichedUser.name ?? "Unknown";
 
     const lobby = await getLobbyByCode(code);
     if (!lobby) throw new Error("Lobby not found");
@@ -196,21 +189,16 @@ export const useLobby = () => {
     const playerType = status === "playing" ? "spectator" : "player";
 
     // Check if player is already in the Y.Doc
-    const existingPlayer = lobbyDoc.getPlayers().get(enrichedUser.$id);
-    const avatarUrl = isActivitySession
-      ? enrichedUser.prefs?.avatarUrl ?? null
-      : getUserAvatarUrl(enrichedUser as any, provider);
+    const existingPlayer = lobbyDoc.getPlayers().get(enrichedUser.id);
+    const avatarUrl = enrichedUser.avatarUrl ?? null;
 
     if (!existingPlayer) {
-      const activeDecoration = enrichedUser.prefs?.activeDecoration || "";
+      const activeDecoration = enrichedUser.activeDecoration || "";
 
       mutations.addPlayer({
-        userId: enrichedUser.$id,
+        userId: enrichedUser.id,
         name: username,
-        avatar:
-          avatarUrl ||
-          (enrichedUser.prefs as Record<string, any>)?.avatar ||
-          "",
+        avatar: avatarUrl || "",
         isHost: !!options?.isHost,
         joinedAt: new Date().toISOString(),
         provider,
@@ -235,10 +223,7 @@ export const useLobby = () => {
         body: {
           code,
           playerName: username,
-          avatar:
-            avatarUrl ||
-            (enrichedUser.prefs as Record<string, any>)?.avatar ||
-            "",
+          avatar: avatarUrl || "",
           playerType,
         },
       });
@@ -442,7 +427,7 @@ export const useLobby = () => {
                   : (gameSettings as any).lobbyId,
             }
           : undefined,
-        userId: userStore.user?.$id,
+        userId: userStore.user?.id,
       },
     });
 

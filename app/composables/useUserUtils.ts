@@ -1,32 +1,16 @@
 // composables/useUserUtils.ts
-import type { Models } from "appwrite";
+import type { AuthUser } from "~/types/auth";
 
-export function isAuthenticatedUser(user: any): user is Models.User<Models.Preferences> {
-    return !!user && user.provider !== 'anonymous' && 'prefs' in user;
+export function isAuthenticatedUser(user: any): user is AuthUser {
+    return !!user && user.isGuest === false;
 }
 
 export function isAnonymousUser(user: any): boolean {
-    return !!user && user.provider === 'anonymous';
+    return !!user && user.isGuest === true;
 }
 
 export function isAdminUser(user: any): boolean {
-    return !!user && user.prefs?.role === 'admin';
-}
-
-export function isAuthenticatedSession(session: Models.Session | null): boolean {
-    return !!session && session.provider !== "anonymous";
-}
-
-export function getPlayerPermissions(user: Models.User<Models.Preferences>) {
-    if (isAnonymousUser(user)) {
-        return ['read("any")', 'update("users")', 'delete("users")'];
-    }
-
-    return [
-        `read("any")`,
-        `update("user:${user.$id}")`,
-        `delete("user:${user.$id}")`,
-    ];
+    return !!user && user.isAdmin === true;
 }
 
 export const useUserAccess = () => {

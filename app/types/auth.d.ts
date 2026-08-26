@@ -1,14 +1,10 @@
 // types/auth.d.ts
-import { Models } from "appwrite";
-
-export interface AuthUser extends Models.User<Models.Preferences> {
-  provider: "discord" | "anonymous";
-  prefs: Models.Preferences & {
-    avatar?: string;
-    avatarUrl?: string;
-    discordUserId?: string;
-    name?: string;
-    email?: string;
-    activeDecoration?: string;
-  };
+export interface AuthUser {
+  id: string;
+  discordUserId: string | null;
+  isGuest: boolean;
+  name: string;
+  avatarUrl: string | null;
+  activeDecoration: string | null;
+  isAdmin: boolean;
 }

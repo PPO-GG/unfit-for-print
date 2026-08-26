@@ -20,13 +20,13 @@ describe("userStore Activity identity", () => {
     expect(userStore.isLoggedIn).toBe(true);
     expect(userStore.isActivitySession).toBe(true);
     expect(userStore.user).toMatchObject({
-      $id: "6ac4a08e-0000-4000-8000-000000000001",
+      id: "6ac4a08e-0000-4000-8000-000000000001",
       name: "DiscordPlayer",
-      provider: "discord",
-      prefs: {
-        avatarUrl: "https://cdn.discordapp.com/avatars/discord-user/avatar.png",
-        discordUserId: "discord-user",
-      },
+      discordUserId: "discord-user",
+      avatarUrl: "https://cdn.discordapp.com/avatars/discord-user/avatar.png",
+      isGuest: false,
+      isAdmin: false,
+      activeDecoration: null,
     });
   });
 });

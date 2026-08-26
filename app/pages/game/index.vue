@@ -496,13 +496,13 @@ const getHostAvatar = (lobby: LobbyWithName): string | null => {
 onMounted(async () => {
   // Only fetch if session isn't already established
   if (!userStore.isLoggedIn) {
-    await userStore.fetchUserSession();
+    await userStore.fetchSession();
   }
 
   // Fetch Appwrite lobbies and Teleportal live data in parallel
   await Promise.all([fetchPublicLobbies(), fetchLiveSummary()]);
 
-  const userId = userStore.user?.$id;
+  const userId = userStore.user?.id;
   if (userId) {
     const activeLobby = await getActiveLobbyForUser(userId);
     if (activeLobby?.code) {
@@ -522,10 +522,10 @@ onBeforeUnmount(() => {
 });
 
 const handleCreateLobby = async () => {
-  if (!userStore.user?.$id) return;
+  if (!userStore.user?.id) return;
   try {
     creatingLobby.value = true;
-    const lobby = await createLobby(userStore.user.$id);
+    const lobby = await createLobby(userStore.user.id);
     if (!lobby?.code) throw new Error("Invalid lobby response");
     router.replace(`/game/${lobby.code}`);
   } catch (error: unknown) {
