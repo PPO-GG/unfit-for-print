@@ -9,22 +9,25 @@ interface OwnedDecoration {
 
 export function useDecorations() {
   const userStore = useUserStore();
+  const { $activityFetch } = useNuxtApp();
   const catalog = ref<DecorationCatalogEntry[]>([]);
   const ownedDecorations = ref<OwnedDecoration[]>([]);
   const loading = ref(false);
 
-  const authHeaders = () => ({
-    Authorization: `Bearer ${userStore.session?.$id}`,
-    "x-appwrite-user-id": userStore.user?.$id ?? "",
-  });
-
+  // `userStore.user` is still Appwrite-shaped (`.prefs.activeDecoration`)
+  // for regular OAuth sessions until Task 25's userStore/AuthUser rewrite
+  // lands; guest/activity sessions already carry a flat `activeDecoration`
+  // column. Read both so neither session shape regresses.
   const activeDecorationId = computed(
-    () => userStore.user?.prefs?.activeDecoration || null,
+    () =>
+      (userStore.user as any)?.activeDecoration ??
+      userStore.user?.prefs?.activeDecoration ??
+      null,
   );
 
   const fetchCatalog = async () => {
     try {
-      const data = await $fetch<DecorationCatalogEntry[]>(
+      const data = await $activityFetch<DecorationCatalogEntry[]>(
         "/api/decorations/catalog",
       );
       catalog.value = data;
@@ -36,9 +39,9 @@ export function useDecorations() {
   const fetchOwned = async () => {
     loading.value = true;
     try {
-      const data = await $fetch<OwnedDecoration[]>("/api/decorations/list", {
-        headers: authHeaders(),
-      });
+      const data = await $activityFetch<OwnedDecoration[]>(
+        "/api/decorations/list",
+      );
       ownedDecorations.value = data;
     } catch (err) {
       console.error("Failed to fetch decorations:", err);
@@ -55,24 +58,28 @@ export function useDecorations() {
     ownedDecorations.value.some((d) => d.decorationId === decorationId);
 
   const equip = async (decorationId: string) => {
-    await $fetch("/api/decorations/equip", {
+    await $activityFetch("/api/decorations/equip", {
       method: "POST",
-      headers: authHeaders(),
       body: { decorationId },
     });
-    if (userStore.user?.prefs) {
-      userStore.user.prefs.activeDecoration = decorationId;
+    if (userStore.user) {
+      (userStore.user as any).activeDecoration = decorationId;
+      if (userStore.user.prefs) {
+        userStore.user.prefs.activeDecoration = decorationId;
+      }
     }
   };
 
   const unequip = async () => {
-    await $fetch("/api/decorations/equip", {
+    await $activityFetch("/api/decorations/equip", {
       method: "POST",
-      headers: authHeaders(),
       body: { decorationId: null },
     });
-    if (userStore.user?.prefs) {
-      userStore.user.prefs.activeDecoration = undefined;
+    if (userStore.user) {
+      (userStore.user as any).activeDecoration = undefined;
+      if (userStore.user.prefs) {
+        userStore.user.prefs.activeDecoration = undefined;
+      }
     }
   };
 

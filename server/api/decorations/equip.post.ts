@@ -1,54 +1,30 @@
-import { Query } from "node-appwrite";
+import { eq, and } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { decorations, userDecorations, users } from "~/server/db/schema";
+import { requireAuth } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const userId = await requireAuth(event);
-  const body = await readBody(event);
-  const decorationId: string | null = body.decorationId ?? null;
+  const { decorationId } = await readBody<{ decorationId: string | null }>(event);
+  const db = useDb();
 
-  // If equipping, verify user owns this decoration or it's free for all
   if (decorationId) {
-    const { DB, DECORATIONS, USER_DECORATIONS } = getCollectionIds();
-    const tables = getAdminTables();
+    const [deco] = await db
+      .select()
+      .from(decorations)
+      .where(and(eq(decorations.id, decorationId), eq(decorations.enabled, true)))
+      .limit(1);
 
-    // Check if decoration is free for all
-    const catalogResult = await tables.listRows({
-      databaseId: DB,
-      tableId: DECORATIONS,
-      queries: [
-        Query.equal("decorationId", decorationId),
-        Query.equal("enabled", true),
-        Query.limit(1),
-      ],
-    });
-
-    const isFreeForAll =
-      catalogResult.total > 0 && catalogResult.rows[0]?.freeForAll === true;
-
-    if (!isFreeForAll) {
-      // Must own it
-      const owned = await tables.listRows({
-        databaseId: DB,
-        tableId: USER_DECORATIONS,
-        queries: [
-          Query.equal("userId", userId),
-          Query.equal("decorationId", decorationId),
-          Query.limit(1),
-        ],
-      });
-      if (!owned.total || owned.total === 0) {
-        throw createError({ statusCode: 403, statusMessage: "Decoration not owned" });
-      }
+    if (!deco?.freeForAll) {
+      const [owned] = await db
+        .select()
+        .from(userDecorations)
+        .where(and(eq(userDecorations.userId, userId), eq(userDecorations.decorationId, decorationId)))
+        .limit(1);
+      if (!owned) throw createError({ statusCode: 403, statusMessage: "Decoration not owned" });
     }
   }
 
-  // Update user prefs via admin Users API
-  const { users } = useAppwriteAdmin();
-  const user = await users.get(userId);
-  const currentPrefs = user.prefs || {};
-  await users.updatePrefs(userId, {
-    ...currentPrefs,
-    activeDecoration: decorationId || "",
-  });
-
+  await db.update(users).set({ activeDecoration: decorationId }).where(eq(users.id, userId));
   return { activeDecoration: decorationId };
 });

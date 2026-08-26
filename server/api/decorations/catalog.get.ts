@@ -1,42 +1,12 @@
-import { Query } from "node-appwrite";
+import { eq, asc } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { decorations } from "~/server/db/schema";
 
 export default defineEventHandler(async () => {
-  const { DB, DECORATIONS } = getCollectionIds();
-  const tables = getAdminTables();
-
-  const result = await tables.listRows({
-    databaseId: DB,
-    tableId: DECORATIONS,
-    queries: [
-      Query.equal("enabled", true),
-      Query.orderAsc("sortOrder"),
-      Query.limit(100),
-    ],
-  });
-
-  return result.rows.map((doc: any) => {
-    let attachment = null;
-    if (doc.attachment) {
-      try {
-        attachment = JSON.parse(doc.attachment);
-      } catch { /* ignore malformed JSON */ }
-    }
-    return {
-      $id: doc.$id,
-      decorationId: doc.decorationId,
-      name: doc.name,
-      description: doc.description,
-      type: doc.type,
-      rarity: doc.rarity,
-      category: doc.category || 'custom',
-      enabled: doc.enabled,
-      freeForAll: doc.freeForAll,
-      discordSkuId: doc.discordSkuId || null,
-      price: doc.price,
-      sortOrder: doc.sortOrder,
-      imageFileId: doc.imageFileId || null,
-      imageFormat: doc.imageFormat || null,
-      attachment,
-    };
-  });
+  return useDb()
+    .select()
+    .from(decorations)
+    .where(eq(decorations.enabled, true))
+    .orderBy(asc(decorations.sortOrder))
+    .limit(100);
 });

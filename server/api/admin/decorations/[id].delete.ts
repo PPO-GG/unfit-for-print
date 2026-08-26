@@ -1,19 +1,17 @@
+import { eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { decorations } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
+
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const docId = getRouterParam(event, "id");
   if (!docId) {
     throw createError({ statusCode: 400, statusMessage: "Missing decoration document ID" });
   }
 
-  const { DB, DECORATIONS } = getCollectionIds();
-  const tables = getAdminTables();
-
-  await tables.deleteRow({
-    databaseId: DB,
-    tableId: DECORATIONS,
-    rowId: docId,
-  });
+  await useDb().delete(decorations).where(eq(decorations.id, docId));
 
   return { success: true };
 });

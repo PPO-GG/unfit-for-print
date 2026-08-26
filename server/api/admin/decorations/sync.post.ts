@@ -1,7 +1,9 @@
-import { ID, Query } from "node-appwrite";
+import { useDb } from "~/server/db/client";
+import { decorations } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
+  await requireAdmin(event);
 
   const body = await readBody(event);
   const registryKeys: string[] = body.registryKeys ?? [];
@@ -23,48 +25,37 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const { DB, DECORATIONS } = getCollectionIds();
-  const tables = getAdminTables();
+  const db = useDb();
+  const existing = await db.select().from(decorations).limit(500);
 
-  const existing = await tables.listRows({
-    databaseId: DB,
-    tableId: DECORATIONS,
-    queries: [Query.limit(500)],
-  });
-
-  const existingIds = new Set(existing.rows.map((doc: any) => doc.decorationId));
+  const existingIds = new Set(existing.map((row) => row.id));
   const registrySet = new Set(registryKeys);
 
   const created: string[] = [];
   for (const key of registryKeys) {
     if (existingIds.has(key)) continue;
     const name = key.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-    await tables.createRow({
-      databaseId: DB,
-      tableId: DECORATIONS,
-      rowId: ID.unique(),
-      data: {
-        decorationId: key,
-        name,
-        description: "",
-        type: "effect",
-        rarity: "common",
-        category: "custom",
-        enabled: false,
-        freeForAll: false,
-        discordSkuId: null,
-        price: 0,
-        sortOrder: 999,
-        imageFileId: null,
-        attachment: null,
-      },
+    await db.insert(decorations).values({
+      id: key,
+      name,
+      description: "",
+      type: "effect",
+      rarity: "common",
+      category: "custom",
+      enabled: false,
+      freeForAll: false,
+      discordSkuId: null,
+      price: "0",
+      sortOrder: 999,
+      imageKey: null,
+      imageFormat: null,
     });
     created.push(key);
   }
 
-  const orphaned = existing.rows
-    .filter((doc: any) => !registrySet.has(doc.decorationId))
-    .map((doc: any) => doc.decorationId);
+  const orphaned = existing
+    .filter((row) => !registrySet.has(row.id))
+    .map((row) => row.id);
 
   return {
     created,
