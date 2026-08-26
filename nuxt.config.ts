@@ -11,50 +11,8 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: true,
 
-  // ─── Cloudflare Workers compatibility ──────────────────────────────
-  // node-appwrite's HTTP client uses node-fetch-native-with-agent, which
-  // in Node.js mode imports node:http/node:https to create HTTP agents.
-  // In CF Workers the polyfills are incomplete and the `File` class from
-  // the node path isn't constructable, causing:
-  //   "Right-hand side of 'instanceof' is not callable"
-  //
-  // The library's package.json "exports" already declares a `workerd`
-  // condition that maps to native Web API stubs (globalThis.fetch/File).
-  // Adding "workerd" to Rollup's exportConditions tells the resolver to
-  // pick that path instead of the Node.js-specific one.
   nitro: {
-    externals: {
-      inline: ["node-appwrite", "node-fetch-native-with-agent", "json-bigint"],
-    },
-    exportConditions: ["workerd", "worker", "default"],
-    // ── Cloudflare Workers (workerd) compatibility aliases ────────────
-    // Problem 1: node-fetch-native-with-agent's Node.js path imports
-    //   node:http agents unavailable in workerd → use our Web API shim.
-    // Problem 2: json-bigint does `instanceof BigNumber` which breaks
-    //   across CJS/ESM module boundaries in the bundled output.
-    //   Since we don't use BigInt data, native JSON is safe.
-    alias: {
-      "node-fetch-native-with-agent/polyfill": join(
-        import.meta.dirname,
-        "server/utils/fetch-shim.mjs",
-      ),
-      "node-fetch-native-with-agent/agent": join(
-        import.meta.dirname,
-        "server/utils/fetch-shim.mjs",
-      ),
-      "node-fetch-native-with-agent/proxy": join(
-        import.meta.dirname,
-        "server/utils/fetch-shim.mjs",
-      ),
-      "node-fetch-native-with-agent": join(
-        import.meta.dirname,
-        "server/utils/fetch-shim.mjs",
-      ),
-      "json-bigint": join(
-        import.meta.dirname,
-        "server/utils/json-bigint-shim.mjs",
-      ),
-    },
+    preset: "node-server",
   },
 
   future: {
@@ -80,15 +38,6 @@ export default defineNuxtConfig({
     },
     build: {
       sourcemap: false,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes("node_modules") && id.includes("appwrite")) {
-              return "vendor-appwrite";
-            }
-          },
-        },
-      },
       chunkSizeWarningLimit: 1600,
     },
     define: {
@@ -192,34 +141,19 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     // Server-only secrets
-    appwriteApiKey: process.env.NUXT_APPWRITE_API_KEY,
     elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
     discordClientSecret: process.env.DISCORD_CLIENT_SECRET,
     discordPublicKey: process.env.DISCORD_PUBLIC_KEY,
     discordApplicationId: process.env.DISCORD_APPLICATION_ID,
     sessionPassword: process.env.NUXT_SESSION_PASSWORD,
+    activityTokenSecret: process.env.NUXT_ACTIVITY_TOKEN_SECRET,
+    databaseUrl: process.env.DATABASE_URL,
+    r2AccountId: process.env.NUXT_R2_ACCOUNT_ID,
+    r2AccessKeyId: process.env.NUXT_R2_ACCESS_KEY_ID,
+    r2SecretAccessKey: process.env.NUXT_R2_SECRET_ACCESS_KEY,
+    r2Bucket: process.env.NUXT_R2_BUCKET,
 
-    // Client-side (game-specific collection IDs)
     public: {
-      appwriteEndpoint: process.env.NUXT_PUBLIC_APPWRITE_ENDPOINT,
-      appwriteProjectId: process.env.NUXT_PUBLIC_APPWRITE_PROJECT_ID,
-      appwriteDatabaseId: process.env.NUXT_PUBLIC_APPWRITE_DATABASE_ID,
-      appwriteWhiteCardCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID,
-      appwriteBlackCardCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID,
-      appwriteLobbyCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_LOBBY_COLLECTION_ID,
-      appwritePlayerCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_PLAYER_COLLECTION_ID,
-      appwriteGamecardsCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_GAMECARDS_COLLECTION_ID,
-      appwriteSubmissionCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_SUBMISSION_COLLECTION_ID,
-      appwriteReportsCollectionId:
-        process.env.NUXT_PUBLIC_APPWRITE_REPORTS_COLLECTION_ID,
-      appwriteUserDecorationsCollectionId: "userdecorations",
-      appwriteDecorationsCollectionId: "decorations",
       baseUrl:
         process.env.NUXT_PUBLIC_BASE_URL ||
         process.env.DEPLOY_URL ||
