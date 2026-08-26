@@ -2,6 +2,7 @@
 import { useNotifications } from "~/composables/useNotifications";
 
 const { notify } = useNotifications();
+const { $activityFetch } = useNuxtApp();
 
 const reports = ref<any[]>([]);
 const loading = ref(true);
@@ -15,21 +16,11 @@ const savingEdit = ref(false);
 const togglingId = ref<string | null>(null);
 const deletingCardId = ref<string | null>(null);
 
-// Note: admin routes now authenticate via the session cookie automatically
-// sent with same-origin $fetch calls (see server/utils/session.ts
-// requireAdmin) — no manual Authorization headers needed. Swapping these
-// $fetch calls for $activityFetch is Task 26's job; this file just needs to
-// keep working in the interim, so the old (now-broken, since
-// userStore.session no longer exists) header-building has been dropped
-// rather than fixing its field names, since sending a bogus
-// `Authorization: Bearer undefined` header would incorrectly route through
-// requireAuth's activity-token branch and break admin auth entirely.
-
 // Fetch reports from the API
 const fetchReports = async () => {
   loading.value = true;
   try {
-    const res = await $fetch("/api/admin/reports");
+    const res = await $activityFetch("/api/admin/reports");
     reports.value = res.reports || [];
   } catch (error) {
     console.error("Error fetching reports:", error);
@@ -68,7 +59,7 @@ const saveEdit = async (report: any) => {
   if (!editText.value.trim()) return;
   savingEdit.value = true;
   try {
-    await $fetch("/api/admin/reports/card-action", {
+    await $activityFetch("/api/admin/reports/card-action", {
       method: "POST",
       body: {
         action: "edit",
@@ -100,7 +91,7 @@ const saveEdit = async (report: any) => {
 const toggleCardActive = async (report: any) => {
   togglingId.value = report.id;
   try {
-    const res = await $fetch("/api/admin/reports/card-action", {
+    const res = await $activityFetch("/api/admin/reports/card-action", {
       method: "POST",
       body: {
         action: "toggle",
@@ -131,7 +122,7 @@ const toggleCardActive = async (report: any) => {
 const deleteCard = async (report: any) => {
   deletingCardId.value = report.id;
   try {
-    await $fetch("/api/admin/reports/card-action", {
+    await $activityFetch("/api/admin/reports/card-action", {
       method: "POST",
       body: {
         action: "delete",
@@ -164,7 +155,7 @@ const deleteCard = async (report: any) => {
 const dismissReport = async (reportId: string) => {
   dismissingId.value = reportId;
   try {
-    await $fetch("/api/admin/reports/dismiss", {
+    await $activityFetch("/api/admin/reports/dismiss", {
       method: "POST",
       body: { reportId },
     });
