@@ -1,10 +1,15 @@
 // server/api/bot/add.post.ts
 // Allows the lobby host to add a bot player to the lobby.
-// Bots are stored as regular player documents with playerType='bot' and provider='bot'.
+// Bots are represented by a synthetic row in `users` (isGuest, no auth
+// identity attached) plus a `players` row with playerType='bot' — the
+// `players.userId` column is a NOT NULL FK to `users.id`, so every bot
+// needs a real (if synthetic) user row to satisfy the constraint.
 //
-// Auth: Admin-SDK verified session via requireHost.
-// Client must send Authorization + x-appwrite-user-id headers.
-import { ID, Query } from "node-appwrite";
+// Auth: session-based, verified via requireHost.
+import { and, eq } from "drizzle-orm";
+import { useDb } from "~/server/db/client";
+import { lobbies, players, users } from "~/server/db/schema";
+import { requireHost } from "~/server/utils/session";
 
 const MAX_BOTS_PER_LOBBY = 5;
 
@@ -22,43 +27,45 @@ export default defineEventHandler(async (event) => {
   // Session-based auth: verify the caller is the authenticated host
   await requireHost(event, lobbyId);
 
-  const { DB, PLAYER, LOBBY } = getCollectionIds();
-  const tables = getAdminTables();
+  const db = useDb();
 
-  // --- Fetch lobby for status check ---
-  const lobby = await tables.getRow({
-    databaseId: DB,
-    tableId: LOBBY,
-    rowId: lobbyId,
-  });
-
-  // --- Check bot count cap ---
-  const existingBots = await tables.listRows({
-    databaseId: DB,
-    tableId: PLAYER,
-    queries: [
-      Query.equal("lobbyId", lobbyId),
-      Query.equal("playerType", "bot"),
-      Query.limit(100),
-    ],
-  });
-
-  // If the client sent its authoritative bot list (from Y.Doc), prune any
-  // Appwrite bot docs that aren't in that list — these are orphans left behind
-  // by a previous session that didn't clean up properly.
-  if (Array.isArray(activeBotUserIds) && activeBotUserIds.length < existingBots.rows.length) {
-    const activeSet = new Set(activeBotUserIds);
-    const orphans = existingBots.rows.filter((r: any) => !activeSet.has(r.userId));
-    await Promise.all(
-      orphans.map((r: any) =>
-        tables.deleteRow({ databaseId: DB, tableId: PLAYER, rowId: r.$id }),
-      ),
-    );
-    // Recompute list after pruning
-    existingBots.rows = existingBots.rows.filter((r: any) => activeSet.has(r.userId));
+  const [lobby] = await db
+    .select()
+    .from(lobbies)
+    .where(eq(lobbies.id, lobbyId))
+    .limit(1);
+  if (!lobby) {
+    throw createError({ statusCode: 404, statusMessage: "Lobby not found" });
   }
 
-  if (existingBots.rows.length >= MAX_BOTS_PER_LOBBY) {
+  let existingBots = await db
+    .select()
+    .from(players)
+    .where(and(eq(players.lobbyId, lobbyId), eq(players.playerType, "bot")));
+
+  // If the client sent its authoritative bot list (from Y.Doc), prune any
+  // bot rows that aren't in that list — these are orphans left behind by
+  // a previous session that didn't clean up properly.
+  if (
+    Array.isArray(activeBotUserIds) &&
+    activeBotUserIds.length < existingBots.length
+  ) {
+    const activeSet = new Set(activeBotUserIds);
+    const orphans = existingBots.filter((p) => !activeSet.has(p.userId));
+    if (orphans.length > 0) {
+      await Promise.all(
+        orphans.map((p) => db.delete(players).where(eq(players.id, p.id))),
+      );
+      // Clean up the synthetic user rows too, now that nothing references them.
+      await Promise.all(
+        orphans.map((p) => db.delete(users).where(eq(users.id, p.userId))),
+      );
+    }
+    // Recompute list after pruning
+    existingBots = existingBots.filter((p) => activeSet.has(p.userId));
+  }
+
+  if (existingBots.length >= MAX_BOTS_PER_LOBBY) {
     throw createError({
       statusCode: 400,
       statusMessage: `Maximum of ${MAX_BOTS_PER_LOBBY} bots per lobby`,
@@ -75,39 +82,33 @@ export default defineEventHandler(async (event) => {
 
   // --- Generate bot identity ---
   // Collect existing bot names in this lobby to avoid name collisions
-  const existingBotNames = existingBots.rows.map(
-    (doc: any) => doc.name as string,
-  );
+  const existingBotNames = existingBots.map((p) => p.name);
   const botName = generateBotName(existingBotNames);
   const botAvatar = getBotAvatarUrl(botName);
 
-  // Unique userId for internal tracking (still uses a random suffix)
-  const botSuffix = uuid().replace(/-/g, "").substring(0, 6).toUpperCase();
-  const botUserId = `bot_${botSuffix}`;
+  // --- Create the synthetic bot user, then the player row ---
+  const [botUser] = await db
+    .insert(users)
+    .values({ isGuest: true, name: botName, avatarUrl: botAvatar })
+    .returning();
 
-  // --- Create player document ---
-  const playerDoc = await tables.createRow({
-    databaseId: DB,
-    tableId: PLAYER,
-    rowId: ID.unique(),
-    data: {
-      userId: botUserId,
+  const [player] = await db
+    .insert(players)
+    .values({
+      userId: botUser!.id,
       lobbyId,
       name: botName,
       avatar: botAvatar,
       isHost: false,
-      joinedAt: new Date().toISOString(),
-      provider: "bot",
       playerType: "bot",
-    },
-    permissions: ['read("any")', 'update("any")', 'delete("any")'],
-  });
+    })
+    .returning();
 
   return {
     success: true,
     bot: {
-      $id: playerDoc.$id,
-      userId: botUserId,
+      id: player!.id,
+      userId: botUser!.id,
       name: botName,
       avatar: botAvatar,
       playerType: "bot",

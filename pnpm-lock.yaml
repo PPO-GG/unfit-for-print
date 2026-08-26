@@ -94,9 +94,6 @@ importers:
       ajv:
         specifier: ^8.20.0
         version: 8.20.0
-      appwrite:
-        specifier: ^22.4.1
-        version: 22.4.1
       axios:
         specifier: ^1.18.1
         version: 1.18.1
@@ -139,9 +136,6 @@ importers:
       nuxt:
         specifier: ^4.5.0
         version: 4.5.0(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@netlify/blobs@9.1.2)(@types/node@24.3.0)(@vue/compiler-sfc@3.5.40)(better-sqlite3@11.10.0)(cac@7.0.0)(db0@0.3.4(better-sqlite3@11.10.0)(drizzle-orm@0.45.2(@types/pg@8.23.1)(better-sqlite3@11.10.0)(pg@8.23.0)))(drizzle-orm@0.45.2(@types/pg@8.23.1)(better-sqlite3@11.10.0)(pg@8.23.0))(esbuild@0.28.1)(eslint@9.28.0(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.33.0)(magicast@0.5.3)(meow@13.2.0)(optionator@0.9.4)(oxc-parser@0.140.0)(pinia@3.0.4(typescript@5.9.3)(vue@3.5.40(typescript@5.9.3)))(rollup-plugin-visualizer@6.0.11(rolldown@1.2.0)(rollup@4.62.2))(rollup@4.62.2)(srvx@0.12.4)(terser@5.49.0)(tsx@4.23.1)(typescript@5.9.3)(vite@8.1.5(@types/node@24.3.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))(vue-tsc@3.3.8(typescript@5.9.3))(yaml@2.9.0)
-      nuxt-appwrite:
-        specifier: github:Stagepoint-Systems/nuxt-appwrite
-        version: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382(appwrite@22.4.1)(magicast@0.5.3)(node-appwrite@28.0.0)
       nuxt-auth-utils:
         specifier: ^0.5.30
         version: 0.5.30(magic-string@1.1.0)(magicast@0.5.3)(oxc-parser@0.140.0)(rolldown@1.2.0)(unplugin@3.3.0(esbuild@0.28.1)(rolldown@1.2.0)(rollup@4.62.2)(vite@8.1.5(@types/node@24.3.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0)))
@@ -4011,9 +4005,6 @@ packages:
   anynum@1.0.1:
     resolution: {integrity: sha512-N6//FLET/tXYNM/F6ABca1oH6fWB+KlTt909Le28WMDBk8oaT4vY17DCrwg2MvmuqUKt3Ni4N5dGJ/EoBgcO6A==}
 
-  appwrite@22.4.1:
-    resolution: {integrity: sha512-NlEgUvSo7A1m+TEHZ8zlWUIuCDtNg3VN6Mbxd6r+1618CiWokig630FpeKQ9/WD5Io92QxuTV/dVzBLPlQghqg==}
-
   archiver-utils@5.0.2:
     resolution: {integrity: sha512-wuLJMmIBQYCsGZgYLTy5FIB2pF6Lfb6cXMSF8Qywwk3t20zWnAi7zLcQFdKQmIB8wyZpY5ER38x08GbwtR2cLA==}
     engines: {node: '>= 14'}
@@ -7302,16 +7293,6 @@ packages:
 
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
-
-  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382:
-    resolution: {tarball: https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382}
-    version: 1.1.0
-    peerDependencies:
-      appwrite: '>=16.0.0'
-      node-appwrite: '>=22.0.0'
-    peerDependenciesMeta:
-      node-appwrite:
-        optional: true
 
   nuxt-auth-utils@0.5.30:
     resolution: {integrity: sha512-KtHMHy/OQAy/RYAmORBDvtNRs0BYbeLQOOrMv0FpBpWUYqMBA2lhumqnTACljFHGLGNpMy25Ck7cWVhVUjc6vA==}
@@ -14373,10 +14354,6 @@ snapshots:
 
   anynum@1.0.1: {}
 
-  appwrite@22.4.1:
-    dependencies:
-      json-bigint: 1.0.0
-
   archiver-utils@5.0.2:
     dependencies:
       glob: 13.0.6
@@ -18092,16 +18069,6 @@ snapshots:
   nth-check@2.1.1:
     dependencies:
       boolbase: 1.0.0
-
-  nuxt-appwrite@https://codeload.github.com/Stagepoint-Systems/nuxt-appwrite/tar.gz/cb6750bc55827cf729784491fe3e1850f3e50382(appwrite@22.4.1)(magicast@0.5.3)(node-appwrite@28.0.0):
-    dependencies:
-      '@nuxt/kit': 3.21.9(magicast@0.5.3)
-      appwrite: 22.4.1
-      defu: 6.1.7
-    optionalDependencies:
-      node-appwrite: 28.0.0
-    transitivePeerDependencies:
-      - magicast
 
   nuxt-auth-utils@0.5.30(magic-string@1.1.0)(magicast@0.5.3)(oxc-parser@0.140.0)(rolldown@1.2.0)(unplugin@3.3.0(esbuild@0.28.1)(rolldown@1.2.0)(rollup@4.62.2)(vite@8.1.5(@types/node@24.3.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))):
     dependencies:

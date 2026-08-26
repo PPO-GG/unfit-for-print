@@ -4,7 +4,6 @@
 // These utilities are only used by start.post.ts for card fetching/shuffling.
 
 import { and, eq, inArray } from "drizzle-orm";
-import { Databases, TablesDB } from "node-appwrite";
 import { useDb } from "../db/client";
 import type { whiteCards, blackCards } from "../db/schema";
 
@@ -36,32 +35,4 @@ export async function fetchAllIds(
     .where(and(...conditions));
 
   return rows.map((r) => r.id);
-}
-
-// ─── Collection IDs Helper ──────────────────────────────────────────
-// Reads all Appwrite collection IDs from runtime config in one place.
-
-export function getCollectionIds() {
-  const config = useRuntimeConfig();
-  return {
-    DB: config.public.appwriteDatabaseId as string,
-    LOBBY: config.public.appwriteLobbyCollectionId as string,
-    PLAYER: config.public.appwritePlayerCollectionId as string,
-    WHITE_CARDS: config.public.appwriteWhiteCardCollectionId as string,
-    BLACK_CARDS: config.public.appwriteBlackCardCollectionId as string,
-    USER_DECORATIONS: config.public.appwriteUserDecorationsCollectionId as string,
-    DECORATIONS: config.public.appwriteDecorationsCollectionId as string,
-  };
-}
-
-// ─── Admin Database Accessor ────────────────────────────────────────
-// Returns the admin Databases instance from the nuxt-appwrite module.
-
-export function getAdminTables(): TablesDB {
-  const { client } = useAppwriteAdmin();
-  return new TablesDB(client);
-}
-export function getAdminDatabases(): Databases {
-  const { databases } = useAppwriteAdmin();
-  return databases as unknown as Databases;
 }
