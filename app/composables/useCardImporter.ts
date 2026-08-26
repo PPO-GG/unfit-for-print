@@ -4,7 +4,7 @@ import { useNotifications } from "~/composables/useNotifications";
 export const useCardImporter = (options?: { onComplete?: () => void }) => {
   const { notify } = useNotifications();
   const { $activityFetch } = useNuxtApp();
-  // /api/dev/seed is admin-gated server-side via assertAdmin (which calls
+  // /api/dev/seed is admin-gated server-side via requireAdmin (which calls
   // requireAuth, reading the session cookie automatically sent with
   // same-origin requests) — no manual Authorization header needed. The old
   // Appwrite Bearer/x-appwrite-user-id headers are dropped; sending a bogus
@@ -139,7 +139,7 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
     try {
       const payload: Record<string, unknown> = {
         file: uploadState.fileContent,
-        sessionId: Date.now().toString(),
+        sessionId: crypto.randomUUID(),
       };
 
       if (resumeFromPosition) {

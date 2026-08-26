@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
 
     // Generate a session ID if not provided
     if (!sessionId) {
-      sessionId = Date.now().toString();
+      sessionId = crypto.randomUUID();
     }
 
     if (!jsonContent) {

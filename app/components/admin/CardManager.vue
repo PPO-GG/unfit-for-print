@@ -10,7 +10,7 @@ const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
 
-// /api/dev/seed is admin-gated server-side via assertAdmin (which calls
+// /api/dev/seed is admin-gated server-side via requireAdmin (which calls
 // requireAuth, reading the session cookie automatically sent with
 // same-origin requests) — no manual Authorization header needed. The old
 // Appwrite Bearer/x-appwrite-user-id headers built from removed

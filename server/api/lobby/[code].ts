@@ -1,7 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { lobbies, players } from "~/server/db/schema";
 
+// Public, unauthenticated route — only expose fields the client actually
+// needs for the lobby-detail view / SEO metadata. Never leak
+// discordInstanceId, discordChannelId, or hostUserId here.
 export default defineEventHandler(async (event) => {
   const code = getRouterParam(event, "code");
   const db = useDb();
@@ -16,8 +19,20 @@ export default defineEventHandler(async (event) => {
   const [host] = await db
     .select({ name: players.name })
     .from(players)
-    .where(eq(players.userId, lobby.hostUserId))
+    .where(
+      and(
+        eq(players.userId, lobby.hostUserId),
+        eq(players.lobbyId, lobby.id),
+      ),
+    )
     .limit(1);
 
-  return { ...lobby, hostName: host?.name ?? null };
+  return {
+    id: lobby.id,
+    code: lobby.code,
+    status: lobby.status,
+    lobbyName: lobby.lobbyName ?? null,
+    createdAt: lobby.createdAt,
+    hostName: host?.name ?? null,
+  };
 });

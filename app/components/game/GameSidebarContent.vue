@@ -6,7 +6,7 @@ import type { LobbySettings } from "~/composables/useLobbyReactive";
 const { t } = useI18n();
 
 const props = defineProps<{
-  lobby: { code?: string; hostUserId?: string; $id?: string } & Record<
+  lobby: { code?: string; hostUserId?: string; id?: string } & Record<
     string,
     any
   >;
@@ -270,7 +270,7 @@ const canStart = computed(() => playerCount.value >= minPlayers);
     <!-- ═══════════════════════════════════════ -->
     <PlayerList
       :host-user-id="lobby?.hostUserId || ''"
-      :lobby-id="lobby?.$id || ''"
+      :lobby-id="lobby?.id || ''"
       :players="players"
       :judge-id="state?.judgeId ?? undefined"
       :submissions="state?.submissions"

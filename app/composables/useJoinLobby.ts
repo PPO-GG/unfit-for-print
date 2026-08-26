@@ -60,7 +60,7 @@ export const useJoinLobby = () => {
       }
 
       const user = userStore.user!;
-      if (!user) new Error("No user session");
+      if (!user) throw new Error("No user session");
 
       const errorMsg = validateUsername(username);
       if (errorMsg) {

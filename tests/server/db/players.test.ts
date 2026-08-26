@@ -51,4 +51,41 @@ describe("players routes", () => {
     const [updated] = await db.select().from(players).where(eq(players.id, player.id));
     expect(updated.avatar).toBe("https://example.com/a.png");
   });
+
+  it("rejects updating another player's avatar when the caller is not in that player's lobby", async () => {
+    const [owner] = await db.insert(users).values({ name: "Owner" }).returning();
+    const [lobby] = await db.insert(lobbies).values({ code: "XXXX", hostUserId: owner.id }).returning();
+    const [targetPlayer] = await db
+      .insert(players)
+      .values({ userId: owner.id, lobbyId: lobby.id, name: "Owner" })
+      .returning();
+
+    // currentUserId (the authenticated caller) is not a player in `lobby`.
+    const handler = (await import("~/server/api/players/avatar.post")).default;
+    await expect(
+      handler(mockEvent({}, {}, { playerId: targetPlayer.id, avatarUrl: "https://example.com/hijack.png" })),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    const [unchanged] = await db.select().from(players).where(eq(players.id, targetPlayer.id));
+    expect(unchanged.avatar).toBeNull();
+  });
+
+  it("allows updating another player's avatar when the caller shares the same lobby", async () => {
+    const [owner] = await db.insert(users).values({ name: "Owner2" }).returning();
+    const [lobby] = await db.insert(lobbies).values({ code: "WWWW", hostUserId: owner.id }).returning();
+    const [targetPlayer] = await db
+      .insert(players)
+      .values({ userId: owner.id, lobbyId: lobby.id, name: "Owner2" })
+      .returning();
+    // Add the current caller as a fellow player in the same lobby.
+    await db.insert(players).values({ userId: currentUserId, lobbyId: lobby.id, name: "P1" });
+
+    const handler = (await import("~/server/api/players/avatar.post")).default;
+    await handler(
+      mockEvent({}, {}, { playerId: targetPlayer.id, avatarUrl: "https://example.com/ok.png" }),
+    );
+
+    const [updated] = await db.select().from(players).where(eq(players.id, targetPlayer.id));
+    expect(updated.avatar).toBe("https://example.com/ok.png");
+  });
 });
