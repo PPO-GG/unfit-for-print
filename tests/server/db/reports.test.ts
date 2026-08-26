@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users, reports, whiteCards, blackCards } from "~/server/db/schema";
+import { users, reports, whiteCards, blackCards, lobbies } from "~/server/db/schema";
 
 const db = useDb();
 let currentUserId: string;
@@ -24,6 +24,9 @@ beforeEach(async () => {
   await db.delete(reports);
   await db.delete(whiteCards);
   await db.delete(blackCards);
+  // Also clear lobbies: leftover rows from other suites can reference users
+  // via a NOT NULL FK, which would otherwise block deleting users below.
+  await db.delete(lobbies);
   await db.delete(users);
   const [user] = await db.insert(users).values({ name: "Reporter" }).returning();
   currentUserId = user.id;
@@ -40,7 +43,10 @@ describe("reports", () => {
   });
 
   it("index enriches with card text, correcting cardType if found in the other table", async () => {
-    const [card] = await db.insert(blackCards).values({ text: "Actually black?" }).returning();
+    const [card] = await db
+      .insert(blackCards)
+      .values({ text: "Actually black?", pack: "Base" })
+      .returning();
     await db.insert(reports).values({
       cardId: card.id,
       cardType: "white", // deliberately wrong, mirrors the historical bug
@@ -52,6 +58,21 @@ describe("reports", () => {
     const result = await handler({} as any);
     expect(result.reports[0].cardText).toBe("Actually black?");
     expect(result.reports[0].cardType).toBe("black");
+    expect(result.reports[0].cardPack).toBe("Base");
+  });
+
+  it("index returns cardPack null when the card is not found in either table", async () => {
+    await db.insert(reports).values({
+      cardId: "00000000-0000-0000-0000-000000000000",
+      cardType: "white",
+      reason: "test",
+      reportedBy: currentUserId,
+    });
+
+    const handler = (await import("~/server/api/admin/reports/index")).default;
+    const result = await handler({} as any);
+    expect(result.reports[0].cardText).toBeNull();
+    expect(result.reports[0].cardPack).toBeNull();
   });
 
   it("card-action edits card text via cardTable helper", async () => {

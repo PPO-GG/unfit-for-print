@@ -19,10 +19,16 @@ export default defineEventHandler(async (event) => {
       ] as const) {
         const [card] = await db.select().from(table).where(eq(table.id, report.cardId)).limit(1);
         if (card) {
-          return { ...report, cardType: correctedType, cardText: card.text, cardActive: card.active };
+          return {
+            ...report,
+            cardType: correctedType,
+            cardText: card.text,
+            cardPack: card.pack ?? null,
+            cardActive: card.active,
+          };
         }
       }
-      return { ...report, cardText: null, cardActive: null };
+      return { ...report, cardText: null, cardPack: null, cardActive: null };
     }),
   );
 
