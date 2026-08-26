@@ -3,12 +3,19 @@ import { useNotifications } from "~/composables/useNotifications";
 
 export const useCardImporter = (options?: { onComplete?: () => void }) => {
   const { notify } = useNotifications();
+  const { $activityFetch } = useNuxtApp();
   // /api/dev/seed is admin-gated server-side via assertAdmin (which calls
   // requireAuth, reading the session cookie automatically sent with
   // same-origin requests) — no manual Authorization header needed. The old
   // Appwrite Bearer/x-appwrite-user-id headers are dropped; sending a bogus
   // `Authorization: Bearer undefined` would incorrectly route through
   // requireAuth's activity-token branch and break admin auth entirely.
+  // Uses $activityFetch (same as other admin composables, e.g. CardManager.vue)
+  // so this still works from inside the Discord Activity iframe, where cookies
+  // aren't available and auth rides on the activity token header instead.
+  // /api/dev/seed/progress (the EventSource below) has no server-side auth
+  // check at all — it's keyed only by an unguessable per-upload sessionId
+  // returned from the POST above — so no token/header is needed there.
   const uploadState = reactive({
     file: null as File | null,
     fileContent: null as string | null,
@@ -139,24 +146,19 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
         payload.resumeFrom = resumeFromPosition;
       }
 
-      const response = await fetch("/api/dev/seed", {
+      const responseData = await $activityFetch<{
+        sessionId?: string;
+        message?: string;
+        status?: string;
+      }>("/api/dev/seed", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: payload,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit data");
-      }
-
-      const responseData = await response.json();
       const sessionId = responseData.sessionId;
 
       if (!sessionId) {
-        throw new Error("No session ID returned from server");
+        throw new Error(responseData.message || "No session ID returned from server");
       }
 
       // console.log(`Card seeding started with session ID: ${sessionId}`);
@@ -272,11 +274,14 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
     } catch (err) {
       console.error("Failed to initiate seeding:", err);
 
+      const message =
+        (err as any)?.data?.message ||
+        (err instanceof Error ? err.message : String(err)) ||
+        "Could not start the seeding process";
+
       notify({
         title: "Upload Failed",
-        description:
-          (err instanceof Error ? err.message : String(err)) ||
-          "Could not start the seeding process",
+        description: message,
         color: "error",
       });
 

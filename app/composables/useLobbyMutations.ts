@@ -142,7 +142,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
           avatar: payload.hostAvatar,
           isHost: true,
           joinedAt: new Date().toISOString(),
-          provider: "appwrite",
+          provider: "unfit",
           playerType: "player",
           activeDecoration: payload.hostActiveDecoration || "",
         } satisfies PlayerPayload),
