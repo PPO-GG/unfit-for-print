@@ -1,10 +1,8 @@
-// server/api/admin/users/index.ts
+import { useDb } from "~/server/db/client";
+import { users } from "~/server/db/schema";
+import { requireAdmin } from "~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
-  await assertAdmin(event);
-
-  const { users } = createAppwriteClient();
-  const result = await users.list();
-
-  return { users: result.users };
+  await requireAdmin(event);
+  return useDb().select().from(users);
 });
