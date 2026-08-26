@@ -11,12 +11,37 @@ import { Client, Databases, Query } from "node-appwrite";
 import { useDb } from "../server/db/client";
 import { whiteCards, blackCards, users } from "../server/db/schema";
 
-const APPWRITE_ENDPOINT = process.env.NUXT_PUBLIC_APPWRITE_ENDPOINT!;
-const APPWRITE_PROJECT_ID = process.env.NUXT_PUBLIC_APPWRITE_PROJECT_ID!;
-const APPWRITE_API_KEY = process.env.NUXT_APPWRITE_API_KEY!;
-const APPWRITE_DB_ID = process.env.NUXT_PUBLIC_APPWRITE_DATABASE_ID!;
-const WHITE_COLLECTION = process.env.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID!;
-const BLACK_COLLECTION = process.env.NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID!;
+const REQUIRED_ENV_VARS = {
+  NUXT_PUBLIC_APPWRITE_ENDPOINT: process.env.NUXT_PUBLIC_APPWRITE_ENDPOINT,
+  NUXT_PUBLIC_APPWRITE_PROJECT_ID: process.env.NUXT_PUBLIC_APPWRITE_PROJECT_ID,
+  NUXT_APPWRITE_API_KEY: process.env.NUXT_APPWRITE_API_KEY,
+  NUXT_PUBLIC_APPWRITE_DATABASE_ID: process.env.NUXT_PUBLIC_APPWRITE_DATABASE_ID,
+  NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID:
+    process.env.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID,
+  NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID:
+    process.env.NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID,
+} satisfies Record<string, string | undefined>;
+
+function assertRequiredEnvVars(vars: Record<string, string | undefined>): void {
+  const missing = Object.entries(vars)
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variable(s): ${missing.join(", ")}. ` +
+        "See scripts/migrate-appwrite.ts for the full list and Step 4 of the migration brief for how to set them.",
+    );
+  }
+}
+
+assertRequiredEnvVars(REQUIRED_ENV_VARS);
+
+const APPWRITE_ENDPOINT = REQUIRED_ENV_VARS.NUXT_PUBLIC_APPWRITE_ENDPOINT!;
+const APPWRITE_PROJECT_ID = REQUIRED_ENV_VARS.NUXT_PUBLIC_APPWRITE_PROJECT_ID!;
+const APPWRITE_API_KEY = REQUIRED_ENV_VARS.NUXT_APPWRITE_API_KEY!;
+const APPWRITE_DB_ID = REQUIRED_ENV_VARS.NUXT_PUBLIC_APPWRITE_DATABASE_ID!;
+const WHITE_COLLECTION = REQUIRED_ENV_VARS.NUXT_PUBLIC_APPWRITE_WHITE_CARD_COLLECTION_ID!;
+const BLACK_COLLECTION = REQUIRED_ENV_VARS.NUXT_PUBLIC_APPWRITE_BLACK_CARD_COLLECTION_ID!;
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)
@@ -31,6 +56,13 @@ async function fetchAllDocuments(databaseId: string, collectionId: string) {
   for (;;) {
     const queries = [Query.limit(100)];
     if (cursor) queries.push(Query.cursorAfter(cursor));
+    // NOTE: `Databases.listDocuments` (positional-args form) is marked
+    // @deprecated in the installed node-appwrite v28 SDK, in favor of
+    // `TablesDB.listRows` with an object-param call signature. It still works
+    // against the SDK as of this writing. If this call fails against the live
+    // `api.ppo.gg` instance with a "not found" or deprecated-endpoint error,
+    // the legacy Documents API has likely been retired server-side — switch
+    // to `TablesDB.listRows` (and the equivalent object-param style) as the fix.
     const page = await databases.listDocuments(databaseId, collectionId, queries);
     all.push(...page.documents);
     if (page.documents.length < 100) break;
@@ -81,6 +113,10 @@ async function migrateUsers() {
   for (;;) {
     const queries = [Query.limit(100)];
     if (cursor) queries.push(Query.cursorAfter(cursor));
+    // NOTE: `Users.list` (positional-args form) is also marked @deprecated in
+    // the installed node-appwrite v28 SDK, alongside `Databases.listDocuments`
+    // above — same caveat applies (works today, but check for a deprecated
+    // Users API surface if this fails against the live instance).
     const page = await usersApi.list(queries);
     if (page.users.length === 0) break;
 
