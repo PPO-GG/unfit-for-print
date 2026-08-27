@@ -3,9 +3,9 @@
 //
 // Auth: session-based, verified via requireHost.
 import { and, eq, isNull } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { players, users } from "~/server/db/schema";
-import { requireHost } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { players, users } from "~~/server/db/schema";
+import { requireHost } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);

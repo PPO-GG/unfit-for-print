@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { cardTable } from "~/server/utils/cardTable";
+import { useDb } from "~~/server/db/client";
+import { cardTable } from "~~/server/utils/cardTable";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);

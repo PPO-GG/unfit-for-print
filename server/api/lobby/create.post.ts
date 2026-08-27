@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies, players, users } from "~/server/db/schema";
-import { requireAuth } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { lobbies, players, users } from "~~/server/db/schema";
+import { requireAuth } from "~~/server/utils/session";
 
 function randomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

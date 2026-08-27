@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { decorations } from "~/server/db/schema";
-import { requireAdmin } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { decorations } from "~~/server/db/schema";
+import { requireAdmin } from "~~/server/utils/session";
 
 // "attachment" is intentionally omitted: the Drizzle `decorations` schema
 // (Task 1) has no column for it, so attachment-positioning config from the

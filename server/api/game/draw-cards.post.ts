@@ -3,10 +3,10 @@
 // Called mid-game when the draw pile runs low — keeps cards fresh (no recycling).
 
 import { inArray } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { whiteCards } from "~/server/db/schema";
-import { fetchAllIds, shuffle } from "~/server/utils/game-engine";
-import { requirePlayerInLobby } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { whiteCards } from "~~/server/db/schema";
+import { fetchAllIds, shuffle } from "~~/server/utils/game-engine";
+import { requirePlayerInLobby } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const { lobbyId, cardPacks, excludeIds, count = 200 } = await readBody<{

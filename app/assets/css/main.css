@@ -61,6 +61,11 @@
   --overlay-bg: rgba(2, 6, 23, 0.6); /* slate-950/60 */
   --overlay-blur: 12px;
 
+  /* ── Party-night backdrop (Claude Design port) ── */
+  --party-bg-0: #05060d;
+  --party-bg-1: #0a0d1c;
+  --party-bg-2: #121735;
+
   /* ── Animation ── */
   --transition-fast: 150ms ease;
   --transition-base: 200ms ease;
@@ -72,6 +77,13 @@
 [data-theme="dark"] {
   --game-surface: rgba(30, 41, 59, 0.8); /* slate-800/80 */
   --overlay-bg: rgba(2, 6, 23, 0.7); /* slate-950/70 */
+
+  /* Darker, punchier chrome background across every page (Nuxt UI reads
+     these for body/panel/modal surfaces via bg-default/bg-muted/etc). */
+  --ui-bg: var(--party-bg-0);
+  --ui-bg-muted: var(--party-bg-1);
+  --ui-bg-elevated: var(--party-bg-1);
+  --ui-bg-accented: var(--party-bg-2);
 }
 
 /* Light mode fallbacks — surfaces lighten, text darkens */

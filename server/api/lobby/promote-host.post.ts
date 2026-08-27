@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies, players } from "~/server/db/schema";
-import { requireHost } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { lobbies, players } from "~~/server/db/schema";
+import { requireHost } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const { lobbyId, newHostUserId } = await readBody<{ lobbyId: string; newHostUserId: string }>(event);

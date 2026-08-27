@@ -1,6 +1,6 @@
 import { desc } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { submissions } from "~/server/db/schema";
+import { useDb } from "~~/server/db/client";
+import { submissions } from "~~/server/db/schema";
 
 export default defineEventHandler(async (event) => {
   const limit = Number(getQuery(event).limit ?? 50);

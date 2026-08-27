@@ -98,180 +98,191 @@
       </div>
     </ClientOnly>
 
-    <!-- Logo -->
-    <div class="flex flex-col items-center mb-8 -mt-24 pointer-events-none">
-      <img
-        src="/img/ufp2.svg"
-        alt="Unfit For Print Logo"
-        class="w-12 sm:w-20 md:w-24 h-auto drop-shadow-xl"
-      />
-    </div>
-
     <div
-      class="bg-slate-700/20 backdrop-blur-md outline-2 outline-offset-2 dark:outline-slate-500/20 outline-slate-900/20 rounded-2xl p-4 flex flex-col items-center gap-4 mb-4 w-full max-w-md"
+      class="w-full max-w-6xl flex-1 flex flex-col justify-center gap-10 lg:flex-row lg:items-center py-8"
     >
-      <div class="flex justify-center gap-4">
-        <!-- Black Card -->
-        <BlackCard
-          v-if="blackCard"
-          :back-logo-url="'/img/ufp.svg'"
-          :card-id="blackCard.$id"
-          :cardPack="blackCard.pack"
-          :flipped="blackCardFlipped"
-          :mask-url="'/img/textures/hexa.webp'"
-          :num-pick="randomCard.pick"
-          :shine="shine"
-          :text="blackCard.text"
-          :threeDeffect="threeDeffect"
-          :scale="75"
-          @click="blackCardFlipped = !blackCardFlipped"
+      <!-- Hero: logo, title, tagline, card preview -->
+      <div
+        class="flex flex-col items-center lg:items-start gap-5 text-center lg:text-left lg:w-[38%] lg:shrink-0"
+      >
+        <img
+          src="/img/ufp2.svg"
+          alt="Unfit For Print Logo"
+          class="w-28 sm:w-36 lg:w-40 h-auto drop-shadow-xl pointer-events-none"
         />
-        <div
-          v-else
-          class="flex items-center p-2 text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#1c2342] rounded-xl"
+        <p
+          class="font-display text-sm sm:text-base tracking-[0.08em] text-slate-400 max-w-xs"
         >
-          <div class="grid gap-2 w-full px-2">
-            <USkeleton class="h-3 w-[85%] bg-slate-600/50" />
-            <USkeleton class="h-3 w-[70%] bg-slate-600/50" />
-          </div>
-        </div>
+          {{ t("tagline") }}
+        </p>
 
-        <!-- White Card -->
-        <WhiteCard
-          v-if="whiteCard"
-          :back-logo-url="'/img/ufp.svg'"
-          :card-id="whiteCard.$id"
-          :card-pack="whiteCard.pack"
-          :flipped="whiteCardFlipped"
-          :mask-url="'/img/textures/hexa2.webp'"
-          :shine="shine"
-          :text="whiteCard.text"
-          :three-deffect="threeDeffect"
-          :scale="75"
-          @click="whiteCardFlipped = !whiteCardFlipped"
-        />
         <div
-          v-else
-          class="flex items-center p-2 text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#e7e1de] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.stone.400/50)]"
+          class="bg-slate-700/20 backdrop-blur-md outline-2 outline-offset-2 dark:outline-slate-500/20 outline-slate-900/20 rounded-2xl p-4 flex flex-col items-center gap-4 w-full max-w-sm"
         >
-          <div class="grid gap-2 w-full px-2">
-            <USkeleton class="h-3 w-[85%] bg-stone-400/50" />
-            <USkeleton class="h-3 w-[70%] bg-stone-400/50" />
+          <div class="flex justify-center gap-4">
+            <!-- Black Card -->
+            <BlackCard
+              v-if="blackCard"
+              :back-logo-url="'/img/ufp.svg'"
+              :card-id="blackCard.$id"
+              :cardPack="blackCard.pack"
+              :flipped="blackCardFlipped"
+              :mask-url="'/img/textures/hexa.webp'"
+              :num-pick="randomCard.pick"
+              :shine="shine"
+              :text="blackCard.text"
+              :threeDeffect="threeDeffect"
+              :scale="75"
+              @click="blackCardFlipped = !blackCardFlipped"
+            />
+            <div
+              v-else
+              class="flex items-center p-2 text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#1c2342] rounded-xl"
+            >
+              <div class="grid gap-2 w-full px-2">
+                <USkeleton class="h-3 w-[85%] bg-slate-600/50" />
+                <USkeleton class="h-3 w-[70%] bg-slate-600/50" />
+              </div>
+            </div>
+
+            <!-- White Card -->
+            <WhiteCard
+              v-if="whiteCard"
+              :back-logo-url="'/img/ufp.svg'"
+              :card-id="whiteCard.$id"
+              :card-pack="whiteCard.pack"
+              :flipped="whiteCardFlipped"
+              :mask-url="'/img/textures/hexa2.webp'"
+              :shine="shine"
+              :text="whiteCard.text"
+              :three-deffect="threeDeffect"
+              :scale="75"
+              @click="whiteCardFlipped = !whiteCardFlipped"
+            />
+            <div
+              v-else
+              class="flex items-center p-2 text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#e7e1de] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.stone.400/50)]"
+            >
+              <div class="grid gap-2 w-full px-2">
+                <USkeleton class="h-3 w-[85%] bg-stone-400/50" />
+                <USkeleton class="h-3 w-[70%] bg-stone-400/50" />
+              </div>
+            </div>
           </div>
+
+          <!-- Draw + Speak buttons -->
+          <ClientOnly>
+            <div class="flex gap-2">
+              <UButton
+                :loading="isFetching"
+                class="font-display tracking-wider cursor-pointer"
+                color="neutral"
+                icon="i-solar-layers-minimalistic-bold-duotone"
+                variant="subtle"
+                size="lg"
+                @click="fetchNewCards"
+              >
+                DRAW NEW CARDS
+              </UButton>
+              <UButton
+                class="cursor-pointer"
+                color="neutral"
+                :icon="
+                  isSpeaking
+                    ? 'i-solar-stop-bold'
+                    : 'i-solar-user-speak-bold-duotone'
+                "
+                variant="subtle"
+                size="lg"
+                @click="handleSpeakClick"
+              />
+            </div>
+          </ClientOnly>
         </div>
       </div>
 
-      <!-- Draw + Speak buttons -->
+      <!-- Menu tiles -->
       <ClientOnly>
-        <div class="flex gap-2">
-          <UButton
-            :loading="isFetching"
-            class="font-display tracking-wider cursor-pointer"
-            color="neutral"
-            icon="i-solar-layers-minimalistic-bold-duotone"
-            variant="subtle"
-            size="lg"
-            @click="fetchNewCards"
-          >
-            DRAW NEW CARDS
-          </UButton>
-          <UButton
-            class="cursor-pointer"
-            color="neutral"
-            :icon="
-              isSpeaking
-                ? 'i-solar-stop-bold'
-                : 'i-solar-user-speak-bold-duotone'
-            "
-            variant="subtle"
-            size="lg"
-            @click="handleSpeakClick"
-          />
+        <div class="flex-1 w-full">
+          <div class="grid grid-cols-6 gap-3 sm:gap-4">
+            <MenuTile
+              v-if="!isDiscordActivity"
+              featured
+              accent="primary"
+              icon="i-solar-add-square-bold-duotone"
+              :label="t('nav.creategame')"
+              :loading="isCreating"
+              :disabled="!isAuthenticatedUser(userStore.user)"
+              class="col-span-6 sm:col-span-3 sm:row-span-2"
+              @click="checkForActiveLobbyAndCreate"
+            />
+
+            <MenuTile
+              v-if="!isDiscordActivity"
+              accent="secondary"
+              icon="i-solar-hand-shake-line-duotone"
+              :label="t('nav.joingame')"
+              :loading="isJoining"
+              class="col-span-6 sm:col-span-3"
+              @click="checkForActiveLobbyAndJoin"
+            >
+              <template #extra>
+                <div class="flex gap-1 mt-2">
+                  <div
+                    v-for="i in 4"
+                    :key="i"
+                    class="w-6 h-7 rounded border-2 border-slate-950/25 bg-slate-950/10"
+                  />
+                </div>
+              </template>
+            </MenuTile>
+
+            <MenuTile
+              v-if="!isDiscordActivity"
+              accent="info"
+              icon="i-solar-gamepad-bold-duotone"
+              :label="t('nav.games')"
+              to="/game"
+              class="col-span-6 sm:col-span-3"
+            />
+
+            <MenuTile
+              accent="success"
+              icon="i-solar-test-tube-bold-duotone"
+              :label="t('nav.labs')"
+              to="/labs"
+              class="col-span-6 sm:col-span-3"
+            />
+
+            <MenuTile
+              accent="secondary"
+              icon="i-solar-book-2-bold-duotone"
+              :label="t('nav.howtoplay')"
+              to="/about"
+              class="col-span-6 sm:col-span-3"
+            />
+
+            <MenuTile
+              v-if="isAdmin"
+              accent="dark"
+              icon="i-solar-shield-star-bold-duotone"
+              :label="t('nav.admin')"
+              to="/admin"
+              class="col-span-6 sm:col-span-3"
+            />
+
+            <MenuTile
+              v-if="isDiscordActivity"
+              accent="discord"
+              icon="i-ic-baseline-discord"
+              :label="t('nav.hub')"
+              to="/activity/hub"
+              class="col-span-6 sm:col-span-3"
+            />
+          </div>
         </div>
       </ClientOnly>
     </div>
-    <!-- Primary Actions -->
-    <ClientOnly>
-      <div class="flex flex-col items-center gap-1 w-full max-w-md mb-8">
-        <UButton
-          v-if="!isDiscordActivity"
-          block
-          :loading="isCreating"
-          :disabled="!isAuthenticatedUser(userStore.user)"
-          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all hover:ring-2 hover:ring-warning-500"
-          color="warning"
-          icon="i-solar-add-square-bold-duotone"
-          variant="subtle"
-          @click="checkForActiveLobbyAndCreate"
-        >
-          {{ t("nav.creategame") }}
-        </UButton>
-
-        <UButton
-          v-if="!isDiscordActivity"
-          block
-          :loading="isJoining"
-          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all hover:ring-2 hover:ring-success-500"
-          color="success"
-          icon="i-solar-hand-shake-line-duotone"
-          variant="subtle"
-          @click="checkForActiveLobbyAndJoin"
-        >
-          {{ t("nav.joingame") }}
-        </UButton>
-
-        <UButton
-          v-if="!isDiscordActivity"
-          block
-          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all hover:ring-2 hover:ring-info-500"
-          color="info"
-          icon="i-solar-gamepad-bold-duotone"
-          variant="subtle"
-          to="/game"
-        >
-          {{ t("nav.games") }}
-        </UButton>
-
-        <UButton
-          block
-          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all hover:ring-2 hover:ring-primary-500"
-          color="primary"
-          icon="i-solar-test-tube-bold-duotone"
-          variant="subtle"
-          to="/labs"
-        >
-          {{ t("nav.labs") }}
-        </UButton>
-
-        <!-- Admin: only shown to admins -->
-        <UButton
-          v-if="isAdmin"
-          block
-          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all hover:ring-2 hover:ring-error-500"
-          color="error"
-          icon="i-solar-shield-star-bold-duotone"
-          variant="subtle"
-          to="/admin"
-        >
-          {{ t("nav.admin") }}
-        </UButton>
-
-        <!-- Hub: only shown in Discord Activity mode -->
-        <UButton
-          v-if="isDiscordActivity"
-          block
-          class="text-2xl p-4 cursor-pointer outline-1 dark:outline-none backdrop-blur-2xl w-full hover:scale-x-105 transition-all hover:ring-2 hover:ring-warning-500"
-          color="warning"
-          icon="i-ic-baseline-discord"
-          variant="subtle"
-          to="/activity/hub"
-        >
-          {{ t("nav.hub") }}
-        </UButton>
-      </div>
-    </ClientOnly>
-
-    <!-- Try Me Panel -->
 
     <!-- Footer links -->
     <div class="flex gap-6 mt-8 text-sm text-slate-500 absolute bottom-4">
@@ -298,11 +309,7 @@
       >
     </div>
 
-    <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
-      <template #body>
-        <JoinLobbyForm @joined="handleJoined" />
-      </template>
-    </UModal>
+    <JoinTakeover v-model:open="showJoin" @joined="handleJoined" />
   </div>
 </template>
 

@@ -1,6 +1,6 @@
-import { useDb } from "~/server/db/client";
-import { users } from "~/server/db/schema";
-import { signActivityToken } from "~/server/utils/activityToken";
+import { useDb } from "~~/server/db/client";
+import { users } from "~~/server/db/schema";
+import { signActivityToken } from "~~/server/utils/activityToken";
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();

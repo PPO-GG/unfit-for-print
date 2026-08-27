@@ -7,10 +7,10 @@
 //
 // Auth: session-based, verified via requireHost.
 import { and, eq, isNull } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies, players, users } from "~/server/db/schema";
-import { requireHost } from "~/server/utils/session";
-import { generateBotName, getBotAvatarUrl } from "~/server/utils/botNames";
+import { useDb } from "~~/server/db/client";
+import { lobbies, players, users } from "~~/server/db/schema";
+import { requireHost } from "~~/server/utils/session";
+import { generateBotName, getBotAvatarUrl } from "~~/server/utils/botNames";
 
 const MAX_BOTS_PER_LOBBY = 5;
 

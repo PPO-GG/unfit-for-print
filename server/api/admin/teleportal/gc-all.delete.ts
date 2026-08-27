@@ -3,7 +3,7 @@
 // NOTE: The Teleportal server expects POST /gc for gc-all,
 // and DELETE /gc/:docId for single-lobby GC.
 
-import { requireAdmin } from "~/server/utils/session";
+import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);

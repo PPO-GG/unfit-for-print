@@ -4,9 +4,9 @@
 // /api/admin/lobby/update-status, which is admin-only.
 
 import { eq } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies } from "~/server/db/schema";
-import { requireHost } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { lobbies } from "~~/server/db/schema";
+import { requireHost } from "~~/server/utils/session";
 
 const ALLOWED_STATUSES = ["waiting", "playing", "complete"] as const;
 type LobbyStatus = (typeof ALLOWED_STATUSES)[number];

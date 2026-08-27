@@ -192,7 +192,36 @@ const isAdmin = useIsAdmin();
             </UCard>
           </NuxtLink>
 
-          <div class="space-y-6">
+          <!-- User Manager -->
+          <NuxtLink to="/admin/users" class="group block">
+            <UCard
+              class="h-fit border border-transparent group-hover:border-sky-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(14,165,233,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-sky-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-sky-600/30 transition-colors"
+                >
+                  <UIcon
+                    name="i-solar-users-group-rounded-bold-duotone"
+                    class="text-2xl text-sky-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-sky-300 transition-colors"
+                  >
+                    User Manager
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    View authenticated users, grant or revoke admin access,
+                    and remove accounts
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </NuxtLink>
+
+          <div class="space-y-6 md:col-span-2">
             <!-- Report Viewer -->
             <UCard
               class="h-fit outline-2 outline-dashed outline-gray-300/25 outline-offset-4"

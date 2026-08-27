@@ -33,6 +33,30 @@ const deleteUser = async (userId: string) => {
   }
 };
 
+const toggleAdmin = async (user: any) => {
+  const nextIsAdmin = !user.isAdmin;
+  const confirmed = await confirm({
+    title: nextIsAdmin ? "Grant Admin" : "Revoke Admin",
+    message: nextIsAdmin
+      ? `Make "${user.name || "Unnamed User"}" an admin?`
+      : `Remove admin access from "${user.name || "Unnamed User"}"?`,
+    confirmButtonText: nextIsAdmin ? "Grant" : "Revoke",
+    confirmButtonColor: nextIsAdmin ? "primary" : "error",
+  });
+  if (!confirmed) return;
+
+  try {
+    await $fetch("/api/admin/users/toggle-admin", {
+      navigate: false,
+      method: "POST",
+      body: { userId: user.id, isAdmin: nextIsAdmin },
+    });
+    user.isAdmin = nextIsAdmin;
+  } catch (err) {
+    console.error("Toggle admin request failed:", err);
+  }
+};
+
 onMounted(async () => {
   try {
     // Ensure user session is initialized before making admin API requests
@@ -110,11 +134,20 @@ onMounted(async () => {
               Created: {{ new Date(user.createdAt).toLocaleString() }}
             </p>
           </div>
-          <UButton
-            icon="i-solar-trash-bin-trash-bold-duotone"
-            color="error"
-            @click="deleteUser(user.id)"
-          />
+          <div class="flex items-center gap-1">
+            <UButton
+              :icon="user.isAdmin ? 'i-solar-shield-minus-bold-duotone' : 'i-solar-shield-plus-bold-duotone'"
+              :color="user.isAdmin ? 'neutral' : 'primary'"
+              :disabled="user.isAdmin && user.id === userStore.user?.id"
+              :title="user.isAdmin ? 'Revoke admin' : 'Grant admin'"
+              @click="toggleAdmin(user)"
+            />
+            <UButton
+              icon="i-solar-trash-bin-trash-bold-duotone"
+              color="error"
+              @click="deleteUser(user.id)"
+            />
+          </div>
         </div>
       </li>
     </ul>

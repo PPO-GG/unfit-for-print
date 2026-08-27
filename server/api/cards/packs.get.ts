@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { whiteCards, blackCards } from "~/server/db/schema";
+import { useDb } from "~~/server/db/client";
+import { whiteCards, blackCards } from "~~/server/db/schema";
 
 interface PackStat {
   pack: string;

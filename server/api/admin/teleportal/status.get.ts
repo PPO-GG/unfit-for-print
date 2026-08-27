@@ -4,9 +4,9 @@
 
 import { desc } from "drizzle-orm";
 import { createError } from "h3";
-import { useDb } from "~/server/db/client";
-import { lobbies } from "~/server/db/schema";
-import { requireAdmin } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { lobbies } from "~~/server/db/schema";
+import { requireAdmin } from "~~/server/utils/session";
 
 export interface UnifiedStatusResponse {
   server: {

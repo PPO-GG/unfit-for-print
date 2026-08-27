@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies } from "~/server/db/schema";
+import { useDb } from "~~/server/db/client";
+import { lobbies } from "~~/server/db/schema";
 
 export default defineEventHandler(async (event) => {
   const instanceId = getRouterParam(event, "instanceId");

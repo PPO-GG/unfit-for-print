@@ -1,7 +1,7 @@
 import { eq, and, ne, isNull, inArray } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies, players, users } from "~/server/db/schema";
-import { requireAuth } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { lobbies, players, users } from "~~/server/db/schema";
+import { requireAuth } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const userId = await requireAuth(event);

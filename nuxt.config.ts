@@ -29,9 +29,6 @@ export default defineNuxtConfig({
       // },
     },
   },
-  routeRules: {
-    "/": { prerender: true },
-  },
   vite: {
     optimizeDeps: {
       include: ["json-bigint"],
@@ -141,10 +138,10 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     // Server-only secrets
-    elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
-    discordClientSecret: process.env.DISCORD_CLIENT_SECRET,
-    discordPublicKey: process.env.DISCORD_PUBLIC_KEY,
-    discordApplicationId: process.env.DISCORD_APPLICATION_ID,
+    elevenlabsApiKey: process.env.NUXT_ELEVENLABS_API_KEY,
+    discordClientSecret: process.env.NUXT_DISCORD_CLIENT_SECRET,
+    discordPublicKey: process.env.NUXT_DISCORD_PUBLIC_KEY,
+    discordApplicationId: process.env.NUXT_DISCORD_APPLICATION_ID,
     sessionPassword: process.env.NUXT_SESSION_PASSWORD,
     activityTokenSecret: process.env.NUXT_ACTIVITY_TOKEN_SECRET,
     databaseUrl: process.env.DATABASE_URL,

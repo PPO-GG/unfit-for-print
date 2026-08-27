@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { users } from "~/server/db/schema";
+import { useDb } from "~~/server/db/client";
+import { users } from "~~/server/db/schema";
 
 const STATE_COOKIE = "discord_oauth_state";
 
@@ -21,9 +21,15 @@ export default defineEventHandler(async (event) => {
   setCookie(event, STATE_COOKIE, "", { path: "/", maxAge: 0 });
 
   if (query.error || !code) {
+    console.error(
+      `[discord-oauth] callback failed: error=${query.error} description=${query.error_description} hasCode=${!!code}`,
+    );
     return sendRedirect(event, `${baseUrl}/?error=oauth_failed`);
   }
   if (!state || !expectedState || state !== expectedState) {
+    console.error(
+      `[discord-oauth] state mismatch: hasStateCookie=${!!expectedState} stateParam=${!!state}`,
+    );
     return sendRedirect(event, `${baseUrl}/?error=oauth_state_mismatch`);
   }
 
@@ -42,6 +48,10 @@ export default defineEventHandler(async (event) => {
     }),
   });
   if (!tokenResponse.ok) {
+    const body = await tokenResponse.text();
+    console.error(
+      `[discord-oauth] token exchange failed: status=${tokenResponse.status} clientIdSet=${!!clientId} clientSecretSet=${!!clientSecret} body=${body}`,
+    );
     return sendRedirect(event, `${baseUrl}/?error=code_exchange_failed`);
   }
   const tokenData = await tokenResponse.json();

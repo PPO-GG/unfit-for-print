@@ -12,8 +12,8 @@
 // Missing or invalid IDs are silently omitted from the response.
 
 import { inArray } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { blackCards, whiteCards } from "~/server/db/schema";
+import { useDb } from "~~/server/db/client";
+import { blackCards, whiteCards } from "~~/server/db/schema";
 
 export default defineEventHandler(async (event) => {
   const { ids, type = "white" } = await readBody<{

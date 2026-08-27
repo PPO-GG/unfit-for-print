@@ -7,7 +7,7 @@
 // is a devDependency, run only via `pnpm migrate:appwrite`, and is never
 // part of the app build.
 import "dotenv/config";
-import { Client, Databases, Query } from "node-appwrite";
+import { Client, TablesDB, Query } from "node-appwrite";
 import { useDb } from "../server/db/client";
 import { whiteCards, blackCards, users } from "../server/db/schema";
 
@@ -47,26 +47,19 @@ const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)
   .setProject(APPWRITE_PROJECT_ID)
   .setKey(APPWRITE_API_KEY);
-const databases = new Databases(client);
+const tablesDb = new TablesDB(client);
 const db = useDb();
 
-async function fetchAllDocuments(databaseId: string, collectionId: string) {
+async function fetchAllDocuments(databaseId: string, tableId: string) {
   const all: any[] = [];
   let cursor: string | undefined;
   for (;;) {
     const queries = [Query.limit(100)];
     if (cursor) queries.push(Query.cursorAfter(cursor));
-    // NOTE: `Databases.listDocuments` (positional-args form) is marked
-    // @deprecated in the installed node-appwrite v28 SDK, in favor of
-    // `TablesDB.listRows` with an object-param call signature. It still works
-    // against the SDK as of this writing. If this call fails against the live
-    // `api.ppo.gg` instance with a "not found" or deprecated-endpoint error,
-    // the legacy Documents API has likely been retired server-side — switch
-    // to `TablesDB.listRows` (and the equivalent object-param style) as the fix.
-    const page = await databases.listDocuments(databaseId, collectionId, queries);
-    all.push(...page.documents);
-    if (page.documents.length < 100) break;
-    cursor = page.documents[page.documents.length - 1].$id;
+    const page = await tablesDb.listRows({ databaseId, tableId, queries });
+    all.push(...page.rows);
+    if (page.rows.length < 100) break;
+    cursor = page.rows[page.rows.length - 1].$id;
   }
   return all;
 }
@@ -113,11 +106,7 @@ async function migrateUsers() {
   for (;;) {
     const queries = [Query.limit(100)];
     if (cursor) queries.push(Query.cursorAfter(cursor));
-    // NOTE: `Users.list` (positional-args form) is also marked @deprecated in
-    // the installed node-appwrite v28 SDK, alongside `Databases.listDocuments`
-    // above — same caveat applies (works today, but check for a deprecated
-    // Users API surface if this fails against the live instance).
-    const page = await usersApi.list(queries);
+    const page = await usersApi.list({ queries });
     if (page.users.length === 0) break;
 
     for (const u of page.users) {

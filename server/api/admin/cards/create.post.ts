@@ -1,6 +1,6 @@
-import { useDb } from "~/server/db/client";
-import { cardTable } from "~/server/utils/cardTable";
-import { requireAdmin } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { cardTable } from "~~/server/utils/cardTable";
+import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);

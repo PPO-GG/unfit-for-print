@@ -2,7 +2,7 @@
 
 import { readBody, createError } from "h3";
 import Ajv from "ajv";
-import { requireAdmin } from "~/server/utils/session";
+import { requireAdmin } from "~~/server/utils/session";
 
 // JSON schema for validation
 const cardPackSchema = {

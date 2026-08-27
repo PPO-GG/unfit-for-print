@@ -1,13 +1,23 @@
 export default defineAppConfig({
   ui: {
     // ── Semantic color palette ────────────────────────────────────────────────
-    // primary  → indigo/violet (brand, main CTAs, active states)
-    // secondary → violet (complementary actions)
-    // warning  → amber (stand-out elements, host actions, emphasis)
-    // neutral  → slate (matches existing dark UI palette)
+    // "Party night" neon palette (Claude Design port), applied via Nuxt UI's
+    // built-in Tailwind color families so every existing button/badge across
+    // the site picks it up automatically:
+    // primary   → yellow  (signature accent, main CTAs)
+    // secondary → fuchsia (hot pink, complementary actions)
+    // success   → lime    (electric lime, positive/submitted states)
+    // info      → cyan    (informational actions)
+    // warning   → amber   (kept distinct from primary yellow)
+    // error     → red     (destructive/admin actions, unchanged)
+    // neutral   → slate   (unchanged — surfaces/borders)
     colors: {
-      primary: "violet",
-      secondary: "indigo",
+      primary: "yellow",
+      secondary: "fuchsia",
+      success: "lime",
+      info: "cyan",
+      warning: "amber",
+      error: "red",
       neutral: "slate",
     },
 

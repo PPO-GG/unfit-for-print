@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { decorations, userDecorations, users } from "~/server/db/schema";
+import { useDb } from "~~/server/db/client";
+import { decorations, userDecorations, users } from "~~/server/db/schema";
 import { verifyDiscordSignature } from "../../utils/discord-verify";
 
 export default defineEventHandler(async (event) => {

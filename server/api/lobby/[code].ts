@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies, players } from "~/server/db/schema";
+import { useDb } from "~~/server/db/client";
+import { lobbies, players } from "~~/server/db/schema";
 
 // Public, unauthenticated route — only expose fields the client actually
 // needs for the lobby-detail view / SEO metadata. Never leak

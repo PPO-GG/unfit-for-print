@@ -2,7 +2,7 @@
 // Proxies Teleportal DELETE /gc/:docId to force-remove a single lobby.
 
 import { readBody, createError } from "h3";
-import { requireAdmin } from "~/server/utils/session";
+import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);

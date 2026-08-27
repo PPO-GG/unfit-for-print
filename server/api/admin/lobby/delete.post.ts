@@ -6,9 +6,9 @@
 // same pattern).
 
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { useDb } from "~/server/db/client";
-import { lobbies, players, users } from "~/server/db/schema";
-import { requireAdmin } from "~/server/utils/session";
+import { useDb } from "~~/server/db/client";
+import { lobbies, players, users } from "~~/server/db/schema";
+import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);
