@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.14.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.13.0...v3.14.0) (2026-08-27)
+
+
+### ✨ Features
+
+* **admin:** delete vestigial Teams routes, strip Team UI from UserManager ([b8d0df9](https://github.com/PPO-GG/unfit-for-print/commit/b8d0df93070e50680a3c311f5d9507407f04769b))
+* **admin:** port admin users routes to Drizzle, fix mergeLobbies field names ([48fd91d](https://github.com/PPO-GG/unfit-for-print/commit/48fd91dd50325cd4c5bbd31d33fe006a8e33abd2))
+* **auth:** add guest session creation route ([e43378e](https://github.com/PPO-GG/unfit-for-print/commit/e43378e55c41793dfdde5bee975d7a69803637f3))
+* **auth:** add session-based requireAuth/requirePlayerInLobby/requireHost/requireAdmin ([8d28c5c](https://github.com/PPO-GG/unfit-for-print/commit/8d28c5cdf9f5e8853efff9b55855842fa0448d98))
+* **auth:** consolidate admin-check logic onto isAdmin column, neutral provider literal ([aed6534](https://github.com/PPO-GG/unfit-for-print/commit/aed6534264a1eff17741435272335ba796641e20))
+* **auth:** implement signed bearer tokens for Discord Activity sessions ([be9764c](https://github.com/PPO-GG/unfit-for-print/commit/be9764c354cc2df2ad2f0b42739597eb78866582))
+* **auth:** install nuxt-auth-utils and declare session shape ([ec075a0](https://github.com/PPO-GG/unfit-for-print/commit/ec075a011ac750e85f121ce58ad8f9bba214c628))
+* **auth:** port Discord OAuth to nuxt-auth-utils cookie sessions ([32d9eea](https://github.com/PPO-GG/unfit-for-print/commit/32d9eeaa795a73e898b8f3fcbac56486a290cc7f))
+* **auth:** port discord-activity route to Drizzle find-or-create + signed tokens ([7cb3ab3](https://github.com/PPO-GG/unfit-for-print/commit/7cb3ab3b6cb715d445e7bcacf1f669d613e8ba2a))
+* **auth:** replace Appwrite session bootstrap with shared activity bearer token ([d8a47a2](https://github.com/PPO-GG/unfit-for-print/commit/d8a47a2a84e8efddc7954662ccf0f33aeabafc03))
+* **auth:** rewrite userStore.ts on useUserSession, drop Appwrite prefs-blob handling ([5a87767](https://github.com/PPO-GG/unfit-for-print/commit/5a87767f8ed0ed81de8ba097191daf5131522044))
+* **auth:** simplify OAuth callback page, port public lobby list and ReportViewer to new API ([8ab7502](https://github.com/PPO-GG/unfit-for-print/commit/8ab750232eef33d2649667c2484ea36732aa74e0))
+* **cards:** add admin card CRUD API, port CardManager + admin cards pages ([fbc8ca8](https://github.com/PPO-GG/unfit-for-print/commit/fbc8ca8c3e602cf9630be634fac345f319c3af60))
+* **cards:** add consolidated pack-listing route, port GameSettings + LobbySettingsDrawer ([71a2b1b](https://github.com/PPO-GG/unfit-for-print/commit/71a2b1bc2be704e7869a74dec04c5051c5dac5d5))
+* **cards:** add random-card route, port useCards.ts off Appwrite offset-based sampling ([266490c](https://github.com/PPO-GG/unfit-for-print/commit/266490cb900e9d20f7b82f4da293c2f689a6e4fe))
+* **cards:** port resolve route and game-engine card lookups to Drizzle ([7566cb3](https://github.com/PPO-GG/unfit-for-print/commit/7566cb3218ebc9aeedbd133411a2a0f1fa735081))
+* **db:** add Postgres schema, Drizzle client, and local dev DB ([54af24a](https://github.com/PPO-GG/unfit-for-print/commit/54af24a2a294d7595c6251b7294f95c297fc4b59))
+* **decorations:** port decoration routes to Drizzle, collapse prefs blob to a direct column write ([636ec57](https://github.com/PPO-GG/unfit-for-print/commit/636ec57c57b25d3e205180c7c4b5b4b3528b1b03))
+* **game:** port start/draw-cards to Drizzle, fix start.post.ts to session-verified host check, add auth to draw-cards ([06fbecf](https://github.com/PPO-GG/unfit-for-print/commit/06fbecfe2008bf6f1017337a32722934a2bbdff6))
+* **hosting:** move Nuxt from Cloudflare Workers to Node/Docker ([3062169](https://github.com/PPO-GG/unfit-for-print/commit/30621697734c42efb688b7b1e5d87a5002a9d25d))
+* **lobby:** add lobby registry API routes ([1602539](https://github.com/PPO-GG/unfit-for-print/commit/1602539fdb56cc98ae0e63f8ad44bc5c640f3b63))
+* **lobby:** port lobby detail + admin lobby routes, fix lobbyName field bug, add host status-sync route ([8f2d36f](https://github.com/PPO-GG/unfit-for-print/commit/8f2d36fdaa7b3798b8ef975af608faa228ee6fb8))
+* **lobby:** port useJoinLobby.ts, wire guest session bootstrap ([5ed56c2](https://github.com/PPO-GG/unfit-for-print/commit/5ed56c2d8944bca1e03c81fa3fa79ab49600de39))
+* **lobby:** port useLobby.ts to the new lobby API ([f750ce7](https://github.com/PPO-GG/unfit-for-print/commit/f750ce771b1e2bf09d404bbe83b0d9521b3b3860))
+* **migration:** add one-shot Appwrite-to-Postgres migration script for cards and Discord-linked users ([8709ca6](https://github.com/PPO-GG/unfit-for-print/commit/8709ca69c9045154e7763619d26ad9fd1f470f8b))
+* **players:** add players API, port usePlayers.ts and useGetPlayerName.ts ([f6b80f7](https://github.com/PPO-GG/unfit-for-print/commit/f6b80f70143414f12c74708a10e274a651f930d6))
+* **reports:** add reports API, port ReportCard.vue and admin reports routes ([01e69fa](https://github.com/PPO-GG/unfit-for-print/commit/01e69fa2ad2de5ee0505e28af07da73f2a30b1c0))
+* **storage:** swap Appwrite Storage for R2 in decoration image upload/delete ([78960a0](https://github.com/PPO-GG/unfit-for-print/commit/78960a0bd33a0479f64fc5016973d14fe96cb8dc))
+* **submissions:** add submissions API, port labs.vue and CardSubmissionForm, remove dead Realtime subscription ([4f82738](https://github.com/PPO-GG/unfit-for-print/commit/4f8273831dc3189ce243c78ac2528f9da4bf85de))
+
+
+### 🐛 Bug Fixes
+
+* **activity:** preserve bearer identity on game mount ([f2b0c36](https://github.com/PPO-GG/unfit-for-print/commit/f2b0c36b042456e4a0825e19b38d4bc3e09c59c2))
+* **activity:** preserve bearer identity on lobby reconnect ([0f85810](https://github.com/PPO-GG/unfit-for-print/commit/0f8581060a2cca4708fb2ec2811a779245cf0a61))
+* **auth:** make Discord Activity user resolution atomic ([455d132](https://github.com/PPO-GG/unfit-for-print/commit/455d132288d079c0226eecf8ea9675e0ad48f5f9))
+* **auth:** preserve Activity identity and scope bearer headers ([94b5cef](https://github.com/PPO-GG/unfit-for-print/commit/94b5cefa2e6c66993d28d87c94ede914100b2b6e))
+* **auth:** reject malformed activity token segments ([50362c7](https://github.com/PPO-GG/unfit-for-print/commit/50362c7258f0a551330934e81c4d10c3fe24d959))
+* **auth:** restore logout redirect, correct misleading admin-auth comments ([af768e8](https://github.com/PPO-GG/unfit-for-print/commit/af768e83f6d42b178ce81dbf9af3c2d73d8bdc4d))
+* **cards:** resolve black cards via /api/cards/resolve type param ([a9b5d39](https://github.com/PPO-GG/unfit-for-print/commit/a9b5d3919dc453d3fc3627283dd1990cca63a8d1))
+* **decorations:** restore legacy DecorationCatalogEntry shape in catalog.get.ts ([a15e0c8](https://github.com/PPO-GG/unfit-for-print/commit/a15e0c8665d1acab550089d5ce58f9c0218ca1e1))
+* **deps:** resolve all 23 Dependabot alerts (1 critical, 12 high, 9 moderate, 1 low) ([7a93ee8](https://github.com/PPO-GG/unfit-for-print/commit/7a93ee89c7f4e5f4f3f63e918e71bc7a79972b60))
+* final whole-branch review findings — $id drift, production deploy gaps, security hardening ([e02fcee](https://github.com/PPO-GG/unfit-for-print/commit/e02fcee036ba46ddfddab0591eee56f94f204b10))
+* **game-settings:** correct USelectMenu binding for pack names ([94c039d](https://github.com/PPO-GG/unfit-for-print/commit/94c039d9477e7fe82c494912e46ce9f0c9e264a2))
+* **lobby:** always fetch the server player row in joinLobby() ([55f7b60](https://github.com/PPO-GG/unfit-for-print/commit/55f7b60660f9e830eaec966a9375f5aa14eb960e))
+* **lobby:** reject promote-host when newHostUserId isn't a lobby player ([85d8d5b](https://github.com/PPO-GG/unfit-for-print/commit/85d8d5b0221e2dc2a87c2a75510e6e3de5359316))
+* **migration:** validate required env vars and document deprecated Appwrite API surface ([5086955](https://github.com/PPO-GG/unfit-for-print/commit/50869559d8361c4ea00036279c12033a5a6ee64d))
+* **reports:** restore cardPack in enrichment and fix $id/$createdAt field mismatch in ReportViewer ([3400893](https://github.com/PPO-GG/unfit-for-print/commit/3400893be1625591f0c200a40313642bf443559e))
+* resolve Docker deploy env-var mismatches, Nuxt4 import aliases, land pending UI/admin work ([e32133b](https://github.com/PPO-GG/unfit-for-print/commit/e32133b4e694b79e6884f1987508b5629bfc1dd8))
+* restore assertAdmin auth, close bot users-row leak/hijack paths ([fe3d34e](https://github.com/PPO-GG/unfit-for-print/commit/fe3d34e3848a2f507dd235b7e000df4156c4d1fa))
+* **storage:** serve R2 decoration images via proxy route and unify admin guard ([e293eb5](https://github.com/PPO-GG/unfit-for-print/commit/e293eb5d1f10654d9551962d8834a29fe73eeadf))
+
 ## [3.13.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.12.0...v3.13.0) (2026-07-23)
 
 
