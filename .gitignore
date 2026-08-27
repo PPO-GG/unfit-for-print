@@ -25,7 +25,11 @@ logs
 !.env.example
 .vscode
 CLAUDE.md
-.claude/settings.local.json
+.claude/
 .worktrees
 .superpowers
 docs/
+
+# Local tooling/cache artifacts
+.handoff-tmp/
+.pnpm-store/
