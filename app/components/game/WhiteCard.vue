@@ -30,8 +30,16 @@
             <div class="card-content cursor-pointer">
               <div class="card-spine" />
               <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
-              <div ref="cardBodyEl" class="card-body">
-                <p ref="cardTextEl" lang="en" class="card-body-text text-pretty cursor-pointer">{{ cardText }}</p>
+              <img
+                v-if="resolvedImageUrl"
+                class="card-image"
+                :src="resolvedImageUrl"
+                :style="imageStyle"
+                alt=""
+                draggable="false"
+              />
+              <div v-else ref="cardBodyEl" class="card-body">
+                <p ref="cardTextEl" lang="en" class="card-body-text text-pretty cursor-pointer">{{ displayText }}</p>
               </div>
               <img
                 class="card-watermark"
@@ -48,7 +56,7 @@
                   :ui="{ content: 'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg' }"
                   arrow
                 >
-                  <span class="flex cursor-pointer">⋯</span>
+                  <Icon name="lucide:circle-help" class="flex cursor-pointer" />
                   <template #content>
                     <div class="flex-1 p-4">
                       <p class="text-md p-1">
@@ -130,6 +138,9 @@ defineOptions({
 
 import ReportCard from "~/components/ReportCard.vue";
 import { SFX } from "~/config/sfx.config";
+import type { CardAttachmentConfig } from "~/types/card";
+import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
+import { getCardImageUrl } from "~/utils/cardImage";
 
 // Define emits to fix the warning about extraneous non-emits event listeners
 defineEmits(["click"]);
@@ -164,15 +175,30 @@ const props = withDefaults(defineProps<{
   flat?: boolean;
   /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
   scale?: number;
+  /** Picture-card image URL. When set, renders full-bleed instead of text. */
+  imageUrl?: string;
+  attachment?: CardAttachmentConfig | null;
 }>(), {
   scale: 100,
 });
 
 const fallbackText = ref("");
+const fallbackImageUrl = ref<string | null>(null);
+const fallbackAttachment = ref<CardAttachmentConfig | null>(null);
 const cardText = computed(() => props.text || fallbackText.value);
+const displayText = computed(() =>
+  hyphenateCardText(glueOrphanPunctuation(cardText.value)),
+);
+const resolvedImageUrl = computed(() => props.imageUrl || fallbackImageUrl.value || null);
+const resolvedAttachment = computed(
+  () => props.attachment ?? fallbackAttachment.value ?? DEFAULT_CARD_ATTACHMENT,
+);
+const imageStyle = computed(() => ({
+  transform: `translate(${resolvedAttachment.value.offsetX * 100}%, ${resolvedAttachment.value.offsetY * 100}%) scale(${resolvedAttachment.value.scale})`,
+}));
 const cardBodyEl = ref<HTMLElement | null>(null);
 const cardTextEl = ref<HTMLElement | null>(null);
-useFitText(cardBodyEl, cardTextEl, cardText);
+useFitText(cardBodyEl, cardTextEl, displayText);
 const cardPack = ref(props.cardPack || null);
 
 // Watch for changes to the cardPack prop and update the ref
@@ -367,7 +393,7 @@ watch(
 );
 
 onMounted(async () => {
-  if (!props.text) {
+  if (!props.text && !props.imageUrl) {
     try {
       if (!props.cardId) {
         fallbackText.value = "CARD TEXT HERE";
@@ -382,12 +408,23 @@ onMounted(async () => {
       }
 
       try {
-        const [doc] = await $fetch<{ id: string; text: string; pack: string }[]>(
+        const [doc] = await $fetch<{
+          id: string;
+          text: string | null;
+          pack: string;
+          imageKey: string | null;
+          imageFormat: string | null;
+          attachment: CardAttachmentConfig | null;
+        }[]>(
           "/api/cards/resolve",
           { method: "POST", body: { ids: [props.cardId] } },
         );
 
-        if (doc && doc.text) {
+        if (doc && doc.imageKey) {
+          fallbackImageUrl.value = getCardImageUrl(doc.imageKey);
+          fallbackAttachment.value = doc.attachment;
+          cardPack.value = doc.pack || null;
+        } else if (doc && doc.text) {
           fallbackText.value = doc.text;
           cardPack.value = doc.pack || null;
         } else {
@@ -637,6 +674,17 @@ onMounted(async () => {
   -webkit-hyphens: auto;
   hyphens: auto;
   width: 100%;
+}
+
+.card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .card-watermark {

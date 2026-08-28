@@ -29,10 +29,16 @@ const expandedPack = ref<string | null>(null);
 const selectedPacks = ref<string[]>([]);
 const defaultPacks = ref<string[]>([]);
 const bulkActionLoading = ref(false);
+const packSearchTerm = ref("");
 
-const sortedPacks = computed(() =>
-  Object.values(packStats.value).sort((a, b) => a.name.localeCompare(b.name)),
-);
+const sortedPacks = computed(() => {
+  const packs = Object.values(packStats.value).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const term = packSearchTerm.value.trim().toLowerCase();
+  if (!term) return packs;
+  return packs.filter((p) => p.name.toLowerCase().includes(term));
+});
 
 // ── Card grid state ────────────────────────────────────────────────────────────
 const cards = ref<any[]>([]);
@@ -593,7 +599,7 @@ onMounted(async () => {
         <!-- ── Pack Sidebar ─────────────────────────────────────────────────── -->
         <div
           class="flex-shrink-0 transition-all duration-300"
-          :class="packSidebarOpen ? 'w-64' : 'w-10'"
+          :class="packSidebarOpen ? 'w-80' : 'w-10'"
         >
           <!-- Collapse toggle -->
           <div class="flex items-center justify-between mb-3">
@@ -615,6 +621,16 @@ onMounted(async () => {
               @click="packSidebarOpen = !packSidebarOpen"
             />
           </div>
+
+          <!-- Pack search -->
+          <UInput
+            v-if="packSidebarOpen"
+            v-model="packSearchTerm"
+            placeholder="Search packs..."
+            icon="i-solar-magnifer-broken"
+            size="sm"
+            class="w-full mb-2"
+          />
 
           <!-- Bulk-select action bar -->
           <div
@@ -707,7 +723,8 @@ onMounted(async () => {
 
                   <!-- Pack name -->
                   <span
-                    class="flex-1 truncate font-medium text-xs leading-tight"
+                    class="flex-1 min-w-0 line-clamp-2 break-words font-medium text-xs leading-tight"
+                    :title="pack.name"
                     >{{ pack.name }}</span
                   >
 

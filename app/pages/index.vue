@@ -137,11 +137,14 @@
             />
             <div
               v-else
-              class="flex items-center p-2 text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#1c2342] rounded-xl"
+              class="flex text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#0d0f1a] rounded-[14px] overflow-hidden"
             >
-              <div class="grid gap-2 w-full px-2">
-                <USkeleton class="h-3 w-[85%] bg-slate-600/50" />
-                <USkeleton class="h-3 w-[70%] bg-slate-600/50" />
+              <div class="w-[5%] shrink-0 bg-[#f5d442]" />
+              <div class="flex-1 flex items-center p-2">
+                <div class="grid gap-2 w-full px-2">
+                  <USkeleton class="h-3 w-[85%] bg-[#f6f3ea]/15" />
+                  <USkeleton class="h-3 w-[70%] bg-[#f6f3ea]/15" />
+                </div>
               </div>
             </div>
 
@@ -161,11 +164,14 @@
             />
             <div
               v-else
-              class="flex items-center p-2 text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#e7e1de] rounded-xl shadow-[inset_0_0_0_6px_theme(colors.stone.400/50)]"
+              class="flex text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#f6f3ea] rounded-[14px] overflow-hidden"
             >
-              <div class="grid gap-2 w-full px-2">
-                <USkeleton class="h-3 w-[85%] bg-stone-400/50" />
-                <USkeleton class="h-3 w-[70%] bg-stone-400/50" />
+              <div class="w-[5%] shrink-0 bg-[#c32c4c]" />
+              <div class="flex-1 flex items-center p-2">
+                <div class="grid gap-2 w-full px-2">
+                  <USkeleton class="h-3 w-[85%] bg-[#0d0f1a]/10" />
+                  <USkeleton class="h-3 w-[70%] bg-[#0d0f1a]/10" />
+                </div>
               </div>
             </div>
           </div>

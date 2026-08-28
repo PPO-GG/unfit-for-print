@@ -47,12 +47,12 @@ export function useFitText(
     return rem * parseFloat(getComputedStyle(document.documentElement).fontSize);
   }
 
-  // While measuring, force whole-word wrapping (no mid-word breaks, no
-  // hyphenation) so a font size only "fits" if every word wraps cleanly
-  // at that size. The CSS class's own `hyphens: auto` (with `overflow-wrap:
-  // break-word` as an ultimate fallback) stays in place for the rare word
-  // that's still too long to keep whole even at the minimum size — so the
-  // one break that does happen lands at a real syllable, not "characterist-ic".
+  // Disallow the raw "break anywhere" fallback while measuring, so a size
+  // only "fits" if normal wrapping - plus the real syllable breaks (soft
+  // hyphens from hyphenateCardText, capped at one per word) - is enough
+  // on its own. We deliberately never touch `hyphens` here: leaving it at
+  // its default (manual) means the search and the final render always
+  // agree on where the legitimate break points are.
   function fits(size: number): boolean {
     const containerEl = container.value;
     const textEl = text.value;
@@ -60,22 +60,27 @@ export function useFitText(
     textEl.style.fontSize = `${size}px`;
     textEl.style.overflowWrap = "normal";
     textEl.style.wordBreak = "normal";
-    textEl.style.hyphens = "none";
     return (
       textEl.scrollHeight <= containerEl.clientHeight + 0.5 &&
       textEl.scrollWidth <= containerEl.clientWidth + 0.5
     );
   }
 
-  function settle(size: number) {
+  // `allowRawBreak` restores `overflow-wrap: break-word` as a last-resort
+  // fallback only for the one case that actually needs it: a word whose
+  // single hyphenation point still isn't enough to fit at the minimum
+  // size. For every size the search itself found (the common case),
+  // fitting was already confirmed under these exact overflow-wrap:normal
+  // conditions, so leaving it at normal for the final render too avoids a
+  // browser quirk where re-enabling break-word can grab one extra
+  // character past the hyphen just to fill the line a little fuller.
+  function settle(size: number, allowRawBreak: boolean) {
     const textEl = text.value;
     if (!textEl) return;
     fontSize.value = size;
     textEl.style.fontSize = `${size}px`;
-    // Hand width control back to the stylesheet's hyphenate/break-word fallback.
-    textEl.style.removeProperty("overflow-wrap");
+    textEl.style.overflowWrap = allowRawBreak ? "break-word" : "normal";
     textEl.style.removeProperty("word-break");
-    textEl.style.removeProperty("hyphens");
   }
 
   function recalc() {
@@ -87,7 +92,7 @@ export function useFitText(
     const hi0 = Math.max(lo0, Math.min(containerEl.clientWidth * maxRatio, remToPx(maxRem)));
 
     if (!fits(lo0)) {
-      settle(lo0);
+      settle(lo0, true);
       return;
     }
 
@@ -102,7 +107,7 @@ export function useFitText(
       }
     }
 
-    settle(lo);
+    settle(lo, false);
   }
 
   // Debounced via a microtask (nextTick) rather than requestAnimationFrame:
@@ -132,7 +137,14 @@ export function useFitText(
     { immediate: true },
   );
 
-  onMounted(scheduleRecalc);
+  onMounted(() => {
+    scheduleRecalc();
+    // The custom card font can still be loading on first mount (font-display:
+    // swap renders a fallback font meanwhile). A fallback is usually narrower
+    // than the real face, so a size measured against it can turn out too big
+    // once the real font swaps in — re-measure once web fonts are ready.
+    document.fonts?.ready?.then(scheduleRecalc);
+  });
 
   onBeforeUnmount(() => {
     observer?.disconnect();

@@ -16,32 +16,36 @@
       />
     </div>
 
-    <!-- Card face -->
-    <div class="card-face">
-      <!-- Formatted text: replace _ placeholders for black cards -->
-      <p class="card-text" v-html="formattedText" />
+    <div class="card-spine" />
+    <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
 
-      <!-- Pick badge for black cards -->
-      <span v-if="isBlack && pick && pick > 1" class="pick-badge">
-        <UIcon name="i-solar-cards-bold-duotone" class="mr-0.5" />
-        {{ pick }}
-      </span>
+    <div ref="cardBodyEl" class="card-body">
+      <p ref="cardTextEl" lang="en" class="card-body-text" v-html="formattedText" />
+    </div>
+
+    <img
+      class="card-watermark"
+      src="/img/unfit_logo_alt.png"
+      alt=""
+      aria-hidden="true"
+      draggable="false"
+    />
+
+    <div class="card-footer">
+      <span class="card-footer-pack">{{ pack }}</span>
+      <span v-if="isBlack && pick && pick > 1" class="card-footer-pick">PICK {{ pick }}</span>
     </div>
 
     <!-- Hover action overlay -->
     <div class="action-overlay">
       <slot name="actions" />
     </div>
-
-    <!-- Bottom metadata strip -->
-    <div class="meta-strip">
-      <span class="meta-pack truncate max-w-[80%]">{{ pack }}</span>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import { useFitText } from "~/composables/useFitText";
 
 const props = defineProps<{
   text: string;
@@ -55,10 +59,18 @@ defineEmits(["click"]);
 
 const isBlack = computed(() => props.type === "black");
 
+const cardBodyEl = ref<HTMLElement | null>(null);
+const cardTextEl = ref<HTMLElement | null>(null);
+const cardText = computed(() => props.text);
+useFitText(cardBodyEl, cardTextEl, cardText, { maxRatio: 0.16, maxRem: 1.4 });
+
 const formattedText = computed(() => {
   if (!isBlack.value) return props.text;
   // Replace underscores with blank fill lines (matching the real BlackCard component)
-  return props.text.replace(/_/g, '<span class="blank-fill"></span>');
+  return props.text.replace(
+    /_/g,
+    '<span style="display:inline-block;width:38%;height:0.75em;vertical-align:-2px;border-bottom:2px solid rgba(255,255,255,.75);margin:0 4px;"></span>',
+  );
 });
 </script>
 
@@ -68,13 +80,12 @@ const formattedText = computed(() => {
   border-radius: 10px;
   cursor: pointer;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
   position: relative;
+  container-type: inline-size;
+  width: 100%;
   transition:
     transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 0.18s ease;
-  width: 100%;
 }
 
 .admin-card-preview:hover {
@@ -85,81 +96,135 @@ const formattedText = computed(() => {
 
 /* ── Black card ── */
 .card--black {
-  background-color: #1c2342;
-  color: white;
+  background-color: #0d0f1a;
+  color: #f6f3ea;
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card--black .card-spine {
+  background: #f5d442;
+}
+
+.card--black .card-spine-label {
+  color: #0d0f1a;
+}
+
+.card--black .card-body-text {
+  color: #f6f3ea;
+}
+
+.card--black .card-footer-pack {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* ── White card ── */
 .card--white {
-  background-color: #e7e1de;
-  color: #111;
+  background-color: #f6f3ea;
+  color: #0d0f1a;
   border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
-/* Inner inset border matching game cards */
-.card--black::before,
-.card--white::before {
-  content: "";
+.card--white .card-spine {
+  background: #c32c4c;
+}
+
+.card--white .card-spine-label {
+  color: #f6f3ea;
+}
+
+.card--white .card-body-text {
+  color: #0d0f1a;
+}
+
+.card--white .card-footer-pack {
+  color: rgba(13, 15, 26, 0.55);
+}
+
+/* ── Showbill V4 layout (mirrors BlackCard.vue / WhiteCard.vue) ── */
+.card-spine {
   position: absolute;
-  inset: 5px;
-  border-radius: 7px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5cqi;
   pointer-events: none;
-  z-index: 1;
 }
 
-.card--black::before {
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.3);
-}
-
-.card--white::before {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.15);
-}
-
-/* ── Card face ── */
-.card-face {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 10px 24px;
-  position: relative;
-  z-index: 2;
-}
-
-.card-text {
-  font-size: clamp(0.55rem, 2.8cqi, 1.3rem);
-  line-height: 1.3;
-  text-align: center;
-  font-weight: 600;
-  word-break: break-word;
-  hyphens: auto;
-}
-
-/* Blank underscore fill — inline element that mimics the fill line */
-:global(.blank-fill) {
-  display: inline-block;
-  width: 2.5em;
-  height: 0.85em;
-  vertical-align: middle;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.35);
-  margin: 0 2px;
-}
-
-/* Pick badge bottom-right */
-.pick-badge {
+.card-spine-label {
   position: absolute;
-  bottom: 6px;
-  right: 6px;
-  font-size: 0.6rem;
+  left: 2.5cqi;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: center;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 2.6cqi;
+  letter-spacing: 0.28em;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.card-body {
+  position: absolute;
+  left: 9cqi;
+  right: 9cqi;
+  top: 7cqi;
+  bottom: 22cqi;
   display: flex;
   align-items: center;
-  color: rgba(255, 255, 255, 0.45);
-  z-index: 3;
+  overflow: hidden;
+}
+
+.card-body-text {
+  font-family: "Archivo Black", sans-serif;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
+  margin: 0;
+  overflow-wrap: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  width: 100%;
+}
+
+.card-watermark {
+  position: absolute;
+  right: -6cqi;
+  bottom: -4cqi;
+  width: 62cqi;
+  height: auto;
+  opacity: 0.08;
+  pointer-events: none;
+  user-select: none;
+}
+
+.card-footer {
+  position: absolute;
+  left: 9cqi;
+  right: 6cqi;
+  bottom: 5cqi;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  pointer-events: none;
+}
+
+.card-footer-pack {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 2.6cqi;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70cqi;
+}
+
+.card-footer-pick {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 4.2cqi;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 
 /* ── Hover action overlay ── */
@@ -181,42 +246,5 @@ const formattedText = computed(() => {
 
 .admin-card-preview:hover .action-overlay {
   opacity: 1;
-}
-
-/* ── Bottom metadata strip ── */
-.meta-strip {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 3px 8px;
-  display: flex;
-  align-items: center;
-  z-index: 4;
-  pointer-events: none;
-}
-
-.card--black .meta-strip {
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 100%);
-}
-
-.card--white .meta-strip {
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.15) 0%, transparent 100%);
-}
-
-.meta-pack {
-  font-size: 0.5rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.55;
-}
-
-.card--black .meta-pack {
-  color: white;
-}
-
-.card--white .meta-pack {
-  color: #111;
 }
 </style>

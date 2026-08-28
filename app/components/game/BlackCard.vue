@@ -18,7 +18,15 @@
             <div class="card-content cursor-pointer">
               <div class="card-spine" />
               <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
-              <div ref="cardBodyEl" class="card-body">
+              <img
+                v-if="resolvedImageUrl"
+                class="card-image"
+                :src="resolvedImageUrl"
+                :style="imageStyle"
+                alt=""
+                draggable="false"
+              />
+              <div v-else ref="cardBodyEl" class="card-body">
                 <p ref="cardTextEl" lang="en" class="card-body-text text-pretty cursor-pointer" v-html="formattedCardText" />
               </div>
               <img
@@ -37,7 +45,7 @@
                   :ui="{ content: 'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg' }"
                   arrow
                 >
-                  <span class="flex cursor-pointer">⋯</span>
+                  <Icon name="lucide:circle-help" class="flex cursor-pointer" />
                   <template #content>
                     <div class="flex-1 p-4">
                       <p class="text-md p-1">
@@ -111,6 +119,9 @@ import { computed, onMounted, ref, watch } from "vue";
 import { debounce } from "lodash-es";
 import ReportCard from "~/components/ReportCard.vue";
 import { SFX } from "~/config/sfx.config";
+import type { CardAttachmentConfig } from "~/types/card";
+import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
+import { getCardImageUrl } from "~/utils/cardImage";
 
 // Define emits to fix the warning about extraneous non-emits event listeners
 defineEmits(["click"]);
@@ -137,6 +148,9 @@ const props = withDefaults(defineProps<{
   maskUrl?: string;
   /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
   scale?: number;
+  /** Picture-card image URL. When set, renders full-bleed instead of text. */
+  imageUrl?: string;
+  attachment?: CardAttachmentConfig | null;
 }>(), {
   scale: 100,
 });
@@ -158,18 +172,31 @@ const computedNumPick = computed(() => {
 });
 
 const fallbackText = ref("");
+const fallbackImageUrl = ref<string | null>(null);
+const fallbackAttachment = ref<CardAttachmentConfig | null>(null);
 
 const cardText = computed(() => props.text || fallbackText.value);
+const displayText = computed(() =>
+  hyphenateCardText(glueOrphanPunctuation(cardText.value)),
+);
 const cardBodyEl = ref<HTMLElement | null>(null);
 const cardTextEl = ref<HTMLElement | null>(null);
-useFitText(cardBodyEl, cardTextEl, cardText);
+useFitText(cardBodyEl, cardTextEl, displayText);
 
 const formattedCardText = computed(() => {
-  return cardText.value.replace(
+  return displayText.value.replace(
     /_/g,
     '<span style="display:inline-block;width:38%;height:0.75em;vertical-align:-2px;border-bottom:2px solid rgba(255,255,255,.75);margin:0 4px;"></span>',
   );
 });
+
+const resolvedImageUrl = computed(() => props.imageUrl || fallbackImageUrl.value || null);
+const resolvedAttachment = computed(
+  () => props.attachment ?? fallbackAttachment.value ?? DEFAULT_CARD_ATTACHMENT,
+);
+const imageStyle = computed(() => ({
+  transform: `translate(${resolvedAttachment.value.offsetX * 100}%, ${resolvedAttachment.value.offsetY * 100}%) scale(${resolvedAttachment.value.scale})`,
+}));
 
 const cardPack = ref(props.cardPack || null);
 
@@ -386,11 +413,19 @@ watch(
 );
 
 onMounted(async () => {
-  // Fetch card data only if text AND numPick are not provided, but cardId is.
-  if ((!props.text || props.numPick === undefined) && props.cardId) {
+  // Fetch card data only if text/image AND numPick are not provided, but cardId is.
+  if (((!props.text && !props.imageUrl) || props.numPick === undefined) && props.cardId) {
     try {
       const [doc] = await $fetch<
-        { id: string; text: string; pack: string; pick?: number }[]
+        {
+          id: string;
+          text: string | null;
+          pack: string;
+          pick?: number;
+          imageKey: string | null;
+          imageFormat: string | null;
+          attachment: CardAttachmentConfig | null;
+        }[]
       >("/api/cards/resolve", {
         method: "POST",
         body: { ids: [props.cardId], type: "black" },
@@ -398,8 +433,13 @@ onMounted(async () => {
       if (!doc) {
         throw new Error(`Card not found for ID ${props.cardId}`);
       }
-      if (!props.text) {
-        fallbackText.value = doc.text;
+      if (!props.text && !props.imageUrl) {
+        if (doc.imageKey) {
+          fallbackImageUrl.value = getCardImageUrl(doc.imageKey);
+          fallbackAttachment.value = doc.attachment;
+        } else {
+          fallbackText.value = doc.text || "";
+        }
       }
       if (!props.cardId) {
         fallbackText.value = "CARD TEXT HERE";
@@ -412,7 +452,7 @@ onMounted(async () => {
     } catch (error) {
       console.error(`Failed to fetch card data for ID ${props.cardId}:`, error);
       // Set sensible defaults on error if needed
-      if (!props.text) fallbackText.value = "Error loading text.";
+      if (!props.text && !props.imageUrl) fallbackText.value = "Error loading text.";
       if (props.numPick === undefined) fallbackNumPick.value = 1;
     }
   }
@@ -569,7 +609,7 @@ onMounted(async () => {
 
 .card-body {
   position: absolute;
-  left: 9cqi; right: 9cqi;
+  left: 7cqi; right: 7cqi;
   top: 7cqi; bottom: 22cqi;
   display: flex;
   align-items: center;
@@ -585,9 +625,18 @@ onMounted(async () => {
   color: #f6f3ea;
   margin: 0;
   overflow-wrap: break-word;
-  -webkit-hyphens: auto;
-  hyphens: auto;
   width: 100%;
+}
+
+.card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .card-watermark {
@@ -601,7 +650,7 @@ onMounted(async () => {
 
 .card-footer {
   position: absolute;
-  left: 9cqi; right: 6cqi; bottom: 5cqi;
+  left: 7cqi; right: 6cqi; bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -626,8 +675,8 @@ onMounted(async () => {
 
 .card-report-btn {
   position: absolute;
-  bottom: 4cqi;
-  left: 9cqi;
+  top: 1.2cqi;
+  left: 7cqi;
   font-size: 5.5cqi;
   opacity: 0.18;
   color: #f6f3ea;
@@ -642,7 +691,7 @@ onMounted(async () => {
 
 .card-back-logo-wrap {
   position: absolute;
-  left: 9cqi; right: 6cqi;
+  left: 7cqi; right: 6cqi;
   top: 10cqi; bottom: 14cqi;
   display: flex;
   align-items: center;
@@ -658,7 +707,7 @@ onMounted(async () => {
 
 .card-back-footer {
   position: absolute;
-  left: 9cqi; right: 6cqi; bottom: 5cqi;
+  left: 7cqi; right: 6cqi; bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: center;
