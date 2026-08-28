@@ -19,5 +19,15 @@ export const useCards = () => {
   const fetchRandomBlackCard = (pick: number = 1, cardPacks?: string[]) =>
     fetchRandomCard("black", pick, cardPacks);
 
-  return { fetchRandomCard, fetchRandomWhiteCard, fetchRandomBlackCard };
+  const fetchDefaultPacks = async (): Promise<string[]> => {
+    try {
+      const { packs } = await $fetch("/api/cards/default-packs");
+      return packs;
+    } catch (err) {
+      console.error("Failed to fetch default card packs:", err);
+      return [];
+    }
+  };
+
+  return { fetchRandomCard, fetchRandomWhiteCard, fetchRandomBlackCard, fetchDefaultPacks };
 };

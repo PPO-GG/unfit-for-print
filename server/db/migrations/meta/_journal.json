@@ -8,6 +8,13 @@
       "when": 1787686094929,
       "tag": "0000_lovely_sleeper",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787887499286,
+      "tag": "0001_daily_nightcrawler",
+      "breakpoints": true
     }
   ]
 }

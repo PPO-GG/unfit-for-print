@@ -6,6 +6,7 @@ import { useLobbyDoc } from "~/composables/useLobbyDoc";
 import { useLobbyMutations } from "~/composables/useLobbyMutations";
 import { useLobbyReactive } from "~/composables/useLobbyReactive";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
+import { useCards } from "~/composables/useCards";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 
@@ -124,6 +125,7 @@ export const useLobby = () => {
     const user = userStore.user;
     const avatarUrl = user?.avatarUrl ?? null;
     const activeDecoration = user?.activeDecoration || "";
+    const cardPacks = await useCards().fetchDefaultPacks();
 
     mutations.initializeLobby({
       code: lobby.code,
@@ -135,12 +137,7 @@ export const useLobby = () => {
         maxPoints: 10,
         cardsPerPlayer: 10,
         maxPick: 3,
-        cardPacks: [
-          "CAH Base Set",
-          "CAH: Blue Box Expansion",
-          "CAH: Green Box Expansion",
-          "CAH: Red Box Expansion",
-        ],
+        cardPacks,
         isPrivate: isPrivate || false,
         lobbyName: displayName,
         roundEndCountdownDuration: 5,

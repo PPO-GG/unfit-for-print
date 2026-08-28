@@ -77,6 +77,10 @@ export const blackCards = pgTable("black_cards", {
   timesPlayed: integer("times_played").notNull().default(0),
 });
 
+export const defaultCardPacks = pgTable("default_card_packs", {
+  pack: text("pack").primaryKey(),
+});
+
 export const submissions = pgTable("submissions", {
   id: uuid("id").primaryKey().defaultRandom(),
   submitterId: uuid("submitter_id")

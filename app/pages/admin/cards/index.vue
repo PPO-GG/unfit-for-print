@@ -26,6 +26,9 @@ const packStats = ref<Record<string, PackStat>>({});
 const loadingPacks = ref(false);
 const packSidebarOpen = ref(true);
 const expandedPack = ref<string | null>(null);
+const selectedPacks = ref<string[]>([]);
+const defaultPacks = ref<string[]>([]);
+const bulkActionLoading = ref(false);
 
 const sortedPacks = computed(() =>
   Object.values(packStats.value).sort((a, b) => a.name.localeCompare(b.name)),
@@ -219,6 +222,89 @@ const togglePackActive = async (pack: string, setActive: boolean) => {
   }
 };
 
+// Disables/enables a pack's white AND black cards together in one call —
+// the combined counterpart to togglePackActive (which is scoped to
+// whichever type is currently selected).
+const togglePackActiveAll = async (pack: string, setActive: boolean) => {
+  try {
+    await $activityFetch("/api/admin/cards/toggle-pack", {
+      method: "POST",
+      body: { pack, type: "all", active: setActive },
+    });
+    if (selectedPack.value === pack) {
+      cards.value.forEach((c) => {
+        if (c.pack === pack) c.active = setActive;
+      });
+    }
+    if (packStats.value[pack]) {
+      const s = packStats.value[pack];
+      s.black.active = setActive ? s.black.total : 0;
+      s.white.active = setActive ? s.white.total : 0;
+    }
+  } catch {
+    notify({
+      title: "Update Failed",
+      description: `Could not update pack "${pack}".`,
+      color: "error",
+    });
+  }
+};
+
+const togglePackSelection = (packName: string) => {
+  const idx = selectedPacks.value.indexOf(packName);
+  if (idx === -1) selectedPacks.value.push(packName);
+  else selectedPacks.value.splice(idx, 1);
+};
+
+const clearPackSelection = () => {
+  selectedPacks.value = [];
+};
+
+const bulkTogglePacks = async (setActive: boolean) => {
+  if (!selectedPacks.value.length) return;
+  bulkActionLoading.value = true;
+  try {
+    await Promise.all(selectedPacks.value.map((pack) => togglePackActiveAll(pack, setActive)));
+    notify({
+      title: `${selectedPacks.value.length} Pack${selectedPacks.value.length === 1 ? "" : "s"} ${setActive ? "Activated" : "Deactivated"}`,
+      color: "success",
+    });
+  } finally {
+    bulkActionLoading.value = false;
+  }
+};
+
+// ── Default packs (used to seed every new lobby's card-pack selection) ────────
+const loadDefaultPacks = async () => {
+  try {
+    const { packs } = await $activityFetch<{ packs: string[] }>(
+      "/api/admin/cards/default-packs",
+    );
+    defaultPacks.value = packs;
+  } catch (err) {
+    console.error("Failed to load default packs:", err);
+  }
+};
+
+const toggleDefaultPack = async (packName: string) => {
+  const isDefault = defaultPacks.value.includes(packName);
+  try {
+    await $activityFetch("/api/admin/cards/toggle-default-pack", {
+      method: "POST",
+      body: { pack: packName, isDefault: !isDefault },
+    });
+    defaultPacks.value = isDefault
+      ? defaultPacks.value.filter((p) => p !== packName)
+      : [...defaultPacks.value, packName];
+  } catch {
+    notify({
+      title: "Update Failed",
+      description: `Could not update default status for "${packName}".`,
+      color: "error",
+    });
+  }
+};
+
 const openEditModal = (card: any) => {
   editingCard.value = { ...card };
   showEditModal.value = true;
@@ -368,7 +454,7 @@ watchDebounced(
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  await loadPacks();
+  await Promise.all([loadPacks(), loadDefaultPacks()]);
   if (selectedPack.value || searchTerm.value) await fetchCards();
 });
 </script>
@@ -530,6 +616,42 @@ onMounted(async () => {
             />
           </div>
 
+          <!-- Bulk-select action bar -->
+          <div
+            v-if="packSidebarOpen && selectedPacks.length"
+            class="flex items-center gap-1.5 mb-2 p-1.5 rounded-lg bg-slate-800/80 border border-slate-600/40 flex-wrap"
+          >
+            <span class="text-xs text-slate-300 px-1">{{ selectedPacks.length }} selected</span>
+            <UButton
+              size="xs"
+              color="success"
+              variant="soft"
+              icon="i-solar-check-circle-bold-duotone"
+              :loading="bulkActionLoading"
+              @click="bulkTogglePacks(true)"
+            >
+              Activate
+            </UButton>
+            <UButton
+              size="xs"
+              color="error"
+              variant="soft"
+              icon="i-solar-close-circle-bold-duotone"
+              :loading="bulkActionLoading"
+              @click="bulkTogglePacks(false)"
+            >
+              Deactivate
+            </UButton>
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              @click="clearPackSelection"
+            >
+              Clear
+            </UButton>
+          </div>
+
           <!-- Pack list -->
           <div
             v-if="packSidebarOpen"
@@ -549,49 +671,114 @@ onMounted(async () => {
 
             <!-- Pack items with sub-menus -->
             <div v-for="pack in sortedPacks" :key="pack.name">
-              <!-- Pack header row (click to expand) -->
-              <button
-                class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors group/pack"
+              <!-- Pack header row -->
+              <div
+                class="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors group/pack"
                 :class="
                   expandedPack === pack.name
                     ? 'bg-slate-700/60 text-white border border-slate-600/40'
                     : 'text-slate-300 hover:bg-slate-700/50 border border-transparent'
                 "
-                @click="togglePackExpand(pack.name)"
               >
-                <!-- Two status dots: black + white -->
-                <span class="flex gap-0.5 flex-shrink-0">
-                  <span
-                    class="w-1.5 h-1.5 rounded-full"
-                    :class="typeStatDotClass(pack.black)"
-                  />
-                  <span
-                    class="w-1.5 h-1.5 rounded-full opacity-70"
-                    :class="typeStatDotClass(pack.white)"
-                  />
-                </span>
+                <!-- Bulk-select checkbox -->
+                <UCheckbox
+                  :model-value="selectedPacks.includes(pack.name)"
+                  size="sm"
+                  @update:model-value="togglePackSelection(pack.name)"
+                  @click.stop
+                />
 
-                <!-- Pack name -->
-                <span
-                  class="flex-1 truncate font-medium text-xs leading-tight"
-                  >{{ pack.name }}</span
+                <!-- Expand/collapse trigger -->
+                <button
+                  class="flex-1 flex items-center gap-2 min-w-0 text-left"
+                  @click="togglePackExpand(pack.name)"
                 >
+                  <!-- Two status dots: black + white -->
+                  <span class="flex gap-0.5 flex-shrink-0">
+                    <span
+                      class="w-1.5 h-1.5 rounded-full"
+                      :class="typeStatDotClass(pack.black)"
+                    />
+                    <span
+                      class="w-1.5 h-1.5 rounded-full opacity-70"
+                      :class="typeStatDotClass(pack.white)"
+                    />
+                  </span>
 
-                <!-- Combined total -->
-                <span class="text-xs text-slate-500 flex-shrink-0">{{
-                  pack.black.total + pack.white.total
-                }}</span>
+                  <!-- Pack name -->
+                  <span
+                    class="flex-1 truncate font-medium text-xs leading-tight"
+                    >{{ pack.name }}</span
+                  >
+
+                  <!-- Combined total -->
+                  <span class="text-xs text-slate-500 flex-shrink-0">{{
+                    pack.black.total + pack.white.total
+                  }}</span>
+                </button>
+
+                <!-- Default-pack star -->
+                <UTooltip
+                  :text="
+                    defaultPacks.includes(pack.name)
+                      ? 'Default for new games'
+                      : 'Set as default for new games'
+                  "
+                >
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    :color="defaultPacks.includes(pack.name) ? 'warning' : 'neutral'"
+                    :icon="
+                      defaultPacks.includes(pack.name)
+                        ? 'i-solar-star-bold-duotone'
+                        : 'i-solar-star-linear'
+                    "
+                    @click.stop="toggleDefaultPack(pack.name)"
+                  />
+                </UTooltip>
+
+                <!-- Combined activate/deactivate (both card types at once) -->
+                <div
+                  class="flex gap-0.5 opacity-0 group-hover/pack:opacity-100 transition-opacity flex-shrink-0"
+                >
+                  <UTooltip text="Activate entire pack (white + black)">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="success"
+                      icon="i-solar-check-circle-bold-duotone"
+                      :disabled="
+                        pack.black.active === pack.black.total &&
+                        pack.white.active === pack.white.total
+                      "
+                      @click.stop="togglePackActiveAll(pack.name, true)"
+                    />
+                  </UTooltip>
+                  <UTooltip text="Deactivate entire pack (white + black)">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="error"
+                      icon="i-solar-close-circle-bold-duotone"
+                      :disabled="pack.black.active === 0 && pack.white.active === 0"
+                      @click.stop="togglePackActiveAll(pack.name, false)"
+                    />
+                  </UTooltip>
+                </div>
 
                 <!-- Chevron -->
-                <UIcon
-                  :name="
-                    expandedPack === pack.name
-                      ? 'i-solar-alt-arrow-up-linear'
-                      : 'i-solar-alt-arrow-down-linear'
-                  "
-                  class="text-xs text-slate-500 flex-shrink-0"
-                />
-              </button>
+                <button @click="togglePackExpand(pack.name)">
+                  <UIcon
+                    :name="
+                      expandedPack === pack.name
+                        ? 'i-solar-alt-arrow-up-linear'
+                        : 'i-solar-alt-arrow-down-linear'
+                    "
+                    class="text-xs text-slate-500 flex-shrink-0"
+                  />
+                </button>
+              </div>
 
               <!-- Sub-items -->
               <div

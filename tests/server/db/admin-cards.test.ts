@@ -54,6 +54,22 @@ describe("admin cards CRUD", () => {
     expect(rows.every((r) => r.active === false)).toBe(true);
   });
 
+  it("toggles a pack's white and black cards together when type is 'all'", async () => {
+    await db.insert(whiteCards).values({ text: "w", pack: "Base", active: true });
+    await db.insert(blackCards).values({ text: "b?", pack: "Base", active: true, pick: 1 });
+    // Unrelated pack must be unaffected
+    await db.insert(whiteCards).values({ text: "other", pack: "Other", active: true });
+
+    const handler = (await import("~/server/api/admin/cards/toggle-pack.post")).default;
+    await handler(mockEvent({ pack: "Base", type: "all", active: false }));
+
+    const whiteRows = await db.select().from(whiteCards);
+    const blackRows = await db.select().from(blackCards);
+    expect(whiteRows.find((r) => r.pack === "Base")!.active).toBe(false);
+    expect(blackRows.find((r) => r.pack === "Base")!.active).toBe(false);
+    expect(whiteRows.find((r) => r.pack === "Other")!.active).toBe(true);
+  });
+
   it("edits card text and pick", async () => {
     const [card] = await db.insert(blackCards).values({ text: "old?", pick: 1 }).returning();
     const handler = (await import("~/server/api/admin/cards/edit.post")).default;

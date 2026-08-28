@@ -197,8 +197,11 @@ onMounted(async () => {
     const { white, black } = await $fetch("/api/cards/packs");
     const packSet = new Set<string>();
 
-    white.forEach(p => packSet.add(p.pack));
-    black.forEach(p => packSet.add(p.pack));
+    // Only offer packs that still have at least one active card of either
+    // type — a fully-disabled pack would otherwise sit in the picker and
+    // silently produce an empty draw pool.
+    white.forEach((p) => { if (p.active > 0) packSet.add(p.pack); });
+    black.forEach((p) => { if (p.active > 0) packSet.add(p.pack); });
 
     availablePacks.value = Array.from(packSet).sort();
   } catch {
