@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.15.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.14.0...v3.15.0) (2026-08-28)
+
+
+### ✨ Features
+
+* **admin:** combined pack disable, bulk pack selection, and default packs ([7bf7bca](https://github.com/PPO-GG/unfit-for-print/commit/7bf7bcac8113408a2271ffb0c21c5080635a9fb6))
+* **cards:** auto-fit black/white card text to the card face ([4b047ec](https://github.com/PPO-GG/unfit-for-print/commit/4b047ecddad0d74b811375a25335e68bdd1ba53b))
+
+
+### 🐛 Bug Fixes
+
+* **decorations:** persist attachment offset/scale config ([1b2bae1](https://github.com/PPO-GG/unfit-for-print/commit/1b2bae15d425885b4ef278d673fe53e35dda6706))
+* **tests:** refuse to run against the real database ([276cf2c](https://github.com/PPO-GG/unfit-for-print/commit/276cf2c9f1de34ebe4b87c43e16e5e144f3bc72c))
+
 ## [3.14.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.13.0...v3.14.0) (2026-08-27)
 
 
