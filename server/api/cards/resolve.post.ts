@@ -39,13 +39,23 @@ export default defineEventHandler(async (event) => {
         text: blackCards.text,
         pack: blackCards.pack,
         pick: blackCards.pick,
+        imageKey: blackCards.imageKey,
+        imageFormat: blackCards.imageFormat,
+        attachment: blackCards.attachment,
       })
       .from(blackCards)
       .where(inArray(blackCards.id, deduped));
   }
 
   return db
-    .select({ id: whiteCards.id, text: whiteCards.text, pack: whiteCards.pack })
+    .select({
+      id: whiteCards.id,
+      text: whiteCards.text,
+      pack: whiteCards.pack,
+      imageKey: whiteCards.imageKey,
+      imageFormat: whiteCards.imageFormat,
+      attachment: whiteCards.attachment,
+    })
     .from(whiteCards)
     .where(inArray(whiteCards.id, deduped));
 });
