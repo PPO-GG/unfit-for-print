@@ -30,8 +30,8 @@
             <div class="card-content cursor-pointer">
               <div class="card-spine" />
               <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
-              <div class="card-body">
-                <p class="card-body-text text-pretty cursor-pointer">{{ cardText }}</p>
+              <div ref="cardBodyEl" class="card-body">
+                <p ref="cardTextEl" lang="en" class="card-body-text text-pretty cursor-pointer">{{ cardText }}</p>
               </div>
               <img
                 class="card-watermark"
@@ -170,6 +170,9 @@ const props = withDefaults(defineProps<{
 
 const fallbackText = ref("");
 const cardText = computed(() => props.text || fallbackText.value);
+const cardBodyEl = ref<HTMLElement | null>(null);
+const cardTextEl = ref<HTMLElement | null>(null);
+useFitText(cardBodyEl, cardTextEl, cardText);
 const cardPack = ref(props.cardPack || null);
 
 // Watch for changes to the cardPack prop and update the ref
@@ -593,14 +596,14 @@ onMounted(async () => {
 .card-spine {
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 10cqi;
+  width: 5cqi;
   background: #c32c4c;
   pointer-events: none;
 }
 
 .card-spine-label {
   position: absolute;
-  left: 2cqi;
+  left: 2.5cqi;
   top: 50%;
   transform: translateY(-50%) rotate(-90deg);
   transform-origin: center;
@@ -615,10 +618,10 @@ onMounted(async () => {
 
 .card-body {
   position: absolute;
-  left: 14cqi; right: 6cqi;
+  left: 9cqi; right: 9cqi;
   top: 7cqi; bottom: 22cqi;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   overflow: hidden;
 }
 
@@ -631,7 +634,7 @@ onMounted(async () => {
   color: #0d0f1a;
   margin: 0;
   overflow-wrap: break-word;
-  word-break: break-word;
+  -webkit-hyphens: auto;
   hyphens: auto;
   width: 100%;
 }
@@ -647,7 +650,7 @@ onMounted(async () => {
 
 .card-footer {
   position: absolute;
-  left: 14cqi; right: 6cqi; bottom: 5cqi;
+  left: 9cqi; right: 6cqi; bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -665,7 +668,7 @@ onMounted(async () => {
 .card-report-btn {
   position: absolute;
   bottom: 4cqi;
-  left: 14cqi;
+  left: 9cqi;
   font-size: 5.5cqi;
   opacity: 0.18;
   color: #0d0f1a;
@@ -692,7 +695,7 @@ onMounted(async () => {
 
 .card-back-logo-wrap {
   position: absolute;
-  left: 14cqi; right: 6cqi;
+  left: 9cqi; right: 6cqi;
   top: 10cqi; bottom: 14cqi;
   display: flex;
   align-items: center;
@@ -708,7 +711,7 @@ onMounted(async () => {
 
 .card-back-footer {
   position: absolute;
-  left: 14cqi; right: 6cqi; bottom: 5cqi;
+  left: 9cqi; right: 6cqi; bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: center;
