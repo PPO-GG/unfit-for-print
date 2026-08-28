@@ -1,8 +1,6 @@
 services:
   teleportal:
-    build:
-      context: ./teleportal-server
-      dockerfile: Dockerfile
+    image: ghcr.io/ppo-gg/unfit-teleportal:latest
     container_name: unfit-teleportal
     ports:
       - "3000:3000"
@@ -30,9 +28,7 @@ services:
         ipv4_address: 10.1.0.225
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/ppo-gg/unfit-web:latest
     container_name: unfit-web
     restart: unless-stopped
     # depends_on:
