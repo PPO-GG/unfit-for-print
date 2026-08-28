@@ -3,9 +3,6 @@ import { useDb } from "~~/server/db/client";
 import { decorations } from "~~/server/db/schema";
 import { requireAdmin } from "~~/server/utils/session";
 
-// "attachment" is intentionally omitted: the Drizzle `decorations` schema
-// (Task 1) has no column for it, so attachment-positioning config from the
-// admin editor is accepted by the client but not persisted server-side.
 const ALLOWED_FIELDS = [
   "name",
   "description",
@@ -19,6 +16,7 @@ const ALLOWED_FIELDS = [
   "sortOrder",
   "imageFileId",
   "imageFormat",
+  "attachment",
 ] as const;
 
 export default defineEventHandler(async (event) => {
@@ -36,7 +34,10 @@ export default defineEventHandler(async (event) => {
     if (body[field] === undefined) continue;
     if (field === "imageFileId") data.imageKey = body[field];
     else if (field === "price") data.price = String(body[field]);
-    else data[field] = body[field];
+    else if (field === "attachment") {
+      data.attachment =
+        typeof body[field] === "string" ? JSON.parse(body[field]) : body[field];
+    } else data[field] = body[field];
   }
 
   if (Object.keys(data).length === 0) {

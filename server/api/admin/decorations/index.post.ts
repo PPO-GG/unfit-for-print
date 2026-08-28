@@ -26,6 +26,11 @@ export default defineEventHandler(async (event) => {
       sortOrder: body.sortOrder ?? 999,
       imageKey: body.imageFileId || null,
       imageFormat: body.imageFormat || null,
+      attachment: body.attachment
+        ? typeof body.attachment === "string"
+          ? JSON.parse(body.attachment)
+          : body.attachment
+        : null,
     })
     .returning();
 

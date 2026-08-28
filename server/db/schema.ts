@@ -1,6 +1,7 @@
 import {
   boolean,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -124,6 +125,7 @@ export const decorations = pgTable("decorations", {
   sortOrder: integer("sort_order").notNull().default(0),
   imageKey: text("image_key"),
   imageFormat: text("image_format"),
+  attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
 });
 
 export const userDecorations = pgTable(

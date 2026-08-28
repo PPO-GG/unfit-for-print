@@ -15,8 +15,9 @@ vi.mock("~/server/utils/session", async (importOriginal) => {
   };
 });
 
-function mockEvent(body?: unknown) {
+function mockEvent(body?: unknown, params: Record<string, string> = {}) {
   globalThis.readBody = async () => body;
+  globalThis.getRouterParam = (_e: unknown, name: string) => params[name];
   return {} as any;
 }
 
@@ -112,6 +113,72 @@ describe("decorations", () => {
     expect(typeof entry.price).toBe("number");
     expect(entry.category).toBe("custom");
     expect(entry.discordSkuId).toBe("sku_123");
+  });
+
+  it("admin create persists attachment config and catalog returns it", async () => {
+    const attachment = {
+      anchor: "top-center",
+      offsetX: 0.25,
+      offsetY: -0.1,
+      scale: 0.8,
+      speed: 1,
+      rotation: 15,
+      zLayer: "above",
+      clipped: false,
+    };
+
+    const createHandler = (await import("~/server/api/admin/decorations/index.post")).default;
+    const created = await createHandler(
+      mockEvent({
+        decorationId: "top-hat",
+        name: "Top Hat",
+        type: "attachment",
+        rarity: "common",
+        enabled: true,
+        imageFileId: "hat-image-key",
+        imageFormat: "png",
+        attachment: JSON.stringify(attachment),
+      }),
+    );
+    expect(created.$id).toBe("top-hat");
+
+    const catalogHandler = (await import("~/server/api/decorations/catalog.get")).default;
+    const catalog = await catalogHandler({} as any);
+    const entry = catalog.find((d) => d.decorationId === "top-hat");
+    expect(entry?.attachment).toEqual(attachment);
+  });
+
+  it("admin update persists a changed attachment config", async () => {
+    await db.insert(decorations).values({
+      id: "top-hat",
+      name: "Top Hat",
+      description: "",
+      type: "attachment",
+      rarity: "common",
+      enabled: true,
+      freeForAll: false,
+      imageKey: "hat-image-key",
+      imageFormat: "png",
+    });
+
+    const updated = {
+      anchor: "center",
+      offsetX: -0.5,
+      offsetY: 0.5,
+      scale: 1.2,
+      speed: 1,
+      rotation: -30,
+      zLayer: "below",
+      clipped: true,
+    };
+
+    const putHandler = (await import("~/server/api/admin/decorations/[id].put")).default;
+    await putHandler(mockEvent({ attachment: JSON.stringify(updated) }, { id: "top-hat" }));
+
+    const adminListHandler = (await import("~/server/api/admin/decorations/list.get")).default;
+    const list = await adminListHandler({} as any);
+    const entry = list.find((d) => d.decorationId === "top-hat");
+    expect(entry?.attachment).toEqual(updated);
   });
 
   it("catalog omits disabled decorations and defaults missing fields", async () => {

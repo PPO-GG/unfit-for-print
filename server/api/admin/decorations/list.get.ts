@@ -27,6 +27,6 @@ export default defineEventHandler(async (event) => {
     sortOrder: row.sortOrder,
     imageFileId: row.imageKey || null,
     imageFormat: row.imageFormat || null,
-    attachment: null,
+    attachment: row.attachment ?? null,
   }));
 });

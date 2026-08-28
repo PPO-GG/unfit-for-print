@@ -25,6 +25,6 @@ export default defineEventHandler(async () => {
     sortOrder: row.sortOrder,
     imageFileId: row.imageKey || null,
     imageFormat: row.imageFormat || null,
-    attachment: null, // no `attachment` column exists in the Task 1 schema — graceful degradation, matching admin list.get.ts's same shim
+    attachment: row.attachment ?? null,
   }));
 });

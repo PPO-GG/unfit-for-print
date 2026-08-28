@@ -1,0 +1,1 @@
+ALTER TABLE "decorations" ADD COLUMN "attachment" jsonb;
