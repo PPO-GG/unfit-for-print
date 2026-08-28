@@ -19,7 +19,15 @@
     <div class="card-spine" />
     <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
 
-    <div ref="cardBodyEl" class="card-body">
+    <img
+      v-if="imageUrl"
+      class="card-image"
+      :src="imageUrl"
+      :style="imageStyle"
+      alt=""
+      draggable="false"
+    />
+    <div v-else ref="cardBodyEl" class="card-body">
       <p ref="cardTextEl" lang="en" class="card-body-text" v-html="formattedText" />
     </div>
 
@@ -46,6 +54,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useFitText } from "~/composables/useFitText";
+import type { CardAttachmentConfig } from "~/types/card";
+import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
 
 const props = defineProps<{
   text: string;
@@ -53,6 +63,8 @@ const props = defineProps<{
   active?: boolean;
   type: "white" | "black";
   pick?: number;
+  imageUrl?: string;
+  attachment?: CardAttachmentConfig | null;
 }>();
 
 defineEmits(["click"]);
@@ -63,6 +75,11 @@ const cardBodyEl = ref<HTMLElement | null>(null);
 const cardTextEl = ref<HTMLElement | null>(null);
 const cardText = computed(() => props.text);
 useFitText(cardBodyEl, cardTextEl, cardText, { maxRatio: 0.16, maxRem: 1.4 });
+
+const imageStyle = computed(() => {
+  const a = props.attachment ?? DEFAULT_CARD_ATTACHMENT;
+  return { transform: `translate(${a.offsetX * 100}%, ${a.offsetY * 100}%) scale(${a.scale})` };
+});
 
 const formattedText = computed(() => {
   if (!isBlack.value) return props.text;
@@ -185,6 +202,14 @@ const formattedText = computed(() => {
   -webkit-hyphens: auto;
   hyphens: auto;
   width: 100%;
+}
+
+.card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .card-watermark {

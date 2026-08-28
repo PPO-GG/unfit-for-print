@@ -81,3 +81,44 @@ describe("AdminCardPreview.vue — Showbill V4 layout", () => {
     expect(wrapper.emitted("click")).toBeTruthy();
   });
 });
+
+describe("AdminCardPreview.vue — picture cards", () => {
+  it("renders a full-bleed image instead of text when imageUrl is set", () => {
+    const wrapper = mount(AdminCardPreview, {
+      props: {
+        text: "",
+        pack: "Memes Vol 1",
+        active: true,
+        type: "white",
+        imageUrl: "/api/cards/images/doge.webp",
+      },
+    });
+    expect(wrapper.find(".card-image").exists()).toBe(true);
+    expect(wrapper.find(".card-image").attributes("src")).toBe("/api/cards/images/doge.webp");
+    expect(wrapper.find(".card-body-text").exists()).toBe(false);
+  });
+
+  it("applies the attachment offset/scale to the image transform", () => {
+    const wrapper = mount(AdminCardPreview, {
+      props: {
+        text: "",
+        pack: "Memes Vol 1",
+        active: true,
+        type: "white",
+        imageUrl: "/api/cards/images/doge.webp",
+        attachment: { offsetX: 0.1, offsetY: -0.2, scale: 1.5 },
+      },
+    });
+    expect(wrapper.find(".card-image").attributes("style")).toContain(
+      "translate(10%, -20%) scale(1.5)",
+    );
+  });
+
+  it("still renders text mode unaffected when imageUrl is absent", () => {
+    const wrapper = mount(AdminCardPreview, {
+      props: { text: "Text card.", pack: "Base", active: true, type: "white" },
+    });
+    expect(wrapper.find(".card-body-text").exists()).toBe(true);
+    expect(wrapper.find(".card-image").exists()).toBe(false);
+  });
+});
