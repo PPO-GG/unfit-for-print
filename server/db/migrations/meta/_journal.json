@@ -22,6 +22,13 @@
       "when": 1787890210405,
       "tag": "0002_stormy_warstar",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787917297257,
+      "tag": "0003_plain_silhouette",
+      "breakpoints": true
     }
   ]
 }

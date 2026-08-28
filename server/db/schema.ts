@@ -62,20 +62,26 @@ export const players = pgTable("players", {
 
 export const whiteCards = pgTable("white_cards", {
   id: uuid("id").primaryKey().defaultRandom(),
-  text: text("text").notNull(),
+  text: text("text"),
   pack: text("pack"),
   active: boolean("active").notNull().default(true),
   timesPlayed: integer("times_played").notNull().default(0),
   timesWon: integer("times_won").notNull().default(0),
+  imageKey: text("image_key"),
+  imageFormat: text("image_format"),
+  attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
 });
 
 export const blackCards = pgTable("black_cards", {
   id: uuid("id").primaryKey().defaultRandom(),
-  text: text("text").notNull(),
+  text: text("text"),
   pack: text("pack"),
   active: boolean("active").notNull().default(true),
   pick: integer("pick").notNull().default(1),
   timesPlayed: integer("times_played").notNull().default(0),
+  imageKey: text("image_key"),
+  imageFormat: text("image_format"),
+  attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
 });
 
 export const defaultCardPacks = pgTable("default_card_packs", {
