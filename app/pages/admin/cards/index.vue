@@ -2,6 +2,7 @@
 import { useNotifications } from "~/composables/useNotifications";
 import { useCardSearch } from "~/composables/useCardSearch";
 import { watchDebounced } from "@vueuse/core";
+import { getCardImageUrl } from "~/utils/cardImage";
 
 definePageMeta({ middleware: "admin" });
 
@@ -84,24 +85,6 @@ const showEditModal = ref(false);
 const editingCard = ref<any>(null);
 
 const showAddModal = ref(false);
-const newCardText = ref("");
-const newCardPack = ref("");
-const newCardType = ref<"white" | "black">("white");
-const newCardPicks = ref(1);
-
-// Handler that receives the cardData emitted by AddModal
-const handleAddCard = async (cardData: {
-  text: string;
-  pack: string;
-  type: "white" | "black";
-  pick?: number;
-}) => {
-  newCardText.value = cardData.text;
-  newCardPack.value = cardData.pack;
-  newCardType.value = cardData.type;
-  newCardPicks.value = cardData.pick ?? 1;
-  await addSingleCard();
-};
 
 // ── Load packs ────────────────────────────────────────────────────────────────
 // Consolidated pack-stats route (Task 10) — one request covers both types.
@@ -318,22 +301,13 @@ const openEditModal = (card: any) => {
 
 const saveCardEdit = async (updateData: any) => {
   try {
-    const updated = await $activityFetch<{ id: string; text: string; pick?: number }>(
-      "/api/admin/cards/edit",
-      {
-        method: "POST",
-        body: {
-          id: updateData.id,
-          type: cardType.value,
-          text: updateData.text,
-          ...(updateData.pick ? { pick: updateData.pick } : {}),
-        },
-      },
-    );
+    const updated = await $activityFetch<any>("/api/admin/cards/edit", {
+      method: "POST",
+      body: updateData,
+    });
     const idx = cards.value.findIndex((c) => c.id === updated.id);
     if (idx !== -1) {
-      cards.value[idx].text = updated.text;
-      if (updated.pick) cards.value[idx].pick = updated.pick;
+      cards.value[idx] = { ...cards.value[idx], ...updated };
     }
     showEditModal.value = false;
     notify({ title: "Card Updated", color: "success" });
@@ -365,48 +339,35 @@ const deleteCard = async (card: any) => {
   }
 };
 
-const addSingleCard = async () => {
-  if (!newCardText.value.trim() || !newCardPack.value) return;
-
+const handleAddCard = async (payload: Record<string, unknown>) => {
   loadingCards.value = true;
   try {
-    const body: Record<string, unknown> = {
-      type: newCardType.value,
-      text: newCardText.value.trim(),
-      pack: newCardPack.value,
-    };
-    if (newCardType.value === "black") body.pick = newCardPicks.value;
-
     const newCard = await $activityFetch<any>("/api/admin/cards/create", {
       method: "POST",
-      body,
+      body: payload,
     });
 
-    // Add to grid if currently viewing this pack/type
+    const type = payload.type as "white" | "black";
     if (
-      cardType.value === newCardType.value &&
-      (!selectedPack.value || selectedPack.value === newCardPack.value)
+      cardType.value === type &&
+      (!selectedPack.value || selectedPack.value === payload.pack)
     ) {
       cards.value.unshift(newCard);
       totalCards.value++;
     }
 
-    // Update pack stats for the relevant type
-    const packName = newCardPack.value || "(no pack)";
-    if (!packStats.value[packName])
+    const packName = (payload.pack as string) || "(no pack)";
+    if (!packStats.value[packName]) {
       packStats.value[packName] = {
         name: packName,
         black: { total: 0, active: 0 },
         white: { total: 0, active: 0 },
       };
-    packStats.value[packName][newCardType.value].total++;
-    packStats.value[packName][newCardType.value].active++;
+    }
+    packStats.value[packName][type].total++;
+    packStats.value[packName][type].active++;
 
     showAddModal.value = false;
-    newCardText.value = "";
-    newCardPack.value = "";
-    newCardType.value = "white";
-    newCardPicks.value = 1;
     notify({
       title: "Card Added",
       description: `Added to pack "${newCard.pack}"`,
@@ -968,12 +929,14 @@ onMounted(async () => {
               <AdminCardPreview
                 v-for="card in visibleCards"
                 :key="card.id"
-                v-memo="[card.id, card.active, card.text, card.pick]"
+                v-memo="[card.id, card.active, card.text, card.pick, card.imageKey, card.attachment?.offsetX, card.attachment?.offsetY, card.attachment?.scale]"
                 :text="card.text"
                 :pack="card.pack"
                 :active="card.active"
                 :type="cardType"
                 :pick="card.pick"
+                :image-url="card.imageKey ? getCardImageUrl(card.imageKey) : undefined"
+                :attachment="card.attachment"
               >
                 <template #actions>
                   <!-- Active toggle -->
