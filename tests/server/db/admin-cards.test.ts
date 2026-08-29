@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users, whiteCards, blackCards, players } from "~/server/db/schema";
+import { users, whiteCards, blackCards, defaultCardPacks, players } from "~/server/db/schema";
 
 const db = useDb();
 let adminId: string;
@@ -13,6 +13,7 @@ vi.mock("~/server/utils/session", () => ({
 beforeEach(async () => {
   await db.delete(whiteCards);
   await db.delete(blackCards);
+  await db.delete(defaultCardPacks);
   await db.delete(players);
   await db.delete(users);
   const [admin] = await db.insert(users).values({ name: "Admin", isAdmin: true }).returning();
@@ -100,4 +101,62 @@ describe("admin cards CRUD", () => {
     expect(result).toHaveLength(1);
     expect(result[0].text).toBe("Apples");
   });
+
+  it("deletes an entire pack including white, black, and default pack entry", async () => {
+    await db.insert(whiteCards).values([
+      { text: "w1", pack: "Base" },
+      { text: "w2", pack: "Other" },
+    ]);
+    await db.insert(blackCards).values([
+      { text: "b1?", pack: "Base", pick: 1 },
+      { text: "b2?", pack: "Other", pick: 1 },
+    ]);
+    await db.insert(defaultCardPacks).values([
+      { pack: "Base" },
+      { pack: "Other" },
+    ]);
+
+    const handler = (await import("~/server/api/admin/cards/delete-pack.post")).default;
+    const result = await handler(mockEvent({ pack: "Base", type: "all" }));
+    expect(result.success).toBe(true);
+
+    const remainingWhite = await db.select().from(whiteCards);
+    const remainingBlack = await db.select().from(blackCards);
+    const remainingDefaults = await db.select().from(defaultCardPacks);
+
+    expect(remainingWhite).toHaveLength(1);
+    expect(remainingWhite[0].pack).toBe("Other");
+
+    expect(remainingBlack).toHaveLength(1);
+    expect(remainingBlack[0].pack).toBe("Other");
+
+    expect(remainingDefaults).toHaveLength(1);
+    expect(remainingDefaults[0].pack).toBe("Other");
+  });
+
+  it("deletes only a specific card type in a pack", async () => {
+    await db.insert(whiteCards).values([{ text: "w1", pack: "Base" }]);
+    await db.insert(blackCards).values([{ text: "b1?", pack: "Base", pick: 1 }]);
+    await db.insert(defaultCardPacks).values([{ pack: "Base" }]);
+
+    const handler = (await import("~/server/api/admin/cards/delete-pack.post")).default;
+    await handler(mockEvent({ pack: "Base", type: "white" }));
+
+    const remainingWhite = await db.select().from(whiteCards);
+    const remainingBlack = await db.select().from(blackCards);
+    const remainingDefaults = await db.select().from(defaultCardPacks);
+
+    expect(remainingWhite).toHaveLength(0);
+    expect(remainingBlack).toHaveLength(1);
+    // Base pack still has black cards, so defaultCardPacks remains
+    expect(remainingDefaults).toHaveLength(1);
+
+    // Now delete remaining black cards -> defaultCardPacks should also be cleaned up
+    await handler(mockEvent({ pack: "Base", type: "black" }));
+    const finalBlack = await db.select().from(blackCards);
+    const finalDefaults = await db.select().from(defaultCardPacks);
+    expect(finalBlack).toHaveLength(0);
+    expect(finalDefaults).toHaveLength(0);
+  });
 });
+

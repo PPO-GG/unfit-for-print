@@ -20,13 +20,18 @@ export default defineEventHandler(async () => {
     packStats(blackCards),
   ]);
 
-  const configuredNames = configured.length
-    ? configured.map((r) => r.pack)
-    : FALLBACK_DEFAULT_PACKS;
-
   const activePacks = new Set(
     [...white, ...black].filter((p) => p.active > 0).map((p) => p.pack),
   );
 
-  return { packs: configuredNames.filter((pack) => activePacks.has(pack)) };
+  if (configured.length > 0) {
+    return { packs: configured.map((r) => r.pack).filter((pack) => activePacks.has(pack)) };
+  }
+
+  const fallbackFiltered = FALLBACK_DEFAULT_PACKS.filter((pack) => activePacks.has(pack));
+  if (fallbackFiltered.length > 0) {
+    return { packs: fallbackFiltered };
+  }
+
+  return { packs: Array.from(activePacks).sort() };
 });

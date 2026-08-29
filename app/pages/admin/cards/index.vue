@@ -8,6 +8,7 @@ definePageMeta({ middleware: "admin" });
 
 const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
+const { confirm } = useConfirm();
 
 // ── Shared search state (persists across navigation) ──────────────────────────
 const { searchTerm, cardType, selectedPack } = useCardSearch();
@@ -129,29 +130,71 @@ const loadPacks = async () => {
   }
 };
 
+// ── In-Memory Query Cache ─────────────────────────────────────────────────────
+const cardListCache = new Map<string, any[]>();
+const isFetchingBackground = ref(false);
+
+function getCacheKey(
+  type: string,
+  pack?: string,
+  pick?: number,
+  search?: string,
+): string {
+  return `${type}::${pack || ""}::${pick || 0}::${search || ""}`;
+}
+
+function invalidateCardCache() {
+  cardListCache.clear();
+}
+
 // ── Fetch cards for selected pack / search ────────────────────────────────────
 const fetchCards = async () => {
-  loadingCards.value = true;
-  cards.value = [];
+  const queryType = cardType.value;
+  const queryPack = selectedPack.value;
+  const queryPick = cardType.value === "black" ? numPick.value : 0;
+  const querySearch = searchTerm.value;
+
+  const cacheKey = getCacheKey(queryType, queryPack, queryPick, querySearch);
+  const cached = cardListCache.get(cacheKey);
+
+  if (cached) {
+    cards.value = cached;
+    totalCards.value = cached.length;
+    currentPage.value = 1;
+    isFetchingBackground.value = true;
+  } else {
+    if (!cards.value.length) {
+      loadingCards.value = true;
+    } else {
+      isFetchingBackground.value = true;
+    }
+  }
 
   try {
-    const query: Record<string, string> = { type: cardType.value };
-    if (selectedPack.value) query.pack = selectedPack.value;
-    if (cardType.value === "black" && numPick.value > 0)
-      query.pick = String(numPick.value);
-    if (searchTerm.value) query.search = searchTerm.value;
+    const query: Record<string, string> = { type: queryType };
+    if (queryPack) query.pack = queryPack;
+    if (queryPick > 0) query.pick = String(queryPick);
+    if (querySearch) query.search = querySearch;
 
     const result = await $activityFetch<any[]>("/api/admin/cards/list", {
       query,
     });
 
-    cards.value = result;
-    totalCards.value = result.length;
-    currentPage.value = 1;
+    if (
+      cardType.value === queryType &&
+      selectedPack.value === queryPack &&
+      (cardType.value !== "black" || numPick.value === queryPick) &&
+      searchTerm.value === querySearch
+    ) {
+      cardListCache.set(cacheKey, result);
+      cards.value = result;
+      totalCards.value = result.length;
+    }
   } catch (err) {
     console.error("Failed to fetch cards:", err);
   } finally {
     loadingCards.value = false;
+    isFetchingBackground.value = false;
   }
 };
 
@@ -163,6 +206,7 @@ const toggleCardActive = async (card: any) => {
       { method: "POST", body: { id: card.id, type: cardType.value } },
     );
     card.active = updated.active;
+    invalidateCardCache();
     // Update pack stat for the currently loaded type
     const packName = card.pack || "(no pack)";
     const typeKey = cardType.value as "black" | "white";
@@ -188,6 +232,7 @@ const togglePackActive = async (pack: string, setActive: boolean) => {
       method: "POST",
       body: { pack, type: cardType.value, active: setActive },
     });
+    invalidateCardCache();
     packCards.forEach((c) => (c.active = setActive));
     if (packStats.value[pack]) {
       const typeKey = cardType.value as "black" | "white";
@@ -220,6 +265,7 @@ const togglePackActiveAll = async (pack: string, setActive: boolean) => {
       method: "POST",
       body: { pack, type: "all", active: setActive },
     });
+    invalidateCardCache();
     if (selectedPack.value === pack) {
       cards.value.forEach((c) => {
         if (c.pack === pack) c.active = setActive;
@@ -234,6 +280,96 @@ const togglePackActiveAll = async (pack: string, setActive: boolean) => {
     notify({
       title: "Update Failed",
       description: `Could not update pack "${pack}".`,
+      color: "error",
+    });
+  }
+};
+
+const deletePackAll = async (packName: string) => {
+  const s = packStats.value[packName];
+  const totalCardsInPack = s ? s.black.total + s.white.total : 0;
+  const confirmed = await confirm({
+    title: "Delete Pack",
+    message: `Are you sure you want to permanently delete "${packName}" (${totalCardsInPack} card${totalCardsInPack === 1 ? "" : "s"})? This cannot be undone.`,
+    confirmButtonText: "Delete Pack",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
+
+  try {
+    await $activityFetch("/api/admin/cards/delete-pack", {
+      method: "POST",
+      body: { pack: packName, type: "all" },
+    });
+
+    invalidateCardCache();
+    delete packStats.value[packName];
+    defaultPacks.value = defaultPacks.value.filter((p) => p !== packName);
+    selectedPacks.value = selectedPacks.value.filter((p) => p !== packName);
+
+    if (selectedPack.value === packName) {
+      selectedPack.value = undefined;
+      cards.value = [];
+      totalCards.value = 0;
+    }
+
+    notify({
+      title: "Pack Deleted",
+      description: `Pack "${packName}" and its ${totalCardsInPack} cards were deleted.`,
+      color: "success",
+    });
+  } catch {
+    notify({
+      title: "Delete Failed",
+      description: `Could not delete pack "${packName}".`,
+      color: "error",
+    });
+  }
+};
+
+const deletePackType = async (packName: string, type: "black" | "white") => {
+  const s = packStats.value[packName];
+  const typeCount = s ? s[type].total : 0;
+  const confirmed = await confirm({
+    title: `Delete ${type === "black" ? "Black" : "White"} Cards`,
+    message: `Are you sure you want to delete all ${typeCount} ${type} card${typeCount === 1 ? "" : "s"} in "${packName}"? This cannot be undone.`,
+    confirmButtonText: "Delete Cards",
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
+
+  try {
+    await $activityFetch("/api/admin/cards/delete-pack", {
+      method: "POST",
+      body: { pack: packName, type },
+    });
+
+    invalidateCardCache();
+    if (packStats.value[packName]) {
+      packStats.value[packName][type].total = 0;
+      packStats.value[packName][type].active = 0;
+      const updated = packStats.value[packName];
+      if (updated.black.total <= 0 && updated.white.total <= 0) {
+        delete packStats.value[packName];
+        defaultPacks.value = defaultPacks.value.filter((p) => p !== packName);
+        selectedPacks.value = selectedPacks.value.filter((p) => p !== packName);
+      }
+    }
+
+    if (selectedPack.value === packName && cardType.value === type) {
+      cards.value = [];
+      totalCards.value = 0;
+    }
+
+    notify({
+      title: `${type === "black" ? "Black" : "White"} Cards Deleted`,
+      description: `Deleted ${typeCount} ${type} card${typeCount === 1 ? "" : "s"} in "${packName}".`,
+      color: "success",
+    });
+  } catch {
+    notify({
+      title: "Delete Failed",
+      description: `Could not delete ${type} cards in "${packName}".`,
       color: "error",
     });
   }
@@ -257,6 +393,63 @@ const bulkTogglePacks = async (setActive: boolean) => {
     notify({
       title: `${selectedPacks.value.length} Pack${selectedPacks.value.length === 1 ? "" : "s"} ${setActive ? "Activated" : "Deactivated"}`,
       color: "success",
+    });
+  } finally {
+    bulkActionLoading.value = false;
+  }
+};
+
+const bulkDeletePacks = async () => {
+  if (!selectedPacks.value.length) return;
+  const count = selectedPacks.value.length;
+  let totalCardsCount = 0;
+  for (const p of selectedPacks.value) {
+    const s = packStats.value[p];
+    if (s) totalCardsCount += s.black.total + s.white.total;
+  }
+
+  const confirmed = await confirm({
+    title: `Delete ${count} Pack${count === 1 ? "" : "s"}`,
+    message: `Are you sure you want to delete ${count} selected pack${count === 1 ? "" : "s"} (${totalCardsCount} total cards)? This cannot be undone.`,
+    confirmButtonText: `Delete ${count} Pack${count === 1 ? "" : "s"}`,
+    confirmButtonColor: "error",
+  });
+  if (!confirmed) return;
+
+  bulkActionLoading.value = true;
+  try {
+    const packsToDelete = [...selectedPacks.value];
+    await Promise.all(
+      packsToDelete.map((pack) =>
+        $activityFetch("/api/admin/cards/delete-pack", {
+          method: "POST",
+          body: { pack, type: "all" },
+        }),
+      ),
+    );
+
+    invalidateCardCache();
+    for (const pack of packsToDelete) {
+      delete packStats.value[pack];
+      defaultPacks.value = defaultPacks.value.filter((p) => p !== pack);
+    }
+    if (selectedPack.value && packsToDelete.includes(selectedPack.value)) {
+      selectedPack.value = undefined;
+      cards.value = [];
+      totalCards.value = 0;
+    }
+    selectedPacks.value = [];
+
+    notify({
+      title: `${count} Pack${count === 1 ? "" : "s"} Deleted`,
+      description: `Deleted ${count} pack${count === 1 ? "" : "s"} (${totalCardsCount} cards).`,
+      color: "success",
+    });
+  } catch {
+    notify({
+      title: "Delete Failed",
+      description: "Could not delete selected packs.",
+      color: "error",
     });
   } finally {
     bulkActionLoading.value = false;
@@ -305,6 +498,7 @@ const saveCardEdit = async (updateData: any) => {
       method: "POST",
       body: updateData,
     });
+    invalidateCardCache();
     const idx = cards.value.findIndex((c) => c.id === updated.id);
     if (idx !== -1) {
       cards.value[idx] = { ...cards.value[idx], ...updated };
@@ -322,6 +516,7 @@ const deleteCard = async (card: any) => {
       method: "POST",
       body: { id: card.id, type: cardType.value },
     });
+    invalidateCardCache();
     cards.value = cards.value.filter((c) => c.id !== card.id);
     totalCards.value--;
     const packName = card.pack || "(no pack)";
@@ -347,6 +542,7 @@ const handleAddCard = async (payload: Record<string, unknown>) => {
       body: payload,
     });
 
+    invalidateCardCache();
     const type = payload.type as "white" | "black";
     if (
       cardType.value === type &&
@@ -383,6 +579,23 @@ const handleAddCard = async (payload: Record<string, unknown>) => {
 // ── Pack sidebar helpers ──────────────────────────────────────────────────────
 const togglePackExpand = (packName: string) => {
   expandedPack.value = expandedPack.value === packName ? null : packName;
+};
+
+const selectPack = (packName: string) => {
+  if (selectedPack.value === packName) {
+    togglePackExpand(packName);
+    return;
+  }
+  expandedPack.value = packName;
+  const stats = packStats.value[packName];
+  if (stats) {
+    if (cardType.value === "black" && stats.black.total === 0 && stats.white.total > 0) {
+      cardType.value = "white";
+    } else if (cardType.value === "white" && stats.white.total === 0 && stats.black.total > 0) {
+      cardType.value = "black";
+    }
+  }
+  selectedPack.value = packName;
 };
 
 const selectPackType = (packName: string, type: "black" | "white") => {
@@ -549,10 +762,15 @@ onMounted(async () => {
           Clear pack filter
         </UButton>
 
-        <!-- Card count -->
-        <span class="ml-auto text-xs text-slate-400 whitespace-nowrap">
-          {{ totalCards.toLocaleString() }} cards loaded
-        </span>
+        <!-- Card count & background fetch indicator -->
+        <div class="ml-auto flex items-center gap-2 text-xs text-slate-400 whitespace-nowrap">
+          <UIcon
+            v-if="isFetchingBackground || loadingCards"
+            name="i-solar-refresh-circle-bold-duotone"
+            class="animate-spin text-sm text-primary-400"
+          />
+          <span>{{ totalCards.toLocaleString() }} cards loaded</span>
+        </div>
       </div>
 
       <!-- ── Main Layout ─────────────────────────────────────────────────────── -->
@@ -621,6 +839,16 @@ onMounted(async () => {
             </UButton>
             <UButton
               size="xs"
+              color="error"
+              variant="soft"
+              icon="i-solar-trash-bin-trash-bold-duotone"
+              :loading="bulkActionLoading"
+              @click="bulkDeletePacks"
+            >
+              Delete
+            </UButton>
+            <UButton
+              size="xs"
               color="neutral"
               variant="ghost"
               @click="clearPackSelection"
@@ -652,9 +880,11 @@ onMounted(async () => {
               <div
                 class="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors group/pack"
                 :class="
-                  expandedPack === pack.name
-                    ? 'bg-slate-700/60 text-white border border-slate-600/40'
-                    : 'text-slate-300 hover:bg-slate-700/50 border border-transparent'
+                  selectedPack === pack.name
+                    ? 'bg-slate-700/80 text-white border border-primary-500/50 shadow-sm'
+                    : expandedPack === pack.name
+                      ? 'bg-slate-700/50 text-white border border-slate-600/40'
+                      : 'text-slate-300 hover:bg-slate-700/40 border border-transparent'
                 "
               >
                 <!-- Bulk-select checkbox -->
@@ -665,10 +895,10 @@ onMounted(async () => {
                   @click.stop
                 />
 
-                <!-- Expand/collapse trigger -->
+                <!-- Select pack and expand trigger -->
                 <button
                   class="flex-1 flex items-center gap-2 min-w-0 text-left"
-                  @click="togglePackExpand(pack.name)"
+                  @click="selectPack(pack.name)"
                 >
                   <!-- Two status dots: black + white -->
                   <span class="flex gap-0.5 flex-shrink-0">
@@ -716,7 +946,7 @@ onMounted(async () => {
                   />
                 </UTooltip>
 
-                <!-- Combined activate/deactivate (both card types at once) -->
+                <!-- Combined activate/deactivate/delete (both card types at once) -->
                 <div
                   class="flex gap-0.5 opacity-0 group-hover/pack:opacity-100 transition-opacity flex-shrink-0"
                 >
@@ -743,10 +973,19 @@ onMounted(async () => {
                       @click.stop="togglePackActiveAll(pack.name, false)"
                     />
                   </UTooltip>
+                  <UTooltip text="Delete entire pack">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="error"
+                      icon="i-solar-trash-bin-trash-bold-duotone"
+                      @click.stop="deletePackAll(pack.name)"
+                    />
+                  </UTooltip>
                 </div>
 
                 <!-- Chevron -->
-                <button @click="togglePackExpand(pack.name)">
+                <button @click.stop="togglePackExpand(pack.name)">
                   <UIcon
                     :name="
                       expandedPack === pack.name
@@ -807,6 +1046,16 @@ onMounted(async () => {
                         @click.stop="togglePackActive(pack.name, false)"
                       />
                     </UTooltip>
+                    <UTooltip text="Delete all black cards in this pack">
+                      <UButton
+                        size="xs"
+                        variant="ghost"
+                        color="error"
+                        icon="i-solar-trash-bin-trash-bold-duotone"
+                        :disabled="pack.black.total === 0"
+                        @click.stop="deletePackType(pack.name, 'black')"
+                      />
+                    </UTooltip>
                   </div>
                 </button>
 
@@ -854,6 +1103,16 @@ onMounted(async () => {
                         @click.stop="togglePackActive(pack.name, false)"
                       />
                     </UTooltip>
+                    <UTooltip text="Delete all white cards in this pack">
+                      <UButton
+                        size="xs"
+                        variant="ghost"
+                        color="error"
+                        icon="i-solar-trash-bin-trash-bold-duotone"
+                        :disabled="pack.white.total === 0"
+                        @click.stop="deletePackType(pack.name, 'white')"
+                      />
+                    </UTooltip>
                   </div>
                 </button>
               </div>
@@ -871,9 +1130,9 @@ onMounted(async () => {
 
         <!-- ── Card Grid ───────────────────────────────────────────────────── -->
         <div class="flex-1 min-w-0">
-          <!-- Loading grid skeleton -->
+          <!-- Loading grid skeleton (only when no cards exist) -->
           <div
-            v-if="loadingCards || isPageTransitioning"
+            v-if="loadingCards && !cards.length"
             class="grid gap-3"
             style="grid-template-columns: repeat(auto-fill, minmax(120px, 1fr))"
           >
@@ -889,7 +1148,7 @@ onMounted(async () => {
 
           <!-- Empty — no pack/search selected -->
           <div
-            v-else-if="!cards.length && !selectedPack && !searchTerm"
+            v-else-if="!cards.length && !selectedPack && !searchTerm && !loadingCards"
             class="flex flex-col items-center justify-center py-24 text-center"
           >
             <UIcon
@@ -906,7 +1165,7 @@ onMounted(async () => {
 
           <!-- Empty — search/filter yielded no results -->
           <div
-            v-else-if="!cards.length"
+            v-else-if="!cards.length && !loadingCards"
             class="flex flex-col items-center justify-center py-24 text-center"
           >
             <UIcon
@@ -921,7 +1180,12 @@ onMounted(async () => {
           <!-- Card grid -->
           <template v-else>
             <div
-              class="grid gap-3"
+              class="grid gap-3 transition-opacity duration-150"
+              :class="
+                isFetchingBackground || isPageTransitioning
+                  ? 'opacity-50 pointer-events-none'
+                  : 'opacity-100'
+              "
               style="
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
               "

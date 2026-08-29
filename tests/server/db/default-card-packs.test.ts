@@ -63,6 +63,19 @@ describe("GET /api/cards/default-packs", () => {
       "CAH: Red Box Expansion",
     ]);
   });
+
+  it("falls back to all active packs when none are configured and built-ins are absent", async () => {
+    await db.insert(whiteCards).values([
+      { text: "x", pack: "Custom Pack 1", active: true },
+      { text: "y", pack: "Custom Pack 2", active: true },
+      { text: "z", pack: "Disabled Custom", active: false },
+    ]);
+
+    const handler = (await import("~/server/api/cards/default-packs.get")).default;
+    const result = await handler({} as any);
+
+    expect(result.packs.sort()).toEqual(["Custom Pack 1", "Custom Pack 2"]);
+  });
 });
 
 describe("GET /api/admin/cards/default-packs", () => {
