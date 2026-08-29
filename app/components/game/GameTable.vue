@@ -1021,8 +1021,14 @@ function handleCardSubmit(cardIds: string[]) {
 
   if (tpl) {
     const rect = tpl.getBoundingClientRect();
-    cardWidth = rect.width;
-    cardHeight = rect.height;
+    if (rect.width > 0 && rect.height > 0) {
+      cardWidth = rect.width;
+      cardHeight = rect.height;
+    } else {
+      const vw12 = window.innerWidth * 0.12;
+      cardWidth = Math.max(96, Math.min(288, vw12));
+      cardHeight = cardWidth * (4 / 3);
+    }
   } else {
     const vw12 = window.innerWidth * 0.12;
     cardWidth = Math.max(96, Math.min(288, vw12));
@@ -1047,12 +1053,17 @@ function handleCardSubmit(cardIds: string[]) {
     let ghost: HTMLElement;
     if (tpl) {
       ghost = tpl.cloneNode(true) as HTMLElement;
-      ghost.className = "";
-      ghost.style.cssText = `
-        position: fixed; left: 0; top: 0;
-        width: ${cardWidth}px; height: ${cardHeight}px;
-        pointer-events: none; z-index: ${9999 - i}; opacity: 1;
-      `;
+      // Retain container classes (card-scaler) so container queries (cqi)
+      // evaluate against card dimensions rather than the full viewport.
+      ghost.className = tpl.className;
+      ghost.style.position = "fixed";
+      ghost.style.left = "0";
+      ghost.style.top = "0";
+      ghost.style.width = `${cardWidth}px`;
+      ghost.style.height = `${cardHeight}px`;
+      ghost.style.pointerEvents = "none";
+      ghost.style.zIndex = `${9999 - i}`;
+      ghost.style.opacity = "1";
     } else {
       ghost = document.createElement("div");
       ghost.style.cssText = `

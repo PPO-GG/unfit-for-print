@@ -209,9 +209,18 @@ const fallbackText = ref("");
 const fallbackImageUrl = ref<string | null>(null);
 const fallbackAttachment = ref<CardAttachmentConfig | null>(null);
 const cardText = computed(() => props.text || fallbackText.value);
-const displayText = computed(() =>
+const normalDisplayText = computed(() =>
   hyphenateCardText(glueOrphanPunctuation(cardText.value)),
 );
+const hasEmergencyBreaks = ref(false);
+const displayText = computed(() =>
+  hasEmergencyBreaks.value
+    ? emergencyHyphenateCardText(normalDisplayText.value)
+    : normalDisplayText.value,
+);
+watch(normalDisplayText, () => {
+  hasEmergencyBreaks.value = false;
+});
 const resolvedImageUrl = computed(
   () => props.imageUrl || fallbackImageUrl.value || null,
 );
@@ -223,7 +232,13 @@ const imageStyle = computed(() => ({
 }));
 const cardBodyEl = ref<HTMLElement | null>(null);
 const cardTextEl = ref<HTMLElement | null>(null);
-useFitText(cardBodyEl, cardTextEl, displayText);
+useFitText(cardBodyEl, cardTextEl, displayText, {
+  onEmergencyBreaks: () => {
+    if (hasEmergencyBreaks.value) return false;
+    hasEmergencyBreaks.value = true;
+    return true;
+  },
+});
 const cardPack = ref(props.cardPack || null);
 
 // Watch for changes to the cardPack prop and update the ref
@@ -738,11 +753,11 @@ onMounted(async () => {
 
 .card-watermark {
   position: absolute;
-  right: -6cqi;
+  right: 0cqi;
   bottom: -4cqi;
   width: 62cqi;
   height: auto;
-  opacity: 0.09;
+  opacity: 0.07;
   pointer-events: none;
   user-select: none;
 }

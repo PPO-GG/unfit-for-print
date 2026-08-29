@@ -38,6 +38,14 @@ function keepOneBreak(word: string): string {
 }
 
 /**
+ * Leaves ordinary card copy untouched. Text fitting always tries this
+ * whole-word form first, so normal cards never display hyphenated words.
+ */
+export function hyphenateCardText(text: string): string {
+  return text;
+}
+
+/**
  * Inserts a single soft hyphen (U+00AD) at the most balanced English
  * syllable boundary in each long word, using Liang's hyphenation
  * algorithm with TeX pattern data - not the browser's native
@@ -46,6 +54,6 @@ function keepOneBreak(word: string): string {
  * back to a raw character-chop. Soft hyphens are invisible unless a
  * break actually lands on one.
  */
-export function hyphenateCardText(text: string): string {
+export function emergencyHyphenateCardText(text: string): string {
   return hyphenateSync(text).replace(WORD_WITH_BREAKS, keepOneBreak);
 }

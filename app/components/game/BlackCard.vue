@@ -200,12 +200,27 @@ const fallbackImageUrl = ref<string | null>(null);
 const fallbackAttachment = ref<CardAttachmentConfig | null>(null);
 
 const cardText = computed(() => props.text || fallbackText.value);
-const displayText = computed(() =>
+const normalDisplayText = computed(() =>
   hyphenateCardText(glueOrphanPunctuation(cardText.value)),
 );
+const hasEmergencyBreaks = ref(false);
+const displayText = computed(() =>
+  hasEmergencyBreaks.value
+    ? emergencyHyphenateCardText(normalDisplayText.value)
+    : normalDisplayText.value,
+);
+watch(normalDisplayText, () => {
+  hasEmergencyBreaks.value = false;
+});
 const cardBodyEl = ref<HTMLElement | null>(null);
 const cardTextEl = ref<HTMLElement | null>(null);
-useFitText(cardBodyEl, cardTextEl, displayText);
+useFitText(cardBodyEl, cardTextEl, displayText, {
+  onEmergencyBreaks: () => {
+    if (hasEmergencyBreaks.value) return false;
+    hasEmergencyBreaks.value = true;
+    return true;
+  },
+});
 
 const formattedCardText = computed(() => {
   return displayText.value.replace(
@@ -694,7 +709,7 @@ onMounted(async () => {
 
 .card-watermark {
   position: absolute;
-  right: -6cqi;
+  right: 0cqi;
   bottom: -4cqi;
   width: 62cqi;
   height: auto;

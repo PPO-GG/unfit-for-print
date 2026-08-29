@@ -26,7 +26,13 @@ export interface FitTextOptions {
   /** Absolute min/max font size in rem, regardless of container size. */
   minRem?: number;
   maxRem?: number;
+  /** Enable a single intentional word break when no whole-word layout fits. */
+  onEmergencyBreaks?: () => boolean;
 }
+
+// Bounded module-level cache for fitted font sizes to avoid repeated forced layout reflows
+const fitTextCache = new Map<string, { size: number; allowRawBreak: boolean }>();
+const MAX_CACHE_SIZE = 1000;
 
 export function useFitText(
   container: Ref<HTMLElement | null>,
@@ -88,10 +94,29 @@ export function useFitText(
     const textEl = text.value;
     if (!containerEl || !textEl || !containerEl.clientWidth) return;
 
+    const widthRounded = Math.round(containerEl.clientWidth);
+    const heightRounded = Math.round(containerEl.clientHeight);
+    const cacheKey = `${content.value}::${widthRounded}x${heightRounded}::${minRatio}:${maxRatio}:${minRem}:${maxRem}`;
+
+    const cached = fitTextCache.get(cacheKey);
+    if (cached) {
+      settle(cached.size, cached.allowRawBreak);
+      return;
+    }
+
     const lo0 = Math.max(containerEl.clientWidth * minRatio, remToPx(minRem));
     const hi0 = Math.max(lo0, Math.min(containerEl.clientWidth * maxRatio, remToPx(maxRem)));
 
     if (!fits(lo0)) {
+      if (options.onEmergencyBreaks?.()) {
+        scheduleRecalc();
+        return;
+      }
+      if (fitTextCache.size >= MAX_CACHE_SIZE) {
+        const firstKey = fitTextCache.keys().next().value;
+        if (firstKey) fitTextCache.delete(firstKey);
+      }
+      fitTextCache.set(cacheKey, { size: lo0, allowRawBreak: true });
       settle(lo0, true);
       return;
     }
@@ -107,6 +132,11 @@ export function useFitText(
       }
     }
 
+    if (fitTextCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = fitTextCache.keys().next().value;
+      if (firstKey) fitTextCache.delete(firstKey);
+    }
+    fitTextCache.set(cacheKey, { size: lo, allowRawBreak: false });
     settle(lo, false);
   }
 
