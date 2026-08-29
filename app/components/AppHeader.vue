@@ -153,7 +153,7 @@ const isAdmin = useIsAdmin();
       icon="i-solar-alt-arrow-left-bold-duotone"
       size="xl"
       variant="subtle"
-      @click="router.back()"
+      @click="router.push(getBreadcrumbBackPath(route.path))"
     />
 
     <!-- Mobile Menu Button -->

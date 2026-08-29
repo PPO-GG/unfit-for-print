@@ -26,8 +26,13 @@
       >
         {{ label }}
       </div>
+      <p v-if="description" class="menu-tile__description">
+        {{ description }}
+      </p>
       <slot name="extra" />
     </div>
+
+    <kbd v-if="shortcut" class="menu-tile__shortcut">{{ shortcut }}</kbd>
   </component>
 </template>
 
@@ -38,12 +43,22 @@ const props = withDefaults(
   defineProps<{
     label: string;
     icon: string;
-    accent?: "primary" | "secondary" | "info" | "success" | "dark" | "discord";
+    accent?:
+      | "primary"
+      | "secondary"
+      | "info"
+      | "success"
+      | "warning"
+      | "dark"
+      | "discord"
+      | "error";
     featured?: boolean;
     to?: string;
     loading?: boolean;
     disabled?: boolean;
     badge?: string;
+    description?: string;
+    shortcut?: string;
   }>(),
   {
     accent: "dark",
@@ -64,8 +79,11 @@ const accentClasses: Record<string, string> = {
   secondary: "bg-secondary-400 text-slate-950 hover:bg-secondary-300",
   info: "bg-info-400 text-slate-950 hover:bg-info-300",
   success: "bg-success-400 text-slate-950 hover:bg-success-300",
+  warning: "bg-warning-400 text-slate-950 hover:bg-warning-300",
   dark: "bg-slate-900/70 text-slate-100 outline-1 outline-slate-700/50 hover:bg-slate-900",
-  discord: "bg-slate-900/70 text-slate-100 outline-1 outline-slate-700/50 hover:bg-slate-900",
+  discord:
+    "bg-slate-900/70 text-slate-100 outline-1 outline-slate-700/50 hover:bg-slate-900",
+  error: "bg-red-400 text-slate-950 hover:bg-red-300",
 };
 
 const iconWrapClasses: Record<string, string> = {
@@ -73,8 +91,10 @@ const iconWrapClasses: Record<string, string> = {
   secondary: "bg-slate-950/10 text-slate-950",
   info: "bg-slate-950/10 text-slate-950",
   success: "bg-slate-950/10 text-slate-950",
+  warning: "bg-slate-950/10 text-slate-950",
   dark: "bg-white/5 text-slate-100 outline-1 outline-slate-700/50",
   discord: "bg-white/5 text-[#5865f2] outline-1 outline-slate-700/50",
+  error: "bg-slate-950/10 text-slate-950",
 };
 
 function onClick(e: MouseEvent) {
@@ -136,5 +156,38 @@ function onClick(e: MouseEvent) {
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.15);
+}
+
+.menu-tile__description {
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.menu-tile__shortcut {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
+  border: 1px solid currentColor;
+  border-radius: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+.menu-tile--featured .menu-tile__shortcut {
+  right: 1.25rem;
+  bottom: 1.375rem;
 }
 </style>

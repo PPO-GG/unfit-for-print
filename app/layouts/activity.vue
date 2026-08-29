@@ -9,7 +9,7 @@
       icon="i-solar-alt-arrow-left-bold-duotone"
       size="xl"
       variant="subtle"
-      @click="router.back()"
+      @click="router.push(getBreadcrumbBackPath(route.path))"
     />
 
     <main class="relative z-10 min-h-screen flex flex-col p-4">
@@ -20,4 +20,5 @@
 
 <script lang="ts" setup>
 const router = useRouter();
+const route = useRoute();
 </script>

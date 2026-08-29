@@ -215,8 +215,10 @@
               v-if="!isDiscordActivity"
               featured
               accent="primary"
-              icon="i-solar-add-square-bold-duotone"
+              icon="i-lucide-gamepad-2"
               :label="t('nav.creategame')"
+              description="Start a fresh lobby"
+              shortcut="N"
               :loading="isCreating"
               :disabled="!isAuthenticatedUser(userStore.user)"
               class="col-span-6 sm:col-span-3 sm:row-span-2"
@@ -226,8 +228,10 @@
             <MenuTile
               v-if="!isDiscordActivity"
               accent="secondary"
-              icon="i-solar-hand-shake-line-duotone"
+              icon="i-lucide-user-round-plus"
               :label="t('nav.joingame')"
+              description="Enter a lobby code"
+              shortcut="J"
               :loading="isJoining"
               class="col-span-6 sm:col-span-3"
               @click="checkForActiveLobbyAndJoin"
@@ -246,33 +250,42 @@
             <MenuTile
               v-if="!isDiscordActivity"
               accent="info"
-              icon="i-solar-gamepad-bold-duotone"
+              icon="i-lucide-gamepad-2"
               :label="t('nav.games')"
+              description="Resume or browse games"
+              shortcut="G"
               to="/game"
               class="col-span-6 sm:col-span-3"
             />
 
             <MenuTile
               accent="success"
-              icon="i-solar-test-tube-bold-duotone"
+              icon="i-lucide-dna"
               :label="t('nav.labs')"
+              badge="Beta"
+              description="Explore experimental decks"
+              shortcut="L"
               to="/labs"
               class="col-span-6 sm:col-span-3"
             />
 
             <MenuTile
-              accent="secondary"
-              icon="i-solar-book-2-bold-duotone"
+              accent="warning"
+              icon="i-lucide-circle-question-mark"
               :label="t('nav.howtoplay')"
+              description="Learn the rules"
+              shortcut="?"
               to="/about"
               class="col-span-6 sm:col-span-3"
             />
 
             <MenuTile
               v-if="isAdmin"
-              accent="dark"
-              icon="i-solar-shield-star-bold-duotone"
+              accent="error"
+              icon="i-lucide-shield-cog-corner"
               :label="t('nav.admin')"
+              description="Use with caution"
+              shortcut="A"
               to="/admin"
               class="col-span-6 sm:col-span-3"
             />
@@ -406,6 +419,20 @@ const {
   handleJoined,
 } = useLobbyActions();
 
+const handleMenuHotkey = createMenuHotkeyHandler({
+  create: () => void checkForActiveLobbyAndCreate(),
+  join: () => void checkForActiveLobbyAndJoin(),
+  games: () => void router.push("/game"),
+  labs: () => void router.push("/labs"),
+  howToPlay: () => void router.push("/about"),
+  canCreate: () =>
+    !isDiscordActivity.value &&
+    isAuthenticatedUser(userStore.user) &&
+    !isCreating.value,
+  canJoin: () => !isDiscordActivity.value && !isJoining.value,
+  isJoinOpen: () => showJoin.value,
+});
+
 // Safety net: if OAuth redirect (with secret & userId) accidentally lands
 // on the root page instead of /auth/callback (e.g. due to service worker
 // interception), forward to the correct callback handler.
@@ -507,6 +534,11 @@ const fetchNewCards = async () => {
 
 onMounted(() => {
   fetchNewCards();
+  window.addEventListener("keydown", handleMenuHotkey);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleMenuHotkey);
 });
 </script>
 
