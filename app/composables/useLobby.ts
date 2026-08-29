@@ -141,6 +141,7 @@ export const useLobby = () => {
         isPrivate: isPrivate || false,
         lobbyName: displayName,
         roundEndCountdownDuration: 5,
+        password: _password || undefined,
       },
     });
 

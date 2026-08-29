@@ -11,7 +11,7 @@
       </div>
       <div class="lobby-table-headline">
         GATHER<br />
-        <span style="color: var(--lb-accent)">THE DEGENERATES</span>
+        <span style="color: var(--lb-accent)">YOUR FRIENDS</span>
       </div>
       <div class="lobby-table-sub">
         Round 01 starts when all players are ready
@@ -21,9 +21,9 @@
     <!-- Seats -->
     <LobbySeat
       v-for="(seat, i) in seats"
-      :key="seat?.$id ?? 'empty-' + i"
-      :player="seat"
-      :position-style="seatPositions[i]"
+      :key="seat.player?.$id ?? 'empty-' + i"
+      :player="seat.player"
+      :position-style="seat.positionStyle"
       :is-host-user="isHostUser"
       @add-bot="$emit('add-bot')"
     />
@@ -41,25 +41,22 @@ const props = defineProps<{
 
 defineEmits<{ (e: "add-bot"): void }>();
 
-// Build seat slots: all real players first, then empty slots up to maxSeats.
-// If players somehow exceed maxSeats, show everyone — no one gets dropped.
-const seats = computed<(Player | null)[]>(() => {
+// Build seat slots with trigonometric positions:
+// Real players first, then empty slots up to maxSeats.
+// If players exceed maxSeats, all are displayed with even spacing.
+const seats = computed(() => {
   const filled = props.players.length;
   const total = Math.max(filled, props.maxSeats);
-  return Array.from({ length: total }, (_, i) => props.players[i] ?? null);
-});
-
-// Trigonometric seat positions — one per actual seat slot so spacing
-// stays even regardless of how many players are present.
-const seatPositions = computed(() => {
-  const total = seats.value.length;
   return Array.from({ length: total }, (_, i) => {
     const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
     const rx = 42; // oval x-radius %
     const ry = 36; // oval y-radius %
     return {
-      left: `${50 + Math.cos(angle) * rx}%`,
-      top: `${50 + Math.sin(angle) * ry}%`,
+      player: props.players[i] ?? null,
+      positionStyle: {
+        left: `${50 + Math.cos(angle) * rx}%`,
+        top: `${50 + Math.sin(angle) * ry}%`,
+      },
     };
   });
 });
@@ -101,7 +98,7 @@ const seatPositions = computed(() => {
 }
 
 .lobby-table-headline {
-  font-family: 'Archivo Black', sans-serif;
+  font-family: "Archivo Black", sans-serif;
   font-size: clamp(28px, 4vw, 52px);
   line-height: 0.88;
   letter-spacing: -0.01em;
@@ -109,7 +106,7 @@ const seatPositions = computed(() => {
 }
 
 .lobby-table-sub {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.15em;

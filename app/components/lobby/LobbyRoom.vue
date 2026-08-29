@@ -84,18 +84,19 @@ defineEmits<{ (e: "leave"): void }>();
 
 const userStore = useUserStore();
 const { startGame, reactive, mutations } = useLobby();
+
+const isHost = computed(
+  () => reactive.isHost.value || props.lobby.hostUserId === userStore.user?.id,
+);
+
 const { addBot } = useBots(
   computed(() => props.lobby),
   computed(() => props.players),
-  computed(() => props.lobby.hostUserId === userStore.user?.id),
+  isHost,
 );
 
 const settingsOpen = ref(false);
 const isStarting = ref(false);
-
-const isHost = computed(
-  () => props.lobby.hostUserId === userStore.user?.id,
-);
 
 const myId = computed(() => userStore.user?.id ?? null);
 

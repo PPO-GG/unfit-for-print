@@ -97,13 +97,16 @@ watch(
 watch(
   () => reactive.meta.value,
   (meta) => {
-    if (!meta || !lobby.value) return;
-    lobby.value = {
-      ...lobby.value,
-      hostUserId: meta.hostUserId,
-      status: meta.status,
-    };
+    if (!meta) return;
+    if (lobby.value) {
+      lobby.value = {
+        ...lobby.value,
+        hostUserId: meta.hostUserId || lobby.value.hostUserId,
+        status: meta.status || lobby.value.status,
+      };
+    }
   },
+  { immediate: true },
 );
 
 // ─── Sync Y.Doc status → Postgres (host only) ──────────────────────────────
@@ -408,7 +411,13 @@ onMounted(async () => {
     }
 
     try {
-      lobby.value = await $fetch<Lobby>(`/api/lobby/${code}`);
+      const fetchedLobbyData = await $fetch<Lobby>(`/api/lobby/${code}`);
+      const meta = reactive.meta.value;
+      lobby.value = {
+        ...fetchedLobbyData,
+        hostUserId: meta?.hostUserId || fetchedLobbyData.hostUserId,
+        status: meta?.status || fetchedLobbyData.status,
+      };
     } catch (error) {
       console.error("Failed to fetch lobby data:", error);
     }

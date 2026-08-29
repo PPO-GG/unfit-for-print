@@ -227,12 +227,8 @@
       </div>
     </div>
 
-    <!-- ── Modals ─────────────────────────────────────────────────── -->
-    <UModal v-model:open="showJoin" :title="t('modal.join_lobby')">
-      <template #body>
-        <JoinLobbyForm @joined="handleJoined" />
-      </template>
-    </UModal>
+    <!-- ── Modals / Overlays ────────────────────────────────────── -->
+    <JoinTakeover v-model:open="showJoin" @joined="handleJoined" />
   </div>
 </template>
 

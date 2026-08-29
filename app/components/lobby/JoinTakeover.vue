@@ -2,129 +2,136 @@
   <Teleport to="body">
     <div v-if="open" class="join-takeover" @click="close">
       <!-- Confetti on successful join -->
-        <template v-if="status === 'joined'">
-          <span
-            v-for="i in 24"
-            :key="i"
-            class="join-confetti"
-            :class="confettiClass(i)"
-            :style="confettiStyle(i)"
-          />
-        </template>
+      <template v-if="status === 'joined'">
+        <span
+          v-for="i in 24"
+          :key="i"
+          class="join-confetti"
+          :class="confettiClass(i)"
+          :style="confettiStyle(i)"
+        />
+      </template>
 
-        <div
-          ref="cardRef"
-          class="join-takeover-card bg-secondary-400 text-slate-950"
-          tabindex="0"
-          @click.stop="onCardAreaClick"
-          @keydown="handleKeydown"
+      <div
+        ref="cardRef"
+        class="join-takeover-card bg-secondary-400 text-slate-950"
+        tabindex="0"
+        @click.stop="onCardAreaClick"
+        @keydown="handleKeydown"
+      >
+        <button
+          type="button"
+          class="join-close"
+          aria-label="Close"
+          @click="close"
         >
-          <div class="join-corner join-corner--tl">UNFIT<br />FOR<br />PRINT</div>
-          <div class="join-corner join-corner--br">LOBBY<br />ENTRY<br />FORM</div>
+          <UIcon name="i-solar-close-circle-bold-duotone" class="size-5" />
+        </button>
 
-          <button
-            type="button"
-            class="join-close"
-            aria-label="Close"
-            @click="close"
-          >
-            <UIcon name="i-solar-close-circle-bold-duotone" class="size-5" />
-          </button>
-
-          <div class="text-center">
-            <div class="join-eyebrow">{{ statusEyebrow }}</div>
-            <div class="font-display leading-none text-4xl sm:text-5xl mt-1">
-              {{ statusHeadline }}
-            </div>
-          </div>
-
-          <!-- Username: shown only for guests who already have a chosen name -->
-          <div v-if="showIfAnonymous && status === 'entering'" class="join-username">
-            <label class="join-label" for="join-username-input">
-              {{ t("modal.join_username") }}
-            </label>
-            <input
-              id="join-username-input"
-              ref="usernameRef"
-              v-model="username"
-              type="text"
-              maxlength="20"
-              autocomplete="off"
-              placeholder="RizzMaster69"
-              class="join-username-input"
-              @keydown.stop
-              @keydown.enter.prevent="cardRef?.focus()"
-            />
-          </div>
-
-          <div class="flex justify-center gap-3 mt-6">
-            <div
-              v-for="i in 4"
-              :key="i"
-              class="join-slot"
-              :class="{
-                filled: !!code[i - 1],
-                caret: caretIndex === i - 1 && status === 'entering',
-                err: status === 'error',
-              }"
-            >
-              <span class="join-slot-corner join-slot-corner--tl">{{
-                String.fromCharCode(64 + i)
-              }}</span>
-              {{ code[i - 1] || "" }}
-              <span class="join-slot-corner join-slot-corner--br">{{
-                String.fromCharCode(64 + i)
-              }}</span>
-            </div>
-          </div>
-
-          <div class="join-tray">
-            <div
-              v-if="status === 'joining'"
-              class="flex items-center gap-3 w-full"
-            >
-              <span class="join-tray-text"
-                >Looking up code · {{ fullCode || "····" }}</span
-              >
-              <span class="join-dots ml-auto"><span /><span /><span /></span>
-            </div>
-
-            <div
-              v-else-if="status === 'entering'"
-              class="w-full flex items-center justify-between flex-wrap gap-2"
-            >
-              <div class="flex items-center gap-2">
-                <span class="join-kbd">⌫</span>
-                <span class="join-tray-text">Delete</span>
-                <span class="join-kbd" style="margin-left: 10px">ESC</span>
-                <span class="join-tray-text">Cancel</span>
-              </div>
-              <span class="join-tray-text">Codes are 4 characters</span>
-            </div>
-
-            <div v-else-if="status === 'joined'" class="flex items-center gap-3 w-full">
-              <span class="join-live-dot bg-success-400" />
-              <span class="join-tray-text">Dealing you in…</span>
-            </div>
-
-            <div
-              v-else-if="status === 'error'"
-              class="w-full flex items-center justify-between flex-wrap gap-2"
-            >
-              <span class="join-tray-text join-tray-text--err">{{
-                errorMessage
-              }}</span>
-              <span class="join-tray-text">Retrying…</span>
-            </div>
-          </div>
-
-          <div class="mt-4 flex items-center justify-end">
-            <button type="button" class="join-footlink" @click="browsePublicLobbies">
-              No code? Browse public lobbies
-            </button>
+        <div class="text-center">
+          <div class="join-eyebrow">{{ statusEyebrow }}</div>
+          <div class="font-display leading-none text-4xl sm:text-5xl mt-1">
+            {{ statusHeadline }}
           </div>
         </div>
+
+        <!-- Username: shown only for guests who already have a chosen name -->
+        <div
+          v-if="showIfAnonymous && status === 'entering'"
+          class="join-username"
+        >
+          <label class="join-label" for="join-username-input">
+            {{ t("modal.join_username") }}
+          </label>
+          <input
+            id="join-username-input"
+            ref="usernameRef"
+            v-model="username"
+            type="text"
+            maxlength="20"
+            autocomplete="off"
+            placeholder="RizzMaster69"
+            class="join-username-input"
+            @keydown.stop
+            @keydown.enter.prevent="cardRef?.focus()"
+          />
+        </div>
+
+        <div class="flex justify-center gap-3 mt-6">
+          <div
+            v-for="i in 4"
+            :key="i"
+            class="join-slot"
+            :class="{
+              filled: !!code[i - 1],
+              caret: caretIndex === i - 1 && status === 'entering',
+              err: status === 'error',
+            }"
+          >
+            <span class="join-slot-corner join-slot-corner--tl">{{
+              String.fromCharCode(64 + i)
+            }}</span>
+            {{ code[i - 1] || "" }}
+            <span class="join-slot-corner join-slot-corner--br">{{
+              String.fromCharCode(64 + i)
+            }}</span>
+          </div>
+        </div>
+
+        <div class="join-tray">
+          <div
+            v-if="status === 'joining'"
+            class="flex items-center gap-3 w-full"
+          >
+            <span class="join-tray-text"
+              >Looking up code · {{ fullCode || "····" }}</span
+            >
+            <span class="join-dots ml-auto"><span /><span /><span /></span>
+          </div>
+
+          <div
+            v-else-if="status === 'entering'"
+            class="w-full flex items-center justify-between flex-wrap gap-2"
+          >
+            <div class="flex items-center gap-2">
+              <span class="join-kbd">⌫</span>
+              <span class="join-tray-text">Delete</span>
+              <span class="join-kbd" style="margin-left: 10px">ESC</span>
+              <span class="join-tray-text">Cancel</span>
+            </div>
+            <span class="join-tray-text">Codes are 4 characters</span>
+          </div>
+
+          <div
+            v-else-if="status === 'joined'"
+            class="flex items-center gap-3 w-full"
+          >
+            <span class="join-live-dot bg-success-400" />
+            <span class="join-tray-text">Dealing you in…</span>
+          </div>
+
+          <div
+            v-else-if="status === 'error'"
+            class="w-full flex items-center justify-between flex-wrap gap-2"
+          >
+            <span class="join-tray-text join-tray-text--err">{{
+              errorMessage
+            }}</span>
+            <span class="join-tray-text">Retrying…</span>
+          </div>
+        </div>
+
+        <div class="mt-4 flex items-center justify-end">
+          <button
+            type="button"
+            class="join-footlink"
+            @click="browsePublicLobbies"
+          >
+            No code? Browse public lobbies
+          </button>
+        </div>
       </div>
+    </div>
   </Teleport>
 </template>
 
@@ -193,7 +200,9 @@ const authenticatedUsername = computed(() => {
 async function attemptJoin() {
   status.value = "joining";
 
-  let name = showIfAnonymous.value ? username.value : authenticatedUsername.value;
+  let name = showIfAnonymous.value
+    ? username.value
+    : authenticatedUsername.value;
   if (!showIfAnonymous.value && (!name || !name.trim())) {
     let randomSuffix = 0;
     do {

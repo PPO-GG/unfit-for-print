@@ -29,7 +29,26 @@ const botError = ref<string | null>(null);
 // guards — causing duplicate judge/play actions that overwrote each
 // other's winner selections with different random picks.
 const botActionsInFlight = new Set<string>();
-let pendingBotTimers: ReturnType<typeof setTimeout>[] = [];
+interface PendingTimer {
+  timer: ReturnType<typeof setTimeout>;
+  actionKey?: string;
+}
+let pendingBotTimers: PendingTimer[] = [];
+
+function clearPendingBotTimers() {
+  for (const item of pendingBotTimers) {
+    clearTimeout(item.timer);
+    if (item.actionKey) {
+      botActionsInFlight.delete(item.actionKey);
+    }
+  }
+  pendingBotTimers = [];
+}
+
+function clearAllBotActions() {
+  clearPendingBotTimers();
+  botActionsInFlight.clear();
+}
 
 export function useBots(
   lobby: Ref<Lobby | null>,
@@ -38,7 +57,7 @@ export function useBots(
 ) {
   // ─── Y.Doc Integration ──────────────────────────────────────────────
   // Bots are written to Y.Doc (the source of truth for real-time state)
-  // in addition to Appwrite (for server-side auth/validation).
+  // in addition to Appwrite/Postgres (for server-side auth/validation).
   const lobbyDoc = useLobbyDoc();
   const mutations = useLobbyMutations(lobbyDoc);
 
@@ -50,14 +69,21 @@ export function useBots(
 
   // ─── Derived state ────────────────────────────────────────────────────
 
-  const botPlayers = computed(() =>
-    players.value.filter((p) => p.playerType === "bot"),
-  );
+  const effectiveIsHost = computed(() => isHost.value || reactive.isHost.value);
+
+  const botPlayers = computed(() => {
+    const list =
+      players?.value && players.value.length > 0
+        ? players.value
+        : reactive.playerList.value;
+    return list.filter((p) => p.playerType === "bot");
+  });
 
   const canAddBot = computed(() => {
-    if (!isHost.value) return false;
-    if (!lobby.value) return false;
-    if (lobby.value.status !== "waiting") return false;
+    if (!effectiveIsHost.value) return false;
+    const isWaiting =
+      reactive.isWaiting.value || lobby.value?.status === "waiting";
+    if (!isWaiting) return false;
     return botPlayers.value.length < MAX_BOTS;
   });
 
@@ -239,7 +265,7 @@ export function useBots(
   // but the botActionsInFlight set ensures each action only fires once.
 
   const processBotsForPhase = async (state: GameState) => {
-    if (!isHost.value || !lobby.value) return;
+    if (!effectiveIsHost.value) return;
 
     const phase = state.phase;
 
@@ -247,16 +273,10 @@ export function useBots(
       // Make each bot that hasn't submitted yet play cards.
       // Bots submit SEQUENTIALLY with a stagger delay so that each
       // card fly-in animation has time to play before the next bot submits.
-      // Without this, all bots fire concurrently and the client receives
-      // a single coalesced state update with ALL submissions, causing
-      // every card to animate simultaneously.
-      const BOT_STAGGER_MS = 600; // snappy overlap — fly-in is 0.8s but ghosts are independent
+      const BOT_STAGGER_MS = 600;
 
       // Round > 1: add a base delay so bots don't submit while the
       // round-won celebration overlay is still animating out on clients.
-      // The host clears winnerSelected synchronously, but other clients
-      // may still be showing the overlay when the new round's gameState
-      // arrives. 2.5s is enough for the overlay dismiss + brief breathing room.
       const BASE_DELAY_MS = state.round > 1 ? 2500 : 0;
       let staggerIndex = 0;
 
@@ -277,22 +297,18 @@ export function useBots(
             botActionsInFlight.delete(actionKey);
           }
         }, delay);
-        pendingBotTimers.push(timer);
+        pendingBotTimers.push({ timer, actionKey });
       }
     } else if (phase !== "judging") {
       // Phase changed away from submitting/judging — cancel any pending bot timers
-      // to prevent stale actions from a previous round/phase.
-      // We must NOT clear during judging because each reveal updates gameState,
-      // re-triggering this function, and we need the remaining reveal + judge timers.
-      for (const t of pendingBotTimers) clearTimeout(t);
-      pendingBotTimers = [];
+      // and free up any locked action keys.
+      clearPendingBotTimers();
     }
 
     if (phase === "judging") {
       // If the judge is a bot, reveal cards one-by-one then pick a winner.
       // This mirrors the human judge experience: flip each card, pause to
-      // "think", then select a winner. Without this, the bot would skip
-      // the reveal phase entirely and judge instantly.
+      // "think", then select a winner.
       const judgeBot = botPlayers.value.find((b) => b.userId === state.judgeId);
       if (judgeBot) {
         const actionKey = `judge-${judgeBot.userId}-${state.round}`;
@@ -337,7 +353,7 @@ export function useBots(
             }
             botRevealCard(playerId);
           }, totalDelay);
-          pendingBotTimers.push(revealTimer);
+          pendingBotTimers.push({ timer: revealTimer });
           totalDelay += REVEAL_STAGGER_MS;
         }
 
@@ -350,16 +366,13 @@ export function useBots(
             botActionsInFlight.delete(actionKey);
           }
         }, totalDelay);
-        pendingBotTimers.push(judgeTimer);
+        pendingBotTimers.push({ timer: judgeTimer, actionKey });
       }
     }
 
     if (phase === "complete") {
-      // Game over — do NOT remove bots here.
-      // Bots stay visible in the leaderboard/GameOver screen.
-      // They will be cleaned up when the lobby resets back to "waiting"
-      // (handled by a separate phase transition watcher below).
-      return;
+      // Game over — clean up pending timers
+      clearPendingBotTimers();
     }
   };
 
@@ -368,17 +381,17 @@ export function useBots(
   // remove all bots so the host starts fresh in the new waiting room.
   let previousPhase: string | null = null;
   const stopPhaseWatcher = watch(
-    gameState,
-    (newState) => {
-      const currentPhase = newState?.phase ?? null;
+    () => gameState.value?.phase,
+    (currentPhase) => {
       if (
-        previousPhase === "complete" &&
+        (previousPhase === "complete" || previousPhase === "roundEnd") &&
         currentPhase === "waiting" &&
-        isHost.value
+        effectiveIsHost.value
       ) {
+        clearAllBotActions();
         removeAllBots();
       }
-      previousPhase = currentPhase;
+      previousPhase = currentPhase ?? null;
     },
     { immediate: true },
   );
@@ -386,21 +399,19 @@ export function useBots(
   // ─── Game State Watcher ──────────────────────────────────────────────
   // Every useBots instance registers a watcher, but botActionsInFlight
   // (a module-level singleton Set) ensures each action fires only once.
-  // This is safe because action keys like `play-${botId}-${round}` are
-  // unique and checked before scheduling any work.
+  // We watch both gameState and effectiveIsHost so that if the host status
+  // finishes resolving after gameState is already in "submitting", bots
+  // still trigger properly.
   const stopWatcher = watch(
-    gameState,
-    (newState) => {
-      if (!newState || !isHost.value) return;
+    [gameState, effectiveIsHost],
+    ([newState, isHostVal]) => {
+      if (!newState || !isHostVal) return;
       processBotsForPhase(newState);
     },
     { immediate: true },
   );
 
   // Clean up watcher when this component unmounts.
-  // We do NOT clear botActionsInFlight here — other surviving instances
-  // may still have pending timers referencing those keys. The timers
-  // themselves clean up their own keys via .finally() callbacks.
   if (getCurrentInstance()) {
     onUnmounted(() => {
       stopWatcher();
