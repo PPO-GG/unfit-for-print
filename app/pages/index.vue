@@ -103,7 +103,7 @@
     >
       <!-- Hero: logo, title, tagline, card preview -->
       <div
-        class="flex flex-col items-center lg:items-start gap-5 text-center lg:text-left lg:w-[38%] lg:shrink-0"
+        class="flex flex-col items-center gap-5 text-center lg:w-[38%] lg:shrink-0"
       >
         <img
           src="/img/ufp2.svg"
