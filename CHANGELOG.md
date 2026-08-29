@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.16.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.15.0...v3.16.0) (2026-08-29)
+
+
+### ✨ Features
+
+* **admin:** add pack deletion endpoint and management UI ([67629ae](https://github.com/PPO-GG/unfit-for-print/commit/67629ae85892d9939179cb5fb61a7fd2357f46da))
+* **admin:** add picture-card upload and pan/zoom curation UI ([1f22ce4](https://github.com/PPO-GG/unfit-for-print/commit/1f22ce4f9f79179f004d55db2d2565d52aa29bd3))
+* **admin:** render picture cards in the admin card grid preview ([c93fb7a](https://github.com/PPO-GG/unfit-for-print/commit/c93fb7af8e4b4064240e469476cc75fc5900c080))
+* **cards:** add R2 upload/serve/delete routes for card images ([647262d](https://github.com/PPO-GG/unfit-for-print/commit/647262d7b1b2db9ebb9dba808c51ae8c9a0d7170))
+* **cards:** auto-fit card text, Showbill V4 admin preview, and picture-card rendering ([1f99f27](https://github.com/PPO-GG/unfit-for-print/commit/1f99f272c0f83e6e3d46e0b3d6c856324b8683f5))
+* **cards:** persist and resolve image fields through the admin card API ([4883e53](https://github.com/PPO-GG/unfit-for-print/commit/4883e53c56bbfd7014e05b814a85604a3119af67))
+* **db:** add image columns to white_cards and black_cards ([e96d47b](https://github.com/PPO-GG/unfit-for-print/commit/e96d47be935e81cbf3264e245f3f1c1d1213ece3))
+* **labs:** redesign submissions feed and labs dashboard ([a0c6428](https://github.com/PPO-GG/unfit-for-print/commit/a0c64289dbd6162ef2f7da8dd30894d2f9af1eeb))
+* **nav:** add menu hotkeys, shortcuts, and URL-derived breadcrumb back navigation ([92df98c](https://github.com/PPO-GG/unfit-for-print/commit/92df98c20ca1bb5cc64c1d5f033a9aa81130adfb))
+
+
+### 🐛 Bug Fixes
+
+* **cards:** Adjust padding, left align text, and fix report popover behavior ([8d915d8](https://github.com/PPO-GG/unfit-for-print/commit/8d915d80127c8cc202bd763a6031681100e82b2e))
+* **cards:** improve text auto-fitting, emergency soft-hyphen breaks, and watermark positioning ([614cffc](https://github.com/PPO-GG/unfit-for-print/commit/614cffc2f9039d1960de013fc337854af7977c4d))
+* **cards:** Surface card-id in report popover and fix button visibility ([8376b53](https://github.com/PPO-GG/unfit-for-print/commit/8376b539ff2983ed09cf0edc05355629fb1de2e9))
+* Center align hero logo with cards section ([73958c1](https://github.com/PPO-GG/unfit-for-print/commit/73958c1a5e80badf196d506b57b90cb2858590ca))
+* **lobby:** improve bot lifecycle management, password syncing, and join takeover dialog ([fe9d6e5](https://github.com/PPO-GG/unfit-for-print/commit/fe9d6e59d657468f18059ac36143ca9b52421a4a))
+
 ## [3.15.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.14.0...v3.15.0) (2026-08-28)
 
 
