@@ -1,641 +1,735 @@
 <template>
-  <div class="max-w-[1100px] mx-auto px-4 pt-6 pb-12 flex flex-col gap-5">
-    <!-- ═══════════════════════════════════════ -->
-    <!-- HERO SECTION                           -->
-    <!-- ═══════════════════════════════════════ -->
-    <div class="labs-hero backdrop-blur-md">
-      <div class="hero-glow" />
-      <div class="relative z-[1]">
-        <div class="flex items-center justify-center gap-3 mb-3">
-          <Icon
-            name="solar:test-tube-bold-duotone"
-            class="text-[2.5rem] text-violet-600 dark:text-violet-400 drop-shadow-[0_0_12px_rgba(139,92,246,0.35)] dark:drop-shadow-[0_0_12px_rgba(139,92,246,0.5)]"
-          />
-        </div>
-        <h1
-          class="text-5xl tracking-[0.2em] text-indigo-950 dark:text-slate-100 leading-tight mb-1 dark:drop-shadow-[0_0_30px_rgba(139,92,246,0.5)] max-sm:text-3xl max-sm:tracking-[0.14em]"
-        >
-          UNFIT LABS
-        </h1>
-        <p
-          class="text-base tracking-[0.12em] text-gray-500 dark:text-slate-400"
-        >
-          Community Experiments in Bad Taste
-        </p>
-        <div class="hero-divider" />
-        <div
-          class="flex justify-center gap-8 max-sm:flex-col max-sm:gap-2 max-sm:items-center"
-        >
-          <div class="stat-chip">
-            <Icon
-              name="solar:card-bold-duotone"
-              class="text-base text-violet-600 dark:text-violet-400"
-            />
-            <span
-              class="text-xl text-indigo-950 dark:text-slate-100 tracking-wide"
-              >{{ submissions.length }}</span
-            >
-            <span
-              class="text-[0.65rem] tracking-[0.15em] text-gray-500 dark:text-slate-500"
-              >SUBMISSIONS</span
-            >
+  <main class="labs-page">
+    <div class="labs-page__grid" aria-hidden="true" />
+    <div class="labs-shell">
+      <section class="labs-hero">
+        <div class="labs-hero__copy">
+          <div class="labs-chip labs-chip--lime">
+            <Icon name="solar:test-tube-bold-duotone" /> Community R&amp;D
           </div>
-          <div class="stat-chip">
-            <Icon
-              name="solar:like-bold-duotone"
-              class="text-base text-violet-600 dark:text-violet-400"
-            />
-            <span
-              class="text-xl text-indigo-950 dark:text-slate-100 tracking-wide"
-              >{{ totalVotes }}</span
+          <p class="labs-eyebrow">Peer review for bad taste</p>
+          <h1>UNFIT <span>LABS</span></h1>
+          <p class="labs-hero__description">
+            Submit cards, vote on what’s funny, and help the worst ideas make it
+            into the deck.
+          </p>
+          <div class="labs-hero__actions">
+            <UButton
+              class="labs-primary-action"
+              icon="i-solar-add-circle-bold-duotone"
+              @click="submitCardOpen = true"
+              >Submit a card</UButton
             >
-            <span
-              class="text-[0.65rem] tracking-[0.15em] text-gray-500 dark:text-slate-500"
-              >VOTES CAST</span
+            <a class="labs-secondary-action" href="#submissions"
+              ><Icon name="solar:card-send-bold-duotone" /> Browse
+              submissions</a
             >
           </div>
         </div>
-      </div>
-    </div>
+        <div class="labs-hero__stats">
+          <div class="labs-stat">
+            <span>Submissions</span
+            ><strong class="labs-stat--cyan">{{ submissions.length }}</strong>
+          </div>
+          <div class="labs-stat">
+            <span>Votes cast</span
+            ><strong class="labs-stat--yellow">{{ totalVotes }}</strong>
+          </div>
+        </div>
+      </section>
 
-    <!-- ═══════════════════════════════════════ -->
-    <!-- SUBMIT A CARD WIDGET                   -->
-    <!-- ═══════════════════════════════════════ -->
-    <div class="w-full">
-      <div class="labs-widget backdrop-blur-md">
-        <button
-          class="flex items-center justify-between w-full bg-transparent border-none py-1 cursor-pointer text-inherit"
-          @click="submitCardOpen = !submitCardOpen"
-        >
-          <div class="widget-label">
-            <Icon
-              name="solar:magic-stick-3-bold-duotone"
-              class="text-base text-violet-600 dark:text-violet-500"
-            />
-            <span>SUBMIT YOUR EXPERIMENT</span>
+      <section id="submissions" class="labs-content">
+        <div class="labs-tabs">
+          <div class="labs-tab labs-tab--active">
+            <Icon name="solar:test-tube-bold-duotone" /> Submissions
+            <span>{{ submissions.length }}</span>
           </div>
-          <Icon
-            name="solar:alt-arrow-down-bold-duotone"
-            class="text-xl text-violet-600 dark:text-violet-500 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
-            :class="{ 'rotate-180': submitCardOpen }"
-          />
-        </button>
-        <Transition name="slide-expand">
-          <div v-if="submitCardOpen" class="overflow-hidden">
-            <div class="hero-divider" />
-            <ClientOnly>
-              <CardSubmissionForm @card-submitted="handleCardSubmitted" />
-            </ClientOnly>
-          </div>
-        </Transition>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════ -->
-    <!-- FILTER BAR                             -->
-    <!-- ═══════════════════════════════════════ -->
-    <div class="w-full">
-      <div class="labs-widget flex flex-col gap-3 backdrop-blur-md">
-        <div class="widget-label">
-          <Icon
-            name="solar:tuning-2-bold-duotone"
-            class="text-base text-violet-600 dark:text-violet-500"
-          />
-          <span>FILTERS</span>
         </div>
-        <ClientOnly>
-          <div class="flex flex-wrap gap-2 items-center max-sm:flex-col">
-            <USelect
-              v-model="filters.cardType"
-              :items="cardTypeOptions"
-              class="min-w-[140px] shrink-0 max-sm:w-full max-sm:min-w-0"
-              placeholder="Card Type"
-            />
-            <USelect
+        <div class="labs-feed-heading">
+          <div>
+            <p class="labs-eyebrow">Experiment queue</p>
+            <h2>Community submissions</h2>
+          </div>
+          <p>{{ filteredSubmissions.length }} cards · {{ sortLabel }}</p>
+        </div>
+        <div class="labs-controls">
+          <div class="labs-filter-group" aria-label="Card type filters">
+            <button
+              :class="{ active: filters.cardType === 'all' }"
+              @click="filters.cardType = 'all'"
+            >
+              All
+            </button>
+            <button
+              :class="{ active: filters.cardType === 'white' }"
+              @click="filters.cardType = 'white'"
+            >
+              Answers
+            </button>
+            <button
+              :class="{ active: filters.cardType === 'black' }"
+              @click="filters.cardType = 'black'"
+            >
+              Prompts
+            </button>
+          </div>
+          <ClientOnly
+            ><UInput
+              v-model="filters.search"
+              class="labs-search"
+              icon="i-solar-minimalistic-magnifer-bold-duotone"
+              placeholder="Search experiments"
+          /></ClientOnly>
+          <ClientOnly
+            ><USelect
               v-model="filters.sortBy"
               :items="sortOptions"
-              class="min-w-[140px] shrink-0 max-sm:w-full max-sm:min-w-0"
-              placeholder="Sort By"
-            />
-            <USelect
-              v-model="filters.sortDirection"
-              :items="sortDirectionOptions"
-              class="min-w-[140px] shrink-0 max-sm:w-full max-sm:min-w-0"
-              placeholder="Sort Direction"
-            />
-            <UInput
-              v-model="filters.search"
-              class="flex-1 min-w-[180px] max-sm:w-full max-sm:min-w-0"
-              icon="i-solar-minimalistic-magnifer-bold-duotone"
-              placeholder="Search experiments…"
-            />
+              class="labs-select"
+          /></ClientOnly>
+        </div>
+        <ClientOnly>
+          <div v-if="loading" class="labs-state">
+            <Icon name="solar:loading-bold-duotone" class="animate-spin" />
+            <p>Loading experiments…</p>
           </div>
+          <div v-else-if="submissions.length === 0" class="labs-state">
+            <Icon name="solar:test-tube-bold-duotone" />
+            <h3>Nothing in the lab yet</h3>
+            <p>Be the first to submit a card.</p>
+            <UButton @click="submitCardOpen = true">Submit a card</UButton>
+          </div>
+          <template v-else>
+            <SubmissionsList
+              :submissions="paginatedSubmissions"
+              @delete="handleDelete"
+              @upvote="handleUpvote"
+              @adopt="handleAdopt"
+            />
+            <div class="labs-pagination">
+              <USelect
+                v-model="pagination.perPage"
+                :items="perPageOptions"
+              /><UPagination
+                v-model="pagination.page"
+                :page-count="pageCount"
+                :total="filteredSubmissions.length"
+              />
+            </div>
+          </template>
         </ClientOnly>
-      </div>
+      </section>
     </div>
-
-    <!-- ═══════════════════════════════════════ -->
-    <!-- SUBMISSIONS GRID                       -->
-    <!-- ═══════════════════════════════════════ -->
-    <div class="w-full backdrop-blur-md">
-      <ClientOnly>
-        <!-- Loading -->
-        <div
-          v-if="loading"
-          class="flex flex-col items-center justify-center py-16 gap-4"
-        >
-          <Icon
-            name="solar:loading-bold-duotone"
-            class="animate-spin text-[2.5rem] text-violet-500"
-          />
-          <span
-            class="text-base tracking-wide text-gray-500 dark:text-slate-400"
-            >Loading experiments…</span
-          >
-        </div>
-
-        <!-- Empty State -->
-        <div v-else-if="submissions.length === 0" class="labs-empty">
-          <div
-            class="w-20 h-20 flex items-center justify-center rounded-full bg-violet-500/12 dark:bg-violet-500/10 border border-violet-500/25 mb-5"
-          >
-            <Icon
-              name="solar:test-tube-bold-duotone"
-              class="text-[2.5rem] text-violet-600 drop-shadow-[0_0_10px_rgba(139,92,246,0.4)]"
-            />
-          </div>
-          <h3
-            class="text-2xl tracking-wide text-indigo-950 dark:text-slate-200 mb-1"
-          >
-            No Experiments Yet
-          </h3>
-          <p
-            class="text-[0.95rem] text-gray-500 dark:text-slate-500 tracking-wider mb-6"
-          >
-            Be the first to submit a card to the Unfit Labs.
-          </p>
-          <UButton
-            class="text-lg tracking-wide"
-            color="primary"
-            icon="i-solar-magic-stick-3-bold-duotone"
-            variant="soft"
-            @click="submitCardOpen = true"
-          >
-            Submit Your First Card
-          </UButton>
-        </div>
-
-        <!-- Cards -->
-        <template v-else>
-          <SubmissionsList
-            :submissions="paginatedSubmissions"
-            @delete="handleDelete"
-            @upvote="handleUpvote"
-            @adopt="handleAdopt"
-          />
-
-          <!-- Pagination -->
-          <div class="flex flex-wrap items-center justify-between gap-4 py-6">
-            <USelect
-              v-model="pagination.perPage"
-              :items="perPageOptions"
-              class="w-[140px] max-sm:w-full"
-            />
-            <UPagination
-              v-model="pagination.page"
-              color="primary"
-              variant="subtle"
-              :page-count="pageCount"
-              :total="filteredSubmissions.length"
-            />
-          </div>
-        </template>
-      </ClientOnly>
-    </div>
-  </div>
+    <UModal
+      v-model:open="submitCardOpen"
+      title="Submit a card"
+      description="Add your latest experiment to the community queue."
+      :ui="{ content: 'labs-submit-modal' }"
+    >
+      <template #body
+        ><ClientOnly
+          ><CardSubmissionForm
+            @card-submitted="handleCardSubmitted" /></ClientOnly
+      ></template>
+    </UModal>
+  </main>
 </template>
 
 <script lang="ts" setup>
-import { useUserStore } from "~/stores/userStore";
-import { isAuthenticatedUser } from "~/composables/useUserUtils";
-import { useIsAdmin } from "~/composables/useAdminCheck";
 import { watchDebounced } from "@vueuse/core";
-
+import { useIsAdmin } from "~/composables/useAdminCheck";
+import { isAuthenticatedUser } from "~/composables/useUserUtils";
+import { useUserStore } from "~/stores/userStore";
 useHead({ title: "Unfit Labs" });
-
-// User authentication
 const submitCardOpen = ref(false);
 const userStore = useUserStore();
 const isLoggedIn = computed(() => isAuthenticatedUser(userStore.user));
 const isAdmin = useIsAdmin();
-
 const { $activityFetch } = useNuxtApp();
-
-// State
 const submissions = ref<any[]>([]);
 const loading = ref(true);
-const listLimit = ref(50);
-const hasMoreSubmissions = ref(true);
 const upvoteInProgress = ref(false);
-
-// Computed stats
-const totalVotes = computed(() =>
-  submissions.value.reduce((sum, s) => sum + (s.upvotes || 0), 0),
-);
-
-// Filters and sorting
 const filters = ref({
   cardType: "all",
   sortBy: "timestamp",
   sortDirection: "desc",
   search: "",
 });
+const pagination = ref({ page: 1, perPage: 12 });
+const sortOptions = [
+  { label: "Newest first", value: "timestamp" },
+  { label: "Most upvoted", value: "upvotes" },
+  { label: "Shortest text", value: "textLength" },
+];
+const perPageOptions = [
+  { label: "12 per page", value: 12 },
+  { label: "24 per page", value: 24 },
+  { label: "48 per page", value: 48 },
+];
+const totalVotes = computed(() =>
+  submissions.value.reduce(
+    (sum, submission) => sum + (submission.upvotes || 0),
+    0,
+  ),
+);
+const sortLabel = computed(
+  () =>
+    sortOptions
+      .find((option) => option.value === filters.value.sortBy)
+      ?.label.toLowerCase() || "newest first",
+);
+const filteredSubmissions = computed(() => {
+  const search = filters.value.search.trim().toLowerCase();
 
+  const getSortValue = (item: any, sortBy: string): number => {
+    switch (sortBy) {
+      case "upvotes":
+        return item.upvotes || 0;
+      case "textLength":
+        return item.text?.length || 0;
+      case "timestamp":
+      default:
+        return new Date(item.createdAt || item.timestamp).getTime();
+    }
+  };
+
+  return [...submissions.value]
+    .filter(
+      (submission) =>
+        (filters.value.cardType === "all" ||
+          submission.cardType === filters.value.cardType) &&
+        (!search ||
+          submission.text.toLowerCase().includes(search) ||
+          submission.submitterName.toLowerCase().includes(search)),
+    )
+    .sort((a, b) => {
+      const valueA = getSortValue(a, filters.value.sortBy);
+      const valueB = getSortValue(b, filters.value.sortBy);
+      return filters.value.sortDirection === "asc"
+        ? valueA - valueB
+        : valueB - valueA;
+    });
+});
+const pageCount = computed(() =>
+  Math.max(
+    1,
+    Math.ceil(filteredSubmissions.value.length / pagination.value.perPage),
+  ),
+);
+const paginatedSubmissions = computed(() =>
+  filteredSubmissions.value.slice(
+    (pagination.value.page - 1) * pagination.value.perPage,
+    pagination.value.page * pagination.value.perPage,
+  ),
+);
 watchDebounced(
   () => filters.value.search,
   () => {
     pagination.value.page = 1;
   },
-  { debounce: 500, maxWait: 1000 },
+  { debounce: 300, maxWait: 700 },
 );
-
-const cardTypeOptions = [
-  { label: "All Cards", value: "all" },
-  { label: "White Cards", value: "white" },
-  { label: "Black Cards", value: "black" },
-];
-
-const sortOptions = [
-  { label: "Submission Date", value: "timestamp" },
-  { label: "Most Upvotes", value: "upvotes" },
-  { label: "Text Length", value: "textLength" },
-  { label: "Number of Picks", value: "pick" },
-];
-
-const sortDirectionOptions = [
-  { label: "Descending", value: "desc" },
-  { label: "Ascending", value: "asc" },
-];
-
-// Pagination
-const pagination = ref({
-  page: 1,
-  perPage: 10,
-});
-
-const perPageOptions = [
-  { label: "10 per page", value: 10 },
-  { label: "25 per page", value: 25 },
-  { label: "50 per page", value: 50 },
-  { label: "100 per page", value: 100 },
-];
-
-// Computed properties
-const filteredSubmissions = computed(() => {
-  let result = [...submissions.value];
-
-  if (filters.value.cardType !== "all") {
-    result = result.filter(
-      (submission) => submission.cardType === filters.value.cardType,
-    );
-  }
-
-  if (filters.value.search) {
-    const searchTerm = filters.value.search.toLowerCase();
-    result = result.filter(
-      (submission) =>
-        submission.text.toLowerCase().includes(searchTerm) ||
-        submission.submitterName.toLowerCase().includes(searchTerm),
-    );
-  }
-
-  result.sort((a, b) => {
-    let valueA, valueB;
-
-    switch (filters.value.sortBy) {
-      case "timestamp":
-        valueA = new Date(a.createdAt).getTime();
-        valueB = new Date(b.createdAt).getTime();
-        break;
-      case "upvotes":
-        valueA = a.upvotes;
-        valueB = b.upvotes;
-        break;
-      case "textLength":
-        valueA = a.text.length;
-        valueB = b.text.length;
-        break;
-      case "pick":
-        valueA = a.pick || 1;
-        valueB = b.pick || 1;
-        break;
-      default:
-        valueA = new Date(a.createdAt).getTime();
-        valueB = new Date(b.createdAt).getTime();
-    }
-
-    return filters.value.sortDirection === "asc"
-      ? valueA - valueB
-      : valueB - valueA;
-  });
-
-  return result;
-});
-
-const pageCount = computed(() => {
-  return Math.ceil(filteredSubmissions.value.length / pagination.value.perPage);
-});
-
-const paginatedSubmissions = computed(() => {
-  const start = (pagination.value.page - 1) * pagination.value.perPage;
-  const end = start + pagination.value.perPage;
-  return filteredSubmissions.value.slice(start, end);
-});
-
-// Methods
+watch(
+  [
+    () => filters.value.cardType,
+    () => filters.value.sortBy,
+    () => pagination.value.perPage,
+  ],
+  () => {
+    pagination.value.page = 1;
+  },
+);
 async function fetchSubmissions() {
   try {
     loading.value = true;
-
-    const result = await $activityFetch<any[]>("/api/submissions/list", {
-      query: { limit: listLimit.value },
+    submissions.value = await $activityFetch<any[]>("/api/submissions/list", {
+      query: { limit: 50 },
     });
-
-    hasMoreSubmissions.value = result.length === listLimit.value;
-    submissions.value = result;
   } catch (error) {
     console.error("Error fetching submissions:", error);
     useToast().add({
-      title: "Error",
-      description: "Failed to load submissions",
+      title: "Couldn’t load submissions",
+      description: "Try refreshing the page.",
       color: "error",
     });
   } finally {
     loading.value = false;
   }
 }
-
-async function loadMoreSubmissions() {
-  if (hasMoreSubmissions.value && !loading.value) {
-    listLimit.value += 50;
-    await fetchSubmissions();
-  }
-}
-
 async function handleUpvote(submissionId: string) {
   if (!isLoggedIn.value || upvoteInProgress.value) return;
-
   try {
     upvoteInProgress.value = true;
-
-    const submissionIndex = submissions.value.findIndex(
-      (s) => s.id === submissionId,
+    const index = submissions.value.findIndex(
+      (submission) => submission.id === submissionId,
     );
-    if (submissionIndex === -1) return;
-
-    const updated = await $activityFetch("/api/submissions/upvote", {
+    if (index < 0) return;
+    submissions.value[index] = await $activityFetch("/api/submissions/upvote", {
       method: "POST",
       body: { submissionId },
     });
-    submissions.value[submissionIndex] = updated;
   } catch (error) {
     console.error("Error upvoting submission:", error);
-    useToast().add({
-      title: "Error",
-      description: "Failed to update vote",
-      color: "error",
-    });
+    useToast().add({ title: "Couldn’t update vote", color: "error" });
   } finally {
     upvoteInProgress.value = false;
   }
 }
-
-function handleCardSubmitted(newSubmission: any) {
-  submissions.value.unshift(newSubmission);
+function handleCardSubmitted(submission: any) {
+  submissions.value.unshift(submission);
   pagination.value.page = 1;
-  useToast().add({
-    title: "Experiment Submitted",
-    description: "Your card has been submitted to the lab!",
-    color: "success",
-  });
+  submitCardOpen.value = false;
 }
-
 async function handleDelete(submissionId: string) {
-  if (!isAdmin.value) {
-    useToast().add({
-      title: "Error",
-      description: "Only administrators can delete submissions",
-      color: "error",
-    });
-    return;
-  }
-
+  if (!isAdmin.value) return;
   try {
     await $activityFetch("/api/admin/submissions/delete", {
       method: "POST",
       body: { submissionId },
     });
-    submissions.value = submissions.value.filter((s) => s.id !== submissionId);
-    useToast().add({
-      title: "Success",
-      description: "Submission deleted successfully",
-      color: "success",
-    });
+    submissions.value = submissions.value.filter(
+      (submission) => submission.id !== submissionId,
+    );
   } catch (error) {
     console.error("Error deleting submission:", error);
-    useToast().add({
-      title: "Error",
-      description: "Failed to delete submission",
-      color: "error",
-    });
+    useToast().add({ title: "Couldn’t delete submission", color: "error" });
   }
 }
-
 async function handleAdopt(submission: any) {
-  if (!isAdmin.value) {
-    useToast().add({
-      title: "Error",
-      description: "Only administrators can adopt submissions",
-      color: "error",
-    });
-    return;
-  }
-
+  if (!isAdmin.value) return;
   try {
     await $activityFetch("/api/submissions/adopt", {
       method: "POST",
       body: { submissionId: submission.id },
     });
-
     submissions.value = submissions.value.filter(
-      (s) => s.id !== submission.id,
+      (item) => item.id !== submission.id,
     );
-
-    useToast().add({
-      title: "Adopted!",
-      description: "Card successfully adopted to the Unfit Labs pack!",
-      color: "success",
-    });
   } catch (error) {
     console.error("Error adopting submission:", error);
-    useToast().add({
-      title: "Error",
-      description: "Failed to adopt submission",
-      color: "error",
-    });
+    useToast().add({ title: "Couldn’t adopt submission", color: "error" });
   }
 }
-
-onMounted(async () => {
-  await fetchSubmissions();
-});
-
-watch([() => filters.value.cardType, () => filters.value.search], () => {
-  pagination.value.page = 1;
-});
+onMounted(fetchSubmissions);
 </script>
 
 <style>
-/* ─── Hero Container (complex gradient + multi-value box-shadow) ── */
+.labs-page {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+  background: #05060d;
+  color: #f6f3ea;
+  font-family: "Barlow Condensed", system-ui, sans-serif;
+  overflow: hidden;
+}
+.labs-page__grid {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(
+      850px 450px at 70% -10%,
+      rgba(140, 220, 120, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 500px at 0 60%,
+      rgba(120, 220, 255, 0.07),
+      transparent 65%
+    ),
+    linear-gradient(180deg, #05060d, #090d1a 50%, #05060d);
+}
+.labs-page__grid:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 37px,
+      rgba(255, 255, 255, 0.025) 38px 39px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 37px,
+      rgba(255, 255, 255, 0.025) 38px 39px
+    );
+  mask-image: radial-gradient(ellipse at 50% 25%, black, transparent 80%);
+}
+.labs-shell {
+  max-width: 1400px;
+  margin: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
 .labs-hero {
   position: relative;
-  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: 1rem;
-  padding: 2.5rem 2rem;
-  text-align: center;
+  isolation: isolate;
   overflow: hidden;
-  box-shadow:
-    0 4px 24px rgba(139, 92, 246, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-.dark .labs-hero {
+  border: 1px solid rgba(140, 220, 120, 0.3);
+  border-radius: 18px;
+  padding: 2rem;
   background: linear-gradient(
     135deg,
-    rgba(139, 92, 246, 0.14),
-    rgba(15, 23, 42, 0.92)
+    rgba(140, 220, 120, 0.13),
+    rgba(120, 220, 255, 0.06) 45%,
+    rgba(10, 13, 28, 0.85)
   );
-  box-shadow:
-    0 0 40px rgba(139, 92, 246, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.7fr);
+  gap: 2rem;
 }
-
-/* ─── Hero Glow Orb ──────────────────────────────────── */
-.hero-glow {
+.labs-eyebrow {
+  margin: 0 0 0.3rem;
+  color: #8891b4;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.61rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+.labs-chip {
+  width: max-content;
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 0.32rem 0.6rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.61rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.labs-chip--lime {
+  color: #a9ed87;
+  border-color: rgba(140, 220, 120, 0.5);
+  background: rgba(140, 220, 120, 0.12);
+}
+.labs-hero h1,
+.labs-feed-heading h2 {
+  margin: 0.4rem 0;
+  font-family: "Archivo Black", sans-serif;
+  text-transform: uppercase;
+}
+.labs-hero h1 {
+  font-size: clamp(3.2rem, 7vw, 5.7rem);
+  line-height: 0.88;
+}
+.labs-hero h1 span {
+  color: #a9ed87;
+}
+.labs-hero__description {
+  max-width: 590px;
+  margin: 0;
+  color: #b9c0d9;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+.labs-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.labs-primary-action {
+  background: #a9ed87 !important;
+  border-color: #a9ed87 !important;
+  color: #09220e !important;
+  font-family: "Archivo Black", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.labs-secondary-action {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  color: #e5e8f1;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.labs-hero__stats {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  align-content: center;
+}
+.labs-stat {
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(5, 6, 13, 0.28);
+}
+.labs-stat--wide {
+  grid-column: span 2;
+}
+.labs-stat span {
+  display: block;
+  color: #8891b4;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.labs-stat strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 1.65rem;
+}
+.labs-stat--cyan {
+  color: #8ee6ff;
+}
+.labs-stat--yellow {
+  color: #ffe16d;
+}
+.labs-stat--lime {
+  color: #a9ed87 !important;
+  font-size: 0.78rem !important;
+}
+.labs-stat strong i {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: #a9ed87;
+  box-shadow: 0 0 12px #a9ed87;
+}
+.labs-beaker {
   position: absolute;
-  top: -60%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(
-    circle,
-    rgba(139, 92, 246, 0.12) 0%,
-    transparent 70%
+  right: 1rem;
+  bottom: -7rem;
+  width: 16rem;
+  height: 16rem;
+  border: 3px solid rgba(169, 237, 135, 0.5);
+  border-top: 0;
+  clip-path: polygon(
+    28% 0,
+    72% 0,
+    72% 22%,
+    95% 88%,
+    89% 100%,
+    11% 100%,
+    5% 88%,
+    28% 22%
   );
+  opacity: 0.35;
   pointer-events: none;
 }
-.dark .hero-glow {
-  background: radial-gradient(
-    circle,
-    rgba(139, 92, 246, 0.18) 0%,
-    transparent 70%
-  );
-}
-
-/* ─── Gradient Divider ───────────────────────────────── */
-.hero-divider {
+.labs-beaker__neck {
+  position: absolute;
+  top: 10%;
+  left: 28%;
+  right: 28%;
   height: 1px;
-  max-width: 320px;
-  margin: 1.5rem auto;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(139, 92, 246, 0.4),
-    transparent
-  );
+  background: #a9ed87;
 }
-
-/* ─── Stat Chip Pill ─────────────────────────────────── */
-.stat-chip {
-  display: flex;
+.labs-beaker__liquid {
+  position: absolute;
+  bottom: 0;
+  left: 9%;
+  right: 9%;
+  height: 37%;
+  background: linear-gradient(#b3ff87aa, #74c95ddd);
+  clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%);
+}
+.labs-beaker__liquid i {
+  position: absolute;
+  border-radius: 50%;
+  background: #ecffd8;
+}
+.labs-beaker__liquid i:nth-child(1) {
+  width: 9px;
+  height: 9px;
+  left: 30%;
+  top: 30%;
+}
+.labs-beaker__liquid i:nth-child(2) {
+  width: 6px;
+  height: 6px;
+  right: 28%;
+  top: 55%;
+}
+.labs-beaker__liquid i:nth-child(3) {
+  width: 4px;
+  height: 4px;
+  left: 55%;
+  top: 10%;
+}
+.labs-content {
+  position: relative;
+}
+.labs-tabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.labs-tab {
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-radius: 99px;
-  padding: 0.4rem 1rem;
-}
-.dark .stat-chip {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.2);
-}
-
-/* ─── Widget Base (complex gradient + multi-value box-shadow) ── */
-.labs-widget {
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: 0.875rem;
-  padding: 1rem;
-  box-shadow:
-    0 2px 12px rgba(139, 92, 246, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-.dark .labs-widget {
-  background: linear-gradient(
-    135deg,
-    rgba(139, 92, 246, 0.1),
-    rgba(15, 23, 42, 0.9)
-  );
-  box-shadow:
-    0 0 20px rgba(139, 92, 246, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-/* ─── Widget Label ───────────────────────────────────── */
-.widget-label {
+  gap: 0.45rem;
+  padding: 0.85rem 1rem;
+  color: #f6f3ea;
+  border-bottom: 3px solid #a9ed87;
+  font-family: "Archivo Black", sans-serif;
   font-size: 0.75rem;
-  letter-spacing: 0.15em;
-  color: #6b7280;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.labs-tab span {
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(140, 220, 120, 0.17);
+  color: #a9ed87;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.6rem;
+}
+.labs-feed-heading {
   display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  margin: 1.5rem 0 1rem;
+}
+.labs-feed-heading h2 {
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  line-height: 1;
+}
+.labs-feed-heading > p {
+  margin: 0;
+  color: #8891b4;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.63rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.labs-controls {
+  display: flex;
+  gap: 0.75rem;
   align-items: center;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
 }
-.dark .widget-label {
-  color: #94a3b8;
+.labs-filter-group {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
 }
-
-/* ─── Empty State (complex gradient) ─────────────────── */
-.labs-empty {
+.labs-filter-group button {
+  border: 0;
+  border-radius: 5px;
+  padding: 0.45rem 0.65rem;
+  background: transparent;
+  color: #8891b4;
+  cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.labs-filter-group button.active {
+  background: #a9ed87;
+  color: #09220e;
+  font-weight: 800;
+}
+.labs-search {
+  min-width: 220px;
+  flex: 1;
+}
+.labs-select {
+  width: 170px;
+}
+.labs-state {
+  min-height: 310px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 2rem;
-  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-radius: 0.875rem;
+  gap: 0.8rem;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  color: #8891b4;
   text-align: center;
 }
-.dark .labs-empty {
-  background: linear-gradient(
-    135deg,
-    rgba(139, 92, 246, 0.06),
-    rgba(15, 23, 42, 0.7)
-  );
-  border-color: rgba(139, 92, 246, 0.2);
+.labs-state svg {
+  font-size: 2.4rem;
+  color: #a9ed87;
 }
-
-/* ─── Slide Expand Transition ────────────────────────── */
-.slide-expand-enter-active,
-.slide-expand-leave-active {
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  max-height: 800px;
-  opacity: 1;
+.labs-state h3 {
+  margin: 0;
+  color: #f6f3ea;
+  font-family: "Archivo Black", sans-serif;
+  text-transform: uppercase;
 }
-.slide-expand-enter-from,
-.slide-expand-leave-to {
-  max-height: 0;
-  opacity: 0;
+.labs-state p {
+  margin: 0;
+}
+.labs-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.labs-pagination > :first-child {
+  width: 130px;
+}
+.labs-submit-modal {
+  background: #0a0d1c !important;
+  border: 1px solid rgba(169, 237, 135, 0.35) !important;
+  color: #f6f3ea !important;
+}
+@media (max-width: 800px) {
+  .labs-shell {
+    padding: 1rem;
+  }
+  .labs-hero {
+    grid-template-columns: 1fr;
+    padding: 1.5rem;
+  }
+  .labs-beaker {
+    display: none;
+  }
+  .labs-hero__stats {
+    max-width: 500px;
+  }
+  .labs-feed-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .labs-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .labs-pagination > :first-child {
+    width: 100%;
+  }
+}
+@media (max-width: 500px) {
+  .labs-hero__stats {
+    grid-template-columns: 1fr;
+  }
+  .labs-stat--wide {
+    grid-column: auto;
+  }
+  .labs-search,
+  .labs-select {
+    width: 100%;
+    min-width: 0;
+  }
+  .labs-filter-group {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 </style>

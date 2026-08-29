@@ -46,7 +46,7 @@ describe("SubmissionsList.vue — submission.id (not $id) wiring", () => {
   it("emits the real Postgres id when upvoting, not undefined", async () => {
     const wrapper = mount(SubmissionsList, {
       props: { submissions: [SUBMISSION] },
-      global: { stubs: { UModal: true, UBadge: true, Icon: true, WhiteCard: true, BlackCard: true } },
+      global: { stubs: { UModal: true, UBadge: true, UButton: true, Icon: true, WhiteCard: true, BlackCard: true } },
     });
 
     const voteBtn = wrapper.find(".vote-btn");
@@ -58,10 +58,23 @@ describe("SubmissionsList.vue — submission.id (not $id) wiring", () => {
     expect(emitted![0]).toEqual(["submission-postgres-id"]);
   });
 
+  it("keeps an actionable vote control in the redesigned submission feed", async () => {
+    const wrapper = mount(SubmissionsList, {
+      props: { submissions: [SUBMISSION] },
+      global: { stubs: { UModal: true, UBadge: true, UButton: true, Icon: true, WhiteCard: true, BlackCard: true } },
+    });
+
+    const feedVoteButton = wrapper.find(".submission-feed__vote-button");
+    expect(feedVoteButton.exists()).toBe(true);
+    await feedVoteButton.trigger("click");
+
+    expect(wrapper.emitted("upvote")?.[0]).toEqual(["submission-postgres-id"]);
+  });
+
   it("uses :key=submission.id so the row key isn't undefined", () => {
     const wrapper = mount(SubmissionsList, {
       props: { submissions: [SUBMISSION] },
-      global: { stubs: { UModal: true, UBadge: true, Icon: true, WhiteCard: true, BlackCard: true } },
+      global: { stubs: { UModal: true, UBadge: true, UButton: true, Icon: true, WhiteCard: true, BlackCard: true } },
     });
 
     // vue-test-utils doesn't expose :key directly, but we can assert the
@@ -76,7 +89,7 @@ describe("SubmissionsList.vue — submission.id (not $id) wiring", () => {
 
     const wrapper = mount(SubmissionsList, {
       props: { submissions: [SUBMISSION] },
-      global: { stubs: { UModal: true, UBadge: true, Icon: true, WhiteCard: true, BlackCard: true } },
+      global: { stubs: { UModal: true, UBadge: true, UButton: true, Icon: true, WhiteCard: true, BlackCard: true } },
     });
 
     const deleteBtn = wrapper.find(".delete-btn");

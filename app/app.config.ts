@@ -12,10 +12,10 @@ export default defineAppConfig({
     // error     → red     (destructive/admin actions, unchanged)
     // neutral   → slate   (unchanged — surfaces/borders)
     colors: {
-      primary: "yellow",
+      primary: "cyan",
       secondary: "fuchsia",
       success: "lime",
-      info: "cyan",
+      info: "sky",
       warning: "amber",
       error: "red",
       neutral: "slate",
