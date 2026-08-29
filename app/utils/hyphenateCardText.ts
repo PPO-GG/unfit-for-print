@@ -1,4 +1,6 @@
-import { hyphenateSync } from "hyphen/en-us";
+import enUsHyphenator from "hyphen/en-us";
+
+const { hyphenateSync } = enUsHyphenator;
 
 const SOFT_HYPHEN = "\u00AD";
 const WORD_WITH_BREAKS = /[A-Za-z\u00AD]+/g;
