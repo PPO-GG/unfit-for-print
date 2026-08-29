@@ -61,6 +61,7 @@
               </div>
               <div class="card-report-btn" @click.stop>
                 <UPopover
+                  v-model:open="showReportPopover"
                   :ui="{
                     content:
                       'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg',
@@ -84,7 +85,10 @@
                         color="warning"
                         label="Report This Card"
                         variant="subtle"
-                        @click.stop="showReportModal = true"
+                        @click.stop="
+                          showReportPopover = false;
+                          showReportModal = true;
+                        "
                       />
                     </div>
                   </template>
@@ -233,7 +237,14 @@ watch(
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
 const shineOffset = ref({ x: 0, y: 0 });
+const showReportPopover = ref(false);
 const showReportModal = ref(false);
+
+watch(showReportModal, (isOpen) => {
+  if (isOpen) {
+    showReportPopover.value = false;
+  }
+});
 
 function animateShine() {
   const ease = 0.05;
@@ -669,13 +680,14 @@ onMounted(async () => {
   width: 5cqi;
   background: #c32c4c;
   pointer-events: none;
+  z-index: 2;
 }
 
 .card-spine-label {
   position: absolute;
   left: 2.5cqi;
   top: 50%;
-  transform: translateY(-50%) rotate(-90deg);
+  transform: translate(-50%, -50%) rotate(-90deg);
   transform-origin: center;
   font-family: "Archivo Black", sans-serif;
   font-size: 2.6cqi;
@@ -684,6 +696,7 @@ onMounted(async () => {
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
+  z-index: 3;
 }
 
 .card-body {
@@ -702,6 +715,7 @@ onMounted(async () => {
   font-size: clamp(0.7rem, 9.5cqi, 2.2rem);
   line-height: 1.08;
   letter-spacing: -0.015em;
+  text-align: left;
   text-transform: uppercase;
   color: #0d0f1a;
   margin: 0;

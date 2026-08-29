@@ -165,13 +165,14 @@ const formattedText = computed(() => {
   bottom: 0;
   width: 5cqi;
   pointer-events: none;
+  z-index: 2;
 }
 
 .card-spine-label {
   position: absolute;
   left: 2.5cqi;
   top: 50%;
-  transform: translateY(-50%) rotate(-90deg);
+  transform: translate(-50%, -50%) rotate(-90deg);
   transform-origin: center;
   font-family: "Archivo Black", sans-serif;
   font-size: 2.6cqi;
@@ -179,6 +180,7 @@ const formattedText = computed(() => {
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
+  z-index: 3;
 }
 
 .card-body {
@@ -196,6 +198,7 @@ const formattedText = computed(() => {
   font-family: "Archivo Black", sans-serif;
   line-height: 1.08;
   letter-spacing: -0.015em;
+  text-align: left;
   text-transform: uppercase;
   margin: 0;
   overflow-wrap: break-word;
