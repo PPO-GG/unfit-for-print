@@ -124,7 +124,7 @@
             <BlackCard
               v-if="blackCard"
               :back-logo-url="'/img/ufp.svg'"
-              :card-id="blackCard.$id"
+              :card-id="blackCard.id"
               :cardPack="blackCard.pack"
               :flipped="blackCardFlipped"
               :mask-url="'/img/textures/hexa.webp'"
@@ -152,7 +152,7 @@
             <WhiteCard
               v-if="whiteCard"
               :back-logo-url="'/img/ufp.svg'"
-              :card-id="whiteCard.$id"
+              :card-id="whiteCard.id"
               :card-pack="whiteCard.pack"
               :flipped="whiteCardFlipped"
               :mask-url="'/img/textures/hexa2.webp'"

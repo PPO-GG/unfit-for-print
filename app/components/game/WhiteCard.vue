@@ -29,7 +29,9 @@
           <slot name="front">
             <div class="card-content cursor-pointer">
               <div class="card-spine" />
-              <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
+              <span class="card-spine-label" aria-hidden="true"
+                >UNFIT · FOR · PRINT</span
+              >
               <img
                 v-if="resolvedImageUrl"
                 class="card-image"
@@ -39,7 +41,13 @@
                 draggable="false"
               />
               <div v-else ref="cardBodyEl" class="card-body">
-                <p ref="cardTextEl" lang="en" class="card-body-text text-pretty cursor-pointer">{{ displayText }}</p>
+                <p
+                  ref="cardTextEl"
+                  lang="en"
+                  class="card-body-text text-pretty cursor-pointer"
+                >
+                  {{ displayText }}
+                </p>
               </div>
               <img
                 class="card-watermark"
@@ -49,21 +57,27 @@
                 draggable="false"
               />
               <div class="card-footer">
-                <span class="card-footer-pack">{{ cardPack || '' }}</span>
+                <span class="card-footer-pack">{{ cardPack || "" }}</span>
               </div>
               <div class="card-report-btn" @click.stop>
                 <UPopover
-                  :ui="{ content: 'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg' }"
+                  :ui="{
+                    content:
+                      'w-full backdrop-blur-sm bg-slate-900/50 rounded-lg',
+                  }"
                   arrow
                 >
                   <Icon name="lucide:circle-help" class="flex cursor-pointer" />
                   <template #content>
                     <div class="flex-1 p-4">
-                      <p class="text-md p-1">
-                        <span class="text-yellow-500">Card ID: </span>{{ cardId ?? '' }}
+                      <p class="text-sm p-1 font-mono break-all">
+                        <span class="text-yellow-500 font-sans">Card ID: </span
+                        >{{ cardId ?? "" }}
                       </p>
-                      <p class="text-md p-1">
-                        <span class="text-yellow-500">Card Pack: </span>{{ cardPack }}
+                      <p class="text-sm p-1 font-mono break-all">
+                        <span class="text-yellow-500 font-sans"
+                          >Card Pack: </span
+                        >{{ cardPack }}
                       </p>
                       <UButton
                         class="mt-2"
@@ -89,7 +103,9 @@
           <slot name="back">
             <div class="card-content cursor-pointer">
               <div class="card-spine" />
-              <span class="card-spine-label" aria-hidden="true">UNFIT · FOR · PRINT</span>
+              <span class="card-spine-label" aria-hidden="true"
+                >UNFIT · FOR · PRINT</span
+              >
               <div class="card-back-logo-wrap">
                 <img
                   class="card-back-logo-img"
@@ -158,29 +174,32 @@ function playRandomFlip() {
   playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
 }
 
-const props = withDefaults(defineProps<{
-  cardId?: string;
-  text?: string;
-  cardPack?: string;
-  backLogoUrl?: string;
-  flipped?: boolean;
-  threeDeffect?: boolean;
-  shine?: boolean;
-  maskUrl?: string;
-  isWinner?: boolean;
-  disableHover?: boolean;
-  /** Flat rendering mode: bypasses preserve-3d entirely to avoid Firefox GPU
-   *  tiling artifacts. Use for cards that never need an animated flip
-   *  (e.g. hand cards, pile cards). */
-  flat?: boolean;
-  /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
-  scale?: number;
-  /** Picture-card image URL. When set, renders full-bleed instead of text. */
-  imageUrl?: string;
-  attachment?: CardAttachmentConfig | null;
-}>(), {
-  scale: 100,
-});
+const props = withDefaults(
+  defineProps<{
+    cardId?: string;
+    text?: string;
+    cardPack?: string;
+    backLogoUrl?: string;
+    flipped?: boolean;
+    threeDeffect?: boolean;
+    shine?: boolean;
+    maskUrl?: string;
+    isWinner?: boolean;
+    disableHover?: boolean;
+    /** Flat rendering mode: bypasses preserve-3d entirely to avoid Firefox GPU
+     *  tiling artifacts. Use for cards that never need an animated flip
+     *  (e.g. hand cards, pile cards). */
+    flat?: boolean;
+    /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
+    scale?: number;
+    /** Picture-card image URL. When set, renders full-bleed instead of text. */
+    imageUrl?: string;
+    attachment?: CardAttachmentConfig | null;
+  }>(),
+  {
+    scale: 100,
+  },
+);
 
 const fallbackText = ref("");
 const fallbackImageUrl = ref<string | null>(null);
@@ -189,7 +208,9 @@ const cardText = computed(() => props.text || fallbackText.value);
 const displayText = computed(() =>
   hyphenateCardText(glueOrphanPunctuation(cardText.value)),
 );
-const resolvedImageUrl = computed(() => props.imageUrl || fallbackImageUrl.value || null);
+const resolvedImageUrl = computed(
+  () => props.imageUrl || fallbackImageUrl.value || null,
+);
 const resolvedAttachment = computed(
   () => props.attachment ?? fallbackAttachment.value ?? DEFAULT_CARD_ATTACHMENT,
 );
@@ -408,17 +429,19 @@ onMounted(async () => {
       }
 
       try {
-        const [doc] = await $fetch<{
-          id: string;
-          text: string | null;
-          pack: string;
-          imageKey: string | null;
-          imageFormat: string | null;
-          attachment: CardAttachmentConfig | null;
-        }[]>(
-          "/api/cards/resolve",
-          { method: "POST", body: { ids: [props.cardId] } },
-        );
+        const [doc] = await $fetch<
+          {
+            id: string;
+            text: string | null;
+            pack: string;
+            imageKey: string | null;
+            imageFormat: string | null;
+            attachment: CardAttachmentConfig | null;
+          }[]
+        >("/api/cards/resolve", {
+          method: "POST",
+          body: { ids: [props.cardId] },
+        });
 
         if (doc && doc.imageKey) {
           fallbackImageUrl.value = getCardImageUrl(doc.imageKey);
@@ -500,18 +523,25 @@ onMounted(async () => {
   position: absolute;
   width: 100%;
   height: 100%;
-  top: 0; left: 0;
+  top: 0;
+  left: 0;
   border-radius: 14px;
 }
 
-.card__front { background-color: #f6f3ea; }
-.card__back  { background-color: #f6f3ea; }
+.card__front {
+  background-color: #f6f3ea;
+}
+.card__back {
+  background-color: #f6f3ea;
+}
 
 .card__front .card__shine,
-.card__back  .card__shine {
+.card__back .card__shine {
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 14px;
 }
 
@@ -599,7 +629,7 @@ onMounted(async () => {
   --card-scale: 1;
   width: clamp(
     calc(10rem * var(--card-scale)),
-    calc(12vw  * var(--card-scale)),
+    calc(12vw * var(--card-scale)),
     calc(18rem * var(--card-scale))
   );
   container-type: inline-size;
@@ -619,11 +649,12 @@ onMounted(async () => {
   border-radius: inherit;
   background: rgba(0, 0, 0, var(--shadow-opacity));
   filter: blur(var(--shadow-blur));
-  transform: translate(var(--shadow-x), var(--shadow-y)) scaleX(var(--shadow-scale-x));
+  transform: translate(var(--shadow-x), var(--shadow-y))
+    scaleX(var(--shadow-scale-x));
   z-index: -1;
   pointer-events: none;
   transition:
-    filter    0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     background 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -632,7 +663,9 @@ onMounted(async () => {
 
 .card-spine {
   position: absolute;
-  left: 0; top: 0; bottom: 0;
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: 5cqi;
   background: #c32c4c;
   pointer-events: none;
@@ -644,9 +677,9 @@ onMounted(async () => {
   top: 50%;
   transform: translateY(-50%) rotate(-90deg);
   transform-origin: center;
-  font-family: 'Archivo Black', sans-serif;
+  font-family: "Archivo Black", sans-serif;
   font-size: 2.6cqi;
-  letter-spacing: .28em;
+  letter-spacing: 0.28em;
   color: #f6f3ea;
   white-space: nowrap;
   pointer-events: none;
@@ -655,15 +688,17 @@ onMounted(async () => {
 
 .card-body {
   position: absolute;
-  left: 9cqi; right: 9cqi;
-  top: 7cqi; bottom: 22cqi;
+  left: 9cqi;
+  right: 9cqi;
+  top: 7cqi;
+  bottom: 22cqi;
   display: flex;
   align-items: center;
   overflow: hidden;
 }
 
 .card-body-text {
-  font-family: 'Archivo Black', sans-serif;
+  font-family: "Archivo Black", sans-serif;
   font-size: clamp(0.7rem, 9.5cqi, 2.2rem);
   line-height: 1.08;
   letter-spacing: -0.015em;
@@ -689,8 +724,10 @@ onMounted(async () => {
 
 .card-watermark {
   position: absolute;
-  right: -6cqi; bottom: -4cqi;
-  width: 62cqi; height: auto;
+  right: -6cqi;
+  bottom: -4cqi;
+  width: 62cqi;
+  height: auto;
   opacity: 0.09;
   pointer-events: none;
   user-select: none;
@@ -698,7 +735,9 @@ onMounted(async () => {
 
 .card-footer {
   position: absolute;
-  left: 9cqi; right: 6cqi; bottom: 5cqi;
+  left: 9cqi;
+  right: 6cqi;
+  bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -706,17 +745,17 @@ onMounted(async () => {
 }
 
 .card-footer-pack {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 2.6cqi;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(13, 15, 26, .55);
+  color: rgba(13, 15, 26, 0.55);
 }
 
 .card-report-btn {
   position: absolute;
-  bottom: 4cqi;
-  left: 9cqi;
+  top: 1.2cqi;
+  left: 7cqi;
   font-size: 5.5cqi;
   opacity: 0.18;
   color: #0d0f1a;
@@ -725,7 +764,9 @@ onMounted(async () => {
   line-height: 1;
   transition: opacity 0.3s ease;
 }
-.card-report-btn:hover { opacity: 0.5; }
+.card-report-btn:hover {
+  opacity: 0.5;
+}
 
 /* Winner animation */
 .card--winner {
@@ -734,24 +775,36 @@ onMounted(async () => {
 }
 
 @keyframes winner-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); outline: 0 solid rgba(34, 197, 94, 0); }
-  50%  { box-shadow: 0 0 20px 10px rgba(34, 197, 94, 0.8); outline: 4px solid rgba(34, 197, 94, 0.8); }
-  100% { box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.6); outline: 2px solid rgba(34, 197, 94, 0.6); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    outline: 0 solid rgba(34, 197, 94, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(34, 197, 94, 0.8);
+    outline: 4px solid rgba(34, 197, 94, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.6);
+    outline: 2px solid rgba(34, 197, 94, 0.6);
+  }
 }
 
 /* ── Back face ──────────────────────────────────────────────────── */
 
 .card-back-logo-wrap {
   position: absolute;
-  left: 9cqi; right: 6cqi;
-  top: 10cqi; bottom: 14cqi;
+  left: 9cqi;
+  right: 6cqi;
+  top: 10cqi;
+  bottom: 14cqi;
   display: flex;
   align-items: center;
   justify-content: flex-start;
 }
 
 .card-back-logo-img {
-  width: 100%; height: auto;
+  width: 100%;
+  height: auto;
   max-height: 100%;
   object-fit: contain;
   object-position: left center;
@@ -759,22 +812,24 @@ onMounted(async () => {
 
 .card-back-footer {
   position: absolute;
-  left: 9cqi; right: 6cqi; bottom: 5cqi;
+  left: 9cqi;
+  right: 6cqi;
+  bottom: 5cqi;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1.5px solid rgba(13, 15, 26, .25);
+  border-top: 1.5px solid rgba(13, 15, 26, 0.25);
   padding-top: 2cqi;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 2.3cqi;
-  letter-spacing: .14em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(13, 15, 26, .6);
+  color: rgba(13, 15, 26, 0.6);
 }
 
 .card-back-footer-mark {
-  font-family: 'Archivo Black', sans-serif;
-  letter-spacing: .2em;
+  font-family: "Archivo Black", sans-serif;
+  letter-spacing: 0.2em;
   color: #0d0f1a;
 }
 </style>
