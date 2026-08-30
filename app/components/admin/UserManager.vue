@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import type { TableColumn } from "@nuxt/ui";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
@@ -7,6 +8,16 @@ const { confirm } = useConfirm();
 
 const users = ref<any[]>([]);
 const loading = ref(true);
+
+const userCount = computed(() => users.value.length);
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: "avatarUrl", header: "" },
+  { accessorKey: "name", header: "Username" },
+  { accessorKey: "createdAt", header: "Registered" },
+  { accessorKey: "isAdmin", header: "Admin" },
+  { id: "remove", header: "" },
+];
 
 const deleteUser = async (userId: string) => {
   const confirmed = await confirm({
@@ -87,69 +98,51 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
-    <div v-if="loading" class="space-y-3">
-      <!-- Skeleton cards -->
-      <div
-        v-for="i in 5"
-        :key="i"
-        class="bg-slate-700 rounded p-4 flex justify-between items-center relative"
-      >
-        <div class="max-w-xl mb-4 w-full">
-          <USkeleton class="h-5 w-full" />
-          <USkeleton class="h-5 w-3/4 mt-2" />
-        </div>
-        <div class="flex gap-2 absolute left-0 bottom-0 m-2">
-          <span class="ml-2 flex items-center">
-            <USkeleton class="h-4 w-20" />
-          </span>
-          <span class="ml-2 flex items-center">
-            <USkeleton class="h-4 w-20" />
-          </span>
-        </div>
-        <div class="flex items-center gap-1">
-          <USkeleton class="h-8 w-8 rounded" />
-          <USkeleton class="h-8 w-8 rounded" />
-          <USkeleton class="h-8 w-8 rounded" />
-          <USkeleton class="h-8 w-8 rounded" />
-        </div>
-      </div>
+  <div class="space-y-3">
+    <div class="flex items-center gap-2 text-slate-300">
+      <UIcon name="i-solar-users-group-rounded-bold-duotone" class="text-xl" />
+      <USkeleton v-if="loading" class="h-5 w-32" />
+      <span v-else>{{ userCount }} user{{ userCount === 1 ? "" : "s" }} registered</span>
     </div>
-    <ul v-else class="space-y-4">
-      <li
-        v-for="user in users"
-        :key="user.id"
-        class="bg-slate-700 p-4 rounded text-white space-y-2"
-      >
-        <div class="flex justify-between items-center">
-          <div class="flex gap-4 items-center flex-wrap">
-            <div class="flex items-center gap-2">
-              <span class="text-xl">{{ user.name || "Unnamed User" }}</span>
-              <UBadge v-if="user.isAdmin" color="primary">Admin</UBadge>
-              <UBadge v-if="user.isGuest" color="neutral">Guest</UBadge>
-            </div>
-          </div>
-          <div class="text-right">
-            <p class="text-sm text-gray-500">
-              Created: {{ new Date(user.createdAt).toLocaleString() }}
-            </p>
-          </div>
-          <div class="flex items-center gap-1">
-            <UButton
-              :icon="user.isAdmin ? 'i-solar-shield-minus-bold-duotone' : 'i-solar-shield-plus-bold-duotone'"
-              :color="user.isAdmin ? 'neutral' : 'primary'"
-              :disabled="user.isAdmin && user.id === userStore.user?.id"
-              :title="user.isAdmin ? 'Revoke admin' : 'Grant admin'"
-              @click="toggleAdmin(user)"
-            />
-            <UButton
-              icon="i-solar-trash-bin-trash-bold-duotone"
-              color="error"
-              @click="deleteUser(user.id)"
-            />
-          </div>
+
+    <UTable :data="users" :columns="columns" :loading="loading" class="text-white">
+      <template #avatarUrl-cell="{ row }">
+        <UAvatar :src="row.original.avatarUrl" :alt="row.original.name" size="md" />
+      </template>
+
+      <template #name-cell="{ row }">
+        <div class="flex items-center gap-2">
+          <span>{{ row.original.name || "Unnamed User" }}</span>
+          <UBadge v-if="row.original.isGuest" color="neutral">Guest</UBadge>
         </div>
-      </li>
-    </ul>
+      </template>
+
+      <template #createdAt-cell="{ row }">
+        {{ new Date(row.original.createdAt).toLocaleString() }}
+      </template>
+
+      <template #isAdmin-cell="{ row }">
+        <div class="flex items-center gap-2">
+          <UBadge v-if="row.original.isAdmin" color="primary">Admin</UBadge>
+          <UButton
+            :icon="row.original.isAdmin ? 'i-solar-shield-minus-bold-duotone' : 'i-solar-shield-plus-bold-duotone'"
+            :color="row.original.isAdmin ? 'neutral' : 'primary'"
+            :disabled="row.original.isAdmin && row.original.id === userStore.user?.id"
+            :title="row.original.isAdmin ? 'Revoke admin' : 'Grant admin'"
+            variant="ghost"
+            @click="toggleAdmin(row.original)"
+          />
+        </div>
+      </template>
+
+      <template #remove-cell="{ row }">
+        <UButton
+          icon="i-solar-trash-bin-trash-bold-duotone"
+          color="error"
+          variant="ghost"
+          @click="deleteUser(row.original.id)"
+        />
+      </template>
+    </UTable>
   </div>
 </template>
