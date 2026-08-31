@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.17.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.17.0...v3.17.1) (2026-08-31)
+
+
+### 🐛 Bug Fixes
+
+* **server:** avoid FK violations when pruning orphaned guest users ([88e1e19](https://github.com/PPO-GG/unfit-for-print/commit/88e1e19900f0b5ad3cc37658a0e32be4689c460f))
+* **web:** defer player list re-sort until score-fly badge lands ([db2180f](https://github.com/PPO-GG/unfit-for-print/commit/db2180f1bac1ed22d513782ff763f3eb2f2b9974))
+* **web:** skip fit-text cache while custom fonts are still loading ([b33a191](https://github.com/PPO-GG/unfit-for-print/commit/b33a191aa04a808bd163690d5f861b022c786cae))
+* **web:** stop card fly-in ghost from revealing pile card early ([dfd5a21](https://github.com/PPO-GG/unfit-for-print/commit/dfd5a2128cee3d0ac007eaa054ff0fea0f1c5ee2))
+* **web:** widen labs submissions grid to reduce overflow ([ece4d00](https://github.com/PPO-GG/unfit-for-print/commit/ece4d00d397bb469746c10b6108612dfd3346bcf))
+
+
+### ♻️ Refactors
+
+* **web:** share a single AudioContext and decode cache across useSfx ([b4422dd](https://github.com/PPO-GG/unfit-for-print/commit/b4422dd021689bcf9419c35de3f74c4d17a78c95))
+
 ## [3.17.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.16.0...v3.17.0) (2026-08-31)
 
 
