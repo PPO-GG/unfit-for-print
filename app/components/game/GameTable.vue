@@ -321,20 +321,31 @@ watch(
     const newKeys = new Set(Object.keys(newSubs));
     const addedKeys: string[] = [];
     for (const key of newKeys) {
-      if (!prevSubmissionKeys.value.has(key) && !animatedPids.has(key)) {
+      const isNewlyAdded =
+        !prevSubmissionKeys.value.has(key) && !animatedPids.has(key);
+      if (isNewlyAdded) {
         flyingGhosts.value.add(key); // hide real card BEFORE angle is set
         getCardAngle(key);
         addedKeys.push(key);
         animatedPids.add(key);
       }
-      // Clean up optimistic ghost now that the real pile card exists
+
+      // Its own fly-in animation hasn't started yet (that happens below,
+      // after nextTick), so there's no ghost to reconcile against yet.
+      // Checking here would immediately see the flyingGhosts flag we just
+      // set above and wrongly treat it as an "early arrival", un-hiding
+      // the real pile card before the ghost even starts flying.
+      if (isNewlyAdded) continue;
+
+      // Clean up optimistic ghost now that the real pile card exists.
+      // Only the GSAP onComplete handlers may clear flyingGhosts — doing
+      // it here would reveal the real card before its fly-in finishes.
       const ghost = pendingOptimisticGhosts.get(key);
       if (ghost) {
         if (flyingGhosts.value.has(key)) {
           // Animation still in progress — let GSAP onComplete handle wrapper
           // removal so the fly-in animation finishes visually.
           earlyArrivalPids.add(key);
-          flyingGhosts.value.delete(key);
         } else {
           // Animation already finished — safe to remove immediately
           ghost.remove();
@@ -344,7 +355,6 @@ watch(
         // Submission arrived before GSAP animation completed — mark for
         // self-cleanup in onComplete so the ghost doesn't persist forever.
         earlyArrivalPids.add(key);
-        flyingGhosts.value.delete(key);
       }
     }
 
@@ -1128,17 +1138,22 @@ function handleCardSubmit(cardIds: string[]) {
               pitch: [0.9, 1.1],
             });
 
+            // Reveal the real pile card now that the fly-in has actually
+            // finished (not before — that's what caused the real card to
+            // flash into view at its final spot while the ghost was
+            // still mid-flight).
+            flyingGhosts.value.delete(pid);
+
             if (earlyArrivalPids.has(pid)) {
               // Y.Doc submission arrived before animation finished —
               // remove the wrapper now that the animation is done.
               earlyArrivalPids.delete(pid);
               ghostWrapper.remove();
               pendingOptimisticGhosts.delete(pid);
-            } else {
-              // Animation finished before Y.Doc data arrived.
-              // Show real pile card; wrapper stays for watcher cleanup.
-              flyingGhosts.value.delete(pid);
             }
+            // else: animation finished before Y.Doc data arrived —
+            // wrapper stays for the submissions watcher to clean up
+            // once the real data lands.
           }
         },
       },
