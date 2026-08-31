@@ -45,6 +45,11 @@ const filteredLobbies = computed(() => {
   return list;
 });
 
+const orphanedLobbiesCount = computed(() => {
+  if (!status.value) return 0;
+  return status.value.lobbies.filter((l) => !l.hasLiveDoc && l.hasRegistry).length;
+});
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 function formatUptime(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
@@ -107,7 +112,7 @@ const deleteLobby = async (lobby: UnifiedLobby) => {
   if (!lobby.registry) return;
   const confirmed = await confirm({
     title: "Delete Registry Entry",
-    message: `Delete Appwrite records for "${lobbyName(lobby)}"?\n\nThis cascade-deletes players, chat, settings, and the lobby document. Cannot be undone.`,
+    message: `Delete database records for "${lobbyName(lobby)}"?\n\nThis cascade-deletes players, chat, settings, and the lobby document. Cannot be undone.`,
     confirmButtonText: "Delete",
     confirmButtonColor: "error",
   });
@@ -117,7 +122,7 @@ const deleteLobby = async (lobby: UnifiedLobby) => {
       method: "POST",
       body: { lobbyId: lobby.registry.lobbyId },
     });
-    notify({ title: "Registry Deleted", description: `${lobby.code} removed from Appwrite`, color: "success" });
+    notify({ title: "Registry Deleted", description: `${lobby.code} removed from database`, color: "success" });
     await fetchStatus();
   } catch (err: any) {
     const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not delete lobby";
@@ -146,7 +151,7 @@ const fullCleanup = async (lobby: UnifiedLobby) => {
   if (!lobby.teleportal || !lobby.registry) return;
   const confirmed = await confirm({
     title: "Full Cleanup",
-    message: `Full cleanup for "${lobbyName(lobby)}"?\n\nThis will GC the live Teleportal doc AND delete all Appwrite records. Cannot be undone.`,
+    message: `Full cleanup for "${lobbyName(lobby)}"?\n\nThis will GC the live Teleportal doc AND delete all database records. Cannot be undone.`,
     confirmButtonText: "Full Cleanup",
     confirmButtonColor: "error",
   });
@@ -179,7 +184,7 @@ const fullCleanup = async (lobby: UnifiedLobby) => {
 const gcAll = async () => {
   const confirmed = await confirm({
     title: "Force GC All Lobbies",
-    message: "Force GC ALL lobbies?\n\nThis will disconnect ALL players from ALL games immediately.",
+    message: "Force GC ALL live lobbies?\n\nThis will disconnect ALL players from ALL live games immediately.",
     confirmButtonText: "Force GC All",
     confirmButtonColor: "error",
   });
@@ -199,6 +204,39 @@ const gcAll = async () => {
     const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not flush lobbies";
     console.error("[LobbyMonitor] GC all failed:", msg, err);
     notify({ title: "GC Failed", description: msg, color: "error" });
+  }
+};
+
+const pruneStale = async (forceAll = false) => {
+  const confirmed = await confirm({
+    title: forceAll ? "Force Prune All Orphans" : "Prune Stale Lobbies",
+    message: forceAll
+      ? "Force prune ALL orphaned database lobbies regardless of age?\n\nLive Teleportal games will remain intact."
+      : "Prune stale lobbies from database?\n\n- Orphaned lobbies (>2h without live players)\n- Completed lobbies (>24h old)",
+    confirmButtonText: "Prune",
+    confirmButtonColor: "warning",
+  });
+  if (!confirmed) return;
+
+  try {
+    const result = await $activityFetch<{
+      prunedCount: number;
+      orphanedCount: number;
+      completedCount: number;
+    }>("/api/admin/lobby/prune", {
+      method: "POST",
+      body: { forceAllOrphans: forceAll },
+    });
+    notify({
+      title: "Prune Complete",
+      description: `Removed ${result.prunedCount} lobby(s) (${result.orphanedCount} orphaned, ${result.completedCount} completed)`,
+      color: "success",
+    });
+    await fetchStatus();
+  } catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not prune lobbies";
+    console.error("[LobbyMonitor] Prune failed:", msg, err);
+    notify({ title: "Prune Failed", description: msg, color: "error" });
   }
 };
 
@@ -283,9 +321,32 @@ onUnmounted(() => {
           icon="i-solar-trash-bin-minimalistic-bold-duotone"
           @click="gcAll"
           :disabled="!status?.lobbies.some((l) => l.hasLiveDoc)"
-          :tooltip="{ text: 'Force GC all lobbies' }"
+          :tooltip="{ text: 'Force GC all live lobbies' }"
         >
           GC All
+        </UButton>
+
+        <UButton
+          color="warning"
+          variant="soft"
+          size="xs"
+          icon="i-solar-broom-bold-duotone"
+          @click="pruneStale(false)"
+          :tooltip="{ text: 'Prune stale lobbies (>2h orphaned, >24h complete)' }"
+        >
+          Prune Stale
+        </UButton>
+
+        <UButton
+          v-if="orphanedLobbiesCount > 0"
+          color="warning"
+          variant="outline"
+          size="xs"
+          icon="i-solar-trash-bin-trash-bold-duotone"
+          @click="pruneStale(true)"
+          :tooltip="{ text: `Force prune all ${orphanedLobbiesCount} orphaned database record(s)` }"
+        >
+          Prune Orphans ({{ orphanedLobbiesCount }})
         </UButton>
 
         <UButton
@@ -524,7 +585,7 @@ onUnmounted(() => {
               class="rounded-full"
               :tooltip="{ text: 'GC Teleportal doc' }"
             />
-            <!-- Delete Appwrite registry -->
+            <!-- Delete database registry -->
             <UButton
               v-if="lobby.hasRegistry"
               color="error"
@@ -533,7 +594,7 @@ onUnmounted(() => {
               size="xs"
               @click="deleteLobby(lobby)"
               class="rounded-full"
-              :tooltip="{ text: 'Delete Appwrite records' }"
+              :tooltip="{ text: 'Delete database records' }"
             />
             <!-- Full cleanup (both) -->
             <UButton
