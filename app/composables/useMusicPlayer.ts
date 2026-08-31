@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { clampVolumePercent } from "~/utils/volume";
 
-const MUSIC_PLAYLIST_ID = "PLRJLE319jodBWToEdKwnulvHgvvHX3doK";
+const MUSIC_PLAYLIST_ID = "PL06diOotXAJJHjvUm7FNNG5a7XUA2_C27";
 const YT_API_URL = "https://www.youtube.com/iframe_api";
 export const MUSIC_PLAYER_CONTAINER_ID = "music-player-yt-target";
 
@@ -22,7 +22,7 @@ export function buildPlayerVars(playlistId: string) {
   return {
     listType: "playlist" as const,
     list: playlistId,
-    autoplay: 0 as const,
+    autoplay: 1 as const,
     controls: 0 as const,
   };
 }

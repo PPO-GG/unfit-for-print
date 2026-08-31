@@ -153,9 +153,11 @@
     /* Overlay scrollbar — floats over content like macOS / Firefox default.
        Deprecated spec-wise but still supported in all Chromium browsers. */
     overflow-y: overlay;
-    /* Scale UI proportionally on large viewports (1440p, 4K).
-       ~17px at 1080p → ~19px at 1440p → ~22px at 4K. */
-    font-size: clamp(16px, 12px + 0.2vw + 0.1vh, 22px);
+    /* Scale UI proportionally on large viewports (1440p, 4K), on top of
+       the user's manual preference from prefs.uiScale (--ui-scale, set in
+       app.vue). ~17px at 1080p → ~19px at 1440p → ~22px at 4K, before the
+       user multiplier is applied. */
+    font-size: calc(clamp(16px, 12px + 0.2vw + 0.1vh, 22px) * var(--ui-scale, 1));
     /* Firefox: thin scrollbar, dark-themed */
     scrollbar-width: thin;
     scrollbar-color: rgba(100, 116, 139, 0.45) transparent; /* slate-500/45 */
@@ -337,7 +339,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 3;
+  z-index: 0;
   overflow: hidden;
 }
 

@@ -55,7 +55,10 @@
   "game.points": "Points",
   "game.refresh_page": "Refresh Page",
   "game.retry": "Retry",
-  "game.round": "Round",
+  "game.first_to": "First to",
+  "game.locked": "Locked",
+  "game.picking": "Picking",
+  "game.round_end": "Round End",
   "game.round_over": "Round Over",
   "game.round_won_other": "{name} won this round!",
   "game.round_won_self": "You won this round!",
@@ -212,5 +215,8 @@
   "try_me": "Try Me!",
   "footer": {
     "copyright": "All Rights Reserved."
+  },
+  "game": {
+    "round": "Round"
   }
 }

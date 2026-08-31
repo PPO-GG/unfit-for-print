@@ -17,13 +17,13 @@ describe("useMusicPlayer", () => {
     expect(clampVolume(42.6)).toBe(43);
   });
 
-  it("buildPlayerVars requests the fixed playlist without autoplay or visible controls", async () => {
+  it("buildPlayerVars requests the fixed playlist with autoplay enabled and without visible controls", async () => {
     const { buildPlayerVars } = await import("~/composables/useMusicPlayer");
 
     expect(buildPlayerVars("PL123")).toEqual({
       listType: "playlist",
       list: "PL123",
-      autoplay: 0,
+      autoplay: 1,
       controls: 0,
     });
   });

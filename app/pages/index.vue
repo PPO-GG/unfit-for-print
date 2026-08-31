@@ -59,7 +59,10 @@
               <button
                 type="button"
                 class="user-menu-item rounded-md"
-                @click="settingsOpen = true; userMenuOpen = false;"
+                @click="
+                  uiStore.showSettings = true;
+                  userMenuOpen = false;
+                "
               >
                 <UIcon
                   name="i-solar-settings-bold-duotone"
@@ -284,9 +287,9 @@
               icon="i-solar-settings-bold-duotone"
               :label="t('nav.settings')"
               description="Adjust volume & preferences"
-              shortcut="S"
+              shortcut="ESC"
               class="col-span-6 sm:col-span-3"
-              @click="settingsOpen = true"
+              @click="uiStore.showSettings = true"
             />
 
             <MenuTile
@@ -339,7 +342,6 @@
     </div>
 
     <JoinTakeover v-model:open="showJoin" @joined="handleJoined" />
-    <SettingsSlideover v-model:open="settingsOpen" />
   </div>
 </template>
 
@@ -361,10 +363,12 @@ import { useLobbyActions } from "~/composables/useLobbyActions";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useNotifications } from "~/composables/useNotifications";
 import { useIsAdmin } from "~/composables/useAdminCheck";
+import { useUiStore } from "~/stores/uiStore";
 
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
 const userStore = useUserStore();
+const uiStore = useUiStore();
 const { notify } = useNotifications();
 const { isDiscordActivity } = useDiscordSDK();
 const isAdmin = useIsAdmin();
@@ -373,7 +377,6 @@ const route = useRoute();
 
 // ─── User Menu ───────────────────────────────────────────────────────
 const userMenuOpen = ref(false);
-const settingsOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
 onClickOutside(userMenuRef, () => {
   userMenuOpen.value = false;
@@ -438,7 +441,7 @@ const handleMenuHotkey = createMenuHotkeyHandler({
   labs: () => void router.push("/labs"),
   howToPlay: () => void router.push("/about"),
   settings: () => {
-    settingsOpen.value = true;
+    uiStore.showSettings = true;
   },
   canCreate: () =>
     !isDiscordActivity.value &&
