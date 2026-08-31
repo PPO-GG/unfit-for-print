@@ -1,13 +1,13 @@
 // composables/useBrowserSpeech.ts
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
-import { normalizeVolumePercent } from "~/utils/volume";
+import { applyVolume } from "~/utils/volume";
 import { ref } from "vue";
 
 export function applyUtteranceVolume(
   utterance: SpeechSynthesisUtterance,
   ttsVolumePercent: number,
 ): void {
-  utterance.volume = normalizeVolumePercent(ttsVolumePercent);
+  applyVolume(utterance, ttsVolumePercent);
 }
 
 export function useBrowserSpeech() {

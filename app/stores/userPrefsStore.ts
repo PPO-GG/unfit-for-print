@@ -1,6 +1,7 @@
 // stores/userPrefsStore.ts
 import { defineStore } from 'pinia'
 import { DEFAULT_TTS_VOICE } from '~/constants/ttsProviders'
+import { clampVolumePercent } from '~/utils/volume'
 
 export const useUserPrefsStore = defineStore('userPrefs', {
     state: () => ({
@@ -41,13 +42,13 @@ export const useUserPrefsStore = defineStore('userPrefs', {
             this.uiScale = Math.min(150, Math.max(75, scale))
         },
         setSfxVolume(volume: number) {
-            this.sfxVolume = Math.min(100, Math.max(0, Math.round(volume)))
+            this.sfxVolume = clampVolumePercent(volume)
         },
         setTtsVolume(volume: number) {
-            this.ttsVolume = Math.min(100, Math.max(0, Math.round(volume)))
+            this.ttsVolume = clampVolumePercent(volume)
         },
         setMusicVolume(volume: number) {
-            this.musicVolume = Math.min(100, Math.max(0, Math.round(volume)))
+            this.musicVolume = clampVolumePercent(volume)
         },
     },
 

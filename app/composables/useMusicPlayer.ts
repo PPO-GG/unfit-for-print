@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { clampVolumePercent } from "~/utils/volume";
 
 const MUSIC_PLAYLIST_ID = "PLRJLE319jodBWToEdKwnulvHgvvHX3doK";
 const YT_API_URL = "https://www.youtube.com/iframe_api";
@@ -11,9 +12,10 @@ let pendingVolume = 70;
 
 const isPlaying = ref(false);
 const isReady = ref(false);
+const hasError = ref(false);
 
 export function clampVolume(volume: number): number {
-  return Math.min(100, Math.max(0, Math.round(volume)));
+  return clampVolumePercent(volume);
 }
 
 export function buildPlayerVars(playlistId: string) {
@@ -120,8 +122,14 @@ function ensurePlayer(): Promise<any> {
 
 export function useMusicPlayer() {
   const play = async () => {
-    const activePlayer = await ensurePlayer();
-    activePlayer?.playVideo();
+    try {
+      const activePlayer = await ensurePlayer();
+      activePlayer?.playVideo();
+      hasError.value = false;
+    } catch (err) {
+      hasError.value = true;
+      throw err;
+    }
   };
 
   const pause = () => {
@@ -145,5 +153,5 @@ export function useMusicPlayer() {
     player?.setVolume(pendingVolume);
   };
 
-  return { play, pause, toggle, setVolume, isPlaying, isReady };
+  return { play, pause, toggle, setVolume, isPlaying, isReady, hasError };
 }

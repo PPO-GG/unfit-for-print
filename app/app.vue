@@ -9,10 +9,11 @@
     </ClientOnly>
     <ConfirmDialog />
     <div
-      :id="MUSIC_PLAYER_CONTAINER_ID"
       style="position: fixed; width: 0; height: 0; overflow: hidden;"
       aria-hidden="true"
-    />
+    >
+      <div :id="MUSIC_PLAYER_CONTAINER_ID" />
+    </div>
     <NuxtLayout>
       <div
         v-if="isDev"
@@ -53,7 +54,11 @@ watch(
 
 watch(
   () => prefs.musicVolume,
-  (volume) => music.setVolume(volume),
+  (volume) => {
+    if (import.meta.client) {
+      music.setVolume(volume);
+    }
+  },
   { immediate: true },
 );
 

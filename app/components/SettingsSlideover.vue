@@ -6,6 +6,23 @@ const emit = defineEmits<{ "update:open": [boolean] }>();
 const { t } = useI18n();
 const prefs = useUserPrefsStore();
 const music = useMusicPlayer();
+const { notify } = useNotifications();
+
+watch(
+  () => music.hasError.value,
+  (failed) => {
+    if (failed) {
+      notify({
+        title: t("profile.settings_music_error", "Couldn't load music"),
+        description: t(
+          "profile.settings_music_error_desc",
+          "The background music player failed to load. It may be blocked by an ad blocker or browser extension.",
+        ),
+        color: "error",
+      });
+    }
+  },
+);
 
 const isOpen = computed({
   get: () => props.open,

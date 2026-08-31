@@ -1,7 +1,7 @@
 import { ref } from "vue";
 import { useBrowserSpeech } from "./useBrowserSpeech";
 import { TTS_PROVIDERS } from "~/constants/ttsProviders";
-import { normalizeVolumePercent } from "~/utils/volume";
+import { applyVolume } from "~/utils/volume";
 
 // Define provider types
 export type TTSProvider = "browser" | "elevenlabs" | "openai" | "google" | "kokoro";
@@ -45,7 +45,7 @@ export function applyTtsVolume(
   audioEl: HTMLAudioElement,
   ttsVolumePercent: number,
 ): void {
-  audioEl.volume = normalizeVolumePercent(ttsVolumePercent);
+  applyVolume(audioEl, ttsVolumePercent);
 }
 
 export function useSpeech(options: TTSOptions = {}) {

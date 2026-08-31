@@ -206,6 +206,8 @@
   "profile.settings_volume_music_desc": "Background music volume",
   "profile.settings_music_play": "Play",
   "profile.settings_music_pause": "Pause",
+  "profile.settings_music_error": "Couldn't load music",
+  "profile.settings_music_error_desc": "The background music player failed to load. It may be blocked by an ad blocker or browser extension.",
   "tagline": "A PARTY GAME FOR HIDEOUS PEOPLE",
   "try_me": "Try Me!",
   "footer": {

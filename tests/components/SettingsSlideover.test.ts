@@ -32,6 +32,7 @@ function mountSlideover() {
     },
   });
   const toggleMock = vi.fn();
+  const notifyMock = vi.fn();
 
   vi.stubGlobal("useI18n", () => ({
     t: (_key: string, fallback?: string) => fallback ?? _key,
@@ -43,6 +44,10 @@ function mountSlideover() {
     toggle: toggleMock,
     setVolume: vi.fn(),
     isPlaying: { value: false },
+    hasError: { value: false },
+  }));
+  vi.stubGlobal("useNotifications", () => ({
+    notify: notifyMock,
   }));
 
   const wrapper = mount(SettingsSlideover, {
@@ -59,7 +64,7 @@ function mountSlideover() {
     },
   });
 
-  return { wrapper, prefs, toggleMock };
+  return { wrapper, prefs, toggleMock, notifyMock };
 }
 
 describe("SettingsSlideover", () => {
