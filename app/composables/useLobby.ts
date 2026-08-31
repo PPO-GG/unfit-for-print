@@ -72,6 +72,16 @@ export const useLobby = () => {
     });
   };
 
+  const updateLobbyIsPrivate = async (
+    lobbyId: string,
+    isPrivate: boolean,
+  ): Promise<void> => {
+    await $activityFetch("/api/lobby/privacy", {
+      method: "POST",
+      body: { lobbyId, isPrivate },
+    });
+  };
+
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
@@ -116,6 +126,7 @@ export const useLobby = () => {
         discordInstanceId,
         discordChannelId,
         vcOnly,
+        isPrivate,
       },
     });
 
@@ -394,7 +405,7 @@ export const useLobby = () => {
 
     // Call server to fetch and shuffle cards from Appwrite
     // (card packs are permanent Appwrite data)
-    const result = await $fetch<{
+    const result = await $activityFetch<{
       success: boolean;
       error?: string;
       whiteDeck: string[];
@@ -713,6 +724,7 @@ export const useLobby = () => {
     getLobbyByInstanceId,
     getLobbiesByChannelId,
     updateLobbyPrivacy,
+    updateLobbyIsPrivate,
     leaveLobby,
     isInLobby,
 

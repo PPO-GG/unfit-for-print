@@ -50,6 +50,7 @@ const {
   reactive,
   engine,
   mutations,
+  updateLobbyIsPrivate,
 } = useLobby();
 const { initializeGamePageSession } = useJoinLobby();
 
@@ -131,6 +132,25 @@ watch(
         // If this fails, the lobby row is stale but gameplay is unaffected.
         console.warn("[GamePage] Failed to sync status to server:", err);
       }
+    }
+  },
+);
+
+// ─── Sync Y.Doc isPrivate → Postgres (host only) ───────────────────────────
+// The "Private Lobby" toggle lives in the Y.Doc settings; mirror it into the
+// lobby row so /api/lobby/list (which only reads Postgres) can exclude
+// private lobbies from the public browser.
+watch(
+  () => reactive.settings.value?.isPrivate,
+  async (newValue, oldValue) => {
+    if (newValue === undefined || newValue === oldValue) return;
+    if (!isHost.value || !lobby.value?.id) return;
+
+    try {
+      await updateLobbyIsPrivate(lobby.value.id, newValue);
+    } catch (err) {
+      // Non-critical — the Y.Doc is the authority for gameplay.
+      console.warn("[GamePage] Failed to sync isPrivate to server:", err);
     }
   },
 );

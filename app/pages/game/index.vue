@@ -37,7 +37,7 @@
     </div>
 
     <!-- ── Lobby Browser ─────────────────────────────────────────── -->
-    <div class="w-full max-w-3xl px-4 pb-20 z-10">
+    <div class="w-full max-w-6xl px-4 pb-20 z-10">
       <!-- Section header -->
       <div class="flex items-center justify-between mb-4 px-1">
         <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -51,153 +51,113 @@
         </span>
       </div>
 
-      <!-- Lobby List -->
-      <ul v-if="sortedLobbies.length" class="space-y-3">
+      <!-- Lobby Grid -->
+      <ul v-if="sortedLobbies.length" class="lobby-grid">
         <li
           v-for="lobby in sortedLobbies"
           :key="lobby.id"
-          class="lobby-tile glass-panel rounded-xl shadow-lg"
+          class="lobby-card"
+          :class="{
+            'lobby-card--waiting': (getLiveInfo(lobby.code)?.phase || lobby.status) === 'waiting',
+            'lobby-card--complete': (getLiveInfo(lobby.code)?.phase || lobby.status) === 'complete',
+          }"
           @click="handleJoined(lobby.code)"
         >
-          <!-- Subtle glow overlay on hover -->
-          <div class="lobby-tile-glow" />
+          <div class="lobby-card__accent" />
 
-          <!-- Left: tile-header -->
-          <div class="tile-header min-w-0">
-            <!-- Host avatar -->
-            <div class="tile-avatar-wrap shrink-0">
-              <img
-                v-if="getHostAvatar(lobby)"
-                :src="getHostAvatar(lobby)!"
-                :alt="getHostName(lobby)"
-                class="tile-avatar"
-              />
-              <span
-                v-else
-                class="i-solar-users-group-rounded-bold-duotone text-violet-300 text-xl"
-              />
-            </div>
-
-            <!-- Name + host + badges -->
-            <div class="tile-info min-w-0">
-              <span class="tile-name truncate">
-                {{ lobby.lobbyName || t("lobby.no_name") }}
-              </span>
-
-              <span class="tile-host">
-                <span class="i-solar-crown-minimalistic-bold-duotone text-amber-400" />
-                {{ getHostName(lobby) }}
-                <span class="mx-1 opacity-40">·</span>
-                <span class="i-solar-key-minimalistic-2-bold-duotone text-slate-500" />
-                <span class="font-mono">{{ lobby.code }}</span>
-              </span>
-
-              <!-- Live game info row -->
-              <div
-                v-if="getLiveInfo(lobby.code)"
-                class="flex items-center gap-2 mt-1 flex-wrap"
-              >
-                <!-- Phase badge -->
-                <span
-                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border"
-                  :class="getPhaseClasses(getLiveInfo(lobby.code)!.phase)"
-                >
-                  <span
-                    class="inline-block w-1 h-1 rounded-full animate-pulse"
-                    :class="getPhaseDotClass(getLiveInfo(lobby.code)!.phase)"
-                  />
-                  {{ getPhaseLabel(getLiveInfo(lobby.code)!.phase) }}
-                </span>
-
-                <!-- Round info -->
-                <span
-                  v-if="getLiveInfo(lobby.code)!.round > 0"
-                  class="inline-flex items-center gap-1 text-[10px] text-slate-400 tabular-nums"
-                >
-                  <span class="i-solar-restart-circle-bold-duotone text-slate-500" />
-                  Round {{ getLiveInfo(lobby.code)!.round }}
-                </span>
-              </div>
-
-              <!-- Player avatar stack (fallback when no live Teleportal data) -->
-              <div
-                v-if="!getLiveInfo(lobby.code) && lobbyPlayers[lobby.id]?.length"
-                class="flex items-center gap-1 mt-1.5"
-              >
-                <div class="flex items-center -space-x-1.5">
-                  <div
-                    v-for="player in lobbyPlayers[lobby.id]!.slice(0, 6)"
-                    :key="player.id"
-                    class="relative shrink-0 w-6 h-6 rounded-full border-2 border-slate-800 overflow-hidden bg-slate-700"
-                    :title="player.name"
-                  >
-                    <img
-                      v-if="player.avatar"
-                      :src="player.avatar"
-                      :alt="player.name"
-                      class="w-full h-full object-cover"
-                    />
-                    <span
-                      v-else
-                      class="flex items-center justify-center w-full h-full text-[10px] font-bold text-slate-400 uppercase"
-                    >
-                      {{ player.name?.charAt(0) || "?" }}
-                    </span>
-                    <span
-                      v-if="player.playerType === 'bot'"
-                      class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-3 h-3 rounded-full bg-slate-900 border border-slate-700"
-                    >
-                      <span class="i-solar-bot-minimalistic-bold-duotone text-[8px] text-cyan-400" />
-                    </span>
-                    <span
-                      v-else-if="player.isHost"
-                      class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-3 h-3 rounded-full bg-slate-900 border border-slate-700"
-                    >
-                      <span class="i-solar-crown-minimalistic-bold-duotone text-[8px] text-amber-400" />
-                    </span>
-                  </div>
-                </div>
-                <span
-                  v-if="lobbyPlayers[lobby.id]!.length > 6"
-                  class="text-[10px] font-semibold text-slate-500 ml-1"
-                >
-                  +{{ lobbyPlayers[lobby.id]!.length - 6 }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right: meta badges + join button -->
-          <div class="tile-meta shrink-0">
-            <!-- Player count badge -->
+          <div class="lobby-card__topline">
+            <span class="lobby-card__code">{{ lobby.code }}</span>
             <span
-              v-if="getLiveInfo(lobby.code)"
-              class="tile-badge tile-badge--players"
-            >
-              <span class="i-solar-users-group-rounded-bold-duotone" />
-              {{ getLiveInfo(lobby.code)!.players }}
-              {{ getLiveInfo(lobby.code)!.players === 1 ? "player" : "players" }}
-            </span>
-
-            <!-- Status badge (desktop) -->
-            <span
-              class="tile-badge hidden sm:inline-flex"
+              class="lobby-card__status"
               :class="getStatusBadgeClasses(lobby, getLiveInfo(lobby.code))"
             >
               <span
-                class="inline-block w-1.5 h-1.5 rounded-full"
+                class="lobby-card__status-dot"
                 :class="getStatusDotClass(lobby, getLiveInfo(lobby.code))"
               />
               {{ getStatusLabel(lobby, getLiveInfo(lobby.code)) }}
             </span>
+          </div>
+
+          <div class="lobby-card__title-row">
+            <div class="lobby-card__host-avatar shrink-0">
+              <img
+                v-if="getHostAvatar(lobby)"
+                :src="getHostAvatar(lobby)!"
+                :alt="getHostName(lobby)"
+                class="lobby-card__avatar-image"
+              />
+              <span
+                v-else
+                class="i-solar-users-group-rounded-bold-duotone text-xl"
+              />
+            </div>
+            <div class="min-w-0">
+              <h3 class="lobby-card__name truncate">
+                {{ lobby.lobbyName || t("lobby.no_name") }}
+              </h3>
+              <p class="lobby-card__host truncate">
+                <span class="i-solar-crown-minimalistic-bold-duotone" />
+                Hosted by {{ getHostName(lobby) }}
+              </p>
+            </div>
+          </div>
+
+          <div class="lobby-card__seats" aria-label="Players in this lobby">
+            <template v-if="getLiveInfo(lobby.code)">
+              <span
+                v-for="name in getLiveInfo(lobby.code)!.playerNames.slice(0, 6)"
+                :key="name"
+                class="lobby-card__seat"
+                :title="name"
+              >{{ name.charAt(0) || "?" }}</span>
+              <span
+                v-for="seat in Math.max(0, 6 - Math.min(getLiveInfo(lobby.code)!.players, 6))"
+                :key="`empty-live-${seat}`"
+                class="lobby-card__seat lobby-card__seat--empty"
+              >+</span>
+            </template>
+            <template v-else>
+              <span
+                v-for="player in (lobbyPlayers[lobby.id] || []).slice(0, 6)"
+                :key="player.$id"
+                class="lobby-card__seat overflow-hidden"
+                :title="player.name"
+              >
+                <img v-if="player.avatar" :src="player.avatar" :alt="player.name" />
+                <template v-else>{{ player.name?.charAt(0) || "?" }}</template>
+              </span>
+              <span
+                v-for="seat in Math.max(0, 6 - Math.min((lobbyPlayers[lobby.id] || []).length, 6))"
+                :key="`empty-${seat}`"
+                class="lobby-card__seat lobby-card__seat--empty"
+              >+</span>
+            </template>
+          </div>
+
+          <div class="lobby-card__footer">
+            <div class="min-w-0 flex-1">
+              <div class="lobby-card__meta">
+                <span class="inline-flex items-center gap-1">
+                  <span class="i-solar-users-group-rounded-bold-duotone" />
+                  {{ getLiveInfo(lobby.code)?.players ?? lobbyPlayers[lobby.id]?.length ?? 0 }} players
+                </span>
+                <span v-if="getLiveInfo(lobby.code)?.round" class="tabular-nums">
+                  Round {{ getLiveInfo(lobby.code)!.round }}
+                </span>
+              </div>
+              <div class="lobby-card__meter" aria-hidden="true">
+                <span :style="{ width: `${Math.min(100, ((getLiveInfo(lobby.code)?.players ?? lobbyPlayers[lobby.id]?.length ?? 0) / 6) * 100)}%` }" />
+              </div>
+            </div>
 
             <UButton
               size="sm"
-              variant="soft"
+              variant="solid"
               color="primary"
               icon="i-solar-arrow-right-bold-duotone"
               trailing
-              class="font-semibold uppercase tracking-wide text-xs"
+              class="lobby-card__join"
               @click.stop="handleJoined(lobby.code)"
             >
               {{ t("game.joingame") }}
@@ -307,62 +267,6 @@ const getLiveInfo = (code: string): LobbySummary | null => {
   return liveLobbies.value[code] || null;
 };
 
-// ─── Phase Display Helpers ────────────────────────────────────────────────
-
-const getPhaseLabel = (phase: string): string => {
-  switch (phase) {
-    case "waiting":
-      return "Waiting";
-    case "submitting":
-    case "submitting-complete":
-      return "Submitting";
-    case "judging":
-      return "Judging";
-    case "roundEnd":
-      return "Round End";
-    case "complete":
-      return "Game Over";
-    default:
-      return phase;
-  }
-};
-
-const getPhaseClasses = (phase: string): string => {
-  switch (phase) {
-    case "waiting":
-      return "bg-emerald-500/10 border-emerald-500/30 text-emerald-400";
-    case "submitting":
-    case "submitting-complete":
-      return "bg-sky-500/10 border-sky-500/30 text-sky-400";
-    case "judging":
-      return "bg-amber-500/10 border-amber-500/30 text-amber-400";
-    case "roundEnd":
-      return "bg-violet-500/10 border-violet-500/30 text-violet-400";
-    case "complete":
-      return "bg-rose-500/10 border-rose-500/30 text-rose-400";
-    default:
-      return "bg-slate-500/10 border-slate-500/30 text-slate-400";
-  }
-};
-
-const getPhaseDotClass = (phase: string): string => {
-  switch (phase) {
-    case "waiting":
-      return "bg-emerald-400";
-    case "submitting":
-    case "submitting-complete":
-      return "bg-sky-400";
-    case "judging":
-      return "bg-amber-400";
-    case "roundEnd":
-      return "bg-violet-400";
-    case "complete":
-      return "bg-rose-400";
-    default:
-      return "bg-slate-400";
-  }
-};
-
 // ─── Status Badge (Right Side) ────────────────────────────────────────────
 
 const getStatusLabel = (
@@ -426,9 +330,7 @@ const sortedLobbies = computed(() => {
 
 const fetchPublicLobbies = async () => {
   try {
-    const lobbyRows = await $activityFetch<Lobby[]>("/api/lobby/list", {
-      query: { status: "waiting" },
-    });
+    const lobbyRows = await $activityFetch<Lobby[]>("/api/lobby/list");
 
     const publicLobbies: LobbyWithName[] = [];
 
@@ -545,112 +447,186 @@ const handleJoined = (code: string) => {
   drop-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Lobby Tile ───────────────────────────────────────────────── */
-.lobby-tile {
-  position: relative;
-  padding: 1rem 1.25rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* ── Lobby grid ───────────────────────────────────────────────── */
+.lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1rem;
-  overflow: hidden;
 }
 
-.lobby-tile:hover {
-  transform: translateY(-2px);
-  border-color: rgba(139, 92, 246, 0.35);
-  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.1);
-}
-
-.lobby-tile-glow {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  background: linear-gradient(to right, rgba(139, 92, 246, 0.06), transparent);
-}
-
-.lobby-tile:hover .lobby-tile-glow {
-  opacity: 1;
-}
-
-/* ── Tile internals ───────────────────────────────────────────── */
-.tile-header {
+.lobby-card {
+  --lobby-accent: #f472b6;
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.tile-avatar-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(109, 40, 217, 0.25);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.tile-avatar {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 8px;
-}
-
-.tile-info {
-  display: flex;
+  min-height: 276px;
   flex-direction: column;
+  gap: 1.25rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 1.125rem;
+  color: #f8fafc;
+  cursor: pointer;
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.018) 0 8px, transparent 8px 18px),
+    rgba(10, 13, 28, 0.82);
+  box-shadow: 0 18px 35px -24px rgba(0, 0, 0, 0.95);
+  transition: transform 180ms cubic-bezier(.2, .8, .2, 1), border-color 180ms, box-shadow 180ms;
 }
 
-.tile-name {
-  font-weight: 600;
-  color: #e2e8f0;
-  font-size: 0.95rem;
-  line-height: 1.3;
+.lobby-card--waiting { --lobby-accent: #a3e635; }
+.lobby-card--complete { --lobby-accent: #fb7185; }
+
+.lobby-card:hover {
+  transform: translateY(-4px) rotate(-0.35deg);
+  border-color: var(--lobby-accent);
+  box-shadow: 0 24px 40px -22px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--lobby-accent);
 }
 
-.tile-host {
+.lobby-card:focus-visible {
+  outline: 2px solid var(--lobby-accent);
+  outline-offset: 3px;
+}
+
+.lobby-card__accent {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--lobby-accent);
+}
+
+.lobby-card__topline,
+.lobby-card__title-row,
+.lobby-card__footer,
+.lobby-card__meta,
+.lobby-card__status {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.78rem;
-  color: #94a3b8;
-  margin-top: 0.15rem;
 }
 
-.tile-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.lobby-card__topline { justify-content: space-between; gap: 0.75rem; }
+
+.lobby-card__code {
+  color: #71809e;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
 }
 
-.tile-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border: 1px solid transparent;
-  background: rgba(51, 65, 85, 0.5);
-  color: #94a3b8;
+.lobby-card__status {
+  gap: 0.35rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.22rem 0.5rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
-.tile-badge--players {
-  color: #a78bfa;
-  background: rgba(109, 40, 217, 0.12);
-  border-color: rgba(139, 92, 246, 0.2);
+.lobby-card__status-dot { width: 0.35rem; height: 0.35rem; border-radius: 50%; }
+
+.lobby-card__title-row { gap: 0.75rem; }
+
+.lobby-card__host-avatar {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--lobby-accent) 48%, transparent);
+  border-radius: 50%;
+  color: var(--lobby-accent);
+  background: color-mix(in srgb, var(--lobby-accent) 12%, #0d0f1a);
+}
+
+.lobby-card__avatar-image,
+.lobby-card__seat img { width: 100%; height: 100%; object-fit: cover; }
+
+.lobby-card__name {
+  color: #f8fafc;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.lobby-card__host {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.32rem;
+  color: #8b96b3;
+  font-size: 0.72rem;
+}
+
+.lobby-card__host > span { color: #fbbf24; }
+
+.lobby-card__seats { display: flex; min-height: 1.85rem; gap: 0.35rem; align-items: center; }
+
+.lobby-card__seat {
+  display: inline-grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid #111525;
+  border-radius: 50%;
+  color: #0b1020;
+  background: var(--lobby-accent);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.lobby-card__seat--empty {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+}
+
+.lobby-card__footer { margin-top: auto; gap: 0.85rem; }
+
+.lobby-card__meta {
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  color: #8b96b3;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.lobby-card__meter {
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.lobby-card__meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255, 255, 255, 0.2) 5px 8px), var(--lobby-accent);
+  transition: width 400ms ease;
+}
+
+.lobby-card__join { flex-shrink: 0; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+
+@media (max-width: 640px) {
+  .lobby-grid { grid-template-columns: 1fr; }
+  .lobby-card { min-height: 250px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-card, .lobby-card__meter > span { transition: none; }
+  .lobby-card:hover { transform: none; }
 }
 </style>
