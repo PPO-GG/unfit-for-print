@@ -5,7 +5,7 @@
 
 import { and, eq, inArray, isNull, lte, ne, notInArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { lobbies, players, users } from "~~/server/db/schema";
+import { lobbies, players, reports, submissions, users } from "~~/server/db/schema";
 import { getTeleportalHttpUrl } from "~~/server/utils/teleportal";
 
 export interface PruneLobbiesOptions {
@@ -116,41 +116,34 @@ export async function pruneStaleLobbies(
   const candidateIds = [...candidateOrphanIds, ...candidateCompletedIds];
 
   if (candidateIds.length > 0) {
-    // 3. Find guest/bot users to clean up from candidate lobbies
-    const candidatePlayers = await db
-      .select({ userId: players.userId })
-      .from(players)
-      .where(inArray(players.lobbyId, candidateIds));
-
-    // 4. Delete the lobbies (cascades to players)
+    // 3. Delete the lobbies (cascades to players). Guest accounts freed up by
+    // this are swept below in step 6, which also checks for other references
+    // (hosting a still-live lobby, submissions, reports) before deleting.
     await db.delete(lobbies).where(inArray(lobbies.id, candidateIds));
-
-    // 5. Clean up ephemeral guest user accounts
-    if (candidatePlayers.length > 0) {
-      const candidateUserIds = Array.from(
-        new Set(candidatePlayers.map((p) => p.userId)),
-      );
-      await db
-        .delete(users)
-        .where(
-          and(
-            inArray(users.id, candidateUserIds),
-            eq(users.isGuest, true),
-            isNull(users.discordUserId),
-          ),
-        );
-    }
   }
 
-  // 6. Clean up any orphaned guest users not participating in any remaining lobby
-  const remainingPlayers = await db
-    .select({ userId: players.userId })
-    .from(players);
-  const activeUserIds = Array.from(
-    new Set(remainingPlayers.map((p) => p.userId)),
+  // 6. Clean up any orphaned guest users not participating in any remaining
+  // lobby (as player or host) and not referenced by a submission or report,
+  // since those tables have no cascade delete on users.id and would abort
+  // the delete with a foreign key violation.
+  const [remainingPlayers, remainingHosts, submitterRows, reporterRows] =
+    await Promise.all([
+      db.select({ userId: players.userId }).from(players),
+      db.select({ userId: lobbies.hostUserId }).from(lobbies),
+      db.select({ userId: submissions.submitterId }).from(submissions),
+      db.select({ userId: reports.reportedBy }).from(reports),
+    ]);
+
+  const protectedUserIds = Array.from(
+    new Set([
+      ...remainingPlayers.map((p) => p.userId),
+      ...remainingHosts.map((r) => r.userId),
+      ...submitterRows.map((s) => s.userId),
+      ...reporterRows.map((r) => r.userId),
+    ]),
   );
 
-  if (activeUserIds.length > 0) {
+  if (protectedUserIds.length > 0) {
     await db
       .delete(users)
       .where(
@@ -158,7 +151,7 @@ export async function pruneStaleLobbies(
           eq(users.isGuest, true),
           isNull(users.discordUserId),
           lte(users.createdAt, guestOrphanCutoff),
-          notInArray(users.id, activeUserIds),
+          notInArray(users.id, protectedUserIds),
         ),
       );
   } else {
