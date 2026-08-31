@@ -1,32 +1,25 @@
 <template>
-  <aside class="lobby-chat-panel lobby-panel" :class="{ 'lobby-chat-panel--open': open }">
-    <button
-      class="lobby-chat-toggle"
-      :aria-expanded="open"
-      @click="open = !open"
-    >
+  <aside class="lobby-chat-panel lobby-panel">
+    <div class="lobby-chat-toggle">
       <span class="lobby-chat-toggle-left">
         <span class="lobby-chat-toggle-icon" aria-hidden="true">💬</span>
         <span class="lobby-chat-toggle-title">LOBBY CHAT</span>
         <span class="lobby-chip lobby-chat-toggle-chip">{{ messageCount }}</span>
       </span>
-      <span class="lobby-chat-toggle-right" aria-hidden="true">
-        <span class="lobby-chat-chevron" :class="{ 'lobby-chat-chevron--open': open }">▾</span>
-      </span>
-    </button>
+    </div>
 
-    <div v-if="open" class="lobby-chat-expand">
+    <div class="lobby-chat-expand">
       <div class="lobby-ticket-sep" />
       <div ref="scrollEl" class="lobby-chat-messages">
-        <template v-for="(msg, i) in messages" :key="msg.id ?? i">
-          <div v-if="msg.isSystem" class="lobby-chat-row lobby-chat-row--system">
+        <template v-for="(group, i) in groupedMessages" :key="group.type === 'system' ? group.message.id : group.messages[0]?.id ?? i">
+          <div v-if="group.type === 'system'" class="lobby-chat-row lobby-chat-row--system">
             <span class="lobby-chat-sys-rule" />
-            <span class="lobby-chat-bubble lobby-chat-bubble--system">{{ msg.text }}</span>
+            <span class="lobby-chat-bubble lobby-chat-bubble--system">{{ group.message.text }}</span>
             <span class="lobby-chat-sys-rule lobby-chat-sys-rule--grow" />
           </div>
           <div v-else class="lobby-chat-row">
-            <span class="lobby-chat-who">{{ msg.name }}</span>
-            <span class="lobby-chat-bubble">{{ msg.text }}</span>
+            <span class="lobby-chat-who">{{ group.name }}</span>
+            <span v-for="msg in group.messages" :key="msg.id" class="lobby-chat-bubble">{{ msg.text }}</span>
           </div>
         </template>
         <div v-if="messages.length === 0" class="lobby-chat-empty">
@@ -59,6 +52,7 @@
 import { useLobbyChat } from "~/composables/useLobbyChat";
 import { useLobby } from "~/composables/useLobby";
 import type { ChatMessage } from "~/composables/useLobbyReactive";
+import { groupChatMessages } from "~/composables/useChatGroups";
 
 const props = defineProps<{
   messages: ChatMessage[];
@@ -76,13 +70,13 @@ try {
   chat = null;
 }
 
-const open = ref(false);
 const draft = ref("");
 const scrollEl = ref<HTMLElement | null>(null);
 
 const messageCount = computed(
   () => props.messages.filter((m) => !m.isSystem).length,
 );
+const groupedMessages = computed(() => groupChatMessages(props.messages));
 
 function handleSend() {
   const text = draft.value.trim();
@@ -107,17 +101,13 @@ watch(
   },
 );
 
-watch(open, async (isOpen) => {
-  if (!isOpen) return;
-  await nextTick();
-  if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight;
-});
 </script>
 
 <style scoped>
 .lobby-chat-panel {
-  /* Lives inside the right sidebar column — no absolute positioning needed. */
   width: 100%;
+  height: min(70vh, 720px);
+  min-height: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -133,13 +123,9 @@ watch(open, async (isOpen) => {
   background: transparent;
   border: none;
   color: var(--lb-ink);
-  cursor: pointer;
-  transition: background 150ms;
 }
-.lobby-chat-toggle:hover { background: rgba(255, 255, 255, 0.04); }
 
-.lobby-chat-toggle-left,
-.lobby-chat-toggle-right {
+.lobby-chat-toggle-left {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -162,21 +148,16 @@ watch(open, async (isOpen) => {
   font-size: 10px;
 }
 
-.lobby-chat-chevron {
-  display: inline-block;
-  font-size: 12px;
-  color: var(--lb-ink-muted);
-  transition: transform 180ms ease;
-}
-.lobby-chat-chevron--open { transform: rotate(180deg); }
-
 .lobby-chat-expand {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .lobby-chat-messages {
-  max-height: 260px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px 14px;
   display: flex;
@@ -184,6 +165,23 @@ watch(open, async (isOpen) => {
   gap: 8px;
   scrollbar-width: thin;
   scrollbar-color: var(--lb-line-strong) transparent;
+}
+
+@media (min-width: 1024px) {
+  .lobby-chat-panel {
+    /* Match the table + preview footprint without participating in the
+       auto-sized grid tracks. A percentage height here made message content
+       grow those tracks indefinitely instead of scrolling. */
+    height: min(
+      calc(clamp(460px, 62vh, 780px) + 10rem),
+      calc(100dvh - 9rem)
+    );
+    max-height: calc(100dvh - 9rem);
+  }
+
+  .lobby-chat-messages {
+    max-height: none;
+  }
 }
 
 .lobby-chat-row {

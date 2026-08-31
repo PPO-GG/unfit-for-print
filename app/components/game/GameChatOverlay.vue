@@ -22,10 +22,12 @@ const newMessage = ref("");
 const chatContainer = ref<HTMLDivElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
 
-// ── Visible (fading) messages ──
-const MESSAGE_FADE_MS = 8000;
-const visibleMessageIds = ref<Set<string>>(new Set());
-const fadeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+// ── Closed-chat toast feed ──
+const IDLE_TOAST_MS = 12_000;
+const IDLE_TOAST_LEAVE_MS = 600;
+const arrivalIds = ref<Set<string>>(new Set());
+const arrivalTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const knownMessageIds = new Set<string>();
 
 // ── Unread count (messages received while chat is closed) ──
 const lastSeenCount = ref(0);
@@ -34,79 +36,60 @@ const unreadCount = computed(() => {
   return Math.max(0, total - lastSeenCount.value);
 });
 
-// Track new messages for fade-in/fade-out
+function clearIdleToasts() {
+  for (const timer of arrivalTimers.values()) clearTimeout(timer);
+  arrivalTimers.clear();
+  arrivalIds.value = new Set();
+}
+
+// Track arrivals without treating initial or hydrated history as new.
 watch(
-  () => reactive.chat.value.length,
-  (newCount, oldCount) => {
-    if (newCount <= oldCount) return;
+  () => reactive.chat.value,
+  (messages) => {
+    for (const msg of messages) {
+      if (knownMessageIds.has(msg.id)) continue;
+      knownMessageIds.add(msg.id);
 
-    const newMessages = reactive.chat.value.slice(oldCount);
-    for (const msg of newMessages) {
-      // Show the message
-      visibleMessageIds.value.add(msg.id);
-
-      // Clear any existing timer
-      if (fadeTimers.has(msg.id)) clearTimeout(fadeTimers.get(msg.id)!);
-
-      // Set fade-out timer (only when chat is closed)
-      if (!isOpen.value) {
-        fadeTimers.set(
-          msg.id,
-          setTimeout(() => {
-            visibleMessageIds.value.delete(msg.id);
-            fadeTimers.delete(msg.id);
-          }, MESSAGE_FADE_MS),
-        );
+      const isRemotePlayerMessage =
+        !msg.isSystem && msg.userId !== currentUserId.value;
+      if (isRemotePlayerMessage) {
+        playSfx(SFX.chatReceive);
       }
 
-      // Sound + TTS for other players' messages
-      if (msg.userId !== currentUserId.value) {
-        playSfx(SFX.chatReceive);
+      if (!isOpen.value && isRemotePlayerMessage) {
+        arrivalIds.value.add(msg.id);
+        arrivalTimers.set(
+          msg.id,
+          setTimeout(() => {
+            arrivalIds.value.delete(msg.id);
+            arrivalTimers.delete(msg.id);
+          }, IDLE_TOAST_MS - IDLE_TOAST_LEAVE_MS),
+        );
       }
     }
   },
 );
 
-// When chat opens, mark all as seen and clear fade timers
+// When chat opens or closes, mark all as seen and clear idle toast state.
 watch(isOpen, (open) => {
+  clearIdleToasts();
+  lastSeenCount.value = reactive.chat.value.length;
+
   if (open) {
-    lastSeenCount.value = reactive.chat.value.length;
-    // Keep all messages visible while open
-    for (const [id, timer] of fadeTimers) {
-      clearTimeout(timer);
-      fadeTimers.delete(id);
-    }
-    // Make all messages visible
-    for (const msg of reactive.chat.value) {
-      visibleMessageIds.value.add(msg.id);
-    }
     nextTick(() => {
       inputRef.value?.focus();
       scrollToBottom();
     });
-  } else {
-    lastSeenCount.value = reactive.chat.value.length;
-    // Start fade timers for currently visible messages
-    for (const id of visibleMessageIds.value) {
-      if (!fadeTimers.has(id)) {
-        fadeTimers.set(
-          id,
-          setTimeout(() => {
-            visibleMessageIds.value.delete(id);
-            fadeTimers.delete(id);
-          }, MESSAGE_FADE_MS),
-        );
-      }
-    }
   }
 });
 
-// Visible messages for idle state (only recent, fading ones)
-const idleMessages = computed(() => {
-  return reactive.chat.value.filter((msg) =>
-    visibleMessageIds.value.has(msg.id),
-  );
-});
+const idleMessages = computed(() =>
+  selectIdleChatToasts(
+    reactive.chat.value,
+    currentUserId.value,
+    arrivalIds.value,
+  ),
+);
 
 const isMessageEmpty = computed(() => !newMessage.value.trim());
 
@@ -162,10 +145,13 @@ function handleInputKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener("keydown", handleGlobalKeydown, true));
+onMounted(() => {
+  for (const msg of reactive.chat.value) knownMessageIds.add(msg.id);
+  window.addEventListener("keydown", handleGlobalKeydown, true);
+});
 onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown, true);
-  for (const timer of fadeTimers.values()) clearTimeout(timer);
+  clearIdleToasts();
 });
 
 // ── Helpers ──
