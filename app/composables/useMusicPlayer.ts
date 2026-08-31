@@ -45,20 +45,30 @@ function loadYouTubeApi(): Promise<void> {
       resolve();
     };
 
-    const existingScript = document.querySelector(
+    const existingScript = document.querySelector<HTMLScriptElement>(
       `script[src="${YT_API_URL}"]`,
     );
     if (existingScript) {
-      existingScript.addEventListener("error", () =>
-        reject(new Error("Failed to load YouTube IFrame API")),
-      );
+      // A tag is already present and hasn't errored — a failed attempt's
+      // tag is removed from the DOM below, so finding one here means it's
+      // still genuinely in flight (or about to invoke
+      // onYouTubeIframeAPIReady above) — just wait for it.
+      existingScript.addEventListener("error", () => {
+        existingScript.remove();
+        reject(new Error("Failed to load YouTube IFrame API"));
+      });
       return;
     }
 
     const script = document.createElement("script");
     script.src = YT_API_URL;
-    script.onerror = () =>
+    script.onerror = () => {
+      // Remove the failed tag so a later retry creates a fresh <script>
+      // instead of finding this dead one via the querySelector above and
+      // waiting on an error event that will never fire again.
+      script.remove();
       reject(new Error("Failed to load YouTube IFrame API"));
+    };
     document.head.appendChild(script);
   }).catch((err) => {
     // A definite load failure (e.g. the script was blocked) must not leave

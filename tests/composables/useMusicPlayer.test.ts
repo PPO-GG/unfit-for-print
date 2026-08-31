@@ -121,4 +121,59 @@ describe("useMusicPlayer", () => {
       process.off("unhandledRejection", onUnhandledRejection);
     }
   });
+
+  it("retries with a fresh script tag after the YouTube API script fails to load", async () => {
+    const YT_API_URL = "https://www.youtube.com/iframe_api";
+    document.body.innerHTML = '<div id="music-player-yt-target"></div>';
+
+    const { useMusicPlayer } = await import("~/composables/useMusicPlayer");
+    const music = useMusicPlayer();
+
+    // window.YT is intentionally left unset here so loadYouTubeApi() takes
+    // the "inject a <script>" path rather than resolving immediately.
+    const firstPlayPromise = music.play();
+
+    const firstScript = document.head.querySelector<HTMLScriptElement>(
+      `script[src="${YT_API_URL}"]`,
+    );
+    expect(firstScript).not.toBeNull();
+
+    // Simulate the browser failing to load the script (e.g. an adblocker).
+    firstScript!.dispatchEvent(new Event("error"));
+
+    await expect(firstPlayPromise).rejects.toThrow(
+      "Failed to load YouTube IFrame API",
+    );
+
+    // The failed tag must be removed, not left behind for a future call to
+    // find and wait on an error event that will never fire again.
+    expect(
+      document.head.querySelector(`script[src="${YT_API_URL}"]`),
+    ).toBeNull();
+
+    // Retry: a second play() must inject a brand-new <script> tag rather
+    // than reusing the dead one.
+    const secondPlayPromise = music.play();
+
+    const secondScript = document.head.querySelector<HTMLScriptElement>(
+      `script[src="${YT_API_URL}"]`,
+    );
+    expect(secondScript).not.toBeNull();
+    expect(secondScript).not.toBe(firstScript);
+
+    // Simulate the retry's script finishing its load successfully.
+    const instance = { playVideo: vi.fn(), pauseVideo: vi.fn(), setVolume: vi.fn() };
+    (window as any).YT = {
+      Player: vi.fn().mockImplementation((_id: string, config: any) => {
+        queueMicrotask(() => config.events.onReady());
+        return instance;
+      }),
+      PlayerState: { PLAYING: 1, PAUSED: 2 },
+    };
+    (window as any).onYouTubeIframeAPIReady();
+
+    await secondPlayPromise;
+
+    expect(instance.playVideo).toHaveBeenCalledTimes(1);
+  });
 });
