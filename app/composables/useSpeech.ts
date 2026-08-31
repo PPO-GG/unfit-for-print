@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useBrowserSpeech } from "./useBrowserSpeech";
 import { TTS_PROVIDERS } from "~/constants/ttsProviders";
+import { normalizeVolumePercent } from "~/utils/volume";
 
 // Define provider types
 export type TTSProvider = "browser" | "elevenlabs" | "openai" | "google" | "kokoro";
@@ -40,6 +41,13 @@ const defaultOptions: TTSOptions = {
   googleVoiceName: "en-US-Neural2-D",
 };
 
+export function applyTtsVolume(
+  audioEl: HTMLAudioElement,
+  ttsVolumePercent: number,
+): void {
+  audioEl.volume = normalizeVolumePercent(ttsVolumePercent);
+}
+
 export function useSpeech(options: TTSOptions = {}) {
   // Merge provided options with defaults
   const mergedOptions = { ...defaultOptions, ...options };
@@ -51,6 +59,7 @@ export function useSpeech(options: TTSOptions = {}) {
 
   // Initialize browser speech
   const browserSpeech = useBrowserSpeech();
+  const userPrefs = useUserPrefsStore();
 
   if (import.meta.client) {
     audio = new Audio();
@@ -110,7 +119,6 @@ export function useSpeech(options: TTSOptions = {}) {
         };
       } else if (provider === "google") {
         endpoint = "/api/google-speak";
-        const userPrefs = useUserPrefsStore();
         const googleConfig = Object.values(TTS_PROVIDERS).find(
           (p) => p.id === userPrefs.ttsVoice,
         );
@@ -120,7 +128,6 @@ export function useSpeech(options: TTSOptions = {}) {
         };
       } else if (provider === "kokoro") {
         endpoint = "/api/kokoro-speak";
-        const userPrefs = useUserPrefsStore();
         const kokoroConfig = Object.values(TTS_PROVIDERS).find(
           (p) => p.id === userPrefs.ttsVoice,
         );
@@ -157,6 +164,7 @@ export function useSpeech(options: TTSOptions = {}) {
 
       const blob = await response.blob();
       audio.src = URL.createObjectURL(blob);
+      applyTtsVolume(audio, userPrefs.ttsVolume);
 
       audio.onended = () => {
         isSpeaking.value = false;

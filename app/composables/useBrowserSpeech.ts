@@ -1,6 +1,14 @@
 // composables/useBrowserSpeech.ts
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
+import { normalizeVolumePercent } from "~/utils/volume";
 import { ref } from "vue";
+
+export function applyUtteranceVolume(
+  utterance: SpeechSynthesisUtterance,
+  ttsVolumePercent: number,
+): void {
+  utterance.volume = normalizeVolumePercent(ttsVolumePercent);
+}
 
 export function useBrowserSpeech() {
   const userPrefs = useUserPrefsStore();
@@ -23,6 +31,7 @@ export function useBrowserSpeech() {
     if (selectedVoice) utterance.voice = selectedVoice;
 
     utterance.rate = rate;
+    applyUtteranceVolume(utterance, userPrefs.ttsVolume);
 
     // Set speaking state to true when speech starts
     isSpeaking.value = true;
