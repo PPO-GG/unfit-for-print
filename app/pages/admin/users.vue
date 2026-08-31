@@ -5,7 +5,7 @@ definePageMeta({
 </script>
 
 <template>
-  <div class="p-6 max-w-7xl mx-auto">
+  <div class="p-6 max-w-[100rem] w-full mx-auto">
     <div class="flex items-center gap-3 mb-6">
       <NuxtLink
         to="/admin"

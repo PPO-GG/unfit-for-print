@@ -21,15 +21,23 @@ beforeEach(async () => {
 });
 
 describe("admin users", () => {
-  it("lists users", async () => {
-    await db.insert(users).values([{ name: "A" }, { name: "B" }]);
+  it("lists registered users and excludes guests", async () => {
+    await db.insert(users).values([
+      { name: "Registered A", isGuest: false },
+      { name: "Registered B", isGuest: false },
+      { name: "Guest C", isGuest: true },
+    ]);
     const handler = (await import("~/server/api/admin/users/index")).default;
     const result = await handler({} as any);
     expect(result).toHaveLength(2);
+    expect(result.every((u: any) => !u.isGuest)).toBe(true);
   });
 
   it("deletes a user", async () => {
-    const [user] = await db.insert(users).values({ name: "Deleteme" }).returning();
+    const [user] = await db
+      .insert(users)
+      .values({ name: "Deleteme", isGuest: false })
+      .returning();
     const handler = (await import("~/server/api/admin/users/delete")).default;
     await handler(mockEvent({ userId: user.id }));
 
@@ -37,3 +45,4 @@ describe("admin users", () => {
     expect(remaining).toHaveLength(0);
   });
 });
+

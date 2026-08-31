@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import type { TableColumn } from "@nuxt/ui";
+import { getPaginationRowModel, type SortingState } from "@tanstack/vue-table";
 import { useUserStore } from "~/stores/userStore";
 
 const userStore = useUserStore();
@@ -8,15 +9,28 @@ const { confirm } = useConfirm();
 
 const users = ref<any[]>([]);
 const loading = ref(true);
+const pagination = ref({ pageIndex: 0, pageSize: 10 });
+const sorting = ref<SortingState>([
+  { id: "createdAt", desc: true },
+]);
 
 const userCount = computed(() => users.value.length);
 
+const setPage = (page: number) => {
+  pagination.value = { ...pagination.value, pageIndex: page - 1 };
+};
+
 const columns: TableColumn<any>[] = [
-  { accessorKey: "avatarUrl", header: "" },
-  { accessorKey: "name", header: "Username" },
-  { accessorKey: "createdAt", header: "Registered" },
-  { accessorKey: "isAdmin", header: "Admin" },
-  { id: "remove", header: "" },
+  { accessorKey: "avatarUrl", header: "", enableSorting: false },
+  { accessorKey: "name", header: "Username", enableSorting: true },
+  {
+    accessorKey: "createdAt",
+    header: "Registered",
+    enableSorting: true,
+    sortingFn: "datetime",
+  },
+  { accessorKey: "isAdmin", header: "Admin", enableSorting: true },
+  { id: "remove", header: "", enableSorting: false },
 ];
 
 const deleteUser = async (userId: string) => {
@@ -30,7 +44,6 @@ const deleteUser = async (userId: string) => {
 
   try {
     const res = await $fetch("/api/admin/users/delete", {
-      navigate: false,
       method: "POST",
       body: { userId },
     });
@@ -58,7 +71,6 @@ const toggleAdmin = async (user: any) => {
 
   try {
     await $fetch("/api/admin/users/toggle-admin", {
-      navigate: false,
       method: "POST",
       body: { userId: user.id, isAdmin: nextIsAdmin },
     });
@@ -82,9 +94,7 @@ onMounted(async () => {
     }
 
     try {
-      const res = await $fetch("/api/admin/users", {
-        navigate: false,
-      });
+      const res = await $fetch("/api/admin/users");
       users.value = res;
     } catch (apiErr) {
       console.error("UserManager: API request failed:", apiErr);
@@ -105,7 +115,66 @@ onMounted(async () => {
       <span v-else>{{ userCount }} user{{ userCount === 1 ? "" : "s" }} registered</span>
     </div>
 
-    <UTable :data="users" :columns="columns" :loading="loading" class="text-white">
+    <UTable
+      v-model:pagination="pagination"
+      v-model:sorting="sorting"
+      :data="users"
+      :columns="columns"
+      :loading="loading"
+      :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+      class="text-white"
+    >
+      <template #name-header="{ column }">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Username"
+          :icon="
+            column.getIsSorted()
+              ? column.getIsSorted() === 'asc'
+                ? 'i-lucide-arrow-up-narrow-wide'
+                : 'i-lucide-arrow-down-wide-narrow'
+              : 'i-lucide-arrow-up-down'
+          "
+          class="-mx-2.5 font-semibold text-slate-300"
+          @click="column.toggleSorting(column.getIsSorted() === 'asc')"
+        />
+      </template>
+
+      <template #createdAt-header="{ column }">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Registered"
+          :icon="
+            column.getIsSorted()
+              ? column.getIsSorted() === 'asc'
+                ? 'i-lucide-arrow-up-narrow-wide'
+                : 'i-lucide-arrow-down-wide-narrow'
+              : 'i-lucide-arrow-up-down'
+          "
+          class="-mx-2.5 font-semibold text-slate-300"
+          @click="column.toggleSorting(column.getIsSorted() === 'asc')"
+        />
+      </template>
+
+      <template #isAdmin-header="{ column }">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Admin"
+          :icon="
+            column.getIsSorted()
+              ? column.getIsSorted() === 'asc'
+                ? 'i-lucide-arrow-up-narrow-wide'
+                : 'i-lucide-arrow-down-wide-narrow'
+              : 'i-lucide-arrow-up-down'
+          "
+          class="-mx-2.5 font-semibold text-slate-300"
+          @click="column.toggleSorting(column.getIsSorted() === 'asc')"
+        />
+      </template>
+
       <template #avatarUrl-cell="{ row }">
         <UAvatar :src="row.original.avatarUrl" :alt="row.original.name" size="md" />
       </template>
@@ -144,5 +213,15 @@ onMounted(async () => {
         />
       </template>
     </UTable>
+
+    <div v-if="userCount > pagination.pageSize" class="flex justify-center pt-2">
+      <UPagination
+        :page="pagination.pageIndex + 1"
+        :items-per-page="pagination.pageSize"
+        :total="userCount"
+        @update:page="setPage"
+      />
+    </div>
   </div>
 </template>
+
