@@ -67,4 +67,58 @@ describe("useMusicPlayer", () => {
 
     expect(instance.setVolume).toHaveBeenCalledWith(30);
   });
+
+  it("resets internal state after a failed player creation so a later play() can retry", async () => {
+    let callCount = 0;
+    const instance = { playVideo: vi.fn(), pauseVideo: vi.fn(), setVolume: vi.fn() };
+    (window as any).YT = {
+      Player: vi.fn().mockImplementation((_id: string, config: any) => {
+        callCount += 1;
+        if (callCount === 1) {
+          throw new Error("boom");
+        }
+        queueMicrotask(() => config.events.onReady());
+        return instance;
+      }),
+      PlayerState: { PLAYING: 1, PAUSED: 2 },
+    };
+    document.body.innerHTML = '<div id="music-player-yt-target"></div>';
+
+    const { useMusicPlayer } = await import("~/composables/useMusicPlayer");
+    const music = useMusicPlayer();
+
+    await expect(music.play()).rejects.toThrow("boom");
+    await music.play();
+
+    expect(instance.playVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggle() does not produce an unhandled rejection when player creation fails", async () => {
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejections.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandledRejection);
+
+    try {
+      (window as any).YT = {
+        Player: vi.fn().mockImplementation(() => {
+          throw new Error("boom");
+        }),
+        PlayerState: { PLAYING: 1, PAUSED: 2 },
+      };
+      document.body.innerHTML = '<div id="music-player-yt-target"></div>';
+
+      const { useMusicPlayer } = await import("~/composables/useMusicPlayer");
+      const music = useMusicPlayer();
+
+      music.toggle();
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(unhandledRejections).toHaveLength(0);
+    } finally {
+      process.off("unhandledRejection", onUnhandledRejection);
+    }
+  });
 });

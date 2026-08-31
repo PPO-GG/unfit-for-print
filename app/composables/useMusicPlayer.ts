@@ -28,7 +28,7 @@ export function buildPlayerVars(playlistId: string) {
 function loadYouTubeApi(): Promise<void> {
   if (apiReadyPromise) return apiReadyPromise;
 
-  apiReadyPromise = new Promise((resolve) => {
+  apiReadyPromise = new Promise<void>((resolve, reject) => {
     if (typeof window === "undefined") {
       resolve();
       return;
@@ -45,11 +45,26 @@ function loadYouTubeApi(): Promise<void> {
       resolve();
     };
 
-    if (!document.querySelector(`script[src="${YT_API_URL}"]`)) {
-      const script = document.createElement("script");
-      script.src = YT_API_URL;
-      document.head.appendChild(script);
+    const existingScript = document.querySelector(
+      `script[src="${YT_API_URL}"]`,
+    );
+    if (existingScript) {
+      existingScript.addEventListener("error", () =>
+        reject(new Error("Failed to load YouTube IFrame API")),
+      );
+      return;
     }
+
+    const script = document.createElement("script");
+    script.src = YT_API_URL;
+    script.onerror = () =>
+      reject(new Error("Failed to load YouTube IFrame API"));
+    document.head.appendChild(script);
+  }).catch((err) => {
+    // A definite load failure (e.g. the script was blocked) must not leave
+    // the API promise cached forever — clear it so a later call can retry.
+    apiReadyPromise = null;
+    throw err;
   });
 
   return apiReadyPromise;
@@ -60,27 +75,35 @@ function ensurePlayer(): Promise<any> {
   if (creatingPlayer) return creatingPlayer;
   if (typeof window === "undefined") return Promise.resolve(null);
 
-  creatingPlayer = loadYouTubeApi().then(
-    () =>
-      new Promise((resolve) => {
-        const YT = (window as any).YT;
-        player = new YT.Player(MUSIC_PLAYER_CONTAINER_ID, {
-          height: "0",
-          width: "0",
-          playerVars: buildPlayerVars(MUSIC_PLAYLIST_ID),
-          events: {
-            onReady: () => {
-              isReady.value = true;
-              player.setVolume(pendingVolume);
-              resolve(player);
+  creatingPlayer = loadYouTubeApi()
+    .then(
+      () =>
+        new Promise((resolve) => {
+          const YT = (window as any).YT;
+          player = new YT.Player(MUSIC_PLAYER_CONTAINER_ID, {
+            height: "0",
+            width: "0",
+            playerVars: buildPlayerVars(MUSIC_PLAYLIST_ID),
+            events: {
+              onReady: () => {
+                isReady.value = true;
+                player.setVolume(pendingVolume);
+                resolve(player);
+              },
+              onStateChange: (event: any) => {
+                isPlaying.value = event.data === YT.PlayerState.PLAYING;
+              },
             },
-            onStateChange: (event: any) => {
-              isPlaying.value = event.data === YT.PlayerState.PLAYING;
-            },
-          },
-        });
-      }),
-  );
+          });
+        }),
+    )
+    .catch((err) => {
+      // Don't let a failed creation (API load failure, or the YT.Player
+      // constructor throwing) permanently poison future attempts.
+      creatingPlayer = null;
+      player = null;
+      throw err;
+    });
 
   return creatingPlayer;
 }
@@ -99,7 +122,11 @@ export function useMusicPlayer() {
     if (isPlaying.value) {
       pause();
     } else {
-      void play();
+      // Fire-and-forget: play() may reject if the player fails to load or
+      // construct. toggle() has no way to surface that to a caller, so
+      // swallow it here rather than letting it become an unhandled
+      // rejection — play() itself still rejects for callers that await it.
+      void play().catch(() => {});
     }
   };
 
