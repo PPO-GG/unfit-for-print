@@ -1,9 +1,11 @@
 <script lang="ts" setup>
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 import { useUserPrefsStore } from "~/stores/userPrefsStore";
+import { useMusicPlayer } from "~/composables/useMusicPlayer";
 
 const { t } = useI18n();
 const prefs = useUserPrefsStore();
+const music = useMusicPlayer();
 
 const props = defineProps<{
   open: boolean;
@@ -58,7 +60,9 @@ watch(
         <div class="esc-menu-panel">
           <!-- ═══ Main View ═══ -->
           <template v-if="activeView === 'main'">
-            <h2 class="esc-menu-title">{{ t("game.menu_title", "Game Menu") }}</h2>
+            <h2 class="esc-menu-title">
+              {{ t("game.menu_title", "Game Menu") }}
+            </h2>
 
             <div class="esc-menu-items">
               <button class="esc-menu-item" @click="emit('toggle-chat')">
@@ -70,7 +74,10 @@ watch(
               <button class="esc-menu-item" @click="activeView = 'my-settings'">
                 <UIcon name="i-solar-user-bold-duotone" />
                 <span>{{ t("game.my_settings", "My Settings") }}</span>
-                <UIcon name="i-solar-alt-arrow-right-bold" class="esc-menu-arrow" />
+                <UIcon
+                  name="i-solar-alt-arrow-right-bold"
+                  class="esc-menu-arrow"
+                />
               </button>
 
               <button
@@ -80,7 +87,10 @@ watch(
               >
                 <UIcon name="i-solar-settings-bold-duotone" />
                 <span>{{ t("game.settings", "Game Settings") }}</span>
-                <UIcon name="i-solar-alt-arrow-right-bold" class="esc-menu-arrow" />
+                <UIcon
+                  name="i-solar-alt-arrow-right-bold"
+                  class="esc-menu-arrow"
+                />
               </button>
 
               <button
@@ -90,7 +100,10 @@ watch(
               >
                 <UIcon name="i-solar-crown-bold-duotone" />
                 <span>{{ t("game.host_tools", "Host Tools") }}</span>
-                <UIcon name="i-solar-alt-arrow-right-bold" class="esc-menu-arrow" />
+                <UIcon
+                  name="i-solar-alt-arrow-right-bold"
+                  class="esc-menu-arrow"
+                />
               </button>
 
               <div class="esc-menu-divider" />
@@ -110,7 +123,10 @@ watch(
                 }}</span>
               </button>
 
-              <button class="esc-menu-item esc-menu-item--danger" @click="emit('leave')">
+              <button
+                class="esc-menu-item esc-menu-item--danger"
+                @click="emit('leave')"
+              >
                 <UIcon name="i-solar-logout-2-bold-duotone" />
                 <span>{{ t("game.leave", "Leave Game") }}</span>
               </button>
@@ -127,33 +143,143 @@ watch(
               <button class="esc-menu-back" @click="goBack">
                 <UIcon name="i-solar-alt-arrow-left-bold" />
               </button>
-              <h2 class="esc-menu-title">{{ t("game.my_settings", "My Settings") }}</h2>
+              <h2 class="esc-menu-title">
+                {{ t("game.my_settings", "My Settings") }}
+              </h2>
             </div>
 
             <div class="esc-menu-settings">
               <div class="setting-row">
-                <span class="setting-label">{{ t("chat.tts", "Text-to-Speech") }}</span>
+                <span class="setting-label">{{
+                  t("chat.tts", "Text-to-Speech")
+                }}</span>
                 <USwitch v-model="prefs.ttsEnabled" size="xs" />
               </div>
 
               <div class="setting-row">
-                <span class="setting-label">{{ t("chat.profanity_filter", "Profanity Filter") }}</span>
+                <span class="setting-label">{{
+                  t("chat.profanity_filter", "Profanity Filter")
+                }}</span>
                 <USwitch v-model="prefs.chatProfanityFilter" size="xs" />
               </div>
 
               <div class="setting-group">
-                <span class="setting-label">{{ t("game.tts_voice", "TTS Voice") }}</span>
+                <span class="setting-label">{{
+                  t("game.tts_voice", "TTS Voice")
+                }}</span>
                 <VoiceSwitcher />
               </div>
 
               <div class="setting-group">
-                <span class="setting-label">{{ t("game.language", "Language") }}</span>
+                <span class="setting-label">{{
+                  t("game.language", "Language")
+                }}</span>
                 <LanguageSwitcher />
               </div>
 
               <div class="setting-group">
+                <span class="setting-label">{{
+                  t("profile.settings_theme", "Theme")
+                }}</span>
+                <ThemeSwitcher />
+              </div>
+
+              <!-- SFX Volume -->
+              <div class="setting-group">
                 <div class="setting-row">
-                  <span class="setting-label">{{ t("game.ui_scale", "UI Scale") }}</span>
+                  <span class="setting-label">{{
+                    t("profile.settings_volume_sfx", "SFX Volume")
+                  }}</span>
+                  <span class="setting-value">{{ prefs.sfxVolume }}%</span>
+                </div>
+                <input
+                  type="range"
+                  :value="prefs.sfxVolume"
+                  min="0"
+                  max="100"
+                  step="1"
+                  class="scale-slider"
+                  data-testid="game-esc-sfx-volume-slider"
+                  @input="
+                    prefs.setSfxVolume(
+                      Number(($event.target as HTMLInputElement).value),
+                    )
+                  "
+                />
+              </div>
+
+              <!-- TTS Volume -->
+              <div class="setting-group">
+                <div class="setting-row">
+                  <span class="setting-label">{{
+                    t("profile.settings_volume_tts", "TTS Volume")
+                  }}</span>
+                  <span class="setting-value">{{ prefs.ttsVolume }}%</span>
+                </div>
+                <input
+                  type="range"
+                  :value="prefs.ttsVolume"
+                  min="0"
+                  max="100"
+                  step="1"
+                  class="scale-slider"
+                  data-testid="game-esc-tts-volume-slider"
+                  @input="
+                    prefs.setTtsVolume(
+                      Number(($event.target as HTMLInputElement).value),
+                    )
+                  "
+                />
+              </div>
+
+              <!-- Background Music Volume -->
+              <div class="setting-group">
+                <div class="setting-row">
+                  <span class="setting-label">{{
+                    t("profile.settings_volume_music", "Music Volume")
+                  }}</span>
+                  <span class="setting-value">{{ prefs.musicVolume }}%</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <UButton
+                    size="xs"
+                    variant="soft"
+                    data-testid="game-esc-music-toggle-button"
+                    :icon="
+                      music.isPlaying.value
+                        ? 'i-solar-pause-bold'
+                        : 'i-solar-play-bold'
+                    "
+                    @click="music.toggle()"
+                  >
+                    {{
+                      music.isPlaying.value
+                        ? t("profile.settings_music_pause", "Pause")
+                        : t("profile.settings_music_play", "Play")
+                    }}
+                  </UButton>
+                  <input
+                    type="range"
+                    :value="prefs.musicVolume"
+                    min="0"
+                    max="100"
+                    step="1"
+                    class="scale-slider flex-1"
+                    data-testid="game-esc-music-volume-slider"
+                    @input="
+                      prefs.setMusicVolume(
+                        Number(($event.target as HTMLInputElement).value),
+                      )
+                    "
+                  />
+                </div>
+              </div>
+
+              <div class="setting-group">
+                <div class="setting-row">
+                  <span class="setting-label">{{
+                    t("game.ui_scale", "UI Scale")
+                  }}</span>
                   <span class="setting-value">{{ prefs.uiScale }}%</span>
                 </div>
                 <div class="scale-control">
@@ -164,14 +290,20 @@ watch(
                     max="150"
                     step="5"
                     class="scale-slider"
-                    @input="prefs.setUiScale(Number(($event.target as HTMLInputElement).value))"
+                    @input="
+                      prefs.setUiScale(
+                        Number(($event.target as HTMLInputElement).value),
+                      )
+                    "
                   />
                   <div class="scale-presets">
                     <button
                       v-for="preset in [100, 125, 150]"
                       :key="preset"
                       class="scale-preset"
-                      :class="{ 'scale-preset--active': prefs.uiScale === preset }"
+                      :class="{
+                        'scale-preset--active': prefs.uiScale === preset,
+                      }"
                       @click="prefs.setUiScale(preset)"
                     >
                       {{ preset }}%
@@ -188,7 +320,9 @@ watch(
               <button class="esc-menu-back" @click="goBack">
                 <UIcon name="i-solar-alt-arrow-left-bold" />
               </button>
-              <h2 class="esc-menu-title">{{ t("game.settings", "Game Settings") }}</h2>
+              <h2 class="esc-menu-title">
+                {{ t("game.settings", "Game Settings") }}
+              </h2>
             </div>
 
             <div class="esc-menu-settings">
@@ -206,7 +340,9 @@ watch(
               <button class="esc-menu-back" @click="goBack">
                 <UIcon name="i-solar-alt-arrow-left-bold" />
               </button>
-              <h2 class="esc-menu-title">{{ t("game.host_tools", "Host Tools") }}</h2>
+              <h2 class="esc-menu-title">
+                {{ t("game.host_tools", "Host Tools") }}
+              </h2>
             </div>
 
             <div class="esc-menu-items">
@@ -228,13 +364,24 @@ watch(
               </template>
               <template v-else>
                 <p class="reset-confirm-text">
-                  {{ t("game.reset_confirm", "Are you sure? This ends the current game.") }}
+                  {{
+                    t(
+                      "game.reset_confirm",
+                      "Are you sure? This ends the current game.",
+                    )
+                  }}
                 </p>
                 <div class="reset-confirm-btns">
-                  <button class="confirm-btn confirm-btn--cancel" @click="showResetConfirm = false">
+                  <button
+                    class="confirm-btn confirm-btn--cancel"
+                    @click="showResetConfirm = false"
+                  >
                     {{ t("common.cancel", "Cancel") }}
                   </button>
-                  <button class="confirm-btn confirm-btn--danger" @click="emit('reset-game')">
+                  <button
+                    class="confirm-btn confirm-btn--danger"
+                    @click="emit('reset-game')"
+                  >
                     {{ t("game.reset_game", "Reset") }}
                   </button>
                 </div>
@@ -264,8 +411,8 @@ watch(
   border: 1px solid rgba(139, 92, 246, 0.25);
   border-radius: 16px;
   padding: 2rem 2.5rem;
-  min-width: 320px;
-  max-width: 400px;
+  width: 60vw;
+  min-width: 500px;
   max-height: 80vh;
   overflow-y: auto;
   box-shadow:

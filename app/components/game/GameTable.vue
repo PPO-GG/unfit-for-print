@@ -8,10 +8,11 @@ gsap.registerPlugin(MotionPathPlugin);
 import confetti from "canvas-confetti";
 import { shuffle } from "lodash-es";
 import { useCardFlyCoords } from "~/composables/useCardFlyCoords";
+import { getJudgingCardScale } from "~/composables/useJudgingDensity";
 import { useCardPlayPreferences } from "~/composables/useCardPlayPreferences";
 import { mergeCardText } from "~/composables/useMergeCards";
 import { SFX, SPRITES } from "~/config/sfx.config";
-import GameTableSeats from "./GameTableSeats.vue";
+import ScoreFlyBadge from "./ScoreFlyBadge.vue";
 
 interface BlackCard {
   id: string;
@@ -93,10 +94,9 @@ async function readAloud(playerId: string) {
   const resolvedTexts: Record<string, { text: string; pack: string }> = {};
   if (missingIds.length > 0) {
     try {
-      const resolved = await $fetch<{ id: string; text: string; pack: string }[]>(
-        "/api/cards/resolve",
-        { method: "POST", body: { ids: missingIds } },
-      );
+      const resolved = await $fetch<
+        { id: string; text: string; pack: string }[]
+      >("/api/cards/resolve", { method: "POST", body: { ids: missingIds } });
       for (const card of resolved) {
         resolvedTexts[card.id] = { text: card.text, pack: card.pack };
       }
@@ -125,14 +125,11 @@ const { playSfx: playCardLandSfx } = useSfx(
 // General SFX (individual files)
 const { playSfx } = useSfx();
 
-// ── Child component refs ────────────────────────────────────────
-const seatsRef = ref<InstanceType<typeof GameTableSeats> | null>(null);
-
-// Accessor for seat element refs from the child component
-const seatRefs = computed(() => seatsRef.value?.seatRefs ?? {});
-
 // ── Score fly badge state ────────────────────────────────────────
-const scoreFly = ref<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
+const scoreFly = ref<{
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+} | null>(null);
 
 // ── State ───────────────────────────────────────────────────────
 // We delay the transition to "judging" locally so the final submission
@@ -196,22 +193,6 @@ const gridCols = computed(() => {
   if (count <= 6) return 3;
   if (count <= 8) return 4;
   return 4;
-});
-
-// ── Total card density for responsive judging grid sizing ───────
-const totalCardDensity = computed(() => {
-  const subs = displaySubmissions.value.length;
-  const pick = props.blackCard?.pick || 1;
-  return subs * pick;
-});
-
-// Density class drives CSS-level card sizing + overlap in the judging grid
-const densityClass = computed(() => {
-  const density = totalCardDensity.value;
-  if (density <= 4) return "";
-  if (density <= 6) return "judging-grid--medium";
-  if (density <= 8) return "judging-grid--dense";
-  return "judging-grid--very-dense";
 });
 
 // ── Submission helpers ──────────────────────────────────────────
@@ -420,11 +401,13 @@ watch(
           fromY = window.innerHeight + 200;
         }
       } else {
-        const seatEl = seatRefs.value[pid];
-        if (seatEl) {
-          const seatRect = seatEl.getBoundingClientRect();
-          fromX = seatRect.left + seatRect.width / 2;
-          fromY = seatRect.top + seatRect.height / 2;
+        const pillEl = document.querySelector(
+          `[data-player-pill="${pid}"]`,
+        ) as HTMLElement;
+        if (pillEl) {
+          const pillRect = pillEl.getBoundingClientRect();
+          fromX = pillRect.left + pillRect.width / 2;
+          fromY = pillRect.top + pillRect.height / 2;
         } else {
           fromX = destX + (Math.random() - 0.5) * 200;
           fromY = -200;
@@ -726,6 +709,32 @@ const displaySubmissions = computed(() => {
   }));
 });
 
+const totalSubmittedCards = computed(() =>
+  displaySubmissions.value.reduce(
+    (total, submission) => total + submission.cards.length,
+    0,
+  ),
+);
+
+const judgingCardScale = computed(() =>
+  getJudgingCardScale(
+    displaySubmissions.value.length,
+    totalSubmittedCards.value,
+  ),
+);
+
+// Preserve the existing compact group spacing as density increases.
+const densityClass = computed(() => {
+  const density = Math.max(
+    displaySubmissions.value.length,
+    totalSubmittedCards.value,
+  );
+  if (density <= 4) return "";
+  if (density <= 6) return "judging-grid--medium";
+  if (density <= 8) return "judging-grid--dense";
+  return "judging-grid--very-dense";
+});
+
 function isRevealed(playerId: string): boolean {
   return !!props.revealedCards?.[playerId];
 }
@@ -891,8 +900,10 @@ watch(
 
     // ── Localized confetti burst from winner card position ────────
     const winnerBurstRect = winnerCell.getBoundingClientRect();
-    const x = (winnerBurstRect.left + winnerBurstRect.width / 2) / window.innerWidth;
-    const y = (winnerBurstRect.top + winnerBurstRect.height / 2) / window.innerHeight;
+    const x =
+      (winnerBurstRect.left + winnerBurstRect.width / 2) / window.innerWidth;
+    const y =
+      (winnerBurstRect.top + winnerBurstRect.height / 2) / window.innerHeight;
 
     confetti({
       particleCount: 40,
@@ -904,20 +915,27 @@ watch(
       ticks: 80,
     });
 
-    // ── Score fly badge: arc +1 from winner card to winner seat ──
+    // ── Score fly badge: arc +1 from winner card to winner pill in header ──
     const from = {
       x: winnerBurstRect.left + winnerBurstRect.width / 2,
       y: winnerBurstRect.top + winnerBurstRect.height / 2,
     };
 
-    const seatEl = seatRefs.value[winnerId];
-    if (seatEl) {
-      const seatRect = seatEl.getBoundingClientRect();
+    const pillEl = document.querySelector(
+      `[data-player-pill="${winnerId}"]`,
+    ) as HTMLElement;
+    if (pillEl) {
+      const pillRect = pillEl.getBoundingClientRect();
       const to = {
-        x: seatRect.left + seatRect.width / 2,
-        y: seatRect.top + seatRect.height / 2,
+        x: pillRect.left + pillRect.width / 2,
+        y: pillRect.top + pillRect.height / 2,
       };
       scoreFly.value = { from, to };
+    } else {
+      scoreFly.value = {
+        from,
+        to: { x: window.innerWidth / 2, y: 50 },
+      };
     }
 
     // ── Slide losing cards off-table edges after spotlight settles ─
@@ -1177,10 +1195,6 @@ function handleSelectWinner(playerId: string) {
   <div
     ref="tableRef"
     class="game-table"
-    :class="{
-      'game-table--no-hand':
-        !isParticipant || !isSubmitting || isJudge || !!submissions[myId],
-    }"
   >
     <!-- Hidden template card for cloning optimistic fly-in ghosts.
          Always rendered off-screen so we can clone a pixel-perfect
@@ -1195,22 +1209,17 @@ function handleSelectWinner(playerId: string) {
       />
     </div>
 
-    <!-- Player Seats Arc + Overflow List -->
-    <GameTableSeats
-      ref="seatsRef"
-      :players="players"
-      :my-id="myId"
-      :submissions="submissions"
-      :judge-id="judgeId"
-      :scores="scores"
-      :round-winner="effectiveRoundWinner"
-      :phase="localPhase"
-      :is-host="props.isHost"
-      @skip-player="emit('skip-player', $event)"
-    />
-
     <!-- Table Center -->
-    <div class="table-center">
+    <div
+      class="table-center"
+      :class="{
+        'table-center--pile':
+          isSubmitting || (isJudging && !hasTransitionedToRow),
+        'table-center--judging': isJudging && hasTransitionedToRow,
+        'table-center--grid-scrollable':
+          isJudging && hasTransitionedToRow && judgingCardScale === 0.6,
+      }"
+    >
       <!-- Judging info bar (compact, above cards) -->
       <div v-if="isJudging && !winnerSelected" class="judging-info">
         <template v-if="isJudge">
@@ -1235,7 +1244,6 @@ function handleSelectWinner(playerId: string) {
         v-if="isSubmitting || (isJudging && !hasTransitionedToRow)"
         ref="cardContainerRef"
         class="unified-card-container unified-card-container--pile"
-        :class="{ 'zone-glow': isSubmitting }"
       >
         <!-- Empty pile placeholder (submission phase, no cards yet) -->
         <div v-if="isSubmitting && submissionCount === 0" class="pile-empty">
@@ -1278,7 +1286,11 @@ function handleSelectWinner(playerId: string) {
         v-if="isJudging && hasTransitionedToRow"
         ref="cardContainerRef"
         class="judging-grid"
-        :class="densityClass"
+        :class="[
+          densityClass,
+          { 'judging-grid--scrollable': judgingCardScale === 0.6 },
+        ]"
+        :style="{ '--judging-card-scale': judgingCardScale }"
       >
         <div
           v-for="(sub, idx) in displaySubmissions"
@@ -1320,10 +1332,7 @@ function handleSelectWinner(playerId: string) {
               effectiveRoundWinner === sub.playerId
             "
           >
-            <div
-              v-if="justRevealed === sub.playerId"
-              class="reveal-flash"
-            />
+            <div v-if="justRevealed === sub.playerId" class="reveal-flash" />
             <div
               class="submission-group"
               :class="{
@@ -1359,7 +1368,7 @@ function handleSelectWinner(playerId: string) {
                   :flipped="!isRevealed(sub.playerId)"
                   :is-winner="effectiveRoundWinner === sub.playerId"
                   :disable-hover="!isRevealed(sub.playerId)"
-                  :scale="75"
+                  :scale="Math.round(75 * judgingCardScale)"
                   back-logo-url="/img/ufp.svg"
                 />
               </div>
@@ -1487,8 +1496,9 @@ function handleSelectWinner(playerId: string) {
 
 <style scoped>
 .winner-spotlight {
-  box-shadow: 0 0 25px rgba(234, 179, 8, 0.4),
-              0 0 60px rgba(234, 179, 8, 0.15);
+  box-shadow:
+    0 0 25px rgba(234, 179, 8, 0.4),
+    0 0 60px rgba(234, 179, 8, 0.15);
   border: 1px solid rgba(234, 179, 8, 0.3);
   border-radius: 12px;
 }
@@ -1502,13 +1512,6 @@ function handleSelectWinner(playerId: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-top: 5.5rem;
-  padding-bottom: 8rem;
-  transition: padding-bottom 0.5s ease;
-}
-
-.game-table--no-hand {
-  padding-bottom: 0rem;
 }
 
 /* Off-screen template card for cloning optimistic fly-in ghosts */
@@ -1525,14 +1528,65 @@ function handleSelectWinner(playerId: string) {
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-  padding: 1.5rem;
+  padding: 0.75rem 1rem;
   width: 100%;
-  max-width: 900px;
+  max-width: 75%;
   margin: 0 auto;
   border: 1px solid rgba(139, 92, 246, 0.06);
   border-radius: 1.5rem;
   background: rgba(139, 92, 246, 0.015);
   box-shadow: inset 0 0 40px rgba(139, 92, 246, 0.02);
+  /* Bound the card area so a dense judging grid scrolls internally
+     instead of growing the page and pushing the header/hand off screen. */
+  max-height: calc(100vh - 17rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.35) transparent;
+}
+
+.table-center::-webkit-scrollbar {
+  width: 8px;
+}
+
+.table-center::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-center::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.table-center::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+  background-clip: content-box;
+}
+
+/* The pile is only a positioning layer; it should not read as a panel. */
+.table-center--pile {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  max-height: none;
+  overflow: visible;
+  scrollbar-width: auto;
+}
+
+/* Once the grid reaches its scale floor, it owns the bounded scrollport. */
+.table-center--grid-scrollable {
+  max-height: none;
+  overflow: hidden;
+}
+
+/* Judging cards should sit directly on the game table, without a purple panel. */
+.table-center--judging {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 /* ── Judging Info Bar ────────────────────────────────────────── */
@@ -1587,13 +1641,6 @@ function handleSelectWinner(playerId: string) {
   transition: box-shadow 0.8s ease;
 }
 
-/* Submission zone glow during submitting phase */
-.unified-card-container--pile.zone-glow {
-  box-shadow: 0 0 30px rgba(139, 92, 246, 0.12),
-              inset 0 0 20px rgba(139, 92, 246, 0.05);
-  border-color: rgba(139, 92, 246, 0.15);
-}
-
 /* ── Judging Row (blackjack-style centred) ───────────────────── */
 .judging-grid {
   display: flex;
@@ -1605,6 +1652,12 @@ function handleSelectWinner(playerId: string) {
   padding: 0.25rem;
 }
 
+.judging-grid--scrollable {
+  max-height: calc(100dvh - 17rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .grid-cell {
   position: relative;
   display: flex;
@@ -1614,7 +1667,7 @@ function handleSelectWinner(playerId: string) {
   border: 1px solid rgba(139, 92, 246, 0.1);
   border-radius: 0.75rem;
   background: rgba(15, 23, 42, 0.2);
-  padding: 0.65rem;
+  padding: 0.4rem;
   box-shadow: 0 0 12px rgba(139, 92, 246, 0.03);
   transition:
     border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
@@ -1883,7 +1936,7 @@ function handleSelectWinner(playerId: string) {
   }
 
   .grid-cell {
-    padding: 0.85rem;
+    padding: 0.55rem;
   }
 }
 
@@ -1901,9 +1954,6 @@ function handleSelectWinner(playerId: string) {
 .judging-grid--dense {
   gap: 0.75rem;
 }
-.judging-grid--dense :deep(.card-scaler) {
-  width: clamp(5.5rem, 11vw, 16rem);
-}
 .judging-grid--dense .grid-cell {
   padding: 0.5rem;
 }
@@ -1911,9 +1961,6 @@ function handleSelectWinner(playerId: string) {
 /* Very dense (9+ total cards — e.g. 5 players × Draw 2) */
 .judging-grid--very-dense {
   gap: 0.65rem;
-}
-.judging-grid--very-dense :deep(.card-scaler) {
-  width: clamp(5rem, 10vw, 14rem);
 }
 .judging-grid--very-dense .grid-cell {
   padding: 0.4rem;
@@ -2166,7 +2213,11 @@ function handleSelectWinner(playerId: string) {
 .reveal-flash {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
+  background: radial-gradient(
+    ellipse,
+    rgba(255, 255, 255, 0.5) 0%,
+    transparent 70%
+  );
   border-radius: inherit;
   pointer-events: none;
   animation: flash-pulse 0.5s ease-out forwards;
@@ -2174,8 +2225,17 @@ function handleSelectWinner(playerId: string) {
 }
 
 @keyframes flash-pulse {
-  0% { opacity: 1; transform: scale(0.9); }
-  50% { opacity: 0.8; transform: scale(1.05); }
-  100% { opacity: 0; transform: scale(1.1); }
+  0% {
+    opacity: 1;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
 }
 </style>

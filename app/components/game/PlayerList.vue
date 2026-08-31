@@ -27,6 +27,7 @@ const emit = defineEmits<{
 const { kickPlayer, promoteToHost, reshufflePlayerCards } = useLobby();
 const userStore = useUserStore();
 const { notify } = useNotifications();
+const { $activityFetch } = useNuxtApp();
 
 const { speakingDiscordIds, isDiscordActivity } = useDiscordSDK();
 
@@ -42,7 +43,7 @@ const isHost = computed(() => props.hostUserId === currentUserId.value);
 const kick = async (player: Player) => {
   try {
     if (player.playerType === "bot") {
-      await $fetch("/api/bot/remove", {
+      await $activityFetch("/api/bot/remove", {
         method: "POST",
         body: {
           lobbyId: props.lobbyId,

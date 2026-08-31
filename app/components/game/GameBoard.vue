@@ -510,6 +510,7 @@ function handleMobileContinue() {
     <!-- Mobile Layout -->
     <MobileGameLayout
       v-if="isMobile"
+      class="relative z-10"
       :phase="state?.phase || 'submitting'"
       :black-card="blackCard"
       :my-hand="myHand"
@@ -541,13 +542,23 @@ function handleMobileContinue() {
     />
 
     <!-- Desktop Layout -->
-    <div v-else class="min-h-screen flex flex-col">
+    <div v-else class="min-h-screen flex flex-col relative z-10">
       <GameHeader
         :state="state as any"
         :is-submitting="isSubmitting"
         :is-judging="isJudging"
+        :is-round-end="isRoundEnd"
+        :is-complete="isComplete"
         :judge-id="judgeId ?? undefined"
         :players="props.players"
+        :submissions="submissions"
+        :scores="state?.scores || {}"
+        :max-points="lobbyReactive.settings.value?.maxPoints || 10"
+        :host-user-id="props.lobby?.hostUserId || ''"
+        :my-id="myId"
+        :round-winner="effectiveRoundWinner"
+        :skipped-players="state?.skippedPlayers || []"
+        @skip-player="emit('skip-player', $event)"
       />
 
       <main class="flex-1 p-2 md:p-6 flex flex-col overflow-hidden relative">
@@ -663,7 +674,7 @@ function handleMobileContinue() {
   background-image: url("/img/textures/noise.png");
   opacity: 0.06;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
 }
 
 /* Edge vignette */
@@ -676,7 +687,7 @@ function handleMobileContinue() {
     rgba(0, 0, 0, 0.55) 100%
   );
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 
 /* ─── Deck Zones (flanking left/right) ────────────────────── */
