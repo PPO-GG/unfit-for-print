@@ -8,6 +8,11 @@
       </template>
     </ClientOnly>
     <ConfirmDialog />
+    <div
+      :id="MUSIC_PLAYER_CONTAINER_ID"
+      style="position: fixed; width: 0; height: 0; overflow: hidden;"
+      aria-hidden="true"
+    />
     <NuxtLayout>
       <div
         v-if="isDev"
@@ -25,11 +30,13 @@
 <script lang="ts" setup>
 import { useHead, useRuntimeConfig } from "#imports";
 import { useUserPrefsStore } from "~/stores/userPrefsStore";
+import { MUSIC_PLAYER_CONTAINER_ID, useMusicPlayer } from "~/composables/useMusicPlayer";
 
 const isDev = import.meta.env.DEV;
 const config = useRuntimeConfig();
 const { isDiscordActivity } = useDiscordSDK();
 const prefs = useUserPrefsStore();
+const music = useMusicPlayer();
 
 // Apply global UI scale by adjusting root font-size.
 // Tailwind uses rem units, so scaling the root font-size (default 16px)
@@ -41,6 +48,12 @@ watch(
       document.documentElement.style.fontSize = `${16 * (scale / 100)}px`;
     }
   },
+  { immediate: true },
+);
+
+watch(
+  () => prefs.musicVolume,
+  (volume) => music.setVolume(volume),
   { immediate: true },
 );
 
