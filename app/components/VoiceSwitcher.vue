@@ -1,15 +1,21 @@
 <script lang="ts" setup>
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
-import { ref } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useBrowserSpeech } from "~/composables/useBrowserSpeech";
 import { useIsAdmin } from "~/composables/useAdminCheck";
 import { TTS_PROVIDERS } from "~/constants/ttsProviders";
+import { useVoicePreview, type VoicePreviewDescriptor } from "~/composables/useVoicePreview";
+
+interface VoiceDropdownMenuItem extends DropdownMenuItem {
+  voiceDescriptor?: VoicePreviewDescriptor;
+}
 
 const userPrefs = useUserPrefsStore();
 const voices = ref<SpeechSynthesisVoice[]>([]);
 const { getVoices, isVoiceAvailable } = useBrowserSpeech();
 const isAdmin = useIsAdmin();
+const { activeVoiceId, isLoading, playPreview, stopPreview } = useVoicePreview();
 
 const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
 const openAIConfig = TTS_PROVIDERS.OPENAI;
@@ -79,8 +85,8 @@ const loadVoices = () => {
   }
 };
 
-const items = computed<DropdownMenuItem[]>(() => {
-  const result: DropdownMenuItem[] = [];
+const items = computed<VoiceDropdownMenuItem[]>(() => {
+  const result: VoiceDropdownMenuItem[] = [];
 
   // Premium Voices — admin only
   if (isAdmin.value) {
@@ -94,6 +100,12 @@ const items = computed<DropdownMenuItem[]>(() => {
           icon: userPrefs.ttsVoice === config.id
             ? "i-solar-user-speak-bold-duotone"
             : "i-solar-magic-stick-3-bold-duotone",
+          slot: "voice",
+          voiceDescriptor: {
+            provider: "google" as const,
+            voiceId: config.id,
+            apiVoice: config.apiVoice,
+          },
           onSelect: () => { userPrefs.ttsVoice = config.id },
         })),
         {
@@ -102,6 +114,12 @@ const items = computed<DropdownMenuItem[]>(() => {
           icon: userPrefs.ttsVoice === openAIConfig.id
             ? "i-solar-user-speak-bold-duotone"
             : "i-solar-magic-stick-3-bold-duotone",
+          slot: "voice",
+          voiceDescriptor: {
+            provider: "openai" as const,
+            voiceId: openAIConfig.id,
+            apiVoice: openAIConfig.apiVoice,
+          },
           onSelect: () => { userPrefs.ttsVoice = openAIConfig.id },
         },
         {
@@ -110,6 +128,12 @@ const items = computed<DropdownMenuItem[]>(() => {
           icon: userPrefs.ttsVoice === elevenLabsConfig.id
             ? "i-solar-user-speak-bold-duotone"
             : "i-solar-magic-stick-3-bold-duotone",
+          slot: "voice",
+          voiceDescriptor: {
+            provider: "elevenlabs" as const,
+            voiceId: elevenLabsConfig.id,
+            apiVoice: elevenLabsConfig.apiVoice,
+          },
           onSelect: () => { userPrefs.ttsVoice = elevenLabsConfig.id },
         },
       ],
@@ -126,6 +150,13 @@ const items = computed<DropdownMenuItem[]>(() => {
       icon: userPrefs.ttsVoice === config.id
         ? "i-solar-user-speak-bold-duotone"
         : undefined,
+      slot: "voice",
+      voiceDescriptor: {
+        provider: "kokoro" as const,
+        voiceId: config.id,
+        apiVoice: config.apiVoice,
+        speed: (config as any).speed,
+      },
       onSelect: () => { userPrefs.ttsVoice = config.id },
     })),
   });
@@ -144,6 +175,12 @@ const items = computed<DropdownMenuItem[]>(() => {
         icon: userPrefs.ttsVoice === voice.name
           ? "i-solar-user-speak-bold-duotone"
           : undefined,
+        slot: "voice",
+        voiceDescriptor: {
+          provider: "browser" as const,
+          voiceId: `browser-${voice.name}`,
+          voiceName: voice.name,
+        },
         onSelect: () => { userPrefs.ttsVoice = voice.name },
       })),
     });
@@ -163,6 +200,12 @@ const items = computed<DropdownMenuItem[]>(() => {
         icon: userPrefs.ttsVoice === voice.name
           ? "i-solar-user-speak-bold-duotone"
           : undefined,
+        slot: "voice",
+        voiceDescriptor: {
+          provider: "browser" as const,
+          voiceId: `os-${voice.name}`,
+          voiceName: voice.name,
+        },
         onSelect: () => { userPrefs.ttsVoice = voice.name },
       })),
     });
@@ -191,8 +234,9 @@ onMounted(() => {
       }"
       :items="items"
       :ui="{
-        content: 'w-64 max-h-60 overflow-y-auto',
+        content: 'w-72 max-h-72 overflow-y-auto',
       }"
+      @update:open="(isOpen) => { if (!isOpen) stopPreview(); }"
     >
       <UButton
         class="flex items-center gap-2 text-xs"
@@ -202,6 +246,32 @@ onMounted(() => {
       >
         <span>TTS Voice</span>
       </UButton>
+
+      <template #voice-trailing="{ item }">
+        <button
+          type="button"
+          class="p-1 rounded-md transition-colors hover:bg-white/15 text-slate-400 hover:text-white cursor-pointer inline-flex items-center justify-center shrink-0"
+          :title="(item as VoiceDropdownMenuItem).voiceDescriptor && activeVoiceId === (item as VoiceDropdownMenuItem).voiceDescriptor?.voiceId ? 'Stop preview' : 'Preview voice'"
+          :aria-label="(item as VoiceDropdownMenuItem).voiceDescriptor && activeVoiceId === (item as VoiceDropdownMenuItem).voiceDescriptor?.voiceId ? 'Stop preview' : 'Preview voice'"
+          @click.stop.prevent="(item as VoiceDropdownMenuItem).voiceDescriptor && playPreview((item as VoiceDropdownMenuItem).voiceDescriptor!)"
+        >
+          <UIcon
+            v-if="isLoading && (item as VoiceDropdownMenuItem).voiceDescriptor && activeVoiceId === (item as VoiceDropdownMenuItem).voiceDescriptor?.voiceId"
+            name="i-solar-spinner-linear"
+            class="size-3.5 animate-spin text-primary"
+          />
+          <UIcon
+            v-else-if="(item as VoiceDropdownMenuItem).voiceDescriptor && activeVoiceId === (item as VoiceDropdownMenuItem).voiceDescriptor?.voiceId"
+            name="i-solar-stop-circle-bold-duotone"
+            class="size-3.5 text-primary animate-pulse"
+          />
+          <UIcon
+            v-else
+            name="i-solar-play-circle-bold-duotone"
+            class="size-3.5 opacity-70 hover:opacity-100"
+          />
+        </button>
+      </template>
     </UDropdownMenu>
   </ClientOnly>
 </template>
