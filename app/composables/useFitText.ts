@@ -94,11 +94,18 @@ export function useFitText(
     const textEl = text.value;
     if (!containerEl || !textEl || !containerEl.clientWidth) return;
 
+    // Custom fonts can still be loading on first mount (font-display: swap
+    // renders a fallback font meanwhile), which measures narrower/wider than
+    // the real face. Skip the cache entirely until fonts are ready, so a
+    // fallback-font measurement is never stored (and never reused) in place
+    // of the real one.
+    const fontsReady = !document.fonts || document.fonts.status === "loaded";
+
     const widthRounded = Math.round(containerEl.clientWidth);
     const heightRounded = Math.round(containerEl.clientHeight);
     const cacheKey = `${content.value}::${widthRounded}x${heightRounded}::${minRatio}:${maxRatio}:${minRem}:${maxRem}`;
 
-    const cached = fitTextCache.get(cacheKey);
+    const cached = fontsReady ? fitTextCache.get(cacheKey) : undefined;
     if (cached) {
       settle(cached.size, cached.allowRawBreak);
       return;
@@ -112,11 +119,13 @@ export function useFitText(
         scheduleRecalc();
         return;
       }
-      if (fitTextCache.size >= MAX_CACHE_SIZE) {
-        const firstKey = fitTextCache.keys().next().value;
-        if (firstKey) fitTextCache.delete(firstKey);
+      if (fontsReady) {
+        if (fitTextCache.size >= MAX_CACHE_SIZE) {
+          const firstKey = fitTextCache.keys().next().value;
+          if (firstKey) fitTextCache.delete(firstKey);
+        }
+        fitTextCache.set(cacheKey, { size: lo0, allowRawBreak: true });
       }
-      fitTextCache.set(cacheKey, { size: lo0, allowRawBreak: true });
       settle(lo0, true);
       return;
     }
@@ -132,11 +141,13 @@ export function useFitText(
       }
     }
 
-    if (fitTextCache.size >= MAX_CACHE_SIZE) {
-      const firstKey = fitTextCache.keys().next().value;
-      if (firstKey) fitTextCache.delete(firstKey);
+    if (fontsReady) {
+      if (fitTextCache.size >= MAX_CACHE_SIZE) {
+        const firstKey = fitTextCache.keys().next().value;
+        if (firstKey) fitTextCache.delete(firstKey);
+      }
+      fitTextCache.set(cacheKey, { size: lo, allowRawBreak: false });
     }
-    fitTextCache.set(cacheKey, { size: lo, allowRawBreak: false });
     settle(lo, false);
   }
 
