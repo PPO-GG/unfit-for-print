@@ -1,13 +1,13 @@
 # Privacy Policy
-_Last Updated: April 2nd 2026_
+_Last Updated: August 30th 2026_
 
-This Privacy Policy explains how PPO.GG collects, uses, and protects your information when you play **Unfit for Print**. By using our game, you agree to the terms outlined below.
+This Privacy Policy explains how Unfit Games, LLC collects, uses, and protects your information when you play **Unfit for Print**. By using our game, you agree to the terms outlined below.
 
 ---
 
 ## Who We Are
 
-**Unfit for Print** is developed and maintained by **PPO.GG**. We are committed to protecting your privacy and handling your data with transparency and care.
+**Unfit for Print** is developed and maintained by **Unfit Games, LLC**, operating under the PPO.GG studio brand. We are committed to protecting your privacy and handling your data with transparency and care.
     
 ---    
 ## Information We Collect
@@ -70,7 +70,7 @@ We do not currently use any analytics or tracking tools. You will not encounter 
 ---    
 ## Data Security
 
-We prioritize the security of your data. Information is stored and managed using an on-premises instance of [Appwrite](https://appwrite.io), a secure, open-source backend.
+We prioritize the security of your data. Information is stored and managed on secure, access-controlled infrastructure that we operate.
 
 * **Encryption:** All communication is encrypted during transit.
 * **Role-restricted access:** Access to data is limited based on user roles to ensure only authorized personnel can view it.
@@ -101,6 +101,5 @@ If you have any questions or concerns about this Privacy Policy or our data prac
 **Game Page:** [https://unfit.cards](https://unfit.cards)
 
 <div style="align-items: center;"> 
-	<a href="https://appwrite.io" style="width: auto; height: 32px;"><img src="https://appwrite.io/assets/logotype/black.svg" alt="Appwrite Logo" style="width: auto; height: 32px;"></a>
     <a href="https://ppo.gg" style="width: auto; height: 32px;"><img src="https://ppo.gg/img/ppo_logo.svg" alt="PPO.GG Logo" style="width: auto; height: 32px;"></a>
 </div>

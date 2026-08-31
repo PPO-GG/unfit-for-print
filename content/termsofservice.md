@@ -1,7 +1,7 @@
 # Terms of Service
-_Last Updated: April 2nd 2026_
+_Last Updated: August 30th 2026_
 
-Welcome to **Unfit for Print**, a multiplayer party card game developed by **PPO.GG**. By accessing or using the game at [https://unfit.cards](https://unfit.cards) or through the Discord Activity, you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
+Welcome to **Unfit for Print**, a multiplayer party card game developed by **Unfit Games, LLC**, operating under the PPO.GG studio brand. By accessing or using the game at [https://unfit.cards](https://unfit.cards) or through the Discord Activity, you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
 
 ---
 
@@ -9,7 +9,7 @@ Welcome to **Unfit for Print**, a multiplayer party card game developed by **PPO
 
 - **"Service"** refers to the Unfit for Print game, including the website at unfit.cards, the Discord Activity, and all related features.
 - **"User," "you," "your"** refers to any individual who accesses or uses the Service.
-- **"We," "us," "our"** refers to PPO.GG, the developer and operator of the Service.
+- **"We," "us," "our"** refers to Unfit Games, LLC, the developer and operator of the Service.
 
 ---
 
@@ -54,11 +54,11 @@ We reserve the right to moderate, remove, or restrict content and users who viol
 
 ## Intellectual Property
 
-- The Unfit for Print name, logo, and game design are the property of PPO.GG.
+- The Unfit for Print name, logo, and game design are the property of Unfit Games, LLC.
 - The card library includes three categories of content:
-  - **Original cards** created by PPO.GG, which are the property of PPO.GG.
+  - **Original cards** created by Unfit Games, LLC, which are the property of Unfit Games, LLC.
   - **Cards Against Humanity content**, used under the [Creative Commons Attribution-NonCommercial-ShareAlike 2.0 Generic (CC BY-NC-SA 2.0)](https://creativecommons.org/licenses/by-nc-sa/2.0/) license. Cards Against Humanity is a trademark of Cards Against Humanity, LLC. Unfit for Print is not affiliated with or endorsed by Cards Against Humanity, LLC.
-  - **User-submitted cards**, which remain the property of the submitting user. By submitting cards, you grant PPO.GG a non-exclusive, royalty-free license to include them in the game.
+  - **User-submitted cards**, which remain the property of the submitting user. By submitting cards, you grant Unfit Games, LLC a non-exclusive, royalty-free license to include them in the game.
 - The game and its content (including original and CAH-derived cards) are distributed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/) license, which satisfies the ShareAlike obligation of the upstream CC BY-NC-SA 2.0 license.
 - The Service's source code is available under the terms specified in the [GitHub repository](https://github.com/PPO-GG/unfit-for-print).
 - You may not use our trademarks, branding, or original game content for commercial purposes without prior written consent.
@@ -79,7 +79,6 @@ When using Unfit for Print as a Discord Activity:
 
 The Service uses third-party infrastructure including:
 
-- **Appwrite** (self-hosted) for authentication and data storage.
 - **Cloudflare** for hosting and content delivery.
 - **Discord** for OAuth2 authentication and Activity integration.
 
@@ -95,19 +94,19 @@ The Service is provided **"as is"** and **"as available"** without warranties of
 
 ## Limitation of Liability
 
-To the maximum extent permitted by law, PPO.GG and its contributors shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising out of or relating to your use of the Service, even if advised of the possibility of such damages.
+To the maximum extent permitted by law, Unfit Games, LLC and its contributors shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising out of or relating to your use of the Service, even if advised of the possibility of such damages.
 
 ---
 
 ## Indemnification
 
-You agree to indemnify and hold harmless PPO.GG, its contributors, and affiliates from any claims, damages, losses, or expenses (including reasonable legal fees) arising from your use of the Service or violation of these Terms.
+You agree to indemnify and hold harmless Unfit Games, LLC, its contributors, and affiliates from any claims, damages, losses, or expenses (including reasonable legal fees) arising from your use of the Service or violation of these Terms.
 
 ---
 
 ## Content Warning
 
-Unfit for Print is a party game intended for **mature audiences**. Card content may include humor that is crude, irreverent, or offensive. By using the Service, you acknowledge that you may encounter such content and that PPO.GG is not responsible for user reactions to game content.
+Unfit for Print is a party game intended for **mature audiences**. Card content may include humor that is crude, irreverent, or offensive. By using the Service, you acknowledge that you may encounter such content and that Unfit Games, LLC is not responsible for user reactions to game content.
 
 ---
 
@@ -125,7 +124,7 @@ We may update these Terms from time to time. When we make significant changes, w
 
 ## Governing Law
 
-These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which PPO.GG operates, without regard to conflict of law provisions.
+These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which Unfit Games, LLC operates, without regard to conflict of law provisions.
 
 ---
 
