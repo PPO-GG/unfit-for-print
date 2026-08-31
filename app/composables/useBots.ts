@@ -55,6 +55,19 @@ export function useBots(
   players: Ref<Player[]>,
   isHost: ComputedRef<boolean>,
 ) {
+  let $activityFetch: typeof $fetch =
+    typeof $fetch !== "undefined"
+      ? $fetch
+      : (globalThis as any).$fetch;
+  try {
+    const nuxtApp = useNuxtApp();
+    if ((nuxtApp as any)?.$activityFetch) {
+      $activityFetch = (nuxtApp as any).$activityFetch;
+    }
+  } catch {
+    // Outside Nuxt app context (e.g. unit tests)
+  }
+
   // ─── Y.Doc Integration ──────────────────────────────────────────────
   // Bots are written to Y.Doc (the source of truth for real-time state)
   // in addition to Appwrite/Postgres (for server-side auth/validation).
@@ -95,15 +108,27 @@ export function useBots(
   // ─── Add / Remove Bot ─────────────────────────────────────────────────
 
   const addBot = async () => {
-    if (!canAddBot.value || !lobby.value || addingBot.value) return;
+    if (!lobby.value || addingBot.value) return;
+
+    if (botPlayers.value.length >= MAX_BOTS) {
+      useToast().add({
+        title: `Maximum of ${MAX_BOTS} bots reached`,
+        description: "Remove a bot before adding another.",
+        color: "error",
+      });
+      return;
+    }
+
+    if (!canAddBot.value) return;
     addingBot.value = true;
     botError.value = null;
 
     try {
-      const result = await $fetch<{
+      const result = await $activityFetch<{
         success: boolean;
         bot: {
-          $id: string;
+          $id?: string;
+          id?: string;
           userId: string;
           name: string;
           avatar: string;
@@ -154,7 +179,7 @@ export function useBots(
     }
 
     try {
-      await $fetch("/api/bot/remove", {
+      await $activityFetch("/api/bot/remove", {
         method: "POST",
         body: {
           lobbyId: lobby.value.id,

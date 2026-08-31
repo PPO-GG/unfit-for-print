@@ -59,6 +59,19 @@ function shuffle<T>(array: T[]): T[] {
 // ─── Composable ─────────────────────────────────────────────────────────────
 
 export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
+  let $activityFetch: typeof $fetch =
+    typeof $fetch !== "undefined"
+      ? $fetch
+      : (globalThis as any).$fetch;
+  try {
+    const nuxtApp = useNuxtApp();
+    if ((nuxtApp as any)?.$activityFetch) {
+      $activityFetch = (nuxtApp as any).$activityFetch;
+    }
+  } catch {
+    // Outside Nuxt app context (e.g. unit tests)
+  }
+
   const {
     doc,
     getGameState,
@@ -193,7 +206,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         );
         return;
       }
-      const lobbyRecord = await $fetch<{ id: string } | null>(
+      const lobbyRecord = await $activityFetch<{ id: string } | null>(
         `/api/lobby/by-code/${code}`,
       );
       if (!lobbyRecord?.id) {
@@ -204,7 +217,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         return;
       }
 
-      const result = await $fetch<{
+      const result = await $activityFetch<{
         success: boolean;
         cardIds: string[];
         cardTexts: Record<string, { text: string; pack: string }>;
