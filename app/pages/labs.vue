@@ -357,7 +357,7 @@ onMounted(fetchSubmissions);
   mask-image: radial-gradient(ellipse at 50% 25%, black, transparent 80%);
 }
 .labs-shell {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: auto;
   padding: 1.5rem;
   display: flex;
