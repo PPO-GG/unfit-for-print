@@ -56,17 +56,17 @@
                 />
                 <span>{{ t("nav.profile") }}</span>
               </NuxtLink>
-              <NuxtLink
-                to="/profile#settings"
+              <button
+                type="button"
                 class="user-menu-item rounded-md"
-                @click="userMenuOpen = false"
+                @click="settingsOpen = true; userMenuOpen = false;"
               >
                 <UIcon
                   name="i-solar-settings-bold-duotone"
                   class="user-menu-item-icon"
                 />
                 <span>{{ t("nav.settings") }}</span>
-              </NuxtLink>
+              </button>
               <button
                 class="user-menu-item user-menu-item--danger rounded-b-2xl rounded-t-md"
                 @click="
@@ -280,6 +280,16 @@
             />
 
             <MenuTile
+              accent="dark"
+              icon="i-solar-settings-bold-duotone"
+              :label="t('nav.settings')"
+              description="Adjust volume & preferences"
+              shortcut="S"
+              class="col-span-6 sm:col-span-3"
+              @click="settingsOpen = true"
+            />
+
+            <MenuTile
               v-if="isAdmin"
               accent="error"
               icon="i-lucide-shield-cog-corner"
@@ -329,6 +339,7 @@
     </div>
 
     <JoinTakeover v-model:open="showJoin" @joined="handleJoined" />
+    <SettingsSlideover v-model:open="settingsOpen" />
   </div>
 </template>
 
@@ -362,6 +373,7 @@ const route = useRoute();
 
 // ─── User Menu ───────────────────────────────────────────────────────
 const userMenuOpen = ref(false);
+const settingsOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
 onClickOutside(userMenuRef, () => {
   userMenuOpen.value = false;
@@ -425,6 +437,9 @@ const handleMenuHotkey = createMenuHotkeyHandler({
   games: () => void router.push("/game"),
   labs: () => void router.push("/labs"),
   howToPlay: () => void router.push("/about"),
+  settings: () => {
+    settingsOpen.value = true;
+  },
   canCreate: () =>
     !isDiscordActivity.value &&
     isAuthenticatedUser(userStore.user) &&
