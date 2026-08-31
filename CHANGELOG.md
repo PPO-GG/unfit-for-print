@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.17.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.16.0...v3.17.0) (2026-08-31)
+
+
+### ✨ Features
+
+* **admin:** switch user manager to a table view ([ac75bc2](https://github.com/PPO-GG/unfit-for-print/commit/ac75bc2b4ed8a8a7f93bcb1fd1ad2725731351c4))
+* **api:** add sorting, pagination, and guest filtering to admin user management ([e0c6f81](https://github.com/PPO-GG/unfit-for-print/commit/e0c6f8131fb21c6281619e947d88d4c503b993f9))
+* **audio:** add hidden YouTube-playlist music player composable ([59758dd](https://github.com/PPO-GG/unfit-for-print/commit/59758ddb6260c2b626619a3d8a78810c6c23c59f))
+* **audio:** mount global hidden YouTube music player container ([b4de668](https://github.com/PPO-GG/unfit-for-print/commit/b4de66847f90ff26add7caae98901883a991f712))
+* **audio:** scale SFX gain by the user's sfxVolume preference ([7c73460](https://github.com/PPO-GG/unfit-for-print/commit/7c7346050788179ea0f7d406c7b47e9cb82f6bec))
+* **audio:** scale TTS playback volume by the user's ttsVolume preference ([1c2e427](https://github.com/PPO-GG/unfit-for-print/commit/1c2e42710823d536bba22020a934f441ec03161f))
+* **bot:** add max bot limit notification and Discord activity fetch compatibility ([b8a2cf8](https://github.com/PPO-GG/unfit-for-print/commit/b8a2cf858e359d91a99ccf7a3938898bf88fee4f))
+* **db:** add lobby privacy flag and automated stale lobby pruning ([51dcb05](https://github.com/PPO-GG/unfit-for-print/commit/51dcb05498f7f9cd99b25c03af103389d2ead1f0))
+* **i18n:** add volume mixer translation keys ([1a92879](https://github.com/PPO-GG/unfit-for-print/commit/1a928798458e2c5259d246dfee2b42caa1ccc8b0))
+* **menu:** add S hotkey for opening Settings ([1422a6d](https://github.com/PPO-GG/unfit-for-print/commit/1422a6d49375c6c7ee29c64a1246edc54194eb4d))
+* **menu:** open SettingsSlideover from a menu tile, hotkey, and user menu ([ea1a045](https://github.com/PPO-GG/unfit-for-print/commit/ea1a045cdb0f17886cb50e50719947571028b715))
+* **prefs:** add sfx/tts/music volume fields to userPrefsStore ([056cb65](https://github.com/PPO-GG/unfit-for-print/commit/056cb6586108210c9908a86faba4346a3552d72d))
+* **settings:** add SettingsSlideover component ([164d544](https://github.com/PPO-GG/unfit-for-print/commit/164d5446dad12f3b45749880b044a71f80ae2a30))
+* **utils:** add normalizeVolumePercent helper ([eef2dae](https://github.com/PPO-GG/unfit-for-print/commit/eef2dae721aa6af49ee6fd263f11cc2da0dda701))
+* **web:** add audio preview button to voice switcher dropdown ([d847194](https://github.com/PPO-GG/unfit-for-print/commit/d847194cb760727ab9c2b2a146be9726f12a73f5))
+* **web:** add prune stale and orphan cleanup actions to lobby monitor ([b523cc8](https://github.com/PPO-GG/unfit-for-print/commit/b523cc8a7084d085640bfaecd03a16ae9dab90d7))
+* **web:** centralize global settings state, UI scaling, and background music autoplay ([131f163](https://github.com/PPO-GG/unfit-for-print/commit/131f16376c9a6de6a946336ce7b6bfc0d90b252a))
+* **web:** group adjacent chat messages and bound in-game chat toasts ([b1adede](https://github.com/PPO-GG/unfit-for-print/commit/b1adede6be78550dd52db56d5ae38b7973bd8e08))
+* **web:** redesign game header HUD and optimize judging table density ([2b02a4c](https://github.com/PPO-GG/unfit-for-print/commit/2b02a4cc7a569735683f8bda7f77d19255394224))
+* **web:** redesign public lobby browser cards and sync private lobby status ([6b53cce](https://github.com/PPO-GG/unfit-for-print/commit/6b53cce12165eb14d25f7807e3e73ca63ad6b0ad))
+* **web:** refine lobby room layout, start bar actions, and join takeover modal ([868adbf](https://github.com/PPO-GG/unfit-for-print/commit/868adbffff1b757ecf398cbe27600f32a6e1deeb))
+
+
+### 🐛 Bug Fixes
+
+* address final review findings (music container styling, silent failure, volume-clamp duplication) ([8eac28d](https://github.com/PPO-GG/unfit-for-print/commit/8eac28d4ed7e9cef21f10f75feb1633c01ce07da))
+* **audio:** harden useMusicPlayer against creation/load failures ([a68a090](https://github.com/PPO-GG/unfit-for-print/commit/a68a090ff02dd9499d8fd0ace045d386675418c8))
+* **audio:** remove failed YouTube API script tag so retries actually reload ([f4dff24](https://github.com/PPO-GG/unfit-for-print/commit/f4dff24ca0c0a8a765a019090ed2fc6627af9ebd))
+* **server:** use default import for hyphen/en-us to fix production crash ([795cedb](https://github.com/PPO-GG/unfit-for-print/commit/795cedb63c2953a98e743308b4de81671eb9ee50))
+
+
+### ♻️ Refactors
+
+* **profile:** remove settings section, now in SettingsSlideover ([7854118](https://github.com/PPO-GG/unfit-for-print/commit/7854118078bd442aad3e56c4f33a3f1f21f47256))
+
+
+### 📖 Documentation
+
+* **web:** update privacy policy, terms of service, and add legal hub page ([682f3de](https://github.com/PPO-GG/unfit-for-print/commit/682f3de7be5743835ba5c6a59a8ec4f4142f0403))
+
 ## [3.16.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.15.0...v3.16.0) (2026-08-29)
 
 
