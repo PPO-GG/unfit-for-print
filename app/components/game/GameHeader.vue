@@ -298,6 +298,45 @@ function getPositionBadgeClass(position: number): string {
   }
 }
 
+// ── Deferred sort scores ──────────────────────────────────────────
+// GameTable.vue spawns a "+1" badge that arcs from the winning card to
+// this pill's on-screen position (~950ms flight — see ScoreFlyBadge.vue).
+// If the auto-sort below reacted to `scores` the instant it changes, the
+// pill would jump to its new (higher-score) slot immediately and the
+// badge would land on an empty spot where the pill used to be. So when a
+// score changes because a round winner was just picked, hold the old
+// scores for sorting purposes until the badge has had time to land, then
+// snap to the real order. Score changes with no winner in flight (initial
+// load, reconnect, game reset) apply immediately since there's no badge
+// to protect.
+const SCORE_FLY_DURATION_MS = 950; // matches ScoreFlyBadge.vue's total tween duration
+const sortScores = ref<Record<string, number>>({ ...props.scores });
+let sortDeferTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  () => props.scores,
+  (newScores) => {
+    if (!newScores) return;
+    if (sortDeferTimer) {
+      clearTimeout(sortDeferTimer);
+      sortDeferTimer = null;
+    }
+    if (props.roundWinner) {
+      sortDeferTimer = setTimeout(() => {
+        sortScores.value = { ...newScores };
+        sortDeferTimer = null;
+      }, SCORE_FLY_DURATION_MS);
+    } else {
+      sortScores.value = { ...newScores };
+    }
+  },
+  { deep: true },
+);
+
+onUnmounted(() => {
+  if (sortDeferTimer) clearTimeout(sortDeferTimer);
+});
+
 // ── Auto-sorted player list (descending by score: highest on left) ──
 const sortedPlayers = computed(() => {
   return props.players.slice().sort((a, b) => {
@@ -305,8 +344,8 @@ const sortedPlayers = computed(() => {
     if (a.playerType === "spectator" && b.playerType !== "spectator") return 1;
     if (b.playerType === "spectator" && a.playerType !== "spectator") return -1;
 
-    const scoreA = getPlayerScore(a.userId);
-    const scoreB = getPlayerScore(b.userId);
+    const scoreA = sortScores.value[a.userId] ?? 0;
+    const scoreB = sortScores.value[b.userId] ?? 0;
     if (scoreB !== scoreA) {
       return scoreB - scoreA;
     }

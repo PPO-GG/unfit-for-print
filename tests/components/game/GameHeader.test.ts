@@ -14,6 +14,8 @@ vi.mock("gsap", () => ({
   },
 }));
 
+vi.mock("canvas-confetti", () => ({ default: vi.fn() }));
+
 vi.mock("~/utils/discord", () => ({
   getDiscordIdFromPlayer: vi.fn(() => null),
 }));
@@ -191,6 +193,111 @@ describe("GameHeader.vue", () => {
     expect(html).toContain("1st");
     expect(html).toContain("2nd");
     expect(html).toContain("3rd");
+  });
+
+  it("defers re-sorting the player list until the score-fly badge has landed", async () => {
+    const players: Player[] = [
+      {
+        $id: "p1",
+        $createdAt: "",
+        $updatedAt: "",
+        $permissions: [],
+        $databaseId: "",
+        $collectionId: "",
+        userId: "u1",
+        name: "Alice",
+        playerType: "player",
+        avatar: "",
+        provider: "anonymous",
+      },
+      {
+        $id: "p2",
+        $createdAt: "",
+        $updatedAt: "",
+        $permissions: [],
+        $databaseId: "",
+        $collectionId: "",
+        userId: "u2",
+        name: "Bob",
+        playerType: "player",
+        avatar: "",
+        provider: "anonymous",
+      },
+    ];
+
+    const baseState = {
+      round: 1,
+      phase: "judging",
+      submissions: {},
+      scores: { u1: 1, u2: 2 },
+      judgeId: "u2",
+      blackCard: null,
+      whiteDeck: [],
+      blackDeck: [],
+      hands: {},
+      discardWhite: [],
+      discardBlack: [],
+      roundEndStartTime: null,
+      config: {
+        maxPoints: 10,
+        cardsPerPlayer: 10,
+        cardPacks: [],
+        isPrivate: false,
+        lobbyName: "",
+      },
+    };
+
+    vi.useFakeTimers();
+    try {
+      const wrapper = mount(GameHeader, {
+        props: {
+          state: baseState,
+          isJudging: true,
+          judgeId: "u2",
+          players,
+          submissions: {},
+          scores: { u1: 1, u2: 2 },
+          roundWinner: null,
+          maxPoints: 10,
+          hostUserId: "u1",
+          myId: "u1",
+        },
+        global: {
+          stubs: {
+            Icon: true,
+            UIcon: true,
+            UAvatar: true,
+            AvatarDecoration: { template: "<div><slot /></div>" },
+          },
+        },
+      });
+
+      // Bob (2 points) leads Alice (1 point) before anyone wins the round.
+      let text = wrapper.text();
+      expect(text.indexOf("Bob")).toBeLessThan(text.indexOf("Alice"));
+
+      // Alice wins the round: scores and roundWinner update together, exactly
+      // as the Y.Doc engine commits them (see server/utils game-engine.ts).
+      await wrapper.setProps({
+        scores: { u1: 3, u2: 2 },
+        roundWinner: "u1",
+      });
+      await Vue.nextTick();
+
+      // The +1 badge is still flying — the list must NOT have re-sorted yet,
+      // otherwise the badge lands on Bob's old (now-vacated) slot.
+      text = wrapper.text();
+      expect(text.indexOf("Bob")).toBeLessThan(text.indexOf("Alice"));
+
+      // Once the badge has had time to land, the real order applies.
+      vi.advanceTimersByTime(950);
+      await Vue.nextTick();
+
+      text = wrapper.text();
+      expect(text.indexOf("Alice")).toBeLessThan(text.indexOf("Bob"));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("emits skip-player when host clicks skip", async () => {
