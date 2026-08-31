@@ -4,6 +4,7 @@ type MenuHotkeyOptions = {
   games: () => void;
   labs: () => void;
   howToPlay: () => void;
+  settings: () => void;
   canCreate: () => boolean;
   canJoin: () => boolean;
   isJoinOpen: () => boolean;
@@ -33,6 +34,7 @@ export function createMenuHotkeyHandler(options: MenuHotkeyOptions) {
       g: options.games,
       l: options.labs,
       "?": options.howToPlay,
+      s: options.settings,
     };
     const action = actions[event.key.toLowerCase()];
 

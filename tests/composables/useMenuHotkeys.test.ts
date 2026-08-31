@@ -8,6 +8,7 @@ function setup(options: { canCreate?: boolean; isJoinOpen?: boolean } = {}) {
     games: vi.fn(),
     labs: vi.fn(),
     howToPlay: vi.fn(),
+    settings: vi.fn(),
   };
   const handler = createMenuHotkeyHandler({
     ...actions,
@@ -28,12 +29,14 @@ describe("createMenuHotkeyHandler", () => {
     handler(new KeyboardEvent("keydown", { key: "g" }));
     handler(new KeyboardEvent("keydown", { key: "L" }));
     handler(new KeyboardEvent("keydown", { key: "?" }));
+    handler(new KeyboardEvent("keydown", { key: "s" }));
 
     expect(actions.create).toHaveBeenCalledOnce();
     expect(actions.join).toHaveBeenCalledOnce();
     expect(actions.games).toHaveBeenCalledOnce();
     expect(actions.labs).toHaveBeenCalledOnce();
     expect(actions.howToPlay).toHaveBeenCalledOnce();
+    expect(actions.settings).toHaveBeenCalledOnce();
   });
 
   it("does not intercept keys while typing, with a modifier, or in the join overlay", () => {
