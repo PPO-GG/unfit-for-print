@@ -208,9 +208,14 @@
 
               <!-- Footer -->
               <div class="lsd-footer">
-                <button class="neon-btn" @click="$emit('close')">CANCEL</button>
                 <button
-                  class="neon-btn neon-btn--primary"
+                  class="neon-btn lsd-footer-btn"
+                  @click="$emit('close')"
+                >
+                  CANCEL
+                </button>
+                <button
+                  class="neon-btn neon-btn--primary lsd-footer-btn"
                   @click="$emit('close')"
                 >
                   ✓ SAVE SETTINGS
@@ -644,7 +649,15 @@ onMounted(async () => {
 .lsd-footer {
   margin-top: 6px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.lsd-footer-btn {
+  padding: 10px 12px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  min-width: 0;
+  white-space: nowrap;
 }
 </style>

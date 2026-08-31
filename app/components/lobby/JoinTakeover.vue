@@ -14,7 +14,7 @@
 
       <div
         ref="cardRef"
-        class="join-takeover-card bg-secondary-400 text-slate-950"
+        class="join-takeover-card"
         tabindex="0"
         @click.stop="onCardAreaClick"
         @keydown="handleKeydown"
@@ -35,9 +35,9 @@
           </div>
         </div>
 
-        <!-- Username: shown only for guests who already have a chosen name -->
+        <!-- Guest players choose their name before the session is created. -->
         <div
-          v-if="showIfAnonymous && status === 'entering'"
+          v-if="needsUsername && status === 'entering'"
           class="join-username"
         >
           <label class="join-label" for="join-username-input">
@@ -91,7 +91,7 @@
 
           <div
             v-else-if="status === 'entering'"
-            class="w-full flex items-center justify-between flex-wrap gap-2"
+            class="w-full flex items-center justify-between flex-wrap gap-3"
           >
             <div class="flex items-center gap-2">
               <span class="join-kbd">⌫</span>
@@ -99,7 +99,15 @@
               <span class="join-kbd" style="margin-left: 10px">ESC</span>
               <span class="join-tray-text">Cancel</span>
             </div>
-            <span class="join-tray-text">Codes are 4 characters</span>
+            <button
+              type="button"
+              class="join-submit"
+              :disabled="!canJoin"
+              @click="attemptJoin"
+            >
+              Join game
+              <UIcon name="i-solar-arrow-right-bold-duotone" class="size-4" />
+            </button>
           </div>
 
           <div
@@ -139,7 +147,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import { useUserAccess } from "~/composables/useUserUtils";
+import { requiresJoinUsername } from "~/composables/useUserUtils";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useUserStore } from "~/stores/userStore";
 
@@ -151,7 +159,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const router = useRouter();
-const { showIfAnonymous } = useUserAccess();
 const { joinLobbyWithSession, initSessionIfNeeded } = useJoinLobby();
 const userStore = useUserStore();
 
@@ -166,6 +173,10 @@ const cardRef = ref<HTMLElement | null>(null);
 const usernameRef = ref<HTMLInputElement | null>(null);
 
 const fullCode = computed(() => code.value.join(""));
+const needsUsername = computed(() => requiresJoinUsername(userStore.user));
+const canJoin = computed(
+  () => fullCode.value.length === 4 && (!needsUsername.value || !!username.value.trim()),
+);
 
 function resetCode() {
   status.value = "entering";
@@ -182,7 +193,7 @@ watch(
     username.value = "";
     await initSessionIfNeeded();
     await nextTick();
-    if (showIfAnonymous.value) {
+    if (needsUsername.value) {
       usernameRef.value?.focus();
     } else {
       cardRef.value?.focus();
@@ -191,19 +202,20 @@ watch(
 );
 
 const authenticatedUsername = computed(() => {
-  if (userStore.user && !showIfAnonymous.value) {
+  if (userStore.user && !needsUsername.value) {
     return userStore.user.name || "";
   }
   return "";
 });
 
 async function attemptJoin() {
+  if (!canJoin.value) return;
   status.value = "joining";
 
-  let name = showIfAnonymous.value
+  let name = needsUsername.value
     ? username.value
     : authenticatedUsername.value;
-  if (!showIfAnonymous.value && (!name || !name.trim())) {
+  if (!needsUsername.value && (!name || !name.trim())) {
     let randomSuffix = 0;
     do {
       randomSuffix = crypto.getRandomValues(new Uint32Array(1))[0] as number;
@@ -231,12 +243,6 @@ async function attemptJoin() {
   }
 }
 
-watch([fullCode, username], ([codeVal, nameVal]) => {
-  if (status.value !== "entering" || codeVal.length !== 4) return;
-  if (showIfAnonymous.value && !nameVal.trim()) return;
-  attemptJoin();
-});
-
 // Escape closes regardless of which element has focus. Registered once
 // for the component's lifetime (it's always mounted) and gated on
 // props.open internally, rather than added/removed per open-state
@@ -252,6 +258,12 @@ onUnmounted(() => window.removeEventListener("keydown", onGlobalKeydown, true));
 function handleKeydown(e: KeyboardEvent) {
   if (status.value !== "entering") return;
   if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+
+  if (e.key === "Enter" && canJoin.value) {
+    attemptJoin();
+    e.preventDefault();
+    return;
+  }
 
   const key = e.key.toUpperCase();
   if (/^[A-Z0-9]$/.test(key) && caretIndex.value < 4) {
@@ -360,19 +372,36 @@ function confettiStyle(i: number) {
 }
 
 .join-takeover-card {
+  --join-accent: #facc15;
+  --join-ink: #f8fafc;
+  --join-dim: #8b96b3;
   position: relative;
-  width: min(640px, 92vw);
-  border-radius: 20px;
-  padding: 40px 32px 28px;
+  width: min(580px, 92vw);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 42px 32px 24px;
+  color: var(--join-ink);
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.018) 0 8px, transparent 8px 18px),
+    #0a0d1c;
   box-shadow:
-    0 40px 80px -20px rgba(217, 70, 239, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+    0 40px 80px -20px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(250, 204, 21, 0.1);
   outline: none;
+}
+.join-takeover-card::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  content: "";
+  background: var(--join-accent);
 }
 
 .join-corner {
   position: absolute;
-  font-family: var(--font-display);
+  color: var(--join-dim);
+  font-family: "JetBrains Mono", monospace;
   font-size: 10px;
   letter-spacing: 0.12em;
   line-height: 0.95;
@@ -394,12 +423,12 @@ function confettiStyle(i: number) {
   right: 14px;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
   color: inherit;
   opacity: 0.7;
@@ -410,16 +439,17 @@ function confettiStyle(i: number) {
 }
 
 .join-eyebrow {
-  font-family: ui-monospace, monospace;
-  font-size: 11px;
+  color: var(--join-accent);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.2em;
   opacity: 0.65;
 }
 
 .join-username {
-  max-width: 260px;
-  margin: 20px auto 0;
+  max-width: 320px;
+  margin: 24px auto 0;
 }
 .join-label {
   display: block;
@@ -427,39 +457,41 @@ function confettiStyle(i: number) {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  opacity: 0.7;
-  margin-bottom: 4px;
-  text-align: center;
+  color: var(--join-dim);
+  margin-bottom: 6px;
+  text-align: left;
 }
 .join-username-input {
   width: 100%;
-  text-align: center;
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 2px solid rgba(0, 0, 0, 0.2);
-  background: rgba(255, 255, 255, 0.18);
-  color: inherit;
+  text-align: left;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.05em;
+  padding: 10px 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--join-ink);
 }
 .join-username-input::placeholder {
-  color: rgba(0, 0, 0, 0.35);
+  color: #56617c;
 }
 .join-username-input:focus {
   outline: none;
-  border-color: rgba(0, 0, 0, 0.45);
+  border-color: var(--join-accent);
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.12);
 }
 
 .join-slot {
   width: 72px;
   height: 88px;
-  border-radius: 10px;
-  border: 2.5px solid rgba(0, 0, 0, 0.25);
-  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.035);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
+  font-family: "Bebas Neue", sans-serif;
   font-size: 48px;
   position: relative;
   transition:
@@ -467,13 +499,14 @@ function confettiStyle(i: number) {
     background 160ms;
 }
 .join-slot.filled {
-  border-color: currentColor;
-  background: rgba(0, 0, 0, 0.1);
+  border-color: var(--join-accent);
+  background: rgba(250, 204, 21, 0.1);
+  color: var(--join-accent);
   animation: joinSlotPop 300ms cubic-bezier(0.2, 0.8, 0.2, 1.6);
 }
 .join-slot.caret {
-  border-color: currentColor;
-  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.12);
+  border-color: var(--join-accent);
+  box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.12);
 }
 .join-slot.err {
   border-color: #7f1d1d;
@@ -484,7 +517,8 @@ function confettiStyle(i: number) {
   position: absolute;
   font-family: ui-monospace, monospace;
   font-size: 9px;
-  opacity: 0.55;
+  color: var(--join-dim);
+  opacity: 0.7;
   letter-spacing: 0.08em;
 }
 .join-slot-corner--tl {
@@ -527,12 +561,12 @@ function confettiStyle(i: number) {
 }
 
 .join-tray {
-  margin-top: 28px;
-  border-radius: 12px;
-  padding: 14px 16px;
+  margin-top: 24px;
+  border-radius: 8px;
+  padding: 12px 14px;
   min-height: 64px;
-  background: rgba(0, 0, 0, 0.08);
-  border: 1px dashed rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
   display: flex;
   align-items: center;
 }
@@ -541,7 +575,8 @@ function confettiStyle(i: number) {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.75;
+  color: var(--join-dim);
+  opacity: 1;
 }
 .join-tray-text--err {
   opacity: 1;
@@ -557,10 +592,31 @@ function confettiStyle(i: number) {
   padding: 0 5px;
   font-family: ui-monospace, monospace;
   font-size: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.04);
 }
+
+.join-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 6px;
+  color: #151824;
+  background: var(--join-accent);
+  box-shadow: 0 3px 0 #a16207;
+  cursor: pointer;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: transform 120ms, box-shadow 120ms, opacity 120ms;
+}
+.join-submit:active { transform: translateY(2px); box-shadow: 0 1px 0 #a16207; }
+.join-submit:disabled { cursor: not-allowed; opacity: 0.4; box-shadow: none; }
 
 .join-dots span {
   display: inline-block;
@@ -614,7 +670,8 @@ function confettiStyle(i: number) {
   letter-spacing: 0.08em;
   text-decoration: underline;
   text-decoration-style: dotted;
-  opacity: 0.7;
+  color: var(--join-dim);
+  opacity: 1;
   background: none;
   border: none;
   cursor: pointer;
@@ -643,5 +700,16 @@ function confettiStyle(i: number) {
     transform: translateY(420px) rotate(720deg);
     opacity: 0;
   }
+}
+
+@media (max-width: 520px) {
+  .join-takeover { padding: 12px; }
+  .join-takeover-card { padding: 40px 18px 20px; }
+  .join-slot { width: min(18vw, 64px); height: min(22vw, 78px); font-size: 2.3rem; }
+  .join-submit { width: 100%; justify-content: center; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .join-takeover, .join-slot, .join-submit { animation: none; transition: none; }
 }
 </style>

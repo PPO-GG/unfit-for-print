@@ -26,15 +26,25 @@
       </div>
     </div>
 
+    <div class="lsb-lobby-name">{{ lobbyName || "UNTITLED LOBBY" }}</div>
+
     <div class="lsb-spacer" />
 
     <div class="lsb-actions">
+      <button class="neon-btn neon-btn--danger lsb-btn lsb-btn--leave" @click="$emit('leave')">
+        <span aria-hidden="true">↩</span> LEAVE
+      </button>
+
       <button
         v-if="isHost"
         class="neon-btn neon-btn--ghost lsb-btn"
         @click="$emit('add-bot')"
       >
         <span aria-hidden="true">🤖</span> ADD BOT
+      </button>
+
+      <button class="neon-btn lsb-btn lsb-btn--settings" @click="$emit('open-settings')">
+        <span aria-hidden="true">⚙</span> SETTINGS
       </button>
 
       <button
@@ -70,6 +80,7 @@
 import type { Player } from "~/types/player";
 
 const props = defineProps<{
+  lobbyName: string;
   players: Player[];
   myId: string;
   isHost: boolean;
@@ -78,6 +89,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  (e: "leave"): void;
+  (e: "open-settings"): void;
   (e: "toggle-ready"): void;
   (e: "start"): void;
   (e: "add-bot"): void;
@@ -212,6 +225,7 @@ const panelStyle = computed(() => {
 <style scoped>
 .lobby-startbar {
   display: flex;
+  position: relative;
   align-items: center;
   gap: 16px;
   padding: 14px 18px;
@@ -281,6 +295,23 @@ const panelStyle = computed(() => {
 
 .lsb-spacer { flex: 1; }
 
+.lsb-lobby-name {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(32vw, 460px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+  color: var(--lb-ink);
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+}
+
 .lsb-actions {
   display: flex;
   align-items: center;
@@ -303,5 +334,15 @@ const panelStyle = computed(() => {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--lb-ink-muted);
+}
+
+@media (max-width: 900px) {
+  .lsb-lobby-name {
+    position: static;
+    order: -1;
+    flex-basis: 100%;
+    max-width: none;
+    transform: none;
+  }
 }
 </style>

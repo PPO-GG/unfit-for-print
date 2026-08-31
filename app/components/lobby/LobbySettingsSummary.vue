@@ -96,10 +96,16 @@ const requirePassword = computed(() => !!(props.settings?.password && props.sett
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  max-height: 80px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .lss-pack-chip {
   padding: 4px 8px !important;
   font-size: 10px !important;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .lss-no-packs {
   font-family: 'JetBrains Mono', monospace;

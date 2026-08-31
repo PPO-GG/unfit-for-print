@@ -105,7 +105,13 @@ function statusClass(p: Player): string {
 </script>
 
 <style scoped>
-.lobby-player-list { padding: 16px; }
+.lobby-player-list {
+  display: flex;
+  flex-direction: column;
+  height: min(46vh, 420px);
+  min-height: 0;
+  padding: 16px;
+}
 .lpl-header {
   display: flex;
   align-items: center;
@@ -133,9 +139,10 @@ function statusClass(p: Player): string {
 .lpl-add-bot-link:hover { text-decoration: underline; }
 .lpl-list {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
-  max-height: 320px;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--lb-line-strong) transparent;

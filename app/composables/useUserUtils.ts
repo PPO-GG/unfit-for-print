@@ -9,6 +9,11 @@ export function isAnonymousUser(user: AuthUser | null): boolean {
     return !!user && user.isGuest;
 }
 
+/** A guest, or someone without a session, must choose their lobby name. */
+export function requiresJoinUsername(user: AuthUser | null): boolean {
+    return !isAuthenticatedUser(user);
+}
+
 export function isAdminUser(user: AuthUser | null): boolean {
     return !!user?.isAdmin;
 }
