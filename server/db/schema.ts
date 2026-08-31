@@ -36,6 +36,7 @@ export const lobbies = pgTable("lobbies", {
   discordInstanceId: text("discord_instance_id"),
   discordChannelId: text("discord_channel_id"),
   vcOnly: boolean("vc_only").notNull().default(false),
+  isPrivate: boolean("is_private").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

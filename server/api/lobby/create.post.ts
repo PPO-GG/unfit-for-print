@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
     discordInstanceId?: string;
     discordChannelId?: string;
     vcOnly?: boolean;
+    isPrivate?: boolean;
   }>(event);
 
   const db = useDb();
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event) => {
       discordInstanceId: body.discordInstanceId,
       discordChannelId: body.discordChannelId,
       vcOnly: body.vcOnly ?? false,
+      isPrivate: body.isPrivate ?? false,
     })
     .returning();
 

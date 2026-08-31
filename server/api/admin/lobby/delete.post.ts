@@ -1,7 +1,7 @@
 // server/api/admin/lobby/delete.post.ts
 // Admin-only endpoint to delete a lobby. Player rows cascade-delete via the
 // players.lobbyId FK (onDelete: "cascade") — no manual per-row loop needed.
-// Bot players' synthetic `users` rows do NOT cascade, so we capture and
+// Guest players' synthetic `users` rows do NOT cascade, so we capture and
 // clean those up explicitly (see server/api/lobby/leave.post.ts for the
 // same pattern).
 
@@ -19,22 +19,20 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb();
 
-  const bots = await db
+  const lobbyPlayers = await db
     .select({ userId: players.userId })
     .from(players)
-    .where(and(eq(players.lobbyId, lobbyId), eq(players.playerType, "bot")));
+    .where(eq(players.lobbyId, lobbyId));
 
   await db.delete(lobbies).where(eq(lobbies.id, lobbyId));
 
-  if (bots.length > 0) {
+  if (lobbyPlayers.length > 0) {
+    const userIds = Array.from(new Set(lobbyPlayers.map((p) => p.userId)));
     await db
       .delete(users)
       .where(
         and(
-          inArray(
-            users.id,
-            bots.map((b) => b.userId),
-          ),
+          inArray(users.id, userIds),
           eq(users.isGuest, true),
           isNull(users.discordUserId),
         ),
@@ -43,3 +41,4 @@ export default defineEventHandler(async (event) => {
 
   return { success: true };
 });
+

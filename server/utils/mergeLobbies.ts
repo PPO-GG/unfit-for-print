@@ -41,7 +41,7 @@ interface TeleportalDocDetails {
  */
 function extractCode(docId: string): string {
   const match = docId.match(/lobby-([A-Z0-9]+)$/i);
-  return match ? match[1] : docId;
+  return match && match[1] ? match[1] : docId;
 }
 
 /**

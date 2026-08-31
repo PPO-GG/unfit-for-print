@@ -10,5 +10,6 @@ export interface Lobby {
   discordInstanceId?: string | null;
   discordChannelId?: string | null;
   vcOnly?: boolean;
+  isPrivate?: boolean;
   createdAt: string;
 }

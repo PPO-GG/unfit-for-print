@@ -10,32 +10,39 @@ export default defineEventHandler(async (event) => {
   const db = useDb();
   await db.delete(players).where(and(eq(players.userId, userId), eq(players.lobbyId, lobbyId)));
 
+  // Clean up the leaving user's account if it's an ephemeral guest
+  await db
+    .delete(users)
+    .where(
+      and(
+        eq(users.id, userId),
+        eq(users.isGuest, true),
+        isNull(users.discordUserId),
+      ),
+    );
+
   const remainingHumans = await db
     .select({ id: players.id })
     .from(players)
     .where(and(eq(players.lobbyId, lobbyId), ne(players.playerType, "bot")));
 
   if (remainingHumans.length === 0) {
-    // Capture the lobby's bot userIds *before* deleting the lobby — the
-    // players rows cascade-delete with it, but their synthetic `users`
-    // rows do not (no cascade in that direction), so we must clean those
-    // up ourselves once the lobby (and its players) are gone.
-    const bots = await db
+    // Capture remaining player userIds before deleting the lobby so we can
+    // clean up their ephemeral guest users (including bots and human guests)
+    const lobbyPlayers = await db
       .select({ userId: players.userId })
       .from(players)
-      .where(and(eq(players.lobbyId, lobbyId), eq(players.playerType, "bot")));
+      .where(eq(players.lobbyId, lobbyId));
 
     await db.delete(lobbies).where(eq(lobbies.id, lobbyId));
 
-    if (bots.length > 0) {
+    if (lobbyPlayers.length > 0) {
+      const userIds = Array.from(new Set(lobbyPlayers.map((p) => p.userId)));
       await db
         .delete(users)
         .where(
           and(
-            inArray(
-              users.id,
-              bots.map((b) => b.userId),
-            ),
+            inArray(users.id, userIds),
             eq(users.isGuest, true),
             isNull(users.discordUserId),
           ),
@@ -45,3 +52,4 @@ export default defineEventHandler(async (event) => {
 
   return { success: true };
 });
+
