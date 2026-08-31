@@ -4,6 +4,8 @@ import {
   getRandomFloat,
   getRandomInRange as getCryptoRandomInRange,
 } from "~/composables/useCrypto";
+import { useUserPrefsStore } from "~/stores/userPrefsStore";
+import { normalizeVolumePercent } from "~/utils/volume";
 
 /**
  * Represents options for sound effects (SFX).
@@ -21,6 +23,15 @@ interface SpriteMap {
   [key: string]: [startMs: number, durationMs: number];
 }
 
+export function computeSfxGain(
+  masterVolumePercent: number,
+  perCallVolume?: number | [number, number],
+): number {
+  const baseVolume =
+    perCallVolume === undefined ? 1 : getCryptoRandomInRange(perCallVolume);
+  return normalizeVolumePercent(masterVolumePercent) * baseVolume;
+}
+
 /**
  *
  */
@@ -33,6 +44,7 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
   const audioContext = new AudioContext();
   let spriteAudioBuffer: AudioBuffer | null = null;
   const bufferCache = new Map<string, AudioBuffer>();
+  const prefs = useUserPrefsStore();
 
   if (spriteSrc) {
     fetch(spriteSrc)
@@ -83,9 +95,7 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
           );
         }
 
-        if (options.volume !== undefined) {
-          gainNode.gain.value = getCryptoRandomInRange(options.volume);
-        }
+        gainNode.gain.value = computeSfxGain(prefs.sfxVolume, options.volume);
       }
     } else {
       const file = Array.isArray(src) ? src[getRandomInt(src.length)] : src;
@@ -132,9 +142,7 @@ export const useSfx = (spriteSrc?: string, spriteMap?: SpriteMap) => {
         bufferSource.playbackRate.value = getCryptoRandomInRange(options.pitch);
       }
 
-      if (options.volume !== undefined) {
-        gainNode.gain.value = getCryptoRandomInRange(options.volume);
-      }
+      gainNode.gain.value = computeSfxGain(prefs.sfxVolume, options.volume);
     }
   };
 
