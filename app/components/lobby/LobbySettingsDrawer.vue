@@ -205,22 +205,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Footer -->
-              <div class="lsd-footer">
-                <button
-                  class="neon-btn lsd-footer-btn"
-                  @click="$emit('close')"
-                >
-                  CANCEL
-                </button>
-                <button
-                  class="neon-btn neon-btn--primary lsd-footer-btn"
-                  @click="$emit('close')"
-                >
-                  ✓ SAVE SETTINGS
-                </button>
-              </div>
             </template>
             <div v-else class="lsd-loading">Connecting to lobby…</div>
           </div>
@@ -403,7 +387,7 @@ onMounted(async () => {
           color: packColor(name),
         }),
       )
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => b.count - a.count);
 
     if (props.isHost && !cancelled) {
       const validNames = new Set(availablePacks.value.map((p) => p.name));
@@ -644,20 +628,5 @@ onMounted(async () => {
   font-family: "JetBrains Mono", monospace;
   text-align: center;
   padding: 12px 0;
-}
-
-.lsd-footer {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.lsd-footer-btn {
-  padding: 10px 12px;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  min-width: 0;
-  white-space: nowrap;
 }
 </style>

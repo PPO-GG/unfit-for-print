@@ -44,7 +44,11 @@
       </button>
 
       <button class="neon-btn lsb-btn lsb-btn--settings" @click="$emit('open-settings')">
-        <span aria-hidden="true">⚙</span> SETTINGS
+        <span aria-hidden="true">⚙</span> HOST SETTINGS
+      </button>
+
+      <button class="neon-btn neon-btn--ghost lsb-btn" @click="$emit('open-app-settings')">
+        <span aria-hidden="true">🔧</span> APP SETTINGS
       </button>
 
       <button
@@ -91,6 +95,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "leave"): void;
   (e: "open-settings"): void;
+  (e: "open-app-settings"): void;
   (e: "toggle-ready"): void;
   (e: "start"): void;
   (e: "add-bot"): void;

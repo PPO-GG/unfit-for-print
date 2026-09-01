@@ -57,6 +57,7 @@
       @add-bot="addBot"
       @leave="$emit('leave')"
       @open-settings="settingsOpen = !settingsOpen"
+      @open-app-settings="uiStore.showSettings = true"
     />
 
     <LobbySettingsDrawer
@@ -65,12 +66,15 @@
       :is-host="isHost"
       @close="settingsOpen = false"
     />
+
+    <SettingsSlideover v-model:open="uiStore.showSettings" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
+import { useUiStore } from "~/stores/uiStore";
 
 const props = defineProps<{
   lobby: Lobby;
@@ -80,6 +84,7 @@ const props = defineProps<{
 defineEmits<{ (e: "leave"): void }>();
 
 const userStore = useUserStore();
+const uiStore = useUiStore();
 const { startGame, reactive, mutations } = useLobby();
 
 const isHost = computed(
@@ -130,6 +135,27 @@ function handleKick(playerId: string) {
   const target = props.players.find((p) => p.$id === playerId);
   mutations.removePlayer(playerId, target?.name);
 }
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest("input, textarea, select, [contenteditable='true']"),
+  );
+}
+
+function handleEsc(e: KeyboardEvent) {
+  if (e.key !== "Escape" || isTypingTarget(e.target)) return;
+  if (settingsOpen.value || uiStore.showSettings) return;
+  uiStore.showSettings = true;
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", handleEsc);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleEsc);
+});
 </script>
 
 <style scoped>

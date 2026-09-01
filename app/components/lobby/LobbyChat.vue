@@ -53,12 +53,17 @@ import { useLobbyChat } from "~/composables/useLobbyChat";
 import { useLobby } from "~/composables/useLobby";
 import type { ChatMessage } from "~/composables/useLobbyReactive";
 import { groupChatMessages } from "~/composables/useChatGroups";
+import { useSfx } from "~/composables/useSfx";
+import { SFX } from "~/config/sfx.config";
 
 const props = defineProps<{
   messages: ChatMessage[];
 }>();
 
 const { lobbyDoc } = useLobby();
+const userStore = useUserStore();
+const currentUserId = computed(() => userStore.user?.id);
+const { playSfx } = useSfx();
 
 // useLobbyChat throws if the Y.Doc isn't ready yet (requireDoc()).
 // Wrap construction so the component can still mount before the doc connects.
@@ -88,6 +93,7 @@ function handleSend() {
   try {
     chat.sendMessage(text);
     draft.value = "";
+    playSfx(SFX.chatSend);
   } catch (err) {
     console.warn("[LobbyChat] sendMessage failed:", err);
   }
@@ -95,9 +101,18 @@ function handleSend() {
 
 watch(
   () => props.messages.length,
-  async () => {
+  async (newCount, oldCount) => {
     await nextTick();
     if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight;
+
+    if (newCount > oldCount) {
+      const newMessages = props.messages.slice(oldCount);
+      for (const msg of newMessages) {
+        if (msg.userId !== currentUserId.value) {
+          playSfx(SFX.chatReceive);
+        }
+      }
+    }
   },
 );
 
