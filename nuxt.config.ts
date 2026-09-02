@@ -150,6 +150,13 @@ export default defineNuxtConfig({
     r2SecretAccessKey: process.env.NUXT_R2_SECRET_ACCESS_KEY,
     r2Bucket: process.env.NUXT_R2_BUCKET,
 
+    // nuxt-auth-utils session cookie config. Without maxAge, h3 issues the
+    // session cookie with no Expires/Max-Age, making it a browser-session
+    // cookie that's wiped on browser close instead of persisting.
+    session: {
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    },
+
     public: {
       baseUrl:
         process.env.NUXT_PUBLIC_BASE_URL ||
