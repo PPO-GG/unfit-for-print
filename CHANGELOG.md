@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.18.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.17.1...v3.18.0) (2026-09-02)
+
+
+### ✨ Features
+
+* **web:** lobby improvements — app settings access, chat SFX, autosave ([cc1f92f](https://github.com/PPO-GG/unfit-for-print/commit/cc1f92fa87e1beaf696b832844f22c919059d6b6))
+
+
+### 🐛 Bug Fixes
+
+* **web:** persist login session across browser restarts ([e0e89ea](https://github.com/PPO-GG/unfit-for-print/commit/e0e89ea4ca9e6b634d038e06f630f7260f6be046))
+
 ## [3.17.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.17.0...v3.17.1) (2026-08-31)
 
 
