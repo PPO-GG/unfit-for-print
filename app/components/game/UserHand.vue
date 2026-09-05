@@ -15,6 +15,8 @@ import { useCardGesture } from "@/composables/useCardGesture";
 import { useWhiteDeckPosition } from "@/composables/useWhiteDeckPosition";
 import { useTouchDevice } from "@/composables/useTouchDevice";
 import { SFX } from "~/config/sfx.config";
+import { isWithinFanFootprint } from "~/utils/fanFootprint";
+import { applyHoverTransform } from "~/utils/fanTransform";
 import { gsap } from "gsap";
 import type { CardTexts } from "~/types/gamecards";
 
@@ -48,6 +50,8 @@ const emit = defineEmits<{
 
 const selectedCards = ref<string[]>([]);
 const hoveredIndex = ref<number | null>(null);
+// Card whose selection just changed, so animateCards can give it a livelier ease.
+const justToggledIndex = ref<number | null>(null);
 const handRef = ref<HTMLElement | null>(null);
 const cardRefs = ref<HTMLElement[]>([]);
 const { playSfx } = useSfx();
@@ -98,7 +102,7 @@ const FAN = computed(() => {
   const spread = isMob ? 24 : Math.min(70, w / 26);
   // Increase push and lift dramatically for better hit-detection and feel
   const hoverPush = isMob ? 32 : 65;
-  const hoverLift = isMob ? 40 : 65;
+  const hoverLift = isMob ? 40 : 50;
   return { totalArc, arcStep, curveIntensity, spread, hoverPush, hoverLift };
 });
 
@@ -127,50 +131,26 @@ function animateCards() {
   cardRefs.value.forEach((el, i) => {
     if (!el) return;
 
-    const base = getBaseTransform(i);
-    let x = base.x;
-    let y = base.y;
-    let rotation = base.rotation;
-    let scale = 1;
-    let zIndex = i;
+    const transform = applyHoverTransform({
+      index: i,
+      hovered,
+      base: getBaseTransform(i),
+      hoverPush,
+      hoverLift,
+      isSelected: selectedCards.value.includes(props.cards[i] ?? ""),
+    });
 
-    const isSelected = selectedCards.value.includes(props.cards[i] ?? "");
-
-    if (hovered !== null) {
-      if (i === hovered) {
-        y -= hoverLift;
-        scale = 1.2;
-        rotation *= 0.15; // Straighten up the card significantly
-        zIndex = 100;
-      } else {
-        const distance = Math.abs(i - hovered);
-        const direction = i > hovered ? 1 : -1;
-        // Stronger push for immediate neighbors, tapers off smoothly
-        const pushFactor = Math.max(0, 1 - (distance - 1) * 0.35);
-
-        x += direction * hoverPush * pushFactor;
-        // Neighbours also get pushed slightly sideways in their angle to make room
-        rotation += direction * 4 * pushFactor;
-      }
-    }
-
-    if (isSelected) {
-      y -= 25;
-      scale = Math.max(scale, 1.1);
-      zIndex = Math.max(zIndex, 90);
-    }
+    const justToggled = i === justToggledIndex.value;
 
     gsap.to(el, {
-      x,
-      y,
-      rotation,
-      scale,
-      zIndex,
+      ...transform,
       duration: 0.4,
-      ease: "power3.out",
+      ease: justToggled ? "elastic.out(1.2, 0.4)" : "power3.out",
       overwrite: "auto",
     });
   });
+
+  justToggledIndex.value = null;
 }
 
 watch(hoveredIndex, () => animateCards());
@@ -421,11 +401,33 @@ function handlePointerMove(e: MouseEvent | TouchEvent) {
     clientY = e.clientY;
   }
 
-  // 1. Verify we are physically touching the card fan pixels so we don't hover on empty space
-  const target = document.elementFromPoint(clientX, clientY);
-  const cardEl = target?.closest(".hand-card");
+  const rect = handRef.value.getBoundingClientRect();
+  const containerCenterX = rect.left + rect.width / 2;
+  const cursorX = clientX - containerCenterX;
 
-  if (!cardEl) {
+  const n = cardRefs.value.length;
+  const center = (n - 1) / 2;
+  const { spread, curveIntensity } = FAN.value;
+
+  // 1. Verify we are over the fan and not empty space. Touching card pixels
+  // counts, but on its own it is not enough: hovering lifts the card clear of
+  // the cursor and shoves its neighbours sideways, so a pixel-only test loses
+  // the card it just picked up and oscillates. Falling back to the fan's
+  // *static* footprint keeps the gate independent of the animation it drives.
+  const overCard = !!document
+    .elementFromPoint(clientX, clientY)
+    ?.closest(".hand-card");
+
+  const withinFan = isWithinFanFootprint(cursorX, clientY, {
+    cardCount: n,
+    spread,
+    cardWidth: cardRefs.value[0]?.offsetWidth ?? 0,
+    curveIntensity,
+    top: rect.top,
+    bottom: rect.bottom,
+  });
+
+  if (!overCard && !withinFan) {
     if (hoveredIndex.value !== null) {
       hoveredIndex.value = null;
     }
@@ -435,14 +437,6 @@ function handlePointerMove(e: MouseEvent | TouchEvent) {
   // 2. Mathematically map the pointer's X coordinate to the closest static baseline card.
   // This completely eliminates z-index stacking bias (which made left-to-right sweeping fail)
   // because the hover target transitions exactly at the midpoint between two cards' origins!
-  const rect = handRef.value.getBoundingClientRect();
-  const containerCenterX = rect.left + rect.width / 2;
-  const cursorX = clientX - containerCenterX;
-
-  const n = cardRefs.value.length;
-  const center = (n - 1) / 2;
-  const { spread } = FAN.value;
-
   let closestIndex: number | null = null;
   let minDistance = Infinity;
 
@@ -502,22 +496,14 @@ function toggleCardSelection(cardId: string, index: number) {
   if (idx === -1) {
     if (selectedCards.value.length < cardsToSelect.value) {
       selectedCards.value.push(cardId);
-      const el = cardRefs.value[index];
-      if (el) {
-        gsap.fromTo(
-          el,
-          { scale: 1.2 },
-          {
-            scale: 1.1,
-            duration: 0.3,
-            ease: "elastic.out(1.2, 0.4)",
-            onComplete: () => animateCards(),
-          },
-        );
-      }
+      // The selectedCards watcher runs animateCards(); flagging the card here
+      // is what gives it the elastic settle. Tweening it from here as well used
+      // to fight that pass for control of the same transform.
+      justToggledIndex.value = index;
     }
   } else {
     selectedCards.value.splice(idx, 1);
+    justToggledIndex.value = index;
     // Deselecting cancels auto-submit (handled by watcher)
   }
   playSelectSfx();
@@ -875,14 +861,20 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
+/* Both users of this animation centre themselves with left: 50% plus a
+   translateX(-50%), and an animation's transform replaces the base rule's
+   outright — so the offset has to be repeated here or the pill spends the whole
+   0.3s sitting half its own width to the right, then snaps into place when the
+   animation ends. translateX must come first: after a scale() it would be
+   scaled too, landing short of centre. */
 @keyframes indicator-in {
   from {
     opacity: 0;
-    transform: scale(0.8) translateY(6px);
+    transform: translateX(-50%) scale(0.8) translateY(6px);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(-50%) scale(1) translateY(0);
   }
 }
 
@@ -931,6 +923,13 @@ onUnmounted(() => {
 
 /* ── Hand Container (phase-driven show/hide) ─────────────────── */
 .hand-container {
+  /* .user-hand centres its children, which makes this box shrink-to-fit; the
+     cards inside are absolutely positioned, so it collapsed to 0px wide and
+     took .hand-zone's hit area with it. Everything below then fired only when
+     the pointer was literally on card pixels — including mouseleave, which
+     dropped the hand the instant a hovered card lifted out from under the
+     cursor. Widening this changes no card position; it only restores the zone. */
+  width: 100%;
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
               opacity 0.4s ease;
 }
@@ -949,6 +948,16 @@ onUnmounted(() => {
   align-items: flex-end;
   justify-content: center;
   pointer-events: auto;
+  /* Approach strip: the hand starts rising before the cursor reaches the cards.
+     The bottom half matters just as much — activating slides .user-hand up by
+     translateY(60%) (~125px of its 208px height), which would otherwise lift the
+     zone's bottom edge clear of the cursor, fire mouseleave, drop the hand, and
+     bob. Padding past the slide distance keeps the cursor inside either way.
+     The negative margins cancel the padding, so nothing moves visually. */
+  padding-top: 60px;
+  margin-top: -60px;
+  padding-bottom: 130px;
+  margin-bottom: -130px;
 }
 
 .hand-arc {
