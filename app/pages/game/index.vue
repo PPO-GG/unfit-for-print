@@ -1,54 +1,112 @@
 <template>
-  <div class="flex flex-col items-center justify-start text-white">
+  <div class="games-browser lobby-tokens flex flex-col items-center justify-start text-white">
     <!-- ── Hero Section ─────────────────────────────────────────── -->
-    <div class="lobby-hero z-10 w-full px-6">
-      <h1 class="lobby-title">
-        {{ t("game.available") }}
-      </h1>
+    <section class="games-hero z-10 w-full">
+      <div class="games-hero__lede">
 
-      <!-- Primary CTAs -->
-      <div class="flex flex-wrap items-center justify-center gap-3">
-        <UButton
-          size="xl"
-          variant="subtle"
-          color="success"
-          icon="i-solar-hand-shake-line-duotone"
-          class="font-bold uppercase tracking-wider text-lg"
-          @click="showJoin = true"
-        >
-          {{ t("modal.join_lobby") }}
-        </UButton>
 
-        <ClientOnly>
+        <h1 class="games-hero__title">
+          {{ t("games.hero_find_a") }}
+          <span class="games-hero__accent">{{ t("games.hero_table") }}</span>,
+          {{ t("games.hero_make_new") }}
+          <span class="games-hero__yellow">{{ t("games.hero_friends") }}</span>
+        </h1>
+
+        <!-- <p class="games-hero__sub">{{ t("games.hero_subtitle") }}</p> -->
+
+        <!-- Primary CTAs -->
+        <div class="games-hero__cta">
           <UButton
-            v-if="showIfAuthenticated"
             size="xl"
             variant="subtle"
-            color="warning"
-            icon="i-solar-add-square-bold-duotone"
+            color="success"
+            icon="i-solar-hand-shake-line-duotone"
             class="font-bold uppercase tracking-wider text-lg"
-            :loading="creatingLobby"
-            @click="handleCreateLobby"
+            @click="showJoin = true"
           >
-            {{ t("modal.create_lobby") }}
+            {{ t("modal.join_lobby") }}
           </UButton>
-        </ClientOnly>
+
+          <ClientOnly>
+            <UButton
+              v-if="showIfAuthenticated"
+              size="xl"
+              variant="subtle"
+              color="warning"
+              icon="i-solar-add-square-bold-duotone"
+              class="font-bold uppercase tracking-wider text-lg"
+              :loading="creatingLobby"
+              @click="handleCreateLobby"
+            >
+              {{ t("modal.create_lobby") }}
+            </UButton>
+          </ClientOnly>
+        </div>
       </div>
-    </div>
+
+      <!-- Live stats -->
+      <div class="games-hero__stats">
+        <div class="stat-tile" style="--tile-accent: var(--lb-accent-lime)">
+          <div class="stat-tile__v">{{ stats.players }}</div>
+          <div class="stat-tile__sub">{{ t("games.stat_players") }}</div>
+          <svg
+            v-if="sparkPath"
+            class="stat-tile__spark"
+            viewBox="0 0 200 28"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path :d="sparkArea" fill="var(--lb-accent-lime)" opacity="0.18" />
+            <path
+              :d="sparkPath"
+              fill="none"
+              stroke="var(--lb-accent-lime)"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+
+        <div class="stat-tile" style="--tile-accent: var(--lb-accent-pink)">
+          <div class="stat-tile__v">{{ stats.open }}</div>
+          <div class="stat-tile__sub">{{ t("games.stat_open") }}</div>
+        </div>
+
+        <div class="stat-tile" style="--tile-accent: var(--lb-accent)">
+          <div class="stat-tile__v">{{ stats.inGame }}</div>
+          <div class="stat-tile__sub">{{ t("games.stat_in_game") }}</div>
+        </div>
+
+        <div class="stat-tile" style="--tile-accent: var(--lb-accent-yellow)">
+          <div class="stat-tile__v">{{ stats.rounds }}</div>
+          <div class="stat-tile__sub">{{ t("games.stat_rounds") }}</div>
+        </div>
+      </div>
+    </section>
 
     <!-- ── Lobby Browser ─────────────────────────────────────────── -->
     <div class="w-full max-w-6xl px-4 pb-20 z-10">
-      <!-- Section header -->
-      <div class="flex items-center justify-between mb-4 px-1">
-        <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">
-          {{ t("game.available") }}
-        </h2>
-        <span
-          class="text-xs font-bold uppercase tracking-widest text-slate-400 tabular-nums"
-        >
-          {{ sortedLobbies.length }}
-          {{ sortedLobbies.length === 1 ? "lobby" : "lobbies" }}
-        </span>
+      <!-- Count + sort -->
+      <div class="games-toolbar">
+        <div class="games-toolbar__count">
+          <span class="games-toolbar__num">{{ sortedLobbies.length }}</span>
+          <span class="games-toolbar__word">{{ t("games.tables") }}</span>
+        </div>
+
+        <div class="segmented" role="group" :aria-label="t('games.sort_label')">
+          <button
+            v-for="option in sortOptions"
+            :key="option.value"
+            type="button"
+            class="segmented__btn"
+            :class="{ 'segmented__btn--on': sortMode === option.value }"
+            :aria-pressed="sortMode === option.value"
+            @click="sortMode = option.value"
+          >
+            {{ t(option.label) }}
+          </button>
+        </div>
       </div>
 
       <!-- Lobby Grid -->
@@ -66,7 +124,10 @@
           <div class="lobby-card__accent" />
 
           <div class="lobby-card__topline">
-            <span class="lobby-card__code">{{ lobby.code }}</span>
+            <span class="lobby-card__code">
+              {{ lobby.code }}
+              <span class="lobby-card__age">· {{ relativeAge(lobby.createdAt) }}</span>
+            </span>
             <span
               class="lobby-card__status"
               :class="getStatusBadgeClasses(lobby, getLiveInfo(lobby.code))"
@@ -106,20 +167,20 @@
           <div class="lobby-card__seats" aria-label="Players in this lobby">
             <template v-if="getLiveInfo(lobby.code)">
               <span
-                v-for="name in getLiveInfo(lobby.code)!.playerNames.slice(0, 6)"
+                v-for="name in getLiveInfo(lobby.code)!.playerNames.slice(0, TABLE_SEATS)"
                 :key="name"
                 class="lobby-card__seat"
                 :title="name"
               >{{ name.charAt(0) || "?" }}</span>
               <span
-                v-for="seat in Math.max(0, 6 - Math.min(getLiveInfo(lobby.code)!.players, 6))"
+                v-for="seat in emptySeats(lobby)"
                 :key="`empty-live-${seat}`"
                 class="lobby-card__seat lobby-card__seat--empty"
               >+</span>
             </template>
             <template v-else>
               <span
-                v-for="player in (lobbyPlayers[lobby.id] || []).slice(0, 6)"
+                v-for="player in (lobbyPlayers[lobby.id] || []).slice(0, TABLE_SEATS)"
                 :key="player.$id"
                 class="lobby-card__seat overflow-hidden"
                 :title="player.name"
@@ -128,7 +189,7 @@
                 <template v-else>{{ player.name?.charAt(0) || "?" }}</template>
               </span>
               <span
-                v-for="seat in Math.max(0, 6 - Math.min((lobbyPlayers[lobby.id] || []).length, 6))"
+                v-for="seat in emptySeats(lobby)"
                 :key="`empty-${seat}`"
                 class="lobby-card__seat lobby-card__seat--empty"
               >+</span>
@@ -140,14 +201,14 @@
               <div class="lobby-card__meta">
                 <span class="inline-flex items-center gap-1">
                   <span class="i-solar-users-group-rounded-bold-duotone" />
-                  {{ getLiveInfo(lobby.code)?.players ?? lobbyPlayers[lobby.id]?.length ?? 0 }} players
+                  {{ getPlayerCount(lobby) }} {{ t("games.players") }}
                 </span>
                 <span v-if="getLiveInfo(lobby.code)?.round" class="tabular-nums">
                   Round {{ getLiveInfo(lobby.code)!.round }}
                 </span>
               </div>
               <div class="lobby-card__meter" aria-hidden="true">
-                <span :style="{ width: `${Math.min(100, ((getLiveInfo(lobby.code)?.players ?? lobbyPlayers[lobby.id]?.length ?? 0) / 6) * 100)}%` }" />
+                <span :style="{ width: `${fillPct(lobby)}%` }" />
               </div>
             </div>
 
@@ -259,12 +320,111 @@ const fetchLiveSummary = async () => {
     liveLobbies.value = map;
   } catch {
     // Silently fail — live data is best-effort enhancement
+  } finally {
+    now.value = Date.now();
+    playerHistory.value = [...playerHistory.value, stats.value.players].slice(
+      -SPARK_POINTS,
+    );
   }
 };
 
 /** Look up live info for a lobby by code */
 const getLiveInfo = (code: string): LobbySummary | null => {
   return liveLobbies.value[code] || null;
+};
+
+// ─── Seats ────────────────────────────────────────────────────────────────
+// A lobby has no hard player limit, but the game table renders six seats
+// (see GameTableSeats), so six is what the card meter and the sorts measure
+// a table's fullness against.
+const TABLE_SEATS = 6;
+
+/** Live phase if Teleportal knows about the lobby, registry status otherwise */
+const getPhase = (lobby: LobbyWithName): string =>
+  getLiveInfo(lobby.code)?.phase || lobby.status;
+
+/** Live player count if available, otherwise the registry player rows */
+const getPlayerCount = (lobby: LobbyWithName): number =>
+  getLiveInfo(lobby.code)?.players ?? lobbyPlayers.value[lobby.id]?.length ?? 0;
+
+const emptySeats = (lobby: LobbyWithName): number =>
+  Math.max(0, TABLE_SEATS - Math.min(getPlayerCount(lobby), TABLE_SEATS));
+
+const fillPct = (lobby: LobbyWithName): number =>
+  Math.min(100, (getPlayerCount(lobby) / TABLE_SEATS) * 100);
+
+const createdMs = (lobby: LobbyWithName): number =>
+  new Date(lobby.createdAt).getTime() || 0;
+
+// ─── Hero Stats ───────────────────────────────────────────────────────────
+
+const stats = computed(() => {
+  let players = 0;
+  let open = 0;
+  let inGame = 0;
+  let rounds = 0;
+
+  for (const lobby of lobbies.value) {
+    const phase = getPhase(lobby);
+    const count = getPlayerCount(lobby);
+    players += count;
+
+    if (phase === "waiting") {
+      open += 1;
+    } else if (phase !== "complete") {
+      inGame += count;
+      rounds += getLiveInfo(lobby.code)?.round ?? 0;
+    }
+  }
+
+  return { players, open, inGame, rounds };
+});
+
+// Rolling sample of the seated-player count, one point per poll. Starts empty
+// and fills in as the page sits open — no line is drawn until it has shape.
+const SPARK_POINTS = 18;
+const SPARK_W = 200;
+const SPARK_H = 28;
+const playerHistory = ref<number[]>([]);
+
+const sparkPath = computed(() => {
+  const data = playerHistory.value;
+  if (data.length < 3) return undefined;
+
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const span = max - min || 1;
+
+  return data
+    .map((value, i) => {
+      const x = (i / (data.length - 1)) * SPARK_W;
+      const y = SPARK_H - ((value - min) / span) * (SPARK_H - 4) - 2;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+});
+
+const sparkArea = computed(() =>
+  sparkPath.value
+    ? `${sparkPath.value} L${SPARK_W},${SPARK_H} L0,${SPARK_H} Z`
+    : undefined,
+);
+
+// ─── Relative Age ─────────────────────────────────────────────────────────
+
+const now = ref(Date.now());
+
+const relativeAge = (createdAt: string): string => {
+  const ms = now.value - new Date(createdAt).getTime();
+  if (!Number.isFinite(ms) || ms < 60_000) return t("games.just_now");
+
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) return t("games.minutes_ago", { count: minutes });
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("games.hours_ago", { count: hours });
+
+  return t("games.days_ago", { count: Math.floor(hours / 24) });
 };
 
 // ─── Status Badge (Right Side) ────────────────────────────────────────────
@@ -304,25 +464,39 @@ const getStatusDotClass = (
   return "bg-amber-400";
 };
 
-// ─── Sorted Lobbies ───────────────────────────────────────────────────────
-// Waiting lobbies first (people are waiting for players), then playing, then complete.
+// ─── Sorting ──────────────────────────────────────────────────────────────
+
+type SortMode = "new" | "filling" | "seats";
+
+const sortOptions: ReadonlyArray<{ value: SortMode; label: string }> = [
+  { value: "new", label: "games.sort_new" },
+  { value: "filling", label: "games.sort_filling" },
+  { value: "seats", label: "games.sort_seats" },
+];
+
+const sortMode = ref<SortMode>("filling");
 
 const sortedLobbies = computed(() => {
   return [...lobbies.value].sort((a, b) => {
-    const liveA = getLiveInfo(a.code);
-    const liveB = getLiveInfo(b.code);
-    const phaseA = liveA?.phase || a.status;
-    const phaseB = liveB?.phase || b.status;
+    // Finished tables sink to the bottom whichever sort is active — nobody is
+    // browsing for a game that is already over.
+    const doneA = getPhase(a) === "complete" ? 1 : 0;
+    const doneB = getPhase(b) === "complete" ? 1 : 0;
+    if (doneA !== doneB) return doneA - doneB;
 
-    // Normalize to status bucket
-    const orderA = phaseA === "waiting" ? 0 : phaseA === "complete" ? 2 : 1;
-    const orderB = phaseB === "waiting" ? 0 : phaseB === "complete" ? 2 : 1;
+    if (sortMode.value === "new") return createdMs(b) - createdMs(a);
 
-    if (orderA !== orderB) return orderA - orderB;
-    // Within same status, sort by player count descending (more active first)
-    const playersA = liveA?.players ?? 0;
-    const playersB = liveB?.players ?? 0;
-    return playersB - playersA;
+    if (sortMode.value === "seats") {
+      // Emptiest tables first — the ones with the most room to join.
+      const bySeats = emptySeats(b) - emptySeats(a);
+      if (bySeats !== 0) return bySeats;
+      return createdMs(b) - createdMs(a);
+    }
+
+    // "filling" — fullest tables first, so the ones about to start float up.
+    const byFill = fillPct(b) - fillPct(a);
+    if (byFill !== 0) return byFill;
+    return createdMs(b) - createdMs(a);
   });
 });
 
@@ -426,26 +600,189 @@ const handleJoined = (code: string) => {
 </script>
 
 <style scoped>
-/* ── Hero ─────────────────────────────────────────────────────── */
-.lobby-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding-top: 1.5rem;
-  padding-bottom: 2.5rem;
-  text-align: center;
+/* ── Page tokens ──────────────────────────────────────────────── */
+/* Pink is the browser's signature accent; the lobby room itself runs cyan. */
+.games-browser {
+  --lb-accent: oklch(72% 0.22 355);
+  --lb-accent-shadow: oklch(55% 0.22 355);
+  /* The app default is Bebas Neue, which has no lowercase glyphs. */
+  font-family: "Barlow Condensed", system-ui, sans-serif;
 }
 
-.lobby-title {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(1.5rem, 5vw, 2.5rem);
-  color: #e2e8f0;
-  letter-spacing: 0.05em;
-  margin-bottom: 1rem;
-  text-transform: uppercase;
-  drop-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+/* ── Hero ─────────────────────────────────────────────────────── */
+.games-hero {
+  display: grid;
+  gap: 2rem;
+  align-items: end;
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+  /* Clears the layout's fixed back button. */
+  padding: 5.5rem 1rem 2.5rem;
 }
+
+@media (min-width: 900px) {
+  .games-hero {
+    grid-template-columns: minmax(0, 1fr) 25rem;
+    padding-top: 4rem;
+  }
+}
+
+/* Right padding reserves room for the LIVE stamp's overhang. */
+.games-hero__lede { padding-right: 2.5rem; }
+
+.games-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.games-hero__kicker {
+  display: inline-block;
+  padding: 4px 10px 3px;
+  color: #0d0f1a;
+  background: var(--lb-accent);
+  font-family: "Archivo Black", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transform: rotate(-1.5deg);
+}
+
+.games-hero__title {
+  margin-top: 0.9rem;
+  color: var(--lb-ink);
+  font-family: "Archivo Black", "Bebas Neue", sans-serif;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  letter-spacing: -0.01em;
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.games-hero__accent { color: var(--lb-accent); }
+.games-hero__yellow { color: var(--lb-accent-yellow); }
+.games-hero__tilt { display: inline-block; transform: rotate(-1deg); }
+.games-hero__stamped { position: relative; display: inline-block; }
+
+@keyframes games-stamp-wobble {
+  0%, 100% { transform: rotate(-6deg) scale(1); }
+  50%      { transform: rotate(-4deg) scale(1.02); }
+}
+
+.games-hero__sub {
+  max-width: 34rem;
+  margin-top: 1rem;
+  color: var(--lb-ink-dim);
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+.games-hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/* ── Stat tiles ───────────────────────────────────────────────── */
+.games-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.stat-tile {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--lb-line-strong);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  background: rgba(10, 13, 28, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.stat-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: var(--tile-accent, var(--lb-accent));
+  opacity: 0.7;
+}
+
+.stat-tile__v {
+  color: var(--lb-ink);
+  font-family: "Archivo Black", sans-serif;
+  font-size: 1.85rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.95;
+}
+
+.stat-tile__sub {
+  margin-top: 0.42rem;
+  color: var(--lb-ink-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.stat-tile__spark {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin-top: 0.5rem;
+}
+
+/* ── Count + sort toolbar ─────────────────────────────────────── */
+.games-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-inline: 0.25rem;
+}
+
+.games-toolbar__count { display: flex; align-items: center; gap: 0.6rem; }
+
+.games-toolbar__num,
+.games-toolbar__word {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 1.35rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.games-toolbar__num { color: var(--lb-ink); font-variant-numeric: tabular-nums; }
+.games-toolbar__word { color: var(--lb-accent); }
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--lb-line-strong);
+  border-radius: 8px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.segmented__btn {
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: var(--lb-ink-dim);
+  font-family: "Archivo Black", sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 150ms, background 150ms;
+}
+
+.segmented__btn:hover { color: var(--lb-ink); }
+.segmented__btn--on { color: #0d0f1a; background: var(--lb-accent); }
+.segmented__btn:focus-visible { outline: 2px solid var(--lb-accent); outline-offset: 2px; }
 
 /* ── Lobby grid ───────────────────────────────────────────────── */
 .lobby-grid {
@@ -526,6 +863,12 @@ const handleJoined = (code: string) => {
   line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.lobby-card__age {
+  color: #565d7e;
+  font-weight: 500;
+  letter-spacing: 0.08em;
 }
 
 .lobby-card__status-dot { width: 0.35rem; height: 0.35rem; border-radius: 50%; }
@@ -628,5 +971,6 @@ const handleJoined = (code: string) => {
 @media (prefers-reduced-motion: reduce) {
   .lobby-card, .lobby-card__meter > span { transition: none; }
   .lobby-card:hover { transform: none; }
+  .games-hero__stamp { animation: none; transform: rotate(-6deg); }
 }
 </style>

@@ -110,6 +110,30 @@
   "game.you_submitted": "You've submitted your cards!",
   "game.you_won": "You Won!",
   "game.your_submission": "Your Submission",
+  "games.kicker": "Open lobbies · right now",
+  "games.hero_find_a": "Find a",
+  "games.hero_table": "table",
+  "games.hero_make_new": "make new",
+  "games.hero_friends": "friends",
+  "games.hero_subtitle": "Every table below is public and open right now. Jump in mid-deal — no invite required, no download, your cat can watch.",
+  "games.live": "Live",
+  "games.chip_playing": "playing",
+  "games.chip_open": "open tables",
+  "games.stat_players": "Players seated",
+  "games.stat_open": "Open tables",
+  "games.stat_in_game": "In a game now",
+  "games.stat_rounds": "Rounds in play",
+  "games.tables": "Tables",
+  "games.updating_live": "Updating live",
+  "games.players": "players",
+  "games.sort_label": "Sort tables",
+  "games.sort_new": "Newest",
+  "games.sort_filling": "Filling up",
+  "games.sort_seats": "Most seats",
+  "games.just_now": "just now",
+  "games.minutes_ago": "{count}m ago",
+  "games.hours_ago": "{count}h ago",
+  "games.days_ago": "{count}d ago",
   "lobby.cant_start_game": "Cannot Start Game",
   "lobby.code_copied": "The Lobby Code was copied to your Clipboard",
   "lobby.copy_lobby_code": "Copy Lobby Code",
@@ -196,7 +220,7 @@
   "profile.settings_tts_voice": "TTS Voice",
   "profile.settings_tts_voice_desc": "Choose which voice reads cards aloud",
   "profile.settings_language": "Language",
-  "profile.settings_language_desc": "Change the interface language",
+  "profile.settings_language_desc": "Change the interface language (does not change the card content)",
   "profile.settings_theme": "Theme",
   "profile.settings_theme_desc": "Switch between light, dark, and system themes",
   "profile.settings_ui_scale_desc": "Adjust the overall size of the interface",
@@ -218,5 +242,11 @@
   },
   "game": {
     "round": "Round"
+  },
+  "profile": {
+    "settings_language_desc": "Change the interface language (does not change the card content)"
+  },
+  "games": {
+    "hero_subtitle": "Find open seats, make new friends (or enemies)"
   }
 }
