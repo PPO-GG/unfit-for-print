@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import type { TableColumn } from "@nuxt/ui";
+import { getPaginationRowModel, type SortingState } from "@tanstack/vue-table";
 import { useNotifications } from "~/composables/useNotifications";
 import type { UnifiedLobby } from "~~/server/utils/mergeLobbies";
 import type { UnifiedStatusResponse } from "~~/server/api/admin/teleportal/status.get";
@@ -15,6 +17,17 @@ const error = ref<string | null>(null);
 const searchTerm = ref("");
 const sourceFilter = ref<"all" | "live" | "orphaned">("all");
 const autoRefreshEnabled = ref(true);
+
+const pagination = ref({ pageIndex: 0, pageSize: 10 });
+const sorting = ref<SortingState>([]);
+
+const setPage = (page: number) => {
+  pagination.value = { ...pagination.value, pageIndex: page - 1 };
+};
+
+watch([searchTerm, sourceFilter], () => {
+  pagination.value.pageIndex = 0;
+});
 
 const REFRESH_INTERVAL = 10_000;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -47,8 +60,24 @@ const filteredLobbies = computed(() => {
 
 const orphanedLobbiesCount = computed(() => {
   if (!status.value) return 0;
-  return status.value.lobbies.filter((l) => !l.hasLiveDoc && l.hasRegistry).length;
+  return status.value.lobbies.filter(
+    (l) => !l.hasLiveDoc && l.hasRegistry && l.registry?.status !== "complete",
+  ).length;
 });
+
+const columns: TableColumn<UnifiedLobby>[] = [
+  { accessorKey: "code", header: "Lobby", enableSorting: true },
+  { id: "status", header: "Status", enableSorting: false },
+  { id: "players", header: "Players", enableSorting: false },
+  { id: "activity", header: "Activity", enableSorting: false },
+  {
+    id: "createdAt",
+    accessorFn: (row) => row.registry?.createdAt || "",
+    header: "Created",
+    enableSorting: true,
+  },
+  { id: "actions", header: "", enableSorting: false },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function formatUptime(seconds: number): string {
@@ -212,7 +241,7 @@ const pruneStale = async (forceAll = false) => {
     title: forceAll ? "Force Prune All Orphans" : "Prune Stale Lobbies",
     message: forceAll
       ? "Force prune ALL orphaned database lobbies regardless of age?\n\nLive Teleportal games will remain intact."
-      : "Prune stale lobbies from database?\n\n- Orphaned lobbies (>2h without live players)\n- Completed lobbies (>24h old)",
+      : "Prune stale lobbies from database?\n\n- Orphaned lobbies (>2h without live players)\n- Completed lobbies (>1h old)",
     confirmButtonText: "Prune",
     confirmButtonColor: "warning",
   });
@@ -332,7 +361,7 @@ onUnmounted(() => {
           size="xs"
           icon="i-solar-broom-bold-duotone"
           @click="pruneStale(false)"
-          :tooltip="{ text: 'Prune stale lobbies (>2h orphaned, >24h complete)' }"
+          :tooltip="{ text: 'Prune stale lobbies (>2h orphaned, >1h complete)' }"
         >
           Prune Stale
         </UButton>
@@ -436,212 +465,270 @@ onUnmounted(() => {
       </p>
     </div>
 
-    <!-- ═══ LOBBY LIST ═══════════════════════════════════════════════════ -->
+    <!-- ═══ LOBBY TABLE ═══════════════════════════════════════════════════ -->
     <div v-else class="space-y-3">
-      <div
-        v-for="lobby in filteredLobbies"
-        :key="lobby.code"
-        class="bg-slate-800/50 border rounded-lg p-4 hover:border-slate-600/50 transition-colors"
-        :class="{
-          'border-slate-700/50': lobby.hasLiveDoc && lobby.hasRegistry,
-          'border-l-amber-500 border-l-3 border-slate-700/50': !lobby.hasLiveDoc && lobby.hasRegistry,
-          'border-l-red-500 border-l-3 border-slate-700/50': lobby.hasLiveDoc && !lobby.hasRegistry,
-        }"
-      >
-        <div class="flex justify-between items-start">
-          <div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <!-- Lobby code -->
-              <h4 class="text-lg font-mono font-semibold text-white">
-                {{ lobby.code }}
-              </h4>
+      <div class="rounded-lg border border-slate-700/60 overflow-hidden bg-slate-800/40">
+        <UTable
+          v-model:pagination="pagination"
+          v-model:sorting="sorting"
+          :data="filteredLobbies"
+          :columns="columns"
+          :loading="loading"
+          :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+          class="text-white"
+        >
+          <!-- Lobby Code & Name Header -->
+          <template #code-header="{ column }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              label="Lobby"
+              :icon="
+                column.getIsSorted()
+                  ? column.getIsSorted() === 'asc'
+                    ? 'i-lucide-arrow-up-narrow-wide'
+                    : 'i-lucide-arrow-down-wide-narrow'
+                  : 'i-lucide-arrow-up-down'
+              "
+              class="-mx-2.5 font-semibold text-slate-300"
+              @click="column.toggleSorting(column.getIsSorted() === 'asc')"
+            />
+          </template>
 
-              <!-- Phase badge (live only) -->
+          <!-- Created Header -->
+          <template #createdAt-header="{ column }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              label="Created"
+              :icon="
+                column.getIsSorted()
+                  ? column.getIsSorted() === 'asc'
+                    ? 'i-lucide-arrow-up-narrow-wide'
+                    : 'i-lucide-arrow-down-wide-narrow'
+                  : 'i-lucide-arrow-up-down'
+              "
+              class="-mx-2.5 font-semibold text-slate-300"
+              @click="column.toggleSorting(column.getIsSorted() === 'asc')"
+            />
+          </template>
+
+          <!-- Lobby Code & Subtitle Cell -->
+          <template #code-cell="{ row }">
+            <div class="py-1">
+              <div class="flex items-center gap-1.5">
+                <span class="font-mono font-bold text-white text-base tracking-wide">{{ row.original.code }}</span>
+                <UBadge
+                  v-if="row.original.hasLiveDoc && row.original.hasRegistry"
+                  color="success"
+                  variant="subtle"
+                  size="xs"
+                >
+                  ● live
+                </UBadge>
+              </div>
+              <p class="text-xs text-slate-400 truncate max-w-[220px]" :title="lobbyName(row.original)">
+                {{ lobbyName(row.original) }}
+                <span v-if="row.original.teleportal?.meta?.hostName" class="text-slate-500">
+                  · Host: {{ row.original.teleportal.meta.hostName }}
+                </span>
+              </p>
+            </div>
+          </template>
+
+          <!-- Status & Phase Cell -->
+          <template #status-cell="{ row }">
+            <div class="flex flex-wrap items-center gap-1.5 py-1">
+              <!-- Teleportal Phase (live only) -->
               <UBadge
-                v-if="lobby.teleportal?.phase"
+                v-if="row.original.teleportal?.phase"
                 :color="
-                  lobby.teleportal.phase === 'lobby'
+                  row.original.teleportal.phase === 'lobby'
                     ? 'info'
-                    : ['playing', 'judging', 'submission'].includes(lobby.teleportal.phase)
+                    : ['playing', 'judging', 'submission'].includes(row.original.teleportal.phase)
                       ? 'warning'
-                      : ['roundEnd', 'gameOver'].includes(lobby.teleportal.phase)
+                      : ['roundEnd', 'gameOver'].includes(row.original.teleportal.phase)
                         ? 'success'
                         : 'neutral'
                 "
-                size="md"
+                size="xs"
               >
-                {{ lobby.teleportal.phase }}
+                {{ row.original.teleportal.phase }}
               </UBadge>
 
-              <!-- WS count (live only) -->
+              <!-- Registry Status -->
               <UBadge
-                v-if="lobby.teleportal"
-                color="primary"
-                variant="subtle"
-                size="md"
-              >
-                {{ lobby.teleportal.clients }} ws
-              </UBadge>
-
-              <!-- Round (live only) -->
-              <UBadge
-                v-if="lobby.teleportal?.round"
-                color="info"
-                variant="subtle"
-                size="md"
-              >
-                round {{ lobby.teleportal.round }}
-              </UBadge>
-
-              <!-- Live indicator -->
-              <UBadge
-                v-if="lobby.hasLiveDoc && lobby.hasRegistry"
-                color="success"
-                variant="subtle"
-                size="md"
-              >
-                ● live
-              </UBadge>
-
-              <!-- Registry status -->
-              <UBadge
-                v-if="lobby.registry"
+                v-if="row.original.registry"
                 :color="
-                  lobby.registry.status === 'complete'
+                  row.original.registry.status === 'complete'
                     ? 'success'
-                    : lobby.registry.status === 'playing'
+                    : row.original.registry.status === 'playing'
                       ? 'warning'
                       : 'info'
                 "
-                size="md"
+                size="xs"
               >
-                {{ lobby.registry.status }}
+                {{ row.original.registry.status }}
               </UBadge>
 
-              <!-- Idle warning (live only) -->
+              <!-- Warnings -->
               <UBadge
-                v-if="lobby.teleportal && lobby.teleportal.idleSec > 30"
+                v-if="!row.original.hasLiveDoc && row.original.hasRegistry && row.original.registry?.status !== 'complete'"
                 color="warning"
-                variant="subtle"
-                size="md"
-              >
-                idle {{ lobby.teleportal.idleSec }}s
-              </UBadge>
-
-              <!-- Orphan/ghost warnings -->
-              <UBadge
-                v-if="!lobby.hasLiveDoc && lobby.hasRegistry"
-                color="warning"
-                size="md"
+                size="xs"
               >
                 ⚠ orphaned
               </UBadge>
               <UBadge
-                v-if="lobby.hasLiveDoc && !lobby.hasRegistry"
+                v-if="row.original.hasLiveDoc && !row.original.hasRegistry"
                 color="error"
-                size="md"
+                size="xs"
               >
                 ⚠ no registry
               </UBadge>
             </div>
+          </template>
 
-            <!-- Subtitle -->
-            <p class="text-xs text-gray-400 mt-1">
-              <span v-if="lobby.registry?.lobbyName || lobby.teleportal?.meta?.lobbyName">
-                {{ lobby.registry?.lobbyName || lobby.teleportal?.meta?.lobbyName }}
-              </span>
-              <span v-if="(lobby.registry?.lobbyName || lobby.teleportal?.meta?.lobbyName) && lobby.teleportal?.meta?.hostName" class="mx-1">·</span>
-              <span v-if="lobby.teleportal?.meta?.hostName">
-                Host: {{ lobby.teleportal.meta.hostName }}
-              </span>
-              <span v-if="lobby.registry?.createdAt">
-                <span class="mx-1">·</span>
-                Created {{ new Date(lobby.registry.createdAt).toLocaleString() }}
-              </span>
-            </p>
-          </div>
+          <!-- Players Cell -->
+          <template #players-cell="{ row }">
+            <div class="py-1">
+              <template v-if="row.original.teleportal">
+                <span
+                  v-if="!row.original.teleportal.players?.length"
+                  class="text-xs text-slate-500 italic"
+                >
+                  0 players
+                </span>
+                <div v-else class="flex items-center gap-1.5 flex-wrap max-w-xs">
+                  <UBadge color="neutral" variant="subtle" size="xs">
+                    {{ row.original.teleportal.players.length }}
+                  </UBadge>
+                  <div
+                    v-for="player in row.original.teleportal.players.slice(0, 3)"
+                    :key="player.id"
+                    class="text-xs text-white bg-slate-700/60 border border-slate-600/40 px-1.5 py-0.5 rounded flex items-center gap-1"
+                    :title="player.name + (player.isBot ? ' (Bot)' : '')"
+                  >
+                    <img
+                      v-if="player.avatar"
+                      :src="player.avatar"
+                      :alt="player.name"
+                      class="w-3.5 h-3.5 rounded-full"
+                    />
+                    <span class="max-w-[70px] truncate">{{ player.name }}</span>
+                    <span v-if="player.isBot" class="text-[10px] text-amber-400 font-mono">B</span>
+                  </div>
+                  <span
+                    v-if="row.original.teleportal.players.length > 3"
+                    class="text-[11px] text-slate-400"
+                    :title="row.original.teleportal.players.slice(3).map((p: any) => p.name).join(', ')"
+                  >
+                    +{{ row.original.teleportal.players.length - 3 }}
+                  </span>
+                </div>
+              </template>
+              <span v-else class="text-xs text-slate-500 italic">—</span>
+            </div>
+          </template>
 
-          <!-- ── Actions ────────────────────────────────────────── -->
-          <div class="flex items-center gap-1 flex-shrink-0">
-            <!-- Mark Complete -->
-            <UButton
-              v-if="lobby.registry && lobby.registry.status !== 'complete'"
-              color="warning"
-              variant="ghost"
-              icon="i-solar-check-circle-bold-duotone"
-              size="xs"
-              @click="markComplete(lobby)"
-              class="rounded-full"
-              :tooltip="{ text: 'Mark as completed' }"
-            />
-            <!-- GC Teleportal doc -->
-            <UButton
-              v-if="lobby.hasLiveDoc"
-              color="error"
-              variant="ghost"
-              icon="i-solar-trash-bin-trash-bold-duotone"
-              size="xs"
-              @click="gcLobby(lobby)"
-              class="rounded-full"
-              :tooltip="{ text: 'GC Teleportal doc' }"
-            />
-            <!-- Delete database registry -->
-            <UButton
-              v-if="lobby.hasRegistry"
-              color="error"
-              variant="ghost"
-              icon="i-solar-trash-bin-minimalistic-bold-duotone"
-              size="xs"
-              @click="deleteLobby(lobby)"
-              class="rounded-full"
-              :tooltip="{ text: 'Delete database records' }"
-            />
-            <!-- Full cleanup (both) -->
-            <UButton
-              v-if="lobby.hasLiveDoc && lobby.hasRegistry"
-              color="error"
-              variant="soft"
-              size="xs"
-              @click="fullCleanup(lobby)"
-              :tooltip="{ text: 'Full cleanup (GC + delete)' }"
-            >
-              Full
-            </UButton>
-          </div>
-        </div>
+          <!-- Activity Cell -->
+          <template #activity-cell="{ row }">
+            <div class="flex flex-wrap items-center gap-1.5 py-1">
+              <template v-if="row.original.teleportal">
+                <UBadge color="primary" variant="subtle" size="xs">
+                  {{ row.original.teleportal.clients }} ws
+                </UBadge>
+                <UBadge
+                  v-if="row.original.teleportal.round"
+                  color="info"
+                  variant="subtle"
+                  size="xs"
+                >
+                  R{{ row.original.teleportal.round }}
+                </UBadge>
+                <UBadge
+                  v-if="row.original.teleportal.idleSec > 30"
+                  color="warning"
+                  variant="subtle"
+                  size="xs"
+                >
+                  idle {{ row.original.teleportal.idleSec }}s
+                </UBadge>
+              </template>
+              <span v-else class="text-xs text-slate-500 italic">—</span>
+            </div>
+          </template>
 
-        <!-- ── Players (live only) ──────────────────────────────── -->
-        <div v-if="lobby.teleportal" class="mt-3">
-          <p
-            v-if="!lobby.teleportal.players.length"
-            class="text-sm text-gray-500 italic"
-          >
-            No players synced yet
-          </p>
-          <ul v-else class="flex flex-wrap gap-2">
-            <li
-              v-for="player in lobby.teleportal.players"
-              :key="player.id"
-              class="text-xs text-white bg-slate-700/70 px-2 py-1 rounded flex items-center gap-1.5"
-            >
-              <img
-                v-if="player.avatar"
-                :src="player.avatar"
-                :alt="player.name"
-                class="w-4 h-4 rounded-full"
-              />
-              <span>{{ player.name }}</span>
-              <UBadge
-                v-if="player.isBot"
+          <!-- Created Cell -->
+          <template #createdAt-cell="{ row }">
+            <div class="text-xs text-slate-300 py-1">
+              <span v-if="row.original.registry?.createdAt">
+                {{ new Date(row.original.registry.createdAt).toLocaleString() }}
+              </span>
+              <span v-else class="text-slate-500 italic">—</span>
+            </div>
+          </template>
+
+          <!-- Actions Cell -->
+          <template #actions-cell="{ row }">
+            <div class="flex items-center justify-end gap-1 py-1">
+              <!-- Mark Complete -->
+              <UButton
+                v-if="row.original.registry && row.original.registry.status !== 'complete'"
                 color="warning"
-                variant="subtle"
-                size="md"
+                variant="ghost"
+                icon="i-solar-check-circle-bold-duotone"
+                size="xs"
+                @click="markComplete(row.original)"
+                class="rounded-full"
+                :tooltip="{ text: 'Mark as completed' }"
+              />
+              <!-- GC Teleportal doc -->
+              <UButton
+                v-if="row.original.hasLiveDoc"
+                color="error"
+                variant="ghost"
+                icon="i-solar-trash-bin-trash-bold-duotone"
+                size="xs"
+                @click="gcLobby(row.original)"
+                class="rounded-full"
+                :tooltip="{ text: 'GC Teleportal doc' }"
+              />
+              <!-- Delete database registry -->
+              <UButton
+                v-if="row.original.hasRegistry"
+                color="error"
+                variant="ghost"
+                icon="i-solar-trash-bin-minimalistic-bold-duotone"
+                size="xs"
+                @click="deleteLobby(row.original)"
+                class="rounded-full"
+                :tooltip="{ text: 'Delete database records' }"
+              />
+              <!-- Full cleanup (both) -->
+              <UButton
+                v-if="row.original.hasLiveDoc && row.original.hasRegistry"
+                color="error"
+                variant="soft"
+                size="xs"
+                @click="fullCleanup(row.original)"
+                :tooltip="{ text: 'Full cleanup (GC + delete)' }"
               >
-                Bot
-              </UBadge>
-            </li>
-          </ul>
-        </div>
+                Full
+              </UButton>
+            </div>
+          </template>
+        </UTable>
+      </div>
+
+      <!-- Pagination Controls -->
+      <div v-if="filteredLobbies.length > pagination.pageSize" class="flex justify-center pt-2">
+        <UPagination
+          :page="pagination.pageIndex + 1"
+          :items-per-page="pagination.pageSize"
+          :total="filteredLobbies.length"
+          @update:page="setPage"
+        />
       </div>
     </div>
 
