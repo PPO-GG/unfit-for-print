@@ -188,6 +188,40 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     return used;
   };
 
+  /** Resolves the lobby's Postgres row id from the join code in the Y.Doc. */
+  const resolveLobbyId = async (): Promise<string | null> => {
+    const code = lobbyDoc.lobbyCode.value;
+    if (!code) return null;
+    const record = await $activityFetch<{ id: string } | null>(
+      `/api/lobby/by-code/${code}`,
+    );
+    return record?.id ?? null;
+  };
+
+  /**
+   * Mirrors a spectator -> player conversion into the players table.
+   *
+   * The Y.Doc is authoritative for gameplay, but Postgres keeps its own
+   * playerType column that nothing was updating, so a converted spectator
+   * stayed a spectator there forever. Fire-and-forget: the conversion has
+   * already happened in the doc and must not be blocked on this.
+   */
+  const mirrorConversionToServer = async (playerId: PlayerId): Promise<void> => {
+    try {
+      const lobbyId = await resolveLobbyId();
+      if (!lobbyId) return;
+      await $activityFetch("/api/players/convert", {
+        method: "POST",
+        body: { lobbyId, playerId },
+      });
+    } catch (err) {
+      console.warn(
+        "[GameEngine] Failed to mirror spectator conversion to server:",
+        err,
+      );
+    }
+  };
+
   /**
    * Fetches fresh white cards from the server and merges them into the Y.Doc.
    * Only the host should call this to avoid duplicate fetches.
@@ -204,23 +238,12 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       const excludeIds = collectAllUsedWhiteIds();
 
       // The Y.Doc only knows the lobby's short join code, not its Postgres
-      // row id — but /api/game/draw-cards now requires the real lobbyId to
-      // verify the caller is a player in that lobby. Resolve it via the
-      // existing by-code lookup (same one useLobby.getLobbyByCode uses).
-      const code = lobbyDoc.lobbyCode.value;
-      if (!code) {
+      // row id — but /api/game/draw-cards requires the real lobbyId to verify
+      // the caller is a player in that lobby.
+      const lobbyId = await resolveLobbyId();
+      if (!lobbyId) {
         console.warn(
-          "[GameEngine] Cannot replenish deck — no active lobby code",
-        );
-        return;
-      }
-      const lobbyRecord = await $activityFetch<{ id: string } | null>(
-        `/api/lobby/by-code/${code}`,
-      );
-      if (!lobbyRecord?.id) {
-        console.warn(
-          "[GameEngine] Cannot replenish deck — lobby not found for code",
-          code,
+          "[GameEngine] Cannot replenish deck — no lobby id for the active code",
         );
         return;
       }
@@ -231,7 +254,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         cardTexts: Record<string, { text: string; pack: string }>;
       }>("/api/game/draw-cards", {
         method: "POST",
-        body: { lobbyId: lobbyRecord.id, cardPacks: packs, excludeIds, count },
+        body: { lobbyId, cardPacks: packs, excludeIds, count },
       });
 
       if (!result?.success || result.cardIds.length === 0) {
@@ -722,6 +745,9 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
 
     // Async: replenish deck if running low (host only)
     scheduleReplenishIfNeeded();
+
+    // Async: keep the players table's playerType in step with the Y.Doc.
+    void mirrorConversionToServer(playerId);
 
     return { success: true, cardsDealt: cardsAvailable };
   };

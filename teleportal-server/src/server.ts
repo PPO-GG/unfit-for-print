@@ -121,6 +121,7 @@ function getDocumentDetails(docId: string): {
     isBot?: boolean;
   }>;
   meta: Record<string, any>;
+  settings: Record<string, any>;
   phase?: string;
   round?: number;
 } {
@@ -137,6 +138,7 @@ function getDocumentDetails(docId: string): {
     isBot?: boolean;
   }> = [];
   let meta: Record<string, any> = {};
+  let settings: Record<string, any> = {};
   let phase: string | undefined;
   let round: number | undefined;
 
@@ -172,6 +174,18 @@ function getDocumentDetails(docId: string): {
       // Meta map may not exist yet
     }
 
+    // Read settings from Y.Map("settings"). The web app reconciles the
+    // lobby row against these, so a lobby renamed or made private mid-game
+    // reaches Postgres without depending on the host's browser tab.
+    try {
+      const settingsMap = ydoc.getMap("settings");
+      settingsMap.forEach((value: any, key: string) => {
+        settings[key] = value;
+      });
+    } catch {
+      // Settings map may not exist yet
+    }
+
     // Read game phase and round from Y.Map("gameState")
     try {
       const gameStateMap = ydoc.getMap("gameState");
@@ -183,7 +197,7 @@ function getDocumentDetails(docId: string): {
     }
   }
 
-  return { clients, idleSec, players, meta, phase, round };
+  return { clients, idleSec, players, meta, settings, phase, round };
 }
 
 // Periodic sweep: remove stale clients (connected but never joined a doc)
@@ -507,6 +521,9 @@ const httpServer = createServer(async (req, res) => {
       round: number;
       players: number;
       playerNames: string[];
+      status?: string;
+      lobbyName?: string;
+      isPrivate?: boolean;
     }> = [];
 
     for (const docId of allDocIds) {
@@ -519,6 +536,20 @@ const httpServer = createServer(async (req, res) => {
         round: details.round || 0,
         players: details.players.length,
         playerNames: details.players.map((p) => p.name),
+        // Authoritative lobby state, for the web app to reconcile its
+        // Postgres row against (see server/utils/reconcileLobbies.ts).
+        status:
+          typeof details.meta.status === "string"
+            ? details.meta.status
+            : undefined,
+        lobbyName:
+          typeof details.settings.lobbyName === "string"
+            ? details.settings.lobbyName
+            : undefined,
+        isPrivate:
+          typeof details.settings.isPrivate === "boolean"
+            ? details.settings.isPrivate
+            : undefined,
       });
     }
 

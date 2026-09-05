@@ -94,6 +94,9 @@ Two Y.Doc quirks worth knowing before editing the engine:
 - DB handle: `useDb()` from `server/db/client.ts` (lazy `pg` Pool + Drizzle singleton).
 - Auth guards: `server/utils/session.ts` — `requireAuth`, `requirePlayerInLobby`, `requireHost`. Auth accepts **either** a Nuxt session cookie **or** a `Bearer` Discord-Activity token (`server/utils/activityToken.ts`).
 - `server/plugins/lobby-sweeper.ts` prunes stale lobbies every 30 min; it self-disables under `VITEST`/`NODE_ENV=test`.
+- **Lobby rows are reconciled server-side, not by the host's browser.** The Y.Doc is authoritative for lobby state, but Postgres is what the public browser filters on. Those columns used to be mirrored by watchers in `app/pages/game/[code].vue` that ran **only in the host's tab**, so a host closing their tab stranded a lobby as `playing` until the sweeper caught it hours later, and a mid-game rename never reached Postgres at all. Now `/api/lobby/list` pulls Teleportal's `/lobbies/summary` and applies `planLobbyReconciliation` (`server/utils/reconcileLobbies.ts`) before filtering. It is deliberately conservative — a lobby with no live doc is left alone (absence is not evidence; pruning is `pruneLobbies`' job), a field the summary omits is left alone, and an unreachable Teleportal fails open rather than erroring the browser.
+- **Deploy ordering:** `status`, `lobbyName` and `isPrivate` in `/lobbies/summary` were added in `teleportal-server/`, which deploys separately from the web app. The reconciliation skips fields the summary does not carry, so shipping the web app first is safe — it simply reconciles nothing until Teleportal catches up.
+- `playerType` is mirrored by `POST /api/players/convert`, fired by the engine after `convertToPlayer` succeeds. You may deal yourself in; only the host may deal in someone else.
 - `server/utils/game-engine.ts` is *not* a server-side game engine — it only fetches/shuffles card IDs for `game/start.post.ts`.
 
 ### Discord Activity

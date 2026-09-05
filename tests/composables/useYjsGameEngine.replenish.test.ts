@@ -106,3 +106,65 @@ describe("useYjsGameEngine.replenishWhiteDeck", () => {
     expect(chunk["black-1"].text).toBe("A prompt");
   });
 });
+
+describe("useYjsGameEngine.convertToPlayer", () => {
+  function seedSpectator(stub: LobbyDocResult) {
+    stub.getMeta().set("hostUserId", "host-1");
+    stub.getSettings().set("cardsPerPlayer", 2);
+    stub.getCards().set("whiteDeck", JSON.stringify(["w1", "w2", "w3"]));
+    stub.getCards().set("discardWhite", "[]");
+    stub.getPlayers().set(
+      "watcher-1",
+      JSON.stringify({ userId: "watcher-1", name: "Watcher", playerType: "spectator" }),
+    );
+    stub.getGameState().set("phase", "submitting");
+    stub.getGameState().set("scores", JSON.stringify({ "host-1": 0 }));
+    stub.getGameState().set("playerOrder", JSON.stringify(["host-1"]));
+  }
+
+  it("mirrors the conversion into the players table", async () => {
+    const stub = makeStubDoc();
+    seedSpectator(stub);
+    const calls: { url: string; body: any }[] = [];
+    vi.stubGlobal("$fetch", async (url: string, opts: any) => {
+      calls.push({ url, body: opts?.body });
+      if (url === "/api/lobby/by-code/ABCD") return { id: "lobby-uuid" };
+      return { success: true };
+    });
+
+    const engine = useYjsGameEngine(stub);
+    const result = engine.convertToPlayer("watcher-1");
+    expect(result.success).toBe(true);
+
+    // The Y.Doc write is synchronous; the Postgres mirror is fire-and-forget.
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(calls).toContainEqual({
+      url: "/api/players/convert",
+      body: { lobbyId: "lobby-uuid", playerId: "watcher-1" },
+    });
+  });
+
+  it("does not call the server when the conversion is rejected", async () => {
+    const stub = makeStubDoc();
+    seedSpectator(stub);
+    // Already a player, so convertToPlayer should refuse.
+    stub.getPlayers().set(
+      "watcher-1",
+      JSON.stringify({ userId: "watcher-1", name: "Watcher", playerType: "player" }),
+    );
+    const calls: string[] = [];
+    vi.stubGlobal("$fetch", async (url: string) => {
+      calls.push(url);
+      return { id: "lobby-uuid" };
+    });
+
+    const engine = useYjsGameEngine(stub);
+    const result = engine.convertToPlayer("watcher-1");
+
+    expect(result.success).toBe(false);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).not.toContain("/api/players/convert");
+  });
+});
