@@ -21,7 +21,7 @@ export default defineNitroPlugin((nitroApp) => {
       const result = await pruneStaleLobbies();
       if (result.prunedCount > 0) {
         console.log(
-          `[LobbySweeper] Pruned ${result.prunedCount} stale lobbies (${result.orphanedCount} orphaned >2h, ${result.completedCount} completed >24h)`,
+          `[LobbySweeper] Pruned ${result.prunedCount} stale lobbies (${result.orphanedCount} orphaned >2h, ${result.completedCount} completed >1h)`,
         );
       }
     } catch (err: any) {

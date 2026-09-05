@@ -83,7 +83,7 @@ describe("pruneStaleLobbies", () => {
     expect(remainingCodes).not.toContain("ORPH");
   });
 
-  it("prunes completed lobbies older than 24 hours", async () => {
+  it("prunes completed lobbies older than 1 hour", async () => {
     globalThis.$fetch = vi.fn().mockResolvedValue({ documents: {} }) as any;
 
     const [host] = await db
@@ -91,19 +91,19 @@ describe("pruneStaleLobbies", () => {
       .values({ name: "Host", isGuest: false })
       .returning();
 
-    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
 
-    // Old completed lobby (> 24h) -> should be pruned
+    // Old completed lobby (> 1h) -> should be pruned
     const [oldCompleted] = await db
       .insert(lobbies)
-      .values({ code: "DONE", hostUserId: host.id, status: "complete", createdAt: twoDaysAgo })
+      .values({ code: "DONE", hostUserId: host.id, status: "complete", createdAt: twoHoursAgo })
       .returning();
 
-    // Recent completed lobby (< 24h) -> should be kept
+    // Recent completed lobby (< 1h) -> should be kept
     const [recentCompleted] = await db
       .insert(lobbies)
-      .values({ code: "RECN", hostUserId: host.id, status: "complete", createdAt: twoHoursAgo })
+      .values({ code: "RECN", hostUserId: host.id, status: "complete", createdAt: thirtyMinsAgo })
       .returning();
 
     const result = await pruneStaleLobbies();

@@ -1,7 +1,7 @@
 // server/utils/pruneLobbies.ts
 // Utility to garbage-collect orphaned and completed lobbies from Postgres.
 // - Orphaned lobbies: Not connected to Teleportal and older than 2 hours.
-// - Completed lobbies: Marked status="complete" and older than 24 hours.
+// - Completed lobbies: Marked status="complete" and older than 1 hour.
 
 import { and, eq, inArray, isNull, lte, ne, notInArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
@@ -27,7 +27,7 @@ export interface PruneLobbiesResult {
 }
 
 const DEFAULT_ORPHAN_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-const DEFAULT_COMPLETED_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const DEFAULT_COMPLETED_TTL_MS = 1 * 60 * 60 * 1000; // 1 hour
 const GUEST_ORPHAN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
@@ -87,7 +87,7 @@ export async function pruneStaleLobbies(
   for (const lobby of allLobbies) {
     const createdAtTime = new Date(lobby.createdAt).getTime();
 
-    // Completed lobby check: TTL of 24h
+    // Completed lobby check: TTL of 1h
     if (lobby.status === "complete") {
       if (createdAtTime <= completedCutoff.getTime()) {
         candidateCompletedIds.push(lobby.id);
