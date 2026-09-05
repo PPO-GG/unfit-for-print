@@ -184,14 +184,8 @@ watch(
 
 @media (min-width: 1024px) {
   .lobby-chat-panel {
-    /* Match the table + preview footprint without participating in the
-       auto-sized grid tracks. A percentage height here made message content
-       grow those tracks indefinitely instead of scrolling. */
-    height: min(
-      calc(clamp(460px, 62vh, 780px) + 10rem),
-      calc(100dvh - 9rem)
-    );
-    max-height: calc(100dvh - 9rem);
+    height: 100%;
+    max-height: 100%;
   }
 
   .lobby-chat-messages {

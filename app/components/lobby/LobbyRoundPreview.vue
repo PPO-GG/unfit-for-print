@@ -35,11 +35,12 @@ defineProps<{
 
 <style scoped>
 .lobby-round-preview {
-  padding: 20px;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .lrp-label-kicker {
   font-family: 'JetBrains Mono', monospace;

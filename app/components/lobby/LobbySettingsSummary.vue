@@ -35,7 +35,16 @@ const requirePassword = computed(() => !!(props.settings?.password && props.sett
 </script>
 
 <style scoped>
-.lobby-settings-summary { padding: 16px; }
+.lobby-settings-summary {
+  padding: 16px;
+  flex: 1 1 0;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lb-line-strong) transparent;
+}
 .lss-header {
   display: flex;
   align-items: center;
@@ -96,7 +105,6 @@ const requirePassword = computed(() => !!(props.settings?.password && props.sett
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 80px;
   overflow-y: auto;
   padding-right: 4px;
 }

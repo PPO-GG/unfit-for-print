@@ -68,6 +68,7 @@ async function copyLink() {
 
 <style scoped>
 .lobby-code-panel {
+  flex: 0 0 auto;
   padding: 16px;
   display: flex;
   flex-direction: column;

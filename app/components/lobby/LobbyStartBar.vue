@@ -17,7 +17,7 @@
           />
         </svg>
         <div class="lsb-ring-count">
-          {{ players.length }}<span>/{{ maxSeats }}</span>
+          {{ players.length }}<span>/{{ targetSeats }}</span>
         </div>
       </div>
       <div class="lsb-labels">
@@ -201,9 +201,14 @@ const stateSubLabel = computed(() => {
 
 const ringColor = computed(() => canStart.value ? "var(--lb-accent-lime)" : "var(--lb-accent)");
 
+const targetSeats = computed(() => {
+  if (props.players.length < 3) return 3;
+  return props.players.length;
+});
+
 const ringDash = computed(() => {
-  if (props.maxSeats <= 0) return 0;
-  const pct = Math.min(1, props.players.length / props.maxSeats);
+  if (targetSeats.value <= 0) return 0;
+  const pct = Math.min(1, props.players.length / targetSeats.value);
   return pct * 126;
 });
 
@@ -233,8 +238,8 @@ const panelStyle = computed(() => {
   position: relative;
   align-items: center;
   gap: 16px;
-  padding: 14px 18px;
-  margin: 0 20px 18px;
+  padding: 14px 20px;
+  margin: 0 20px 14px;
   flex-shrink: 0;
   flex-wrap: wrap;
   transition: border-color 240ms ease, box-shadow 240ms ease;

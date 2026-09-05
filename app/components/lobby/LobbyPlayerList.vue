@@ -1,7 +1,7 @@
 <template>
   <div class="lobby-player-list lobby-panel">
     <div class="lpl-header">
-      <div class="lpl-header-label">Players · {{ players.length }} / {{ maxSeats }}</div>
+      <div class="lpl-header-label">Players · {{ players.length }}</div>
       <button v-if="isHostUser" class="lpl-add-bot-link" @click="$emit('add-bot')">+ Bot</button>
     </div>
     <div class="lpl-list">
@@ -108,9 +108,10 @@ function statusClass(p: Player): string {
 .lobby-player-list {
   display: flex;
   flex-direction: column;
-  height: min(46vh, 420px);
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: 100px;
   padding: 16px;
+  overflow: hidden;
 }
 .lpl-header {
   display: flex;

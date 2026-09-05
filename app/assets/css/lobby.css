@@ -122,13 +122,14 @@
 /* ── Seat ────────────────────────────────────────────────────────────────── */
 .lobby-seat {
   position: absolute;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -36px);
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 120px;
   gap: 4px;
   cursor: default;
+  transition: left 0.4s cubic-bezier(0.25, 1, 0.5, 1), top 0.4s cubic-bezier(0.25, 1, 0.5, 1);
 }
 .lobby-seat--clickable { cursor: pointer; }
 

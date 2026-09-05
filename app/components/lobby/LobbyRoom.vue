@@ -102,10 +102,12 @@ const isStarting = ref(false);
 
 const myId = computed(() => userStore.user?.id ?? null);
 
-// Show all current players + 2 open seats, minimum 8, capped at 16 for visual sanity.
+// Start with 2 open seats when 1 player is in the lobby (3 total to show minimum required).
+// When player 2 joins, they take the 2nd seat (leaving 1 open seat).
+// For 3+ players, each new player adds a seat while keeping 1 open seat, capped at 16 for table layout sanity.
 // The lobby itself has no hard player limit.
 const maxSeats = computed(() =>
-  Math.min(Math.max(props.players.length + 2, 8), 16),
+  Math.min(Math.max(props.players.length + 1, 3), 16),
 );
 
 async function startGameWrapper() {
@@ -162,9 +164,10 @@ onBeforeUnmount(() => {
 .lobby-room {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .lobby-room-bg {
@@ -181,80 +184,70 @@ onBeforeUnmount(() => {
 
 .lobby-room-main {
   flex: 1;
-  display: flex;
-  align-items: center;
-  padding: 16px 20px 20px;
-  overflow-y: auto;
   min-height: 0;
+  display: flex;
+  padding: 16px 20px 12px;
+  overflow: hidden;
 }
 
 .lobby-room-grid {
   width: 100%;
-  max-width: 1760px;
+  height: 100%;
+  max-width: 1920px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 14px;
+  min-height: 0;
 }
 
 @media (min-width: 1024px) {
   .lobby-room-grid {
-    grid-template-columns: minmax(220px, 0.85fr) minmax(0, 2.4fr);
-    grid-template-rows: auto auto auto;
-    align-items: stretch;
+    grid-template-columns: 280px minmax(0, 1fr) 310px;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 14px;
   }
 
   .lobby-room-chat {
     grid-column: 1;
     grid-row: 1 / span 2;
     min-height: 0;
+    height: 100%;
   }
 
   .lobby-room-table-wrap {
     grid-column: 2;
     grid-row: 1;
+    min-height: 0;
+    height: 100%;
   }
 
   .lobby-room-preview {
     grid-column: 2;
     grid-row: 2;
-  }
-
-  .lobby-room-sidebar {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
-  }
-}
-
-@media (min-width: 1280px) {
-  .lobby-room-grid {
-    grid-template-columns: minmax(280px, 1fr) minmax(540px, 2.4fr) minmax(280px, 1fr);
-    grid-template-rows: auto auto;
+    height: auto;
+    align-self: end;
   }
 
   .lobby-room-sidebar {
     grid-column: 3;
     grid-row: 1 / span 2;
+    min-height: 0;
+    height: 100%;
     display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
   }
 }
 
 .lobby-room-table-wrap {
-  padding: 20px;
+  padding: 16px 20px;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-.lobby-room-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
+  min-height: 0;
 }
 
 .lobby-room-sidebar > * {

@@ -42,15 +42,14 @@ const props = defineProps<{
 defineEmits<{ (e: "add-bot"): void }>();
 
 // Build seat slots with trigonometric positions:
-// Real players first, then empty slots up to maxSeats.
-// If players exceed maxSeats, all are displayed with even spacing.
+// Real players first, then empty slots up to maxSeats, capped at 16 for table layout.
 const seats = computed(() => {
   const filled = props.players.length;
-  const total = Math.max(filled, props.maxSeats);
+  const total = Math.min(Math.max(filled, props.maxSeats), 16);
   return Array.from({ length: total }, (_, i) => {
     const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
-    const rx = 42; // oval x-radius %
-    const ry = 36; // oval y-radius %
+    const rx = 38; // oval x-radius % (matches .lobby-table-surface left/right: 12%)
+    const ry = 40; // oval y-radius % (matches .lobby-table-surface top/bottom: 10%)
     return {
       player: props.players[i] ?? null,
       positionStyle: {
@@ -66,8 +65,8 @@ const seats = computed(() => {
 .lobby-table-root {
   position: relative;
   width: 100%;
-  /* Scale with viewport, keeping the oval visible on all sizes */
-  height: clamp(460px, 62vh, 780px);
+  height: 100%;
+  min-height: 400px;
   overflow: hidden;
 }
 
