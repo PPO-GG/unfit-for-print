@@ -1,6 +1,14 @@
 import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
+
+// Plain vitest, unlike `nuxt dev`, does not read .env — so without this
+// TEST_DATABASE_URL had to be passed inline on every run. Loading it here also
+// makes the guardrail in tests/server/setup.ts stronger, not weaker: it can now
+// see the real DATABASE_URL and refuse to run when the two point at the same
+// database. Existing shell variables still win (dotenv never overwrites).
+loadEnv();
 
 export default defineConfig({
   plugins: [vue()],

@@ -17,6 +17,7 @@
     "postinstall": "nuxt prepare",
     "start": "node .output/server/index.mjs",
     "test": "vitest",
+    "typecheck": "vue-tsc --noEmit",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:gameplay": "vitest run tests/integration/gameplay.test.ts --test-timeout=60000",

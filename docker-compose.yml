@@ -55,7 +55,7 @@ services:
       # Host 3000 is already claimed by the `teleportal` service above, so
       # web is published on 8080 instead. Adjust to taste / put a reverse
       # proxy in front of both.
-      - "3000:3000"
+      - "8080:3000"
     networks:
       br0_3:
         ipv4_address: 10.1.0.226
