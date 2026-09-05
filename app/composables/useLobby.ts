@@ -6,7 +6,9 @@ import { useLobbyDoc } from "~/composables/useLobbyDoc";
 import { useLobbyMutations } from "~/composables/useLobbyMutations";
 import { useLobbyReactive } from "~/composables/useLobbyReactive";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
+import { useCardTexts } from "~/composables/useCardTexts";
 import { useCards } from "~/composables/useCards";
+import { collectVisibleCardIds, withResolvedBlackText } from "~/utils/cardTexts";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 
@@ -18,8 +20,32 @@ export const useLobby = () => {
   // Singleton lobby doc + derived composables.
   const lobbyDoc = useLobbyDoc();
   const mutations = useLobbyMutations(lobbyDoc);
-  const reactive = useLobbyReactive(lobbyDoc);
+  const baseReactive = useLobbyReactive(lobbyDoc);
   const engine = useYjsGameEngine(lobbyDoc);
+
+  // Card texts: black cards come embedded in the Y.Doc, white cards are
+  // resolved per client for just the ids this client can display. Swapping
+  // `cardTexts` here means every consumer of useLobby().reactive.cardTexts
+  // (GameBoard, and through it GameTable/UserHand/MobileGameLayout) gets
+  // resolution for free, with no prop changes.
+  const { cardTexts } = useCardTexts(
+    lobbyDoc,
+    computed(() =>
+      collectVisibleCardIds(baseReactive.gameState.value, baseReactive.myHand.value),
+    ),
+    computed(() => {
+      const id = baseReactive.gameState.value?.blackCard?.id;
+      return id ? [id] : [];
+    }),
+  );
+
+  // Components still read `blackCard.text`; the doc no longer carries it, so
+  // overlay the resolved text here rather than threading cardTexts through
+  // every black-card consumer.
+  const gameState = computed(() =>
+    withResolvedBlackText(baseReactive.gameState.value, cardTexts.value),
+  );
+  const reactive = { ...baseReactive, cardTexts, gameState };
 
   // Compatibility shim: `players` ref that mirrors the Y.Doc reactive player list.
   // Consumers that read `useLobby().players` continue to work without changes.
@@ -410,9 +436,9 @@ export const useLobby = () => {
       error?: string;
       whiteDeck: string[];
       blackDeck: string[];
-      blackCard: { id: string; text: string; pick: number };
+      blackCard: { id: string; pick: number };
       hands: Record<string, string[]>;
-      cardTexts: Record<string, { text: string; pack: string }>;
+      blackPicks: Record<string, number>;
       playerOrder: string[];
       judgeId: string;
       config: {
@@ -462,7 +488,7 @@ export const useLobby = () => {
       blackDeck: result.blackDeck,
       blackCard: result.blackCard,
       hands: result.hands,
-      cardTexts: result.cardTexts,
+      blackPicks: result.blackPicks,
       playerOrder: result.playerOrder,
       judgeId: result.judgeId,
     });

@@ -27,6 +27,7 @@ import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import type { GameState, PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 import type { PlayerPayload } from "~/composables/useLobbyMutations";
+import { mergeCardTextKeys } from "~/utils/cardTexts";
 
 // ─── Helper: Observe a Y.Map and expose its contents as a reactive ref ──────
 
@@ -238,20 +239,8 @@ interface LobbyCards {
 }
 
 function parseCards(raw: Record<string, any>): LobbyCards {
-  // Card texts are split into chunked keys (cardTexts_0, cardTexts_1, ...)
-  // to keep each Y.Doc update under Teleportal's ~64KB message limit.
-  // Merge all chunks back into a single object.
-  let cardTexts: Record<string, any> = {};
-  const numChunks = parseInt(raw.cardTextsChunks || "0", 10);
-  if (numChunks > 0) {
-    for (let i = 0; i < numChunks; i++) {
-      const chunk = safeParseJson(raw[`cardTexts_${i}`], {});
-      Object.assign(cardTexts, chunk);
-    }
-  } else {
-    // Legacy fallback: single cardTexts key
-    cardTexts = safeParseJson(raw.cardTexts, {});
-  }
+  // Chunked + flat card-text keys, merged by the one shared reader.
+  const cardTexts = mergeCardTextKeys(raw);
 
   return {
     whiteDeck: safeParseJson(raw.whiteDeck, []),

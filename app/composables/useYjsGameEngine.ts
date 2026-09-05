@@ -18,6 +18,7 @@
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import type { PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
+import { mergeCardTextKeys } from "~/utils/cardTexts";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -30,21 +31,28 @@ function safeParseJson<T>(raw: string | undefined | null, fallback: T): T {
   }
 }
 
-/** Merge chunked cardTexts keys (cardTexts_0, cardTexts_1, ...) from a Y.Map.
- *  startGame splits card texts across multiple keys to stay under Teleportal's
- *  ~64KB message limit. Falls back to the legacy flat "cardTexts" key. */
-function mergeCardTexts(c: { get(key: string): string | undefined }): CardTexts {
-  const numChunks = parseInt(c.get("cardTextsChunks") || "0", 10);
-  if (numChunks > 0) {
-    const merged: CardTexts = {};
-    for (let i = 0; i < numChunks; i++) {
-      Object.assign(merged, safeParseJson(c.get(`cardTexts_${i}`), {}));
-    }
-    // Also merge the flat key so replenished white cards are included
-    Object.assign(merged, safeParseJson(c.get("cardTexts"), {}));
-    return merged;
+/** Pick counts for black cards, keyed by card id.
+ *
+ *  This is the only card metadata the engine needs synchronously: nextRound()
+ *  runs inside a transact() and its eligibility loop reads `pick` for every
+ *  candidate it considers, including ones it skips. No card text is involved —
+ *  that is resolved per client by useCardTexts.
+ *
+ *  Falls back to the pick values embedded in the old chunked cardTexts keys so
+ *  a game already in flight when this shipped keeps advancing. */
+function readBlackPicks(c: {
+  entries(): IterableIterator<[string, any]>;
+}): Record<string, number> {
+  const raw = Object.fromEntries(c.entries());
+  const picks = safeParseJson<Record<string, number>>(raw.blackPicks, {});
+  if (Object.keys(picks).length > 0) return picks;
+
+  const legacy: CardTexts = mergeCardTextKeys(raw);
+  const fallback: Record<string, number> = {};
+  for (const [id, entry] of Object.entries(legacy)) {
+    if (typeof entry?.pick === "number") fallback[id] = entry.pick;
   }
-  return safeParseJson<CardTexts>(c.get("cardTexts"), {});
+  return fallback;
 }
 
 /** Fisher-Yates shuffle (in-place) */
@@ -251,18 +259,14 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       ydoc.transact(() => {
         const c = getCards();
 
-        // Append new IDs to deck
+        // Append new IDs to deck. Their texts are deliberately NOT written
+        // into the doc: each client resolves the cards it displays through
+        // useCardTexts. Merging them here rewrote the entire flat blob on
+        // every replenish, growing it until one update crossed Teleportal's
+        // ~64KB limit and was silently dropped.
         const deck = safeParseJson<string[]>(c.get("whiteDeck"), []);
         deck.push(...result.cardIds);
         c.set("whiteDeck", JSON.stringify(deck));
-
-        // Merge new texts into cardTexts
-        const texts = safeParseJson<Record<string, any>>(
-          c.get("cardTexts"),
-          {},
-        );
-        Object.assign(texts, result.cardTexts);
-        c.set("cardTexts", JSON.stringify(texts));
       });
 
       console.log(
@@ -499,8 +503,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         3,
       );
 
-      // Look up the card text from the embedded cardTexts (chunked keys)
-      const cardTexts = mergeCardTexts(getCards());
+      // Pick counts only — text is resolved per client, never stored here.
+      const blackPicks = readBlackPicks(getCards());
 
       // Find next eligible black card (pick <= maxPick)
       let newBlackCardId: string | null = null;
@@ -514,23 +518,19 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
           if (blackDeck.length === 0) break;
         }
         const candidateId = blackDeck.pop()!;
-        const candidateEntry = cardTexts[candidateId];
-        if ((candidateEntry?.pick ?? 1) <= maxPick) {
+        if ((blackPicks[candidateId] ?? 1) <= maxPick) {
           newBlackCardId = candidateId;
         } else {
           discardBlack.push(candidateId);
         }
       }
 
-      const cardEntry = newBlackCardId ? cardTexts[newBlackCardId] : null;
+      // The exhausted-deck sentinel keeps its text: there is no card id to
+      // resolve one from, and the reactive overlay prefers an embedded text
+      // when the doc carries one.
       const newBlackCard = newBlackCardId
-        ? {
-            id: newBlackCardId,
-            text: cardEntry?.text ?? "Unknown card",
-            pick: cardEntry?.pick ?? 1,
-            pack: cardEntry?.pack ?? "",
-          }
-        : { id: "", text: "No eligible cards remain", pick: 1, pack: "" };
+        ? { id: newBlackCardId, pick: blackPicks[newBlackCardId] ?? 1 }
+        : { id: "", text: "No eligible cards remain", pick: 1 };
       gs.set("blackCard", JSON.stringify(newBlackCard));
       c.set("blackDeck", JSON.stringify(blackDeck));
       c.set("discardBlack", JSON.stringify(discardBlack));
@@ -863,7 +863,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
           lobbyDoc.getSettings().get("maxPick"),
           3,
         );
-        const cardTexts = mergeCardTexts(c);
+        const blackPicks = readBlackPicks(c);
 
         // Find next eligible black card (pick <= maxPick)
         let nextBlackId: string | null = null;
@@ -877,8 +877,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
             if (blackDeck.length === 0) break;
           }
           const candidateId = blackDeck.pop()!;
-          const candidateEntry = cardTexts[candidateId];
-          if ((candidateEntry?.pick ?? 1) <= maxPick) {
+          if ((blackPicks[candidateId] ?? 1) <= maxPick) {
             nextBlackId = candidateId;
           } else {
             discardBlack.push(candidateId);
@@ -886,14 +885,11 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         }
 
         if (nextBlackId) {
-          const entry = cardTexts[nextBlackId];
           gs.set(
             "blackCard",
             JSON.stringify({
               id: nextBlackId,
-              text: entry?.text ?? "Unknown card",
-              pick: entry?.pick ?? 1,
-              pack: entry?.pack ?? "",
+              pick: blackPicks[nextBlackId] ?? 1,
             }),
           );
         } else {

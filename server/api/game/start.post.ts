@@ -72,36 +72,30 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // --- Batch-resolve all card texts for embedding in Y.Doc ---
-  // This eliminates the N+1 pattern — all card texts are resolved server-side
-  // and sent to the client to embed in the Y.Doc once.
+  // --- Black card pick counts for the Y.Doc ---
+  // NO card text travels through the Y.Doc any more. Each client resolves the
+  // handful of cards it actually displays through POST /api/cards/resolve.
+  //
+  // What the doc still needs is `pick` per black card: nextRound() selects the
+  // next black card synchronously inside a transact() and its eligibility loop
+  // reads `pick` for candidates it may skip, so that lookup cannot be async.
+  // A pick map is ~40 bytes per card against ~135 for a text entry, which is
+  // what kept Y.Doc updates near Teleportal's ~64KB limit and forced chunking.
   const cardTexts: Record<string, { text: string; pack: string; pick?: number }> = {};
+  const blackPicks: Record<string, number> = {};
 
-  // Resolve white card texts
-  const allWhiteIdsToResolve = [...new Set([...Object.values(hands).flat(), ...whiteDeck])];
-  if (allWhiteIdsToResolve.length > 0) {
-    const rows = await db
-      .select({ id: whiteCards.id, text: whiteCards.text, pack: whiteCards.pack })
-      .from(whiteCards)
-      .where(inArray(whiteCards.id, allWhiteIdsToResolve));
-    for (const row of rows) {
-      cardTexts[row.id] = { text: row.text ?? "", pack: row.pack ?? "" };
-    }
-  }
-
-  // Resolve ALL black card texts (including pick count for multi-pick prompts)
   const blackRows = await db
-    .select({ id: blackCards.id, text: blackCards.text, pack: blackCards.pack, pick: blackCards.pick })
+    .select({ id: blackCards.id, pick: blackCards.pick })
     .from(blackCards)
     .where(inArray(blackCards.id, allBlackIds));
   for (const row of blackRows) {
-    cardTexts[row.id] = { text: row.text ?? "", pack: row.pack ?? "", pick: row.pick ?? 1 };
+    blackPicks[row.id] = row.pick ?? 1;
   }
 
   // --- Apply maxPick filter to black cards ---
   // Remove black cards whose pick count exceeds the host's maxPick setting.
   const MAX_PICK = Math.min(3, Math.max(1, gameSettings?.maxPick ?? 3));
-  const eligibleBlackIds = allBlackIds.filter((id) => (cardTexts[id]?.pick ?? 1) <= MAX_PICK);
+  const eligibleBlackIds = allBlackIds.filter((id) => (blackPicks[id] ?? 1) <= MAX_PICK);
   if (eligibleBlackIds.length === 0) {
     throw createError({
       statusCode: 500,
@@ -110,7 +104,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const firstBlackId = eligibleBlackIds[0]!;
-  const firstBlack = cardTexts[firstBlackId]!;
   const blackDeck = eligibleBlackIds.slice(1);
 
   // --- Update lobby status ---
@@ -121,9 +114,10 @@ export default defineEventHandler(async (event) => {
     success: true,
     whiteDeck,
     blackDeck,
-    blackCard: { id: firstBlackId, text: firstBlack.text, pick: firstBlack.pick || 1, pack: firstBlack.pack ?? "" },
+    blackCard: { id: firstBlackId, pick: blackPicks[firstBlackId] ?? 1 },
     hands,
     cardTexts,
+    blackPicks,
     playerOrder: playerIds,
     judgeId: lobby.hostUserId,
     config: {

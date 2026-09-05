@@ -54,9 +54,13 @@ export interface PlayerPayload {
 export interface GameStartPayload {
   whiteDeck: CardId[];
   blackDeck: CardId[];
-  blackCard: { id: CardId; text: string; pick: number; pack?: string };
+  /** No `text`: clients resolve it through useCardTexts. */
+  blackCard: { id: CardId; pick: number };
   hands: Record<PlayerId, CardId[]>;
-  cardTexts: CardTexts;
+  /** Retained for docs created before card texts left the Y.Doc. */
+  cardTexts?: CardTexts;
+  /** Black card id → pick count. The engine needs this synchronously. */
+  blackPicks: Record<CardId, number>;
   playerOrder: PlayerId[];
   judgeId: PlayerId;
 }
@@ -134,7 +138,6 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       cards.set("blackDeck", "[]");
       cards.set("discardWhite", "[]");
       cards.set("discardBlack", "[]");
-      cards.set("cardTexts", "{}");
 
       // Players — add host as first player
       const players = getPlayers();
@@ -270,29 +273,13 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     // WebSocket messages larger than ~64KB, so each Y.Doc update must
     // stay well under that threshold.
 
-    // 1. Card texts — the largest payload. Split into chunked Y.Map keys
-    //    (cardTexts_0, cardTexts_1, ...) of ~100 entries each so no
-    //    single JSON blob exceeds ~30KB.
+    // 1. Black pick counts — the only card metadata the doc carries. Card
+    //    TEXT is never written here: clients resolve what they display via
+    //    useCardTexts. This is what removed the old cardTexts_0…N chunking;
+    //    a pick map is small enough to be a single key.
     const cards = getCards();
-    const cardTextEntries = Object.entries(payload.cardTexts);
-    const CHUNK_SIZE = 100;
-    const numChunks = Math.ceil(cardTextEntries.length / CHUNK_SIZE);
-    for (let i = 0; i < numChunks; i++) {
-      const chunk = cardTextEntries.slice(
-        i * CHUNK_SIZE,
-        (i + 1) * CHUNK_SIZE,
-      );
-      const chunkObj: Record<string, any> = {};
-      for (const [id, data] of chunk) {
-        chunkObj[id] = data;
-      }
-      ydoc.transact(() => {
-        cards.set(`cardTexts_${i}`, JSON.stringify(chunkObj));
-      });
-    }
-    // Store chunk count so readers know how many to merge
     ydoc.transact(() => {
-      cards.set("cardTextsChunks", String(numChunks));
+      cards.set("blackPicks", JSON.stringify(payload.blackPicks ?? {}));
     });
 
     // 2. Decks (split white and black to keep each update small)

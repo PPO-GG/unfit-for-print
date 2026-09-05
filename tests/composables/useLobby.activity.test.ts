@@ -38,7 +38,13 @@ vi.mock("~/composables/useLobbyMutations", () => ({
 }));
 
 vi.mock("~/composables/useLobbyReactive", () => ({
-  useLobbyReactive: () => ({ playerList: { value: [] } }),
+  // Mirrors the real shape closely enough for useLobby to compose it:
+  // gameState/myHand feed the visible-card-id computed behind useCardTexts.
+  useLobbyReactive: () => ({
+    playerList: { value: [] },
+    gameState: { value: null },
+    myHand: { value: [] },
+  }),
 }));
 
 vi.mock("~/composables/useYjsGameEngine", () => ({

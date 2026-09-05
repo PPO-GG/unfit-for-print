@@ -95,6 +95,81 @@ describe("POST /api/game/start", () => {
     expect(Object.keys(result.hands)).toContain(other.id);
   });
 
+  it("omits card texts from the payload entirely", async () => {
+    const [lobby] = await db.insert(lobbies).values({ code: "TEXT", hostUserId: currentUserId }).returning();
+    await db.insert(players).values({
+      userId: currentUserId,
+      lobbyId: lobby.id,
+      name: "Host",
+      isHost: true,
+    });
+    const [other] = await db.insert(users).values({ name: "Player2" }).returning();
+    await db.insert(players).values({
+      userId: other.id,
+      lobbyId: lobby.id,
+      name: "Player2",
+      isHost: false,
+    });
+    await db.insert(whiteCards).values(
+      Array.from({ length: 40 }, (_, i) => ({ text: `White ${i}`, pack: "Base", active: true })),
+    );
+    await db.insert(blackCards).values({ text: "Black?", pack: "Base", active: true, pick: 1 });
+
+    const handler = (await import("~/server/api/game/start.post")).default;
+    const result = await handler(
+      mockEvent({ lobbyId: lobby.id, settings: { cardPacks: ["Base"] } }),
+    );
+
+    // Every text — white and black — is resolved on demand by the client via
+    // /api/cards/resolve, so none of it belongs in the Y.Doc payload.
+    const whiteIds = [...Object.values(result.hands).flat(), ...result.whiteDeck];
+    expect(whiteIds.length).toBeGreaterThan(0);
+    for (const id of whiteIds) {
+      expect(result.cardTexts[id as string]).toBeUndefined();
+    }
+    expect(result.cardTexts[result.blackCard.id]).toBeUndefined();
+  });
+
+  it("returns black pick counts instead of black card texts", async () => {
+    const [lobby] = await db.insert(lobbies).values({ code: "PICK", hostUserId: currentUserId }).returning();
+    await db.insert(players).values({
+      userId: currentUserId,
+      lobbyId: lobby.id,
+      name: "Host",
+      isHost: true,
+    });
+    const [other] = await db.insert(users).values({ name: "Player2" }).returning();
+    await db.insert(players).values({
+      userId: other.id,
+      lobbyId: lobby.id,
+      name: "Player2",
+      isHost: false,
+    });
+    await db.insert(whiteCards).values(
+      Array.from({ length: 40 }, (_, i) => ({ text: `White ${i}`, pack: "Base", active: true })),
+    );
+    await db.insert(blackCards).values([
+      { text: "One blank _?", pack: "Base", active: true, pick: 1 },
+      { text: "Two blanks _ and _?", pack: "Base", active: true, pick: 2 },
+    ]);
+
+    const handler = (await import("~/server/api/game/start.post")).default;
+    const result = await handler(
+      mockEvent({ lobbyId: lobby.id, settings: { cardPacks: ["Base"] } }),
+    );
+
+    // nextRound only needs `pick` synchronously — the eligibility loop reads it
+    // for candidates it may skip. Text is resolved per client instead, so the
+    // whole black catalogue's text no longer rides in the Y.Doc.
+    const allBlackIds = [result.blackCard.id, ...result.blackDeck];
+    for (const id of allBlackIds) {
+      expect(typeof result.blackPicks[id as string]).toBe("number");
+    }
+    expect(Object.values(result.blackPicks).sort()).toEqual([1, 2]);
+    expect(result.cardTexts).toEqual({});
+    expect(result.blackCard).not.toHaveProperty("text");
+  });
+
   it("rejects starting with fewer than 2 players", async () => {
     const [lobby] = await db.insert(lobbies).values({ code: "SOLO", hostUserId: currentUserId }).returning();
     await db.insert(players).values({

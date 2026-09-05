@@ -73,3 +73,52 @@ describe("useLobbyMutations.setPlayerReady", () => {
     expect(stub.getPlayers().get("corrupt")).toBe("not-valid-json{{{{");
   });
 });
+
+describe("useLobbyMutations.startGame card payload", () => {
+  const basePayload = {
+    whiteDeck: ["w1", "w2"],
+    blackDeck: ["b2", "b3"],
+    blackCard: { id: "b1", pick: 2 },
+    hands: { "p1": ["w3"] },
+    cardTexts: {},
+    blackPicks: { b1: 2, b2: 1, b3: 3 },
+    playerOrder: ["p1"],
+    judgeId: "p1",
+  };
+
+  it("writes the black pick map into the cards map", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+
+    mutations.startGame(basePayload as any);
+
+    expect(JSON.parse(stub.getCards().get("blackPicks") as string)).toEqual({
+      b1: 2,
+      b2: 1,
+      b3: 3,
+    });
+  });
+
+  it("writes no card-text keys at all", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+
+    mutations.startGame(basePayload as any);
+
+    // No text in the doc means no ~64KB ceiling and no chunking to get wrong.
+    const keys = [...stub.getCards().keys()];
+    expect(keys.filter((k) => k.startsWith("cardTexts"))).toEqual([]);
+  });
+
+  it("stores the opening black card without its text", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+
+    mutations.startGame(basePayload as any);
+
+    const blackCard = JSON.parse(
+      stub.getGameState().get("blackCard") as string,
+    );
+    expect(blackCard).toEqual({ id: "b1", pick: 2 });
+  });
+});

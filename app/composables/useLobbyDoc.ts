@@ -64,7 +64,7 @@ export interface LobbyDocResult {
   getSettings: () => Y.Map<any>;
   /** Y.Map("gameState") — phase, round, judgeId, submissions, scores, etc. */
   getGameState: () => Y.Map<any>;
-  /** Y.Map("cards") — whiteDeck, blackDeck, discardWhite, discardBlack, cardTexts */
+  /** Y.Map("cards") — whiteDeck, blackDeck, discardWhite, discardBlack, blackPicks */
   getCards: () => Y.Map<any>;
   /** Y.Map("hands") — playerId → CardId[] (JSON strings) */
   getHands: () => Y.Map<any>;
