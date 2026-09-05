@@ -3,6 +3,7 @@
 // Runs every 30 minutes in server runtime.
 
 import { pruneStaleLobbies } from "~~/server/utils/pruneLobbies";
+import { reconcileLobbiesFromLiveDocs } from "~~/server/utils/reconcileLobbies";
 
 const SWEEPER_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 const INITIAL_DELAY_MS = 30 * 1000; // 30 seconds after startup
@@ -18,6 +19,15 @@ export default defineNitroPlugin((nitroApp) => {
 
   const runSweep = async () => {
     try {
+      // Correct rows that drifted from the live Y.Docs before deciding what
+      // is stale. /api/lobby/list does this too, but only when someone is
+      // browsing — this is what keeps a lobby nobody looks at from staying
+      // wrong indefinitely, now that the host-tab watchers are gone.
+      const corrected = await reconcileLobbiesFromLiveDocs();
+      if (corrected > 0) {
+        console.log(`[LobbySweeper] Reconciled ${corrected} lobby row(s)`);
+      }
+
       const result = await pruneStaleLobbies();
       if (result.prunedCount > 0) {
         console.log(

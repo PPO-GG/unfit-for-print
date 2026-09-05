@@ -340,14 +340,6 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     });
   };
 
-  // ── Lobby Status ───────────────────────────────────────────────────────
-
-  const setLobbyStatus = (status: "waiting" | "playing" | "complete"): void => {
-    requireDoc().transact(() => {
-      getMeta().set("status", status);
-    });
-  };
-
   return {
     initializeLobby,
     addPlayer,
@@ -355,6 +347,5 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     setPlayerReady,
     updateSettings,
     startGame,
-    setLobbyStatus,
   };
 }

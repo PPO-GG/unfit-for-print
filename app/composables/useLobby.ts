@@ -98,16 +98,6 @@ export const useLobby = () => {
     });
   };
 
-  const updateLobbyIsPrivate = async (
-    lobbyId: string,
-    isPrivate: boolean,
-  ): Promise<void> => {
-    await $activityFetch("/api/lobby/privacy", {
-      method: "POST",
-      body: { lobbyId, isPrivate },
-    });
-  };
-
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
@@ -750,7 +740,6 @@ export const useLobby = () => {
     getLobbyByInstanceId,
     getLobbiesByChannelId,
     updateLobbyPrivacy,
-    updateLobbyIsPrivate,
     leaveLobby,
     isInLobby,
 

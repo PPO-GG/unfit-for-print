@@ -11,7 +11,15 @@
 // Deriving the corrections server-side from Teleportal's own view of the live
 // docs removes that dependency on one particular player's session.
 
+import { eq } from "drizzle-orm";
+import { useDb } from "../db/client";
+import { lobbies } from "../db/schema";
+import { getTeleportalHttpUrl } from "./teleportal";
+
 const LOBBY_STATUSES = ["waiting", "playing", "complete"] as const;
+
+/** Teleportal is a side service; never let it hold up a request. */
+const SUMMARY_TIMEOUT_MS = 2000;
 type LobbyStatus = (typeof LOBBY_STATUSES)[number];
 
 /** One lobby as reported by Teleportal's /lobbies/summary. */
@@ -94,4 +102,62 @@ export function planLobbyReconciliation(
   }
 
   return plan;
+}
+
+/**
+ * Pulls authoritative lobby state out of the live Y.Docs and writes back
+ * anything Postgres has wrong.
+ *
+ * Callers: /api/lobby/list (so the browser filters on current data) and the
+ * lobby sweeper (so rows are corrected even when nobody is browsing). Both
+ * matter — reconciling only on read would mean a lobby nobody looks at stays
+ * wrong indefinitely.
+ *
+ * Fails open: a slightly stale row beats an error because a side service is
+ * down.
+ *
+ * @returns how many lobby rows were corrected
+ */
+export async function reconcileLobbiesFromLiveDocs(): Promise<number> {
+  const db = useDb();
+
+  let live: LiveLobbySummary[] = [];
+  try {
+    const summary = await $fetch<{ lobbies?: LiveLobbySummary[] }>(
+      `${getTeleportalHttpUrl()}/lobbies/summary`,
+      { timeout: SUMMARY_TIMEOUT_MS },
+    );
+    live = summary?.lobbies ?? [];
+  } catch (err: any) {
+    console.warn(
+      "[reconcileLobbies] Could not reach Teleportal:",
+      err?.message || err,
+    );
+    return 0;
+  }
+  if (live.length === 0) return 0;
+
+  const rows = await db
+    .select({
+      id: lobbies.id,
+      code: lobbies.code,
+      status: lobbies.status,
+      lobbyName: lobbies.lobbyName,
+      isPrivate: lobbies.isPrivate,
+    })
+    .from(lobbies);
+
+  let corrected = 0;
+  for (const { id, updates } of planLobbyReconciliation(rows, live)) {
+    try {
+      await db.update(lobbies).set(updates).where(eq(lobbies.id, id));
+      corrected++;
+    } catch (err: any) {
+      console.warn(
+        `[reconcileLobbies] Failed to update lobby ${id}:`,
+        err?.message || err,
+      );
+    }
+  }
+  return corrected;
 }

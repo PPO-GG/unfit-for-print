@@ -50,7 +50,6 @@ const {
   reactive,
   engine,
   mutations,
-  updateLobbyIsPrivate,
 } = useLobby();
 const { initializeGamePageSession } = useJoinLobby();
 
@@ -110,50 +109,11 @@ watch(
   { immediate: true },
 );
 
-// ─── Sync Y.Doc status → Postgres (host only) ──────────────────────────────
-// When the Y.Doc meta.status changes (game complete, reset to waiting), the
-// host writes the new value back to the lobby row so that discovery queries
-// (getActiveLobbyForUser, browse games) stay accurate.
-watch(
-  () => reactive.meta.value?.status,
-  async (newStatus, oldStatus) => {
-    if (!newStatus || newStatus === oldStatus) return;
-    if (!isHost.value || !lobby.value?.id) return;
-
-    // Only sync actionable transitions — "playing" is handled by start.post.ts
-    if (newStatus === "complete" || newStatus === "waiting") {
-      try {
-        await nuxtApp.$activityFetch("/api/lobby/status", {
-          method: "POST",
-          body: { lobbyId: lobby.value.id, status: newStatus },
-        });
-      } catch (err) {
-        // Non-critical — the Y.Doc is the authority.
-        // If this fails, the lobby row is stale but gameplay is unaffected.
-        console.warn("[GamePage] Failed to sync status to server:", err);
-      }
-    }
-  },
-);
-
-// ─── Sync Y.Doc isPrivate → Postgres (host only) ───────────────────────────
-// The "Private Lobby" toggle lives in the Y.Doc settings; mirror it into the
-// lobby row so /api/lobby/list (which only reads Postgres) can exclude
-// private lobbies from the public browser.
-watch(
-  () => reactive.settings.value?.isPrivate,
-  async (newValue, oldValue) => {
-    if (newValue === undefined || newValue === oldValue) return;
-    if (!isHost.value || !lobby.value?.id) return;
-
-    try {
-      await updateLobbyIsPrivate(lobby.value.id, newValue);
-    } catch (err) {
-      // Non-critical — the Y.Doc is the authority for gameplay.
-      console.warn("[GamePage] Failed to sync isPrivate to server:", err);
-    }
-  },
-);
+// The Y.Doc status and isPrivate mirrors that used to live here are gone.
+// They only ran in the HOST's browser tab, so a host closing their tab left
+// the lobby row stale until the sweeper caught it. Both are now derived
+// server-side from the live docs — see server/utils/reconcileLobbies.ts,
+// called by /api/lobby/list and the lobby sweeper.
 
 // ─── Dynamic Favicon ──────────────────────────────────────────────────────
 useDynamicFavicon({

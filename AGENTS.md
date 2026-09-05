@@ -76,7 +76,7 @@ Consequence: **game mutations must go through Yjs, not new API routes.** The onl
 | `useLobbyReactive.ts` | Observes Y.Maps and exposes Vue refs. Values are stored as **JSON strings** in Y.Maps and parsed here. |
 | `useCardTexts.ts` | Per-client card-text resolution: batch-fetches the white and black texts this client displays from `/api/cards/resolve` and caches them locally. Never writes back to the doc. |
 | `useYjsGameEngine.ts` | The game rules. Each action reads state → validates phase/actor → mutates inside `doc.transact()`. Public API: `playCard`, `revealCard`, `selectWinner`, `nextRound`, `skipPlayer`, `skipJudge`, `setReadAloud`, `convertToPlayer`, `resetGame`, `markReturnedToLobby`, `handlePlayerLeave`, `replenishWhiteDeck`, `drawCards`. |
-| `useLobbyMutations.ts` | Lobby-level Y.Doc writes: `initializeLobby`, `addPlayer`, `removePlayer`, `setPlayerReady`, `updateSettings`, `startGame`, `setLobbyStatus`. |
+| `useLobbyMutations.ts` | Lobby-level Y.Doc writes: `initializeLobby`, `addPlayer`, `removePlayer`, `setPlayerReady`, `updateSettings`, `startGame`. (Lobby status is written by the engine directly — `getMeta().set("status", …)` at three sites.) |
 | `useLobby.ts` | Composes all of the above + Postgres-backed lobby discovery. The façade most UI uses. |
 
 Game phases (`app/types/game.d.ts`): `waiting → submitting → submitting-complete → judging → roundEnd → complete`.
