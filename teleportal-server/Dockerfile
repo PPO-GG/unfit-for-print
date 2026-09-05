@@ -29,6 +29,11 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
+# The server itself falls back to 1235 when PORT is unset, which would leave
+# the container listening on a port nothing is mapped to while still looking
+# healthy. Default it to the port we EXPOSE; compose can still override it.
+ENV PORT=3000
+
 # Expose default port
 EXPOSE 3000
 
