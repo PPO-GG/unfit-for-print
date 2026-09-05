@@ -7,7 +7,7 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
   // /api/dev/seed is admin-gated server-side via requireAdmin (which calls
   // requireAuth, reading the session cookie automatically sent with
   // same-origin requests) — no manual Authorization header needed. The old
-  // Appwrite Bearer/x-appwrite-user-id headers are dropped; sending a bogus
+  // Auth headers are dropped; sending a bogus
   // `Authorization: Bearer undefined` would incorrectly route through
   // requireAuth's activity-token branch and break admin auth entirely.
   // Uses $activityFetch (same as other admin composables, e.g. CardManager.vue)

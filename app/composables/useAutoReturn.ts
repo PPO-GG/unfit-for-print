@@ -11,7 +11,7 @@ import { useI18n } from "vue-i18n";
  * Manages auto-return-to-lobby logic after a game completes.
  * Handles the 60-second countdown and the "Continue" action for individual players.
  *
- * Uses Y.Doc game engine mutations instead of Appwrite CRUD.
+ * Uses Y.Doc game engine mutations.
  */
 export function useAutoReturn(options: {
   state: ComputedRef<GameState | null>;
@@ -70,7 +70,7 @@ export function useAutoReturn(options: {
           !hasReturnedToLobby.value &&
           myId.value
         ) {
-          // Mark player as returned via Y.Doc mutation (no Appwrite call)
+          // Mark player as returned via Y.Doc mutation
           engine.markReturnedToLobby(myId.value);
 
           // Host resets the lobby so everyone transitions back to the waiting room
@@ -112,7 +112,7 @@ export function useAutoReturn(options: {
     if (!lobbyRef.value || !myId.value) return;
 
     try {
-      // Mark player as returned via Y.Doc mutation (no Appwrite call)
+      // Mark player as returned via Y.Doc mutation
       engine.markReturnedToLobby(myId.value);
 
       // Host resets the lobby so everyone transitions back to the waiting room.

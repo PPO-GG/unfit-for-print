@@ -58,7 +58,7 @@ const { initializeGamePageSession } = useJoinLobby();
 const { isDiscordActivity } = useDiscordSDK();
 
 // ─── Reactive State from Y.Doc ──────────────────────────────────────────────
-// All game state is derived from useLobbyReactive() — no Appwrite subscriptions.
+// All game state is derived from useLobbyReactive().
 const {
   isPlaying,
   isWaiting,
@@ -443,8 +443,8 @@ onMounted(async () => {
     }
 
     // ── Session-persisted rejoin fast-path ───────────────────────────
-    // On page refresh, anonymous users may get a NEW Appwrite session (new
-    // $id), so Y.Doc and Appwrite checks against the new ID fail.
+    // On page refresh, anonymous users may get a NEW session (new
+    // $id), so Y.Doc and session checks against the new ID fail.
     // sessionStorage survives refreshes within the same tab and lets us
     // know the user was previously in this exact game.
     const wasInThisGame =
@@ -480,7 +480,7 @@ onMounted(async () => {
           return router.replace(`/game/${activeLobby.code}`);
         }
 
-        // Final fallback: Appwrite player doc check for this lobby
+        // Final fallback: player record check for this lobby
         const stillInLobby = fetchedLobby
           ? await isInLobby(user.id, fetchedLobby.id)
           : false;
@@ -493,7 +493,7 @@ onMounted(async () => {
 
       // Re-add to Y.Doc if confirmed in game but missing from players map
       // (happens after HMR reload or page refresh when the Y.Doc player
-      // entry was lost but the Appwrite/sessionStorage record persists)
+      // entry was lost but the session record persists)
       if (!inYDoc && lobbyDoc.doc.value) {
         try {
           const meta = lobbyDoc.getMeta();

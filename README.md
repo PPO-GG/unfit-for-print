@@ -5,7 +5,7 @@
 
 **A party game for hideous people.**
 
-[![Appwrite](https://img.shields.io/badge/Appwrite-%23FD366E.svg?style=flat&logo=appwrite&logoColor=white)](https://appwrite.io)
+
 [![Build](https://img.shields.io/github/actions/workflow/status/PPO-GG/unfit-for-print/release.yml)](https://github.com/PPO-GG/unfit-for-print/actions)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Version](https://img.shields.io/github/package-json/v/PPO-GG/unfit-for-print/main)](https://github.com/PPO-GG/unfit-for-print/releases)
@@ -52,7 +52,7 @@ New to the game? Check out the [About page](https://unfit.cards/about) for a ful
 | Framework | Nuxt 4 + Vue 3 Composition API                 |
 | UI        | Nuxt UI v4, Tailwind CSS 4                     |
 | Real-time | Yjs CRDTs + custom Teleportal WebSocket server |
-| Backend   | Appwrite (self-hosted) + Nitro server routes   |
+| Backend   | Nitro server routes + Database   |
 | Auth      | Discord OAuth2 + anonymous sessions            |
 | Hosting   | Cloudflare Workers                             |
 | i18n      | @nuxtjs/i18n (9 locales)                       |

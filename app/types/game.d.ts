@@ -1,5 +1,5 @@
-export type PlayerId = string; // Appwrite user ID
-export type CardId = string; // Appwrite card document ID
+export type PlayerId = string;
+export type CardId = string;
 
 // Core game state stored in the lobby document
 export interface GameState {

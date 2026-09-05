@@ -70,7 +70,7 @@ export function useBots(
 
   // ─── Y.Doc Integration ──────────────────────────────────────────────
   // Bots are written to Y.Doc (the source of truth for real-time state)
-  // in addition to Appwrite/Postgres (for server-side auth/validation).
+  // in addition to the database (for server-side auth/validation).
   const lobbyDoc = useLobbyDoc();
   const mutations = useLobbyMutations(lobbyDoc);
 
@@ -100,7 +100,7 @@ export function useBots(
     return botPlayers.value.length < MAX_BOTS;
   });
 
-  // Read game state from Y.Doc reactive bridge (not Appwrite).
+  // Read game state from Y.Doc reactive bridge.
   const gameState = computed<GameState | null>(
     () => reactive.gameState.value ?? null,
   );
