@@ -136,6 +136,7 @@ function onClick(e: MouseEvent) {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
+  background-image: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.12) 0 8px, transparent 8px 18px);
 }
 
 .menu-tile__icon {

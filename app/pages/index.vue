@@ -220,7 +220,7 @@
               accent="primary"
               icon="i-lucide-gamepad-2"
               :label="t('nav.creategame')"
-              description="Start a fresh lobby"
+              :description="createGameDescription"
               shortcut="N"
               :loading="isCreating"
               :disabled="!isAuthenticatedUser(userStore.user)"
@@ -381,6 +381,10 @@ const userMenuRef = ref<HTMLElement | null>(null);
 onClickOutside(userMenuRef, () => {
   userMenuOpen.value = false;
 });
+
+const createGameDescription = computed(() =>
+  isAuthenticatedUser(userStore.user) ? "Start a fresh lobby" : "Log in to host a lobby",
+);
 
 const avatarUrl = computed(() => {
   const user = userStore.user;
