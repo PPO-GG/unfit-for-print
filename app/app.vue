@@ -79,6 +79,9 @@ watch(
 // ─── Background Music Autoplay & First-Interaction Trigger ──────────
 if (import.meta.client) {
   const startMusic = () => {
+    // Autoplay stays off in dev — nobody wants the playlist kicking in on
+    // every HMR reload. Music can still be started manually from settings.
+    if (isDev) return;
     if (!music.isPlaying.value) {
       music.play().catch(() => {
         // Ignored: browser may still be initializing or blocking
@@ -117,22 +120,24 @@ if (import.meta.client) {
   };
 
   onMounted(() => {
-    // 1. Attempt immediate playback (works if browser/MEI allows unmuted autoplay)
-    startMusic();
+    if (!isDev) {
+      // 1. Attempt immediate playback (works if browser/MEI allows unmuted autoplay)
+      startMusic();
 
-    // 2. Fallback: trigger on first click, tap, or keystroke
-    window.addEventListener("pointerdown", onFirstUserInteraction, {
-      once: true,
-      passive: true,
-    });
-    window.addEventListener("keydown", onFirstUserInteraction, {
-      once: true,
-      passive: true,
-    });
-    window.addEventListener("touchstart", onFirstUserInteraction, {
-      once: true,
-      passive: true,
-    });
+      // 2. Fallback: trigger on first click, tap, or keystroke
+      window.addEventListener("pointerdown", onFirstUserInteraction, {
+        once: true,
+        passive: true,
+      });
+      window.addEventListener("keydown", onFirstUserInteraction, {
+        once: true,
+        passive: true,
+      });
+      window.addEventListener("touchstart", onFirstUserInteraction, {
+        once: true,
+        passive: true,
+      });
+    }
 
     // 3. Global ESC handler for settings
     window.addEventListener("keydown", handleGlobalEsc);
