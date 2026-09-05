@@ -58,6 +58,7 @@
   "game.first_to": "First to",
   "game.locked": "Locked",
   "game.picking": "Picking",
+  "game.round": "Round",
   "game.round_end": "Round End",
   "game.round_over": "Round Over",
   "game.round_won_other": "{name} won this round!",
@@ -115,7 +116,7 @@
   "games.hero_table": "table",
   "games.hero_make_new": "make new",
   "games.hero_friends": "friends",
-  "games.hero_subtitle": "Every table below is public and open right now. Jump in mid-deal — no invite required, no download, your cat can watch.",
+  "games.hero_subtitle": "Find open seats, make new friends (or enemies)",
   "games.live": "Live",
   "games.chip_playing": "playing",
   "games.chip_open": "open tables",
@@ -236,17 +237,5 @@
   "profile.settings_music_error": "Couldn't load music",
   "profile.settings_music_error_desc": "The background music player failed to load. It may be blocked by an ad blocker or browser extension.",
   "tagline": "A PARTY GAME FOR HIDEOUS PEOPLE",
-  "try_me": "Try Me!",
-  "footer": {
-    "copyright": "All Rights Reserved."
-  },
-  "game": {
-    "round": "Round"
-  },
-  "profile": {
-    "settings_language_desc": "Change the interface language (does not change the card content)"
-  },
-  "games": {
-    "hero_subtitle": "Find open seats, make new friends (or enemies)"
-  }
+  "try_me": "Try Me!"
 }
