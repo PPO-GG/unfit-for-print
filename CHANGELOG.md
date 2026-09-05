@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.18.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.17.1...v3.18.0) (2026-09-05)
+
+
+### ✨ Features
+
+* **web:** lobby improvements — app settings access, chat SFX, autosave ([cc1f92f](https://github.com/PPO-GG/unfit-for-print/commit/cc1f92fa87e1beaf696b832844f22c919059d6b6))
+* **web:** rebuild the game browser with live stats and sorting ([801bf7b](https://github.com/PPO-GG/unfit-for-print/commit/801bf7bcf63dffef9e2415538c940cc9c46e1675))
+
+
+### 🐛 Bug Fixes
+
+* **i18n:** flatten en.json and drop keys shadowed by nested blocks ([ee6e045](https://github.com/PPO-GG/unfit-for-print/commit/ee6e045e0f88f06e8c57c6033863e19566ba7f32))
+* **server:** default PORT to 3000 in the teleportal image ([c56550e](https://github.com/PPO-GG/unfit-for-print/commit/c56550e336eb31bb7bc2c3cb57e34f2d9fcdccd8))
+* **server:** prune completed lobbies after 1 hour instead of 24 ([fb72843](https://github.com/PPO-GG/unfit-for-print/commit/fb72843453ec1bd4a02915c8496120b1ae78789a))
+* **server:** reconcile lobby rows server-side instead of from the host's tab ([628283d](https://github.com/PPO-GG/unfit-for-print/commit/628283df662f8f77e205db7142561c18f9863fb8))
+* **web:** explain why the create-game tile is disabled ([ce1bc30](https://github.com/PPO-GG/unfit-for-print/commit/ce1bc30338aa0592800af7061828c648e2a5f7d9))
+* **web:** fit the lobby room to the viewport and size seats to the party ([68e2088](https://github.com/PPO-GG/unfit-for-print/commit/68e2088a5d37983642fa065df8f28d9598241eb4))
+* **web:** persist login session across browser restarts ([e0e89ea](https://github.com/PPO-GG/unfit-for-print/commit/e0e89ea4ca9e6b634d038e06f630f7260f6be046))
+* **web:** resolve card texts per client instead of replicating them in the Y.Doc ([a7a2410](https://github.com/PPO-GG/unfit-for-print/commit/a7a24109528fc6a9ca130f04f2f09402f2f2fd1c))
+* **web:** stop background music autoplaying in dev ([e78339c](https://github.com/PPO-GG/unfit-for-print/commit/e78339c5bc87ed43dd53487ae8cc990fc9524011))
+* **web:** stop the hand's hover and selection animations fighting themselves ([17d585a](https://github.com/PPO-GG/unfit-for-print/commit/17d585abf39726177f2eae58a2b12560ae707657))
+
+
+### ♻️ Refactors
+
+* **server:** remove the unreachable POST /api/lobby/status route ([d65406f](https://github.com/PPO-GG/unfit-for-print/commit/d65406ff593769a005102defdaa65a5aff2a22c7))
+* **web:** drop the host-tab lobby mirrors now that the server reconciles ([009c0bd](https://github.com/PPO-GG/unfit-for-print/commit/009c0bdc7042ea7f5810e09846f221e246640f8c))
+* **web:** render the admin lobby monitor as a sortable table ([3d142ab](https://github.com/PPO-GG/unfit-for-print/commit/3d142ab204ce23a93f1f22023266da337d77bc04))
+* **web:** scrub leftover Appwrite references ([ba2d51a](https://github.com/PPO-GG/unfit-for-print/commit/ba2d51a979e7819132c2d3c50836abc1754a7e7c))
+
+
+### 📖 Documentation
+
+* **web:** resync AGENTS.md with the current architecture ([b6c1227](https://github.com/PPO-GG/unfit-for-print/commit/b6c1227535bbc4a9d8864f362cf2e0100f0a5e04))
+
 ## [3.17.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.17.0...v3.17.1) (2026-08-31)
 
 
