@@ -31,7 +31,7 @@ import type { LobbySettings } from "~/composables/useLobbyReactive";
 const props = defineProps<{ settings: LobbySettings | null }>();
 defineEmits<{ (e: "edit"): void }>();
 
-const requirePassword = computed(() => !!(props.settings?.password && props.settings.password.length > 0));
+const requirePassword = computed(() => !!props.settings?.hasPassword);
 </script>
 
 <style scoped>

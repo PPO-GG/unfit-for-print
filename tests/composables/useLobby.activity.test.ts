@@ -134,4 +134,68 @@ describe("useLobby Activity reconnect", () => {
     );
     expect(result.player).toEqual({ id: "player-1" });
   });
+
+  // The Y.Doc is authoritative for gameplay, so being written into it IS being
+  // in the game — with or without a Postgres row. The server call therefore has
+  // to clear BEFORE the doc is touched, or a refused join (wrong lobby password)
+  // walks straight past the check.
+  it("does not add a refused joiner to the Y.Doc, and surfaces the refusal", async () => {
+    const userStore = useUserStore();
+    userStore.setActivityUser({
+      id: "6ac4a08e-0000-4000-8000-000000000001",
+      name: "DiscordPlayer",
+      avatarUrl: null,
+      discordUserId: "discord-user",
+    });
+
+    activityState.activityFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/api/lobby/by-code/")) {
+        return { id: "lobby-1", code: "ABC123", hasPassword: true };
+      }
+      if (url === "/api/lobby/join") {
+        throw Object.assign(new Error("Incorrect lobby password"), {
+          statusCode: 403,
+        });
+      }
+      return null;
+    });
+
+    await expect(
+      useLobby().joinLobby("ABC123", {
+        username: "DiscordPlayer",
+        password: "wrong",
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    expect(activityState.addPlayer).not.toHaveBeenCalled();
+  });
+
+  // A blip reaching the registry must stay non-fatal: the doc is what the game
+  // runs on, and lobby rows get reconciled later.
+  it("still seats the player when the registry call fails for a non-refusal reason", async () => {
+    const userStore = useUserStore();
+    userStore.setActivityUser({
+      id: "6ac4a08e-0000-4000-8000-000000000001",
+      name: "DiscordPlayer",
+      avatarUrl: null,
+      discordUserId: "discord-user",
+    });
+
+    activityState.activityFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/api/lobby/by-code/")) {
+        return { id: "lobby-1", code: "ABC123" };
+      }
+      if (url === "/api/lobby/join") {
+        throw Object.assign(new Error("gateway timeout"), { statusCode: 504 });
+      }
+      return null;
+    });
+
+    const result = await useLobby().joinLobby("ABC123", {
+      username: "DiscordPlayer",
+    });
+
+    expect(activityState.addPlayer).toHaveBeenCalled();
+    expect(result.player).toBeNull();
+  });
 });

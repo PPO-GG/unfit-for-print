@@ -57,6 +57,31 @@
           />
         </div>
 
+        <!--
+          Only appears once the entered code resolves to a lobby the server says
+          is protected. `hasPassword` is a boolean from /api/lobby/by-code — the
+          password itself never leaves the server.
+        -->
+        <div
+          v-if="requiresPassword && status === 'entering'"
+          class="join-username"
+        >
+          <label class="join-label" for="join-password-input">
+            {{ t("modal.join_password") }}
+          </label>
+          <input
+            id="join-password-input"
+            ref="passwordRef"
+            v-model="password"
+            type="password"
+            maxlength="128"
+            autocomplete="off"
+            class="join-username-input"
+            @keydown.stop
+            @keydown.enter.prevent="cardRef?.focus()"
+          />
+        </div>
+
         <div class="flex justify-center gap-3 mt-6">
           <div
             v-for="i in 4"
@@ -168,15 +193,44 @@ const status = ref<Status>("entering");
 const code = ref<string[]>(["", "", "", ""]);
 const caretIndex = ref(0);
 const username = ref("");
+const password = ref("");
+const requiresPassword = ref(false);
 const errorMessage = ref("");
 const cardRef = ref<HTMLElement | null>(null);
 const usernameRef = ref<HTMLInputElement | null>(null);
+const passwordRef = ref<HTMLInputElement | null>(null);
 
 const fullCode = computed(() => code.value.join(""));
 const needsUsername = computed(() => requiresJoinUsername(userStore.user));
 const canJoin = computed(
-  () => fullCode.value.length === 4 && (!needsUsername.value || !!username.value.trim()),
+  () =>
+    fullCode.value.length === 4 &&
+    (!needsUsername.value || !!username.value.trim()) &&
+    (!requiresPassword.value || !!password.value),
 );
+
+// Ask the server whether this code needs a password as soon as one is fully
+// entered, so the field appears before the player commits rather than after a
+// rejection. A lookup failure leaves the field hidden and the join attempt
+// itself still refuses — the server is the gate either way.
+watch(fullCode, async (code) => {
+  if (code.length !== 4) {
+    requiresPassword.value = false;
+    return;
+  }
+  try {
+    const lobby = await $fetch<{ hasPassword?: boolean } | null>(
+      `/api/lobby/by-code/${code}`,
+    );
+    requiresPassword.value = !!lobby?.hasPassword;
+    if (requiresPassword.value) {
+      await nextTick();
+      passwordRef.value?.focus();
+    }
+  } catch {
+    requiresPassword.value = false;
+  }
+});
 
 function resetCode() {
   status.value = "entering";
@@ -191,6 +245,8 @@ watch(
     if (!isOpen) return;
     resetCode();
     username.value = "";
+    password.value = "";
+    requiresPassword.value = false;
     await initSessionIfNeeded();
     await nextTick();
     if (needsUsername.value) {
@@ -229,6 +285,7 @@ async function attemptJoin() {
     fullCode.value,
     (msg) => (errorMessage.value = msg),
     () => {},
+    password.value || undefined,
   );
 
   if (ok) {

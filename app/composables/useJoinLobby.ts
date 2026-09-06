@@ -46,6 +46,7 @@ export const useJoinLobby = () => {
     lobbyCode: string,
     setError?: (message: string) => void,
     setJoining?: (state: boolean) => void,
+    password?: string,
   ): Promise<boolean> => {
     try {
       setError?.("");
@@ -85,7 +86,7 @@ export const useJoinLobby = () => {
       // longer pre-checked client-side (that required a direct Appwrite
       // query against the players collection); /api/lobby/join currently
       // allows duplicate names within a lobby.
-      const result = await joinLobby(code, { username });
+      const result = await joinLobby(code, { username, password });
 
       // Capture your newly created player row's id
       if (result.player) userStore.playerDocId = result.player.id;
@@ -94,6 +95,13 @@ export const useJoinLobby = () => {
       await router.push(`/game/${lobby.code}`);
       return true;
     } catch (err: any) {
+      const status = err?.statusCode ?? err?.response?.status ?? 0;
+      if (status === 403) {
+        // The server refused the password. Deliberately one message for both
+        // "missing" and "wrong", matching the route.
+        setError?.(t("modal.error_join_wrong_password"));
+        return false;
+      }
       console.error("Join error:", err);
       setError?.(err.message || "Something went wrong while joining.");
     } finally {

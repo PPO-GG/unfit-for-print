@@ -210,7 +210,11 @@ export interface LobbySettings {
   maxPoints: number;
   cardsPerPlayer: number;
   maxPick: number;
-  password?: string;
+  /**
+   * Whether a join password is required. The password itself is never in the
+   * doc — it lives hashed in Postgres and is checked by /api/lobby/join.
+   */
+  hasPassword?: boolean;
   cardPacks: string[];
   isPrivate: boolean;
   lobbyName: string;
@@ -223,7 +227,7 @@ function parseSettings(raw: Record<string, any>): LobbySettings {
     maxPoints: raw.maxPoints ?? 10,
     cardsPerPlayer: raw.cardsPerPlayer ?? 10,
     maxPick: raw.maxPick ?? 3,
-    password: raw.password ?? undefined,
+    hasPassword: safeParseJson(raw.hasPassword, false),
     cardPacks: safeParseJson(raw.cardPacks, []),
     isPrivate: raw.isPrivate ?? false,
     lobbyName: raw.lobbyName ?? "",

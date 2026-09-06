@@ -31,7 +31,13 @@ export interface LobbyInitPayload {
     lobbyName: string;
     roundEndCountdownDuration?: number;
     manualDraw?: boolean;
-    password?: string;
+    /**
+     * Whether a join password is required. The password ITSELF is never in the
+     * Y.Doc — it used to be, in plaintext, broadcast to every client. It now
+     * lives hashed in Postgres via POST /api/lobby/password; this flag exists
+     * only so the UI can show the lock.
+     */
+    hasPassword?: boolean;
   };
 }
 
@@ -112,9 +118,10 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
         payload.settings.roundEndCountdownDuration ?? 5,
       );
       settings.set("manualDraw", payload.settings.manualDraw ?? false);
-      if (payload.settings.password !== undefined) {
-        settings.set("password", payload.settings.password);
-      }
+      settings.set(
+        "hasPassword",
+        JSON.stringify(payload.settings.hasPassword ?? false),
+      );
 
       // Game state — blank until game starts
       const gameState = getGameState();
@@ -257,8 +264,9 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       }
       if (updates.manualDraw !== undefined)
         settings.set("manualDraw", updates.manualDraw);
-      if (updates.password !== undefined)
-        settings.set("password", updates.password);
+      // Only the flag, never the secret — see LobbyInitPayload.settings.
+      if (updates.hasPassword !== undefined)
+        settings.set("hasPassword", JSON.stringify(updates.hasPassword));
     });
   };
 

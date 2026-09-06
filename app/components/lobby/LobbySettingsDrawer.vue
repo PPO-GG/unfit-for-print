@@ -222,6 +222,8 @@ const props = defineProps<{
   open: boolean;
   settings: LobbySettings | null;
   isHost: boolean;
+  /** Postgres lobby id — the password lives there, not in the Y.Doc. */
+  lobbyId: string;
 }>();
 
 defineEmits<{ (e: "close"): void }>();
@@ -288,14 +290,33 @@ const writeLobbyName = useDebouncedWrite(
   (v: string) => mutations.updateSettings({ lobbyName: v }),
   300,
 );
-const writePassword = useDebouncedWrite(
-  (v: string) => mutations.updateSettings({ password: v }),
-  300,
-);
+/**
+ * Sends the password to the server, hashed on arrival, and mirrors only a
+ * boolean into the doc. It used to write the password itself into Y.Doc
+ * settings, which broadcast it in plaintext to everyone in the lobby.
+ */
+async function persistPassword(v: string) {
+  if (!props.isHost) return;
+  try {
+    await $fetch("/api/lobby/password", {
+      method: "POST",
+      body: { lobbyId: props.lobbyId, password: v },
+    });
+    mutations.updateSettings({ hasPassword: v.length > 0 });
+  } catch {
+    notify({ title: t("game.settings.update_failed"), color: "error" });
+  }
+}
+
+const writePassword = useDebouncedWrite((v: string) => {
+  void persistPassword(v);
+}, 300);
 
 // Locally bound values for text inputs, synced from props when settings update.
 const lobbyNameLocal = ref(props.settings?.lobbyName ?? "");
-const passwordLocal = ref(props.settings?.password ?? "");
+// Write-only: the password is never sent back to clients, so this starts blank
+// and an empty box means "unchanged", not "no password".
+const passwordLocal = ref("");
 
 watch(
   () => props.settings?.lobbyName,
@@ -303,32 +324,25 @@ watch(
     if (v !== undefined && v !== lobbyNameLocal.value) lobbyNameLocal.value = v;
   },
 );
-watch(
-  () => props.settings?.password,
-  (v) => {
-    if (v !== undefined && v !== passwordLocal.value) passwordLocal.value = v;
-  },
-);
+
 
 // Track the "require password" intent locally.
-// The persisted state is just `password?: string` — truthy means required.
+// The persisted state is just the `hasPassword` flag; the secret is server-side.
 // We need a local ref so that toggling ON reveals the input even before the user types.
 const requirePasswordLocal = ref(false);
 
 // Initialize from current settings when they arrive / change
 watch(
-  () => props.settings?.password,
-  (pw) => {
-    if (pw && pw.length > 0) requirePasswordLocal.value = true;
+  () => props.settings?.hasPassword,
+  (has) => {
+    if (has) requirePasswordLocal.value = true;
   },
   { immediate: true },
 );
 
 // Computed for the UI — true if either the local toggle is on, or a non-empty password exists.
 const requirePassword = computed(
-  () =>
-    requirePasswordLocal.value ||
-    !!(props.settings?.password && props.settings.password.length > 0),
+  () => requirePasswordLocal.value || !!props.settings?.hasPassword,
 );
 
 function update(key: string, value: unknown) {
@@ -340,8 +354,8 @@ function toggleRequirePassword() {
   const next = !requirePassword.value;
   requirePasswordLocal.value = next;
   if (!next) {
-    // When unchecked, clear the persisted password
-    mutations.updateSettings({ password: "" });
+    // Unchecking clears the stored hash, not just the flag.
+    void persistPassword("");
     passwordLocal.value = "";
   }
   // When checked, don't write anything to the doc until user types in the input

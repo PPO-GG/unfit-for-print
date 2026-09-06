@@ -168,9 +168,24 @@ export const useLobby = () => {
         isPrivate: isPrivate || false,
         lobbyName: displayName,
         roundEndCountdownDuration: 5,
-        password: _password || undefined,
+        hasPassword: !!_password,
       },
     });
+
+    // The password goes to Postgres hashed, never into the Y.Doc. Done after
+    // initializeLobby so a failure here leaves an open lobby rather than one
+    // whose doc claims protection the server cannot enforce.
+    if (_password) {
+      try {
+        await $activityFetch("/api/lobby/password", {
+          method: "POST",
+          body: { lobbyId: lobby.id, password: _password },
+        });
+      } catch (err) {
+        console.warn("[useLobby] Failed to set lobby password:", err);
+        mutations.updateSettings({ hasPassword: false });
+      }
+    }
 
     return { ...lobby };
   };
@@ -184,7 +199,12 @@ export const useLobby = () => {
 
   const joinLobby = async (
     code: string,
-    options?: { username?: string; isHost?: boolean; skipSession?: boolean },
+    options?: {
+      username?: string;
+      isHost?: boolean;
+      skipSession?: boolean;
+      password?: string;
+    },
   ) => {
     const { isDiscordActivity } = useDiscordSDK();
     const isActivitySession = isDiscordActivity.value && !!userStore.user;
@@ -217,6 +237,43 @@ export const useLobby = () => {
     const existingPlayer = lobbyDoc.getPlayers().get(enrichedUser.id);
     const avatarUrl = enrichedUser.avatarUrl ?? null;
 
+    // Server-side player row so requirePlayerInLobby/requireHost can find
+    // this player. Always called (not just when the Y.Doc lacked the
+    // player) — the route is idempotent (returns the existing row rather
+    // than erroring/duplicating), and this guarantees `serverPlayer` is
+    // populated even on a rejoin/refresh where the Y.Doc already had this
+    // player locally but the caller still needs the player row's id.
+    //
+    // This runs BEFORE the Y.Doc write on purpose: the server holds the
+    // password hash, so it is the gate. Adding the player to the doc first
+    // would let a refused join in anyway — the doc is authoritative for
+    // gameplay, so being in it is being in the game, server row or not.
+    let serverPlayer: { id: string; [key: string]: any } | null = null;
+    try {
+      const joinResult = await $activityFetch<{
+        lobby: Lobby;
+        player: { id: string; [key: string]: any };
+      }>("/api/lobby/join", {
+        method: "POST",
+        body: {
+          code,
+          playerName: username,
+          avatar: avatarUrl || "",
+          playerType,
+          password: options?.password,
+        },
+      });
+      serverPlayer = joinResult?.player ?? null;
+    } catch (err) {
+      // A refusal has to stop the join. Everything else stays non-fatal as it
+      // was — a blip reaching the registry shouldn't keep someone out of a
+      // lobby the doc will happily run without a Postgres row.
+      const status =
+        (err as any)?.statusCode ?? (err as any)?.response?.status ?? 0;
+      if (status === 403) throw err;
+      console.warn("[useLobby] Failed to create player row:", err);
+    }
+
     if (!existingPlayer) {
       const activeDecoration = enrichedUser.activeDecoration || "";
 
@@ -230,31 +287,6 @@ export const useLobby = () => {
         playerType,
         activeDecoration,
       });
-    }
-
-    // Server-side player row so requirePlayerInLobby/requireHost can find
-    // this player. Always called (not just when the Y.Doc lacked the
-    // player) — the route is idempotent (returns the existing row rather
-    // than erroring/duplicating), and this guarantees `serverPlayer` is
-    // populated even on a rejoin/refresh where the Y.Doc already had this
-    // player locally but the caller still needs the player row's id.
-    let serverPlayer: { id: string; [key: string]: any } | null = null;
-    try {
-      const joinResult = await $activityFetch<{
-        lobby: Lobby;
-        player: { id: string; [key: string]: any };
-      }>("/api/lobby/join", {
-        method: "POST",
-        body: {
-          code,
-          playerName: username,
-          avatar: avatarUrl || "",
-          playerType,
-        },
-      });
-      serverPlayer = joinResult?.player ?? null;
-    } catch (err) {
-      console.warn("[useLobby] Failed to create player row:", err);
     }
 
     return { ...lobby, player: serverPlayer };

@@ -64,6 +64,7 @@
       :open="settingsOpen"
       :settings="reactive.settings.value"
       :is-host="isHost"
+      :lobby-id="lobby.id"
       @close="settingsOpen = false"
     />
 
