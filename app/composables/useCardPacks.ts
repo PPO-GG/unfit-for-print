@@ -43,7 +43,12 @@ export function useCardPacks() {
   async function fetchRoster() {
     const fetcher = resolveFetcher();
     const [packs, defaults] = await Promise.all([
-      fetcher<{ white: PackStat[]; black: PackStat[] }>("/api/cards/packs"),
+      // activeOnly keeps packs an admin has switched off out of the response
+      // entirely, rather than shipping their names to the browser for
+      // buildPackGallery to drop.
+      fetcher<{ white: PackStat[]; black: PackStat[] }>("/api/cards/packs", {
+        query: { activeOnly: 1 },
+      }),
       fetcher<{ packs: string[] }>("/api/cards/default-packs"),
     ]);
     tiles.value = buildPackGallery(packs, defaults?.packs ?? []);

@@ -363,10 +363,13 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   loadingPacks.value = true;
   try {
+    // activeOnly excludes packs an admin has switched off, so their names never
+    // reach the client; the `count > 0` filter below stays as a cheap invariant
+    // guard on a path where an empty draw pool would break a live game.
     const { white, black } = await $fetch<{
       white: { pack: string; active: number }[];
       black: { pack: string; active: number }[];
-    }>("/api/cards/packs");
+    }>("/api/cards/packs", { query: { activeOnly: 1 } });
     if (cancelled) return;
 
     const counts = new Map<string, number>();

@@ -194,12 +194,16 @@ const loadingPacks = ref(false);
 onMounted(async () => {
   loadingPacks.value = true;
   try {
-    const { white, black } = await $fetch("/api/cards/packs");
+    const { white, black } = await $fetch("/api/cards/packs", {
+      query: { activeOnly: 1 },
+    });
     const packSet = new Set<string>();
 
     // Only offer packs that still have at least one active card of either
     // type — a fully-disabled pack would otherwise sit in the picker and
-    // silently produce an empty draw pool.
+    // silently produce an empty draw pool. activeOnly above already excludes
+    // them server-side; this stays as a cheap invariant guard on a path where
+    // an empty draw pool would break a live game.
     white.forEach((p) => { if (p.active > 0) packSet.add(p.pack); });
     black.forEach((p) => { if (p.active > 0) packSet.add(p.pack); });
 
