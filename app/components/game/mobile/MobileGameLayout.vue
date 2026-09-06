@@ -10,6 +10,7 @@ import MobileCardList from "~/components/game/mobile/MobileCardList.vue";
 import MobileActionBar from "~/components/game/mobile/MobileActionBar.vue";
 import { mergeCardText } from "~/composables/useMergeCards";
 import { SFX } from "~/config/sfx.config";
+import { isNewPrompt } from "~/utils/roundBoundary";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -36,9 +37,13 @@ interface Props {
   round: number;
   readingAloud: boolean;
   myAvatar: string;
+  promptSerial?: number;
+  blackSkipUsed?: boolean;
 }
 
 const props = defineProps<Props>();
+
+const { t } = useI18n();
 
 // ── Emits ─────────────────────────────────────────────────────────────────────
 
@@ -49,6 +54,7 @@ const emit = defineEmits<{
   "read-aloud": [text: string];
   "toggle-sidebar": [];
   continue: [];
+  "skip-prompt": [];
 }>();
 
 // ── Internal State ────────────────────────────────────────────────────────────
@@ -61,6 +67,24 @@ watch(
   () => {
     selectedCards.value = [];
   },
+);
+
+// A skip swaps the prompt without changing the phase, so the phase watcher
+// above cannot see it. Without this, hasSubmitted stays true and the player
+// is locked out of answering the new prompt with the cards just returned.
+watch(
+  () => props.promptSerial,
+  (next, prev) => {
+    if (!isNewPrompt(next, prev)) return;
+    selectedCards.value = [];
+  },
+);
+
+// promptSerial also moves on a normal round advance; only a skip should
+// announce itself. blackSkipUsed is true only between a skip and the next
+// nextRound, so pairing them isolates the skip.
+const skipAnnounceSerial = computed(() =>
+  props.blackSkipUsed ? props.promptSerial : undefined,
 );
 
 // ── Computed ──────────────────────────────────────────────────────────────────
@@ -290,6 +314,17 @@ watch(
             {{ playersWaiting }} player{{ playersWaiting > 1 ? "s" : "" }} still
             submitting
           </p>
+          <UButton
+            size="sm"
+            color="warning"
+            variant="soft"
+            icon="i-mdi-debug-step-over"
+            :disabled="blackSkipUsed"
+            block
+            @click="emit('skip-prompt')"
+          >
+            {{ t("game.skip_prompt") }}
+          </UButton>
         </div>
       </template>
 
@@ -345,6 +380,9 @@ watch(
       @submit="handleSubmit"
       @continue="emit('continue')"
     />
+
+    <!-- Prompt Skipped Overlay -->
+    <PromptSkippedOverlay :trigger="skipAnnounceSerial" />
   </div>
 </template>
 

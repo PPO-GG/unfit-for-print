@@ -541,12 +541,15 @@ function handleMobileContinue() {
       :round="state?.round || 1"
       :reading-aloud="readingAloud"
       :my-avatar="myAvatar"
+      :prompt-serial="state?.promptSerial"
+      :black-skip-used="state?.blackSkipUsed"
       @select-cards="handleCardSubmit"
       @reveal-card="revealCard"
       @select-winner="handleSelectWinner"
       @read-aloud="handleReadAloud"
       @toggle-sidebar="emit('toggle-sidebar')"
       @continue="handleMobileContinue"
+      @skip-prompt="handleSkipPrompt"
     />
 
     <!-- Desktop Layout -->
