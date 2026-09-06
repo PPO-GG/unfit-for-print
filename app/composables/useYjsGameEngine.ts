@@ -19,6 +19,8 @@ import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import type { PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 import { mergeCardTextKeys } from "~/utils/cardTexts";
+import { shuffle } from "~/utils/shuffle";
+import { drawEligibleBlackCard } from "~/utils/blackCardDraw";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -53,15 +55,6 @@ function readBlackPicks(c: {
     if (typeof entry?.pick === "number") fallback[id] = entry.pick;
   }
   return fallback;
-}
-
-/** Fisher-Yates shuffle (in-place) */
-function shuffle<T>(array: T[]): T[] {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j]!, array[i]!];
-  }
-  return array;
 }
 
 // ─── Composable ─────────────────────────────────────────────────────────────
@@ -579,44 +572,21 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("judgeId", newJudgeId);
 
       // Draw new black card (respecting maxPick setting)
-      let blackDeck = [...cards.blackDeck];
-      let discardBlack = [...cards.discardBlack];
       const maxPick = safeParseJson<number>(
         lobbyDoc.getSettings().get("maxPick"),
         3,
       );
-
       // Pick counts only — text is resolved per client, never stored here.
-      const blackPicks = readBlackPicks(getCards());
+      const draw = drawEligibleBlackCard({
+        blackDeck: cards.blackDeck,
+        discardBlack: cards.discardBlack,
+        blackPicks: readBlackPicks(getCards()),
+        maxPick,
+      });
 
-      // Find next eligible black card (pick <= maxPick)
-      let newBlackCardId: string | null = null;
-      let reshuffled = false;
-      while (!newBlackCardId) {
-        if (blackDeck.length === 0) {
-          if (reshuffled) break; // Avoid infinite loop
-          blackDeck = shuffle([...discardBlack]);
-          discardBlack = [];
-          reshuffled = true;
-          if (blackDeck.length === 0) break;
-        }
-        const candidateId = blackDeck.pop()!;
-        if ((blackPicks[candidateId] ?? 1) <= maxPick) {
-          newBlackCardId = candidateId;
-        } else {
-          discardBlack.push(candidateId);
-        }
-      }
-
-      // The exhausted-deck sentinel keeps its text: there is no card id to
-      // resolve one from, and the reactive overlay prefers an embedded text
-      // when the doc carries one.
-      const newBlackCard = newBlackCardId
-        ? { id: newBlackCardId, pick: blackPicks[newBlackCardId] ?? 1 }
-        : { id: "", text: "No eligible cards remain", pick: 1 };
-      gs.set("blackCard", JSON.stringify(newBlackCard));
-      c.set("blackDeck", JSON.stringify(blackDeck));
-      c.set("discardBlack", JSON.stringify(discardBlack));
+      gs.set("blackCard", JSON.stringify(draw.card));
+      c.set("blackDeck", JSON.stringify(draw.blackDeck));
+      c.set("discardBlack", JSON.stringify(draw.discardBlack));
 
       // Refill player hands (draw from deck only — no discard recycling).
       // IMPORTANT: Read whiteDeck fresh from the Y.Doc *inside* this transaction
