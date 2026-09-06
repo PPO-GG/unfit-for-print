@@ -1,6 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { lobbies, players } from "~~/server/db/schema";
+import { lobbies, lobbyPasswords, players } from "~~/server/db/schema";
+import { verifyLobbyPassword } from "~~/server/utils/lobbyPassword";
 import { requireAuth } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
@@ -14,6 +15,7 @@ export default defineEventHandler(async (event) => {
     // A client-supplied "bot" is clamped to "player" below so a real user
     // can never get themselves classified (and later deleted) as a bot.
     playerType?: "spectator" | "player";
+    password?: string;
   }>(event);
 
   const db = useDb();
@@ -26,6 +28,30 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(players.userId, userId), eq(players.lobbyId, lobby.id)))
     .limit(1);
   if (existing) return { lobby, player: existing };
+
+  // Password challenge. Deliberately below the `existing` early-return above:
+  // someone already seated must not be locked out of their own game by a
+  // password the host set after they joined.
+  const [protection] = await db
+    .select({ hash: lobbyPasswords.hash })
+    .from(lobbyPasswords)
+    .where(eq(lobbyPasswords.lobbyId, lobby.id))
+    .limit(1);
+
+  if (protection) {
+    const supplied = typeof body.password === "string" ? body.password : "";
+    const ok =
+      supplied.length > 0 &&
+      (await verifyLobbyPassword(protection.hash, supplied));
+    if (!ok) {
+      // One message for both "missing" and "wrong" — telling them apart only
+      // helps someone probing codes to learn which lobbies are protected.
+      throw createError({
+        statusCode: 403,
+        statusMessage: "Incorrect lobby password",
+      });
+    }
+  }
 
   // Runtime clamp: TypeScript's narrowed body type doesn't stop a raw
   // request body from smuggling "bot" (or anything else) past readBody.

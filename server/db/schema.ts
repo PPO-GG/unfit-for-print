@@ -42,6 +42,26 @@ export const lobbies = pgTable("lobbies", {
     .defaultNow(),
 });
 
+/**
+ * Lobby join passwords, kept in their own table rather than on `lobbies`.
+ *
+ * Eight routes select whole lobby rows (`select()` with no column list, plus
+ * `.returning()` on create and join), so a hash on that row would ship to every
+ * client through any of them — and through the next route someone writes. A
+ * separate table cannot leak by accident: no existing query touches it.
+ *
+ * Cascades with the lobby, so a deleted lobby cannot strand its secret.
+ */
+export const lobbyPasswords = pgTable("lobby_passwords", {
+  lobbyId: uuid("lobby_id")
+    .primaryKey()
+    .references(() => lobbies.id, { onDelete: "cascade" }),
+  hash: text("hash").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const players = pgTable("players", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")
