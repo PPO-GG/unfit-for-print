@@ -20,9 +20,19 @@
               @click="submitCardOpen = true"
               >Submit a card</UButton
             >
-            <a class="labs-secondary-action" href="#submissions"
+            <a
+              class="labs-secondary-action"
+              href="#submissions"
+              @click="activeTab = 'submissions'"
               ><Icon name="solar:card-send-bold-duotone" /> Browse
               submissions</a
+            >
+            <a
+              class="labs-secondary-action"
+              href="#submissions"
+              @click="activeTab = 'packs'"
+              ><Icon name="solar:cardholder-bold-duotone" /> Browse card
+              packs</a
             >
           </div>
         </div>
@@ -35,16 +45,42 @@
             <span>Votes cast</span
             ><strong class="labs-stat--yellow">{{ totalVotes }}</strong>
           </div>
+          <div class="labs-stat labs-stat--wide">
+            <span>Cards in the deck</span
+            ><strong class="labs-stat--lime-lg">{{
+              packsLoading ? "—" : totalCards.toLocaleString()
+            }}</strong>
+          </div>
         </div>
       </section>
 
       <section id="submissions" class="labs-content">
         <div class="labs-tabs">
-          <div class="labs-tab labs-tab--active">
+          <button
+            class="labs-tab"
+            :class="{ 'labs-tab--active': activeTab === 'submissions' }"
+            type="button"
+            @click="activeTab = 'submissions'"
+          >
             <Icon name="solar:test-tube-bold-duotone" /> Submissions
             <span>{{ submissions.length }}</span>
-          </div>
+          </button>
+          <button
+            class="labs-tab"
+            :class="{ 'labs-tab--active': activeTab === 'packs' }"
+            type="button"
+            @click="activeTab = 'packs'"
+          >
+            <Icon name="solar:cardholder-bold-duotone" /> Card packs
+            <span v-if="!packsLoading">{{ totalCards }}</span>
+          </button>
         </div>
+
+        <ClientOnly v-if="activeTab === 'packs'">
+          <LabsCardPackBrowser />
+        </ClientOnly>
+
+        <template v-else>
         <div class="labs-feed-heading">
           <div>
             <p class="labs-eyebrow">Experiment queue</p>
@@ -117,6 +153,7 @@
             </div>
           </template>
         </ClientOnly>
+        </template>
       </section>
     </div>
     <UModal
@@ -141,6 +178,10 @@ import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useUserStore } from "~/stores/userStore";
 useHead({ title: "Unfit Labs" });
 const submitCardOpen = ref(false);
+const activeTab = ref<"submissions" | "packs">("submissions");
+// Loaded up front so the hero's card count is right before anyone opens the
+// Card Packs tab; CardPackBrowser shares this same roster.
+const { totalCards, loading: packsLoading, load: loadCardPacks } = useCardPacks();
 const userStore = useUserStore();
 const isLoggedIn = computed(() => isAuthenticatedUser(userStore.user));
 const isAdmin = useIsAdmin();
@@ -309,15 +350,20 @@ async function handleAdopt(submission: any) {
     useToast().add({ title: "Couldn’t adopt submission", color: "error" });
   }
 }
-onMounted(fetchSubmissions);
+onMounted(() => {
+  fetchSubmissions();
+  loadCardPacks();
+});
 </script>
 
 <style>
 .labs-page {
   position: relative;
   min-height: 100vh;
-  isolation: isolate;
-  background: #05060d;
+  /* Deliberately no background colour: the opaque #05060d that used to be here
+     painted over the layout's ScrollingBackground. The tinted glows in
+     .labs-page__grid are translucent for the same reason, so the scrolling
+     cards read through them while the text stays legible. */
   color: #f6f3ea;
   font-family: "Barlow Condensed", system-ui, sans-serif;
   overflow: hidden;
@@ -337,7 +383,12 @@ onMounted(fetchSubmissions);
       rgba(120, 220, 255, 0.07),
       transparent 65%
     ),
-    linear-gradient(180deg, #05060d, #090d1a 50%, #05060d);
+    linear-gradient(
+      180deg,
+      rgba(5, 6, 13, 0.5),
+      rgba(9, 13, 26, 0.62) 50%,
+      rgba(5, 6, 13, 0.5)
+    );
 }
 .labs-page__grid:after {
   content: "";
@@ -495,6 +546,9 @@ onMounted(fetchSubmissions);
   color: #a9ed87 !important;
   font-size: 0.78rem !important;
 }
+.labs-stat--lime-lg {
+  color: #a9ed87;
+}
 .labs-stat strong i {
   display: inline-block;
   width: 0.45rem;
@@ -576,12 +630,25 @@ onMounted(fetchSubmissions);
   align-items: center;
   gap: 0.45rem;
   padding: 0.85rem 1rem;
-  color: #f6f3ea;
-  border-bottom: 3px solid #a9ed87;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: #8891b4;
+  cursor: pointer;
   font-family: "Archivo Black", sans-serif;
   font-size: 0.75rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+.labs-tab:hover {
+  color: #d7dcec;
+}
+.labs-tab--active {
+  color: #f6f3ea;
+  border-bottom-color: #a9ed87;
 }
 .labs-tab span {
   padding: 0.12rem 0.4rem;
