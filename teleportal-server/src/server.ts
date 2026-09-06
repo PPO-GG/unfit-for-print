@@ -11,7 +11,7 @@
 import { Server } from "teleportal/server";
 import { getWebsocketHandlers } from "teleportal/websocket-server";
 import { getHTTPHandlers } from "teleportal/http";
-import { YDocStorage } from "teleportal/storage";
+import { MemoryDocumentStorage } from "teleportal/storage";
 import * as Y from "yjs";
 import { createServer } from "http";
 import crossws from "crossws/adapters/node";
@@ -112,6 +112,34 @@ function forceGcDocument(docId: string) {
  * Read Y.Doc contents for a lobby and extract player information.
  * Returns structured data for the admin status endpoint.
  */
+/**
+ * Rebuilds a Y.Doc from stored state so the server can read a lobby's contents.
+ *
+ * Cheap in practice — a handful of live lobbies, each well under a megabyte —
+ * and only reached by /status, /lobbies/summary and the GC sweep.
+ *
+ * Synchronous on purpose: every caller iterates all documents inside an
+ * existing request handler, and `getDocument()` is async only because other
+ * storage backends are. The in-memory record is right there.
+ */
+function hydrateDoc(docId: string): Y.Doc | null {
+  const record: any = MemoryDocumentStorage.docs.get(docId);
+  const update = record?.state?.update;
+  if (!update) return null;
+  try {
+    const doc = new Y.Doc();
+    Y.applyUpdateV2(doc, update);
+    const pending: any[] = (MemoryDocumentStorage as any).pendingUpdates?.get(docId)?.updates ?? [];
+    for (const entry of pending) {
+      const structure = entry?.structureUpdate;
+      if (structure) Y.applyUpdateV2(doc, structure);
+    }
+    return doc;
+  } catch {
+    return null;
+  }
+}
+
 function getDocumentDetails(docId: string): {
   clients: number;
   idleSec: number;
@@ -143,7 +171,11 @@ function getDocumentDetails(docId: string): {
   let phase: string | undefined;
   let round: number | undefined;
 
-  const ydoc = YDocStorage.docs.get(docId);
+  // 0.0.7 keeps encoded state rather than live Y.Doc instances, and splits it
+  // between a base update and a pending log — so the doc has to be rebuilt from
+  // the storage API rather than read out of the static map, which would miss
+  // anything not yet merged.
+  const ydoc = hydrateDoc(docId);
   if (ydoc) {
     // Read players from Y.Map("players")
     try {
@@ -242,7 +274,7 @@ setInterval(() => {
 
   // Also sweep Y.Docs in storage that are NOT tracked in documentClientCount
   // (defensive: catches docs orphaned by bugs in tracking)
-  for (const docId of YDocStorage.docs.keys()) {
+  for (const docId of MemoryDocumentStorage.docs.keys()) {
     if (!documentClientCount.has(docId)) {
       console.log(
         `[Lobby] GC sweep: orphaned Y.Doc ${docId} (not in tracking map)`,
@@ -269,9 +301,15 @@ interface LobbyContext {
 
 // ─── Teleportal Server ──────────────────────────────────────────────────────
 
-// YDocStorage is an in-memory Y.Doc store from Teleportal.
-// Docs live only in memory — no persistence to disk/cloud.
-const documentStorage = new YDocStorage();
+// In-memory Y.Doc store from Teleportal. Docs live only in memory — no
+// persistence to disk or cloud.
+//
+// `false` is load-bearing: MemoryDocumentStorage encrypts by default, and this
+// server READS document contents — /status and /lobbies/summary pull phase,
+// round, players and status straight out of the Y.Doc, and /api/lobby/list
+// reconciles the Postgres row against them. Encrypted-at-rest docs would break
+// all of that, quietly.
+const documentStorage = new MemoryDocumentStorage(false);
 
 const teleportalServer = new Server<LobbyContext>({
   storage: documentStorage,
@@ -306,7 +344,7 @@ teleportalServer.on("session-open", ({ session }) => {
     `[Lobby] Session opened: ${session.documentId} (namespaced: ${session.namespacedDocumentId})`,
   );
 
-  // IMPORTANT: Use namespacedDocumentId for all tracking because YDocStorage
+  // IMPORTANT: Use namespacedDocumentId for all tracking because MemoryDocumentStorage
   // stores docs under the namespaced key (e.g., "lobby/lobby-CODE").
   // Using the un-namespaced documentId would cause a tracking/storage mismatch,
   // making the GC sweep treat active docs as orphaned.
@@ -327,13 +365,13 @@ teleportalServer.on(
     console.log(
       `[Lobby] Document unloaded: ${namespacedDocumentId} (reason: ${reason})`,
     );
-    // Clean tracking maps using namespaced ID (matches YDocStorage keys)
+    // Clean tracking maps using namespaced ID (matches MemoryDocumentStorage keys)
     documentClientCount.delete(namespacedDocumentId);
     documentLastActivity.delete(namespacedDocumentId);
     // Also clean un-namespaced ID defensively (in case of legacy entries)
     documentClientCount.delete(documentId);
     documentLastActivity.delete(documentId);
-    // Remove from YDocStorage defensively
+    // Remove from MemoryDocumentStorage defensively
     documentStorage.deleteDocument(namespacedDocumentId).catch((e: any) => {
       console.error(
         `[Lobby] GC cleanup failed for ${namespacedDocumentId}:`,
@@ -478,10 +516,10 @@ const httpServer = createServer(async (req, res) => {
   if (urlPath === "/status") {
     const now = Date.now();
 
-    // Collect all known doc IDs from both tracking maps AND YDocStorage
+    // Collect all known doc IDs from both tracking maps AND the doc store
     const allDocIds = new Set([
       ...documentClientCount.keys(),
-      ...YDocStorage.docs.keys(),
+      ...MemoryDocumentStorage.docs.keys(),
     ]);
 
     const docs: Record<string, ReturnType<typeof getDocumentDetails>> = {};
@@ -525,7 +563,7 @@ const httpServer = createServer(async (req, res) => {
   // is why large documents load there and not here.
   //
   // Nothing is persisted: the doc is served straight out of the in-memory
-  // YDocStorage, so this keeps the ephemeral model exactly as it was.
+  // MemoryDocumentStorage, so this keeps the ephemeral model exactly as it was.
   if (urlPath.startsWith("/snapshot/")) {
     const code = decodeURIComponent(urlPath.slice("/snapshot/".length)).trim();
 
@@ -536,7 +574,7 @@ const httpServer = createServer(async (req, res) => {
       return;
     }
 
-    const doc = YDocStorage.docs.get(`lobby/lobby-${code}`);
+    const doc = hydrateDoc(`lobby/lobby-${code}`);
     if (!doc) {
       // No live document for that code — the client just connects normally and
       // syncs from empty, which is correct for a lobby that does not exist yet.
@@ -545,7 +583,7 @@ const httpServer = createServer(async (req, res) => {
       return;
     }
 
-    // V2 encoding, matching how YDocStorage applies updates internally.
+    // V2 encoding, matching how the storage layer applies updates internally.
     const update = Y.encodeStateAsUpdateV2(doc);
     res.writeHead(200, {
       "Content-Type": "application/octet-stream",
@@ -562,7 +600,7 @@ const httpServer = createServer(async (req, res) => {
   if (urlPath === "/lobbies/summary") {
     const allDocIds = new Set([
       ...documentClientCount.keys(),
-      ...YDocStorage.docs.keys(),
+      ...MemoryDocumentStorage.docs.keys(),
     ]);
 
     const lobbies: Array<{
@@ -614,7 +652,7 @@ const httpServer = createServer(async (req, res) => {
     // Collect all doc IDs first to avoid mutation during iteration
     const allDocIds = new Set([
       ...documentClientCount.keys(),
-      ...YDocStorage.docs.keys(),
+      ...MemoryDocumentStorage.docs.keys(),
     ]);
     for (const docId of allDocIds) {
       forceGcDocument(docId);
@@ -633,7 +671,7 @@ const httpServer = createServer(async (req, res) => {
   if (singleGcMatch && req.method === "DELETE") {
     const docId = decodeURIComponent(singleGcMatch[1]);
     const existed =
-      documentClientCount.has(docId) || YDocStorage.docs.has(docId);
+      documentClientCount.has(docId) || MemoryDocumentStorage.docs.has(docId);
 
     if (existed) {
       forceGcDocument(docId);

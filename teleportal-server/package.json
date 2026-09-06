@@ -11,7 +11,7 @@
   "dependencies": {
     "crossws": "^0.4.10",
     "dotenv": "^17.4.2",
-    "teleportal": "0.0.4",
+    "teleportal": "0.0.7",
     "unstorage": "latest",
     "ws": "^8.21.1",
     "y-protocols": "^1.0.7",

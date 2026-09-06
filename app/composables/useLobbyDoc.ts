@@ -12,10 +12,13 @@
 
 import * as Y from "yjs";
 import { ref, shallowRef, readonly, type Ref, type ShallowRef } from "vue";
-import { Provider, websocket } from "teleportal/providers";
+import {
+  DirectConnection,
+  Provider,
+  websocketTransport,
+} from "teleportal/providers";
 import { teleportalHttpBase } from "~/utils/teleportalHttp";
 
-const { WebSocketConnection } = websocket;
 
 // ─── Y.Doc Map Keys ─────────────────────────────────────────────────────────
 // Centralized constants for all shared type names within the lobby Y.Doc.
@@ -223,11 +226,13 @@ export function useLobbyDoc(): LobbyDocResult {
     // Yield to event loop before heavy Provider.create()
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // Create WebSocket-only connection — the Teleportal server only supports
-    // WebSocket transport, so using FallbackConnection would just produce
-    // noisy 404 errors when it tries the HTTP/SSE fallback on brief disconnects.
-    const connection = new WebSocketConnection({
+    // WebSocket-only, deliberately. Provider.create defaults to
+    // [websocketTransport(), httpTransport()], but this server speaks WebSocket
+    // alone — the HTTP fallback would just produce noisy 404s on brief
+    // disconnects. Passing the transport list explicitly keeps that behaviour.
+    const connection = new DirectConnection({
       url: wsUrl.toString(),
+      transports: [websocketTransport({ timeout: 5_000 })],
       heartbeatInterval: 15_000, // Ping every 15s to keep alive
       messageReconnectTimeout: 60_000, // 60s timeout (more generous than Rundown's 45s — games have idle phases)
     });
@@ -237,6 +242,13 @@ export function useLobbyDoc(): LobbyDocResult {
       document: documentName,
       ydoc,
       enableOfflinePersistence: false, // Ephemeral — no IndexedDB
+      // Opt out of end-to-end encryption, which 0.0.6+ requires by default.
+      // Not an oversight: the server READS document contents — /lobbies/summary
+      // exposes phase, round and player names for the lobby browser, and
+      // /api/lobby/list reconciles the Postgres row against them. E2EE would
+      // make the server unable to read any of that. Lobby access is the join
+      // code plus, now, a hashed password; the doc itself is not a secret.
+      encryptionKey: false,
     });
 
     // Store module-level refs for singleton enforcement
