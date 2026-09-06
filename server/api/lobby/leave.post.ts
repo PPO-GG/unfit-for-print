@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   await db.delete(players).where(and(eq(players.userId, userId), eq(players.lobbyId, lobbyId)));
 
   // Clean up the leaving user's account if it's an ephemeral guest
-  await db
+  const deletedSelf = await db
     .delete(users)
     .where(
       and(
@@ -19,7 +19,13 @@ export default defineEventHandler(async (event) => {
         eq(users.isGuest, true),
         isNull(users.discordUserId),
       ),
-    );
+    )
+    .returning({ id: users.id });
+
+  // Deleting the account without dropping the cookie left the caller holding a
+  // session for a user that no longer exists — every later request authenticated
+  // as a dead id until something hit a foreign key.
+  if (deletedSelf.length > 0) await clearUserSession(event);
 
   const remainingHumans = await db
     .select({ id: players.id })

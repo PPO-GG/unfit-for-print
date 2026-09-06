@@ -15,17 +15,43 @@ export async function requireAuth(event: H3Event): Promise<string> {
         statusMessage: "Invalid or expired token",
       });
     }
-    return payload.userId;
+    return assertUserExists(payload.userId);
   }
 
   const session = await getUserSession(event);
-  if (!session.user?.id) {
+  // nuxt-auth-utils types `User` as an empty interface for apps to augment;
+  // this project stores an id on it. Narrowed once here rather than at each use.
+  const sessionUserId = (session.user as { id?: string } | undefined)?.id;
+  if (!sessionUserId) {
     throw createError({
       statusCode: 401,
       statusMessage: "Authentication required",
     });
   }
-  return session.user.id;
+  return assertUserExists(sessionUserId);
+}
+
+/**
+ * A session can outlive the account it names: leaving a lobby deletes an
+ * ephemeral guest, and the cookie survives. Without this the dead id flows on
+ * into inserts and fails a foreign key deep in the database — the caller sees a
+ * 500 on an action that was never going to work, instead of a 401 telling them
+ * to sign in again.
+ */
+async function assertUserExists(userId: string): Promise<string> {
+  const [user] = await useDb()
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: "Session is no longer valid",
+    });
+  }
+  return userId;
 }
 
 /** Ensures the authenticated user is a player in the specified lobby. */

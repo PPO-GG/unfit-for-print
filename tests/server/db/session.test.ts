@@ -15,9 +15,14 @@ import {
 const db = useDb();
 
 let mockSessionUserId: string | null = null;
+let sessionCleared = false;
 vi.stubGlobal("getUserSession", async () => ({
   user: mockSessionUserId ? { id: mockSessionUserId } : undefined,
 }));
+vi.stubGlobal("clearUserSession", async () => {
+  sessionCleared = true;
+  mockSessionUserId = null;
+});
 
 function mockEvent() {
   return { node: { req: { headers: {} } } } as any;
@@ -25,6 +30,7 @@ function mockEvent() {
 
 beforeEach(async () => {
   mockSessionUserId = null;
+  sessionCleared = false;
   await db.execute(sql`
     TRUNCATE TABLE
       "users",
@@ -131,13 +137,56 @@ describe("requireNonGuest", () => {
     });
   });
 
-  // A session whose user row has since been deleted must not slip through the
-  // isGuest check by simply being absent.
-  it("throws 403 when the session points at a user that no longer exists", async () => {
+  // Now caught one layer earlier — requireAuth refuses a session whose user is
+  // gone, so this never reaches the isGuest check.
+  it("throws 401 when the session points at a user that no longer exists", async () => {
     mockSessionUserId = "00000000-0000-0000-0000-000000000000";
 
     await expect(requireNonGuest(mockEvent())).rejects.toMatchObject({
-      statusCode: 403,
+      statusCode: 401,
     });
+  });
+});
+
+// Leaving a lobby deletes an ephemeral guest account. The session cookie used
+// to survive that, so the next request authenticated as a user row that no
+// longer existed and the id flowed into inserts until a foreign key blew up.
+describe("a session that outlived its user", () => {
+  it("requireAuth refuses it rather than handing on a dead id", async () => {
+    mockSessionUserId = "00000000-0000-0000-0000-000000000000";
+
+    await expect(requireAuth(mockEvent())).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+
+  it("requireAuth still works for a user that exists", async () => {
+    const [user] = await db.insert(users).values({ name: "Alive" }).returning();
+    mockSessionUserId = user.id;
+
+    await expect(requireAuth(mockEvent())).resolves.toBe(user.id);
+  });
+
+  it("GET /api/auth/session reports no user, and clears the stale cookie", async () => {
+    mockSessionUserId = "00000000-0000-0000-0000-000000000000";
+
+    const handler = (await import("~/server/api/auth/session.get")).default;
+    const res: any = await handler(mockEvent());
+
+    // The client keys "am I logged in" off this, so returning the dead user
+    // left it convinced it was signed in with no way to recover.
+    expect(res.user).toBeNull();
+    expect(sessionCleared).toBe(true);
+  });
+
+  it("GET /api/auth/session returns a user that still exists", async () => {
+    const [user] = await db.insert(users).values({ name: "Alive" }).returning();
+    mockSessionUserId = user.id;
+
+    const handler = (await import("~/server/api/auth/session.get")).default;
+    const res: any = await handler(mockEvent());
+
+    expect(res.user?.id).toBe(user.id);
+    expect(sessionCleared).toBe(false);
   });
 });
