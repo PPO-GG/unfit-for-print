@@ -28,6 +28,16 @@ export interface FitTextOptions {
   maxRem?: number;
   /** Enable a single intentional word break when no whole-word layout fits. */
   onEmergencyBreaks?: () => boolean;
+  /**
+   * Multiplier for the absolute rem bounds, read fresh on every measure.
+   * The ratio bounds already track the container, but the rem ceiling/floor
+   * are fixed pixel values — so a caller that renders the container larger
+   * than its visual size and scales it back down (supersampling, to get an
+   * antialiased 3D transform) would hit the ceiling early and end up with
+   * visually smaller type. Returning the oversampling factor keeps the
+   * visual type scale identical. Defaults to 1.
+   */
+  remScale?: () => number;
 }
 
 // Bounded module-level cache for fitted font sizes to avoid repeated forced layout reflows
@@ -44,6 +54,10 @@ export function useFitText(
   const maxRatio = options.maxRatio ?? 0.42;
   const minRem = options.minRem ?? 0.45;
   const maxRem = options.maxRem ?? 2.6;
+  const remScale = () => {
+    const value = options.remScale?.() ?? 1;
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  };
 
   const fontSize = ref(0);
   let observer: ResizeObserver | null = null;
@@ -101,9 +115,10 @@ export function useFitText(
     // of the real one.
     const fontsReady = !document.fonts || document.fonts.status === "loaded";
 
+    const scale = remScale();
     const widthRounded = Math.round(containerEl.clientWidth);
     const heightRounded = Math.round(containerEl.clientHeight);
-    const cacheKey = `${content.value}::${widthRounded}x${heightRounded}::${minRatio}:${maxRatio}:${minRem}:${maxRem}`;
+    const cacheKey = `${content.value}::${widthRounded}x${heightRounded}::${minRatio}:${maxRatio}:${minRem}:${maxRem}:${scale}`;
 
     const cached = fontsReady ? fitTextCache.get(cacheKey) : undefined;
     if (cached) {
@@ -111,8 +126,14 @@ export function useFitText(
       return;
     }
 
-    const lo0 = Math.max(containerEl.clientWidth * minRatio, remToPx(minRem));
-    const hi0 = Math.max(lo0, Math.min(containerEl.clientWidth * maxRatio, remToPx(maxRem)));
+    const lo0 = Math.max(
+      containerEl.clientWidth * minRatio,
+      remToPx(minRem) * scale,
+    );
+    const hi0 = Math.max(
+      lo0,
+      Math.min(containerEl.clientWidth * maxRatio, remToPx(maxRem) * scale),
+    );
 
     if (!fits(lo0)) {
       if (options.onEmergencyBreaks?.()) {

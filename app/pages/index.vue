@@ -135,6 +135,8 @@
               :shine="shine"
               :text="blackCard.text"
               :threeDeffect="threeDeffect"
+              :thickness="displayCardThickness"
+              :tilt-degrees="displayCardTilt"
               :scale="75"
               @click="blackCardFlipped = !blackCardFlipped"
             />
@@ -162,6 +164,8 @@
               :shine="shine"
               :text="whiteCard.text"
               :three-deffect="threeDeffect"
+              :thickness="displayCardThickness"
+              :tilt-degrees="displayCardTilt"
               :scale="75"
               @click="whiteCardFlipped = !whiteCardFlipped"
             />
@@ -423,6 +427,14 @@ const blackCard = ref<any>(null);
 const blackCardFlipped = ref(true);
 const whiteCardFlipped = ref(true);
 const threeDeffect = ref(true);
+
+// These two are display cards, not game cards: nothing is riding on them, so
+// they get the extruded edge and a steeper hover tilt than the table uses. The
+// tilt is the half that sells it -- the rim's apparent width is the thickness
+// times the sine of the angle, so 26 degrees shows roughly two-thirds more edge
+// than the in-game 15.
+const displayCardThickness = 3.5;
+const displayCardTilt = 26;
 const shine = ref(true);
 const { fetchRandomCard } = useCards();
 const randomCard = ref<any>({ pick: 1 });

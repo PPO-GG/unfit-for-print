@@ -26,29 +26,39 @@
           <div v-if="!card" class="lightbox__pending">
             <Icon name="solar:loading-bold-duotone" class="animate-spin" />
           </div>
-          <BlackCard
-            v-else-if="type === 'black'"
-            :key="card.id"
-            :card-id="card.id"
-            :text="card.text ?? ''"
-            :card-pack="card.pack ?? ''"
-            :num-pick="card.pick ?? 1"
-            :image-url="card.imageKey ? getCardImageUrl(card.imageKey) : undefined"
-            :attachment="card.attachment"
-            three-deffect
-            :scale="lightboxScale"
-          />
-          <WhiteCard
-            v-else
-            :key="card.id"
-            :card-id="card.id"
-            :text="card.text ?? ''"
-            :card-pack="card.pack ?? ''"
-            :image-url="card.imageKey ? getCardImageUrl(card.imageKey) : undefined"
-            :attachment="card.attachment"
-            three-deffect
-            :scale="lightboxScale"
-          />
+          <div v-else class="lightbox__card">
+            <BlackCard
+              v-if="type === 'black'"
+              :key="card.id"
+              :card-id="card.id"
+              :text="card.text ?? ''"
+              :card-pack="card.pack ?? ''"
+              :num-pick="card.pick ?? 1"
+              :image-url="
+                card.imageKey ? getCardImageUrl(card.imageKey) : undefined
+              "
+              :attachment="card.attachment"
+              three-deffect
+              :thickness="cardThickness"
+              :tilt-degrees="cardTilt"
+              :scale="lightboxScale"
+            />
+            <WhiteCard
+              v-else
+              :key="card.id"
+              :card-id="card.id"
+              :text="card.text ?? ''"
+              :card-pack="card.pack ?? ''"
+              :image-url="
+                card.imageKey ? getCardImageUrl(card.imageKey) : undefined
+              "
+              :attachment="card.attachment"
+              three-deffect
+              :thickness="cardThickness"
+              :tilt-degrees="cardTilt"
+              :scale="lightboxScale"
+            />
+          </div>
         </div>
 
         <button
@@ -112,6 +122,16 @@ const positionLabel = computed(
 // a laptop viewport without the modal scrolling.
 const lightboxScale = 100;
 
+// Edge depth, as a percentage of the card's own width. Real card stock is ~0.5%
+// of a card's width, which at this size is a sub-pixel nothing - so it is
+// exaggerated until it actually reads as an object. Ignored on Firefox.
+const cardThickness = 4.5;
+
+// Steeper than the in-game tilt. The rim's apparent width is the thickness
+// times the sine of the angle, so this is the knob that actually shows the
+// edge off -- and nothing is riding on a card you are only browsing.
+const cardTilt = 26;
+
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
   event.preventDefault();
@@ -142,8 +162,30 @@ watch(open, async (isOpen) => {
   display: flex;
   justify-content: center;
 }
-.lightbox__stage :deep(.card-scaler) {
-  width: clamp(200px, 46vh, 300px);
+
+/* The card is rendered at --lb-card-ss times its visual size and scaled back
+   down, so the downsample is what antialiases the tilted card's edges --
+   Chromium rasterizes a promoted 3D layer once and then transforms the texture,
+   giving the silhouette no antialiasing of its own. This box reserves the
+   visual footprint; the scaler inside it is the oversized one. */
+.lightbox__card {
+  --lb-card-ss: 2;
+  --lb-card-w: clamp(200px, 46vh, 300px);
+  position: relative;
+  width: var(--lb-card-w);
+  aspect-ratio: 3 / 4;
+}
+.lightbox__card :deep(.card-scaler) {
+  --card-ss: var(--lb-card-ss);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--lb-card-w) * var(--lb-card-ss));
+  /* Perspective is measured in the oversized space, so it has to grow with it
+     or the tilt reads stronger here than anywhere else in the app. */
+  perspective: calc(800px * var(--lb-card-ss));
+  transform: scale(calc(1 / var(--lb-card-ss)));
+  transform-origin: top left;
 }
 .lightbox__pending {
   display: flex;

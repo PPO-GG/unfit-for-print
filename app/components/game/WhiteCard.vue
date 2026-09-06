@@ -9,7 +9,11 @@
       ref="card"
       :class="[
         flat ? 'card--flat' : 'card--3d',
-        { 'card--flipped': flipped, 'card--winner': isWinner },
+        {
+          'card--flipped': flipped,
+          'card--winner': isWinner,
+          'card--thick': showEdge,
+        },
       ]"
       class="card cursor-pointer"
       @mouseleave="resetTransform"
@@ -19,7 +23,19 @@
       <div
         class="card__inner cursor-pointer"
         :class="flat ? 'card__inner--flat' : 'card__inner--3d'"
+        :style="showEdge ? { '--card-thickness': `${thickness}cqi` } : undefined"
       >
+        <!-- Extruded edge. Slices rather than four side quads because every
+             slice carries the card's own 14px radius, so the rounded corners
+             come out solid instead of notched. -->
+        <div v-if="showEdge" class="card__edge" aria-hidden="true">
+          <span
+            v-for="(z, i) in edgeOffsets"
+            :key="i"
+            class="card__edge-slice"
+            :style="{ '--edge-z': z }"
+          />
+        </div>
         <!-- Front Side (3D mode: always rendered, hidden by backface-visibility;
              Flat mode: only rendered when not flipped) -->
         <div
@@ -171,7 +187,7 @@ const { vibrate } = useVibrate({
   pattern: [30, 20, 30],
   interval: 0,
 });
-const { isMobile } = useDevice();
+const { isMobile, isFirefox } = useDevice();
 
 function playRandomFlip() {
   vibrate();
@@ -194,6 +210,14 @@ const props = withDefaults(
      *  tiling artifacts. Use for cards that never need an animated flip
      *  (e.g. hand cards, pile cards). */
     flat?: boolean;
+    /** Peak hover tilt in degrees at the card's corners. The default is the
+     *  restrained in-game amount; display cards push it further, because a
+     *  steeper angle is what actually shows off `thickness`. */
+    tiltDegrees?: number;
+    /** Edge depth as a percentage of the card's own width (cqi), so it tracks
+     *  whatever size the card is rendered at. 0 = the old zero-thickness sheet.
+     *  Ignored in `flat` mode, which has no 3D space to extrude into. */
+    thickness?: number;
     /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
     scale?: number;
     /** Picture-card image URL. When set, renders full-bleed instead of text. */
@@ -202,7 +226,27 @@ const props = withDefaults(
   }>(),
   {
     scale: 100,
+    thickness: 0,
+    tiltDegrees: 15,
   },
+);
+
+// Six slices is enough that the seam between them stays sub-pixel at the ±15°
+// the hover tilt reaches; it opens up past ~50°, which only a flip gets to.
+const EDGE_SLICES = 6;
+// Fractions of the thickness, front (+0.5) to back (-0.5), kept strictly
+// between the two faces so no slice is coplanar with one and z-fights it.
+const edgeOffsets = Array.from(
+  { length: EDGE_SLICES },
+  (_, i) => 0.5 - (i + 1) / (EDGE_SLICES + 1),
+);
+// Firefox opts out: the extrusion adds EDGE_SLICES more preserve-3d layers per
+// card, which is exactly what feeds the GPU tiling artifacts the `flat` prop
+// exists to dodge. It falls back to the flat-sheet 3D card, not to `flat` mode,
+// so the flip and the tilt are untouched. Chromium (Brave included) and WebKit
+// get the thickness.
+const showEdge = computed(
+  () => !props.flat && !isFirefox && props.thickness > 0,
 );
 
 const fallbackText = ref("");
@@ -232,7 +276,16 @@ const imageStyle = computed(() => ({
 }));
 const cardBodyEl = ref<HTMLElement | null>(null);
 const cardTextEl = ref<HTMLElement | null>(null);
+// The lightbox renders the card supersampled (see --card-ss in the styles
+// below), which multiplies every cqi-derived length but leaves useFitText's
+// absolute rem ceiling where it was — so hand it the same factor.
+function readCardSupersample() {
+  const el = cardBodyEl.value;
+  if (!el) return 1;
+  return parseFloat(getComputedStyle(el).getPropertyValue("--card-ss"));
+}
 useFitText(cardBodyEl, cardTextEl, displayText, {
+  remScale: readCardSupersample,
   onEmergencyBreaks: () => {
     if (hasEmergencyBreaks.value) return false;
     hasEmergencyBreaks.value = true;
@@ -301,8 +354,8 @@ function handleMouseMove(e: MouseEvent) {
   const centerX = cardRect.width / 2;
   const centerY = cardRect.height / 2;
 
-  const rotateX = Math.round(((y - centerY) / centerY) * 15);
-  const rotateY = Math.round(((centerX - x) / centerX) * 15);
+  const rotateX = Math.round(((y - centerY) / centerY) * props.tiltDegrees);
+  const rotateY = Math.round(((centerX - x) / centerX) * props.tiltDegrees);
 
   rotation.value = { x: rotateX, y: rotateY };
 
@@ -516,7 +569,7 @@ onMounted(async () => {
 .card {
   width: 100%;
   height: 100%;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
   position: relative;
   transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
@@ -526,6 +579,7 @@ onMounted(async () => {
 }
 
 .card__inner {
+  --card-thickness: 0px;
   width: 100%;
   height: 100%;
   position: relative;
@@ -538,9 +592,9 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 1.25rem;
+  font-size: calc(1.25rem * var(--card-ss));
   text-align: center;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
   z-index: 1;
 }
 
@@ -551,7 +605,7 @@ onMounted(async () => {
   height: 100%;
   top: 0;
   left: 0;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
 }
 
 .card__front {
@@ -568,7 +622,7 @@ onMounted(async () => {
   left: 0;
   width: 100%;
   height: 100%;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
 }
 
 .card__shine {
@@ -577,7 +631,7 @@ onMounted(async () => {
   pointer-events: none;
   z-index: 100;
   transition: background-position 250ms linear;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -591,7 +645,7 @@ onMounted(async () => {
 .card--3d .card__inner--3d {
   transform-style: preserve-3d;
   background-color: #f6f3ea;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
 }
 
 .card--3d .card__face {
@@ -610,6 +664,37 @@ onMounted(async () => {
   transform: rotateY(180deg);
 }
 
+/* ── Thickness ──────────────────────────────────────────────────────
+   Opt-in: the face transforms and the extra preserve-3d layers only exist when
+   a caller asks for thickness, so nothing changes for the cards that don't —
+   and Firefox gets no additional 3D layers to tile-artifact on. */
+.card--3d.card--thick .card__front {
+  transform: translateZ(calc(var(--card-thickness) / 2));
+}
+
+.card--3d.card--thick .card__back {
+  transform: rotateY(180deg) translateZ(calc(var(--card-thickness) / 2));
+}
+
+.card__edge {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+/* Each slice is a full rounded rect stacked between the two faces. Only the
+   sliver the front face's parallax fails to cover is visible, and the stack of
+   those slivers reads as the rim. The vertical gradient is the same overhead
+   light .card-content::before simulates on the face. */
+.card__edge-slice {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--card-radius);
+  background: linear-gradient(180deg, #efe9dc 0%, #ddd6c4 45%, #b3ab99 100%);
+  transform: translateZ(calc(var(--edge-z) * var(--card-thickness)));
+}
+
 /* ══════════════════════════════════════════════════════════════════
    FLAT MODE
    ══════════════════════════════════════════════════════════════════ */
@@ -620,7 +705,7 @@ onMounted(async () => {
 
 .card--flat .card__inner--flat {
   transform-style: flat;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
 }
 
 .card--flat .card__back {
@@ -633,7 +718,7 @@ onMounted(async () => {
   height: 100%;
   z-index: 1;
   color: #0d0f1a;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
   overflow: hidden;
   filter: blur(0);
 }
@@ -647,19 +732,28 @@ onMounted(async () => {
   opacity: var(--card-light-shadow, 0);
   pointer-events: none;
   z-index: 5;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
   transition: opacity 0.15s ease-out;
 }
 
 .card-scaler {
   --card-scale: 1;
+  /* Supersampling knob. Chromium rasterizes a promoted 3D layer once and then
+     transforms the texture, so a tilted card's edges get no antialiasing; the
+     fix is to render it larger and scale it back down, letting the downsample
+     do the antialiasing. Everything sized in cqi follows the container for
+     free, so a caller that widens this box by N and scales it back down only
+     has to correct the absolute lengths -- which is all this multiplier does.
+     1 = off, which is every caller but the Labs lightbox. */
+  --card-ss: 1;
+  --card-radius: calc(14px * var(--card-ss));
   width: clamp(
     calc(10rem * var(--card-scale)),
     calc(12vw * var(--card-scale)),
     calc(18rem * var(--card-scale))
   );
   container-type: inline-size;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
   position: relative;
   --shadow-x: 0px;
   --shadow-y: 8px;
@@ -674,8 +768,11 @@ onMounted(async () => {
   inset: 4%;
   border-radius: inherit;
   background: rgba(0, 0, 0, var(--shadow-opacity));
-  filter: blur(var(--shadow-blur));
-  transform: translate(var(--shadow-x), var(--shadow-y))
+  filter: blur(calc(var(--shadow-blur) * var(--card-ss)));
+  transform: translate(
+      calc(var(--shadow-x) * var(--card-ss)),
+      calc(var(--shadow-y) * var(--card-ss))
+    )
     scaleX(var(--shadow-scale-x));
   z-index: -1;
   pointer-events: none;
@@ -727,7 +824,11 @@ onMounted(async () => {
 
 .card-body-text {
   font-family: "Archivo Black", sans-serif;
-  font-size: clamp(0.7rem, 9.5cqi, 2.2rem);
+  font-size: clamp(
+    calc(0.7rem * var(--card-ss)),
+    9.5cqi,
+    calc(2.2rem * var(--card-ss))
+  );
   line-height: 1.08;
   letter-spacing: -0.015em;
   text-align: left;
@@ -746,7 +847,7 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 14px;
+  border-radius: var(--card-radius);
   pointer-events: none;
   user-select: none;
 }
@@ -800,7 +901,8 @@ onMounted(async () => {
 /* Winner animation */
 .card--winner {
   animation: winner-pulse 2s ease-in-out;
-  box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.6);
+  box-shadow: 0 0 calc(15px * var(--card-ss))
+    calc(5px * var(--card-ss)) rgba(34, 197, 94, 0.6);
 }
 
 @keyframes winner-pulse {
@@ -809,12 +911,14 @@ onMounted(async () => {
     outline: 0 solid rgba(34, 197, 94, 0);
   }
   50% {
-    box-shadow: 0 0 20px 10px rgba(34, 197, 94, 0.8);
-    outline: 4px solid rgba(34, 197, 94, 0.8);
+    box-shadow: 0 0 calc(20px * var(--card-ss))
+      calc(10px * var(--card-ss)) rgba(34, 197, 94, 0.8);
+    outline: calc(4px * var(--card-ss)) solid rgba(34, 197, 94, 0.8);
   }
   100% {
-    box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.6);
-    outline: 2px solid rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 calc(15px * var(--card-ss))
+      calc(5px * var(--card-ss)) rgba(34, 197, 94, 0.6);
+    outline: calc(2px * var(--card-ss)) solid rgba(34, 197, 94, 0.6);
   }
 }
 
@@ -847,7 +951,7 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1.5px solid rgba(13, 15, 26, 0.25);
+  border-top: calc(1.5px * var(--card-ss)) solid rgba(13, 15, 26, 0.25);
   padding-top: 2cqi;
   font-family: "JetBrains Mono", monospace;
   font-size: 2.3cqi;
