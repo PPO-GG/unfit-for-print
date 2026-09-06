@@ -13,6 +13,7 @@
 import * as Y from "yjs";
 import { ref, shallowRef, readonly, type Ref, type ShallowRef } from "vue";
 import { Provider, websocket } from "teleportal/providers";
+import { teleportalHttpBase } from "~/utils/teleportalHttp";
 
 const { WebSocketConnection } = websocket;
 
@@ -181,6 +182,42 @@ export function useLobbyDoc(): LobbyDocResult {
     const wsUrl = new URL(baseUrl);
     if (token) {
       wsUrl.searchParams.set("token", token);
+    }
+
+    // ── Snapshot preload ────────────────────────────────────────────────
+    // Teleportal's websocket sync silently drops an initial-state message over
+    // ~48 KiB: the server sends it, nothing errors, and the client is simply
+    // left with an empty document — which the app then renders as a real but
+    // empty lobby. A started game clears that on its own (the decks alone are
+    // ~47 KB with the default packs, and chat only grows it), so every client
+    // that was not present when the doc was created was locked out.
+    //
+    // Fetching the state over HTTP first sidesteps it: once applied, this
+    // doc's state vector tells the server it is nearly caught up, so the
+    // handshake below carries a small delta rather than the whole document.
+    //
+    // Strictly best-effort. A miss (404 for a lobby with no live doc, server
+    // down, request blocked) leaves the doc empty and the normal websocket
+    // sync runs exactly as before.
+    const httpBase = teleportalHttpBase(baseUrl);
+    if (httpBase) {
+      try {
+        const res = await fetch(`${httpBase}/snapshot/${code}`, {
+          signal: AbortSignal.timeout(4000),
+        });
+        if (res.ok) {
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          if (bytes.byteLength > 0) {
+            // V2, matching how the server encodes it.
+            Y.applyUpdateV2(ydoc, bytes, "snapshot-preload");
+            console.log(
+              `[LobbyDoc] Preloaded ${bytes.byteLength}B snapshot for ${documentName}`,
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[LobbyDoc] Snapshot preload skipped:", err);
+      }
     }
 
     // Yield to event loop before heavy Provider.create()

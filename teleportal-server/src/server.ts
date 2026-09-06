@@ -12,6 +12,7 @@ import { Server } from "teleportal/server";
 import { getWebsocketHandlers } from "teleportal/websocket-server";
 import { getHTTPHandlers } from "teleportal/http";
 import { YDocStorage } from "teleportal/storage";
+import * as Y from "yjs";
 import { createServer } from "http";
 import crossws from "crossws/adapters/node";
 import { config } from "dotenv";
@@ -504,6 +505,55 @@ const httpServer = createServer(async (req, res) => {
         timestamp: now,
       }),
     );
+    return;
+  }
+
+  // Raw Yjs binary preload for a single lobby document.
+  //
+  // Teleportal's WebSocket sync silently drops an initial-state message above
+  // ~48 KiB: the server emits it, no error is raised anywhere, and the joining
+  // client simply never receives the document. A started game crosses that on
+  // its own — the card decks alone run to ~47 KB with the three default packs,
+  // and chat only grows it — so every client that was not present when the doc
+  // was created ended up with an EMPTY document and rendered it as a fresh,
+  // phantom lobby.
+  //
+  // Preloading over HTTP sidesteps it entirely. Once the client has applied
+  // this, its state vector tells the server it is nearly caught up, so the
+  // WebSocket handshake carries a small delta instead of the whole document.
+  // This mirrors what Rundown does with its own /snapshot/:id endpoint, which
+  // is why large documents load there and not here.
+  //
+  // Nothing is persisted: the doc is served straight out of the in-memory
+  // YDocStorage, so this keeps the ephemeral model exactly as it was.
+  if (urlPath.startsWith("/snapshot/")) {
+    const code = decodeURIComponent(urlPath.slice("/snapshot/".length)).trim();
+
+    // Same shape the rest of the server uses: "lobby/lobby-CODE".
+    if (!/^[A-Za-z0-9]{1,16}$/.test(code)) {
+      res.writeHead(400, { "Content-Type": "application/json", ...corsHeaders });
+      res.end(JSON.stringify({ error: "Invalid lobby code" }));
+      return;
+    }
+
+    const doc = YDocStorage.docs.get(`lobby/lobby-${code}`);
+    if (!doc) {
+      // No live document for that code — the client just connects normally and
+      // syncs from empty, which is correct for a lobby that does not exist yet.
+      res.writeHead(404, { "Content-Type": "application/json", ...corsHeaders });
+      res.end(JSON.stringify({ error: "No live document for that code" }));
+      return;
+    }
+
+    // V2 encoding, matching how YDocStorage applies updates internally.
+    const update = Y.encodeStateAsUpdateV2(doc);
+    res.writeHead(200, {
+      "Content-Type": "application/octet-stream",
+      "Content-Length": String(update.byteLength),
+      "Cache-Control": "no-store",
+      ...corsHeaders,
+    });
+    res.end(Buffer.from(update));
     return;
   }
 
