@@ -80,6 +80,7 @@ export const blackCards = pgTable("black_cards", {
   active: boolean("active").notNull().default(true),
   pick: integer("pick").notNull().default(1),
   timesPlayed: integer("times_played").notNull().default(0),
+  timesSkipped: integer("times_skipped").notNull().default(0),
   imageKey: text("image_key"),
   imageFormat: text("image_format"),
   attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
