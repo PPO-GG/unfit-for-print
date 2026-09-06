@@ -134,10 +134,6 @@
                   draggable="false"
                 />
               </div>
-              <div class="card-back-footer">
-                <span>ED. 001 · ANSWERS</span>
-                <span class="card-back-footer-mark">✶ 18+</span>
-              </div>
             </div>
           </slot>
           <div v-if="shine" :style="shineStyle" class="card__shine"></div>

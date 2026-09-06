@@ -1,6 +1,6 @@
 <template>
   <div
-    class="card-scaler select-none perspective-[800px] justify-center flex items-center aspect-[3/4] hover:z-[100]"
+    class="card-scaler select-none perspective-midrange justify-center flex items-center aspect-3/4 hover:z-100"
     :style="{ '--card-scale': scale / 100 }"
   >
     <div
@@ -59,8 +59,8 @@
               />
               <div class="card-footer">
                 <span class="card-footer-pack">{{ cardPack || "" }}</span>
-                <span v-if="computedNumPick" class="card-footer-pick"
-                  >PICK {{ computedNumPick }}</span
+                <span v-if="computedNumPick" class="card-footer-pick border-2 rounded-sm p-1 absolute right-0 bottom-0 opacity-50"
+                  >{{ computedNumPick }}</span
                 >
               </div>
               <div class="card-report-btn" @click.stop>
@@ -117,10 +117,6 @@
                   alt="Unfit For Print"
                   draggable="false"
                 />
-              </div>
-              <div class="card-back-footer">
-                <span>ED. 001 · PROMPTS</span>
-                <span class="card-back-footer-mark">✶ 18+</span>
               </div>
             </div>
           </slot>
