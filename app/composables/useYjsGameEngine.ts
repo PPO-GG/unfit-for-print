@@ -19,6 +19,12 @@ import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import type { PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 import { mergeCardTextKeys } from "~/utils/cardTexts";
+import {
+  chunkEntries,
+  readChunkedArray,
+  readChunkedRecord,
+  splitArrayChunks,
+} from "~/utils/chunkedDocValue";
 import { shuffle } from "~/utils/shuffle";
 import { drawEligibleBlackCard } from "~/utils/blackCardDraw";
 
@@ -46,7 +52,10 @@ function readBlackPicks(c: {
   entries(): IterableIterator<[string, any]>;
 }): Record<string, number> {
   const raw = Object.fromEntries(c.entries());
-  const picks = safeParseJson<Record<string, number>>(raw.blackPicks, {});
+  // Chunk-aware: with every pack enabled the pick map is ~58KB, too big for a
+  // single Y.Doc update to survive the trip to the server. Falls back to the
+  // plain key for documents written before chunking.
+  const picks = readChunkedRecord<number>(raw, "blackPicks");
   if (Object.keys(picks).length > 0) return picks;
 
   const legacy: CardTexts = mergeCardTextKeys(raw);
@@ -55,6 +64,32 @@ function readBlackPicks(c: {
     if (typeof entry?.pick === "number") fallback[id] = entry.pick;
   }
   return fallback;
+}
+
+/**
+ * Writes the black deck across chunk keys.
+ *
+ * With every pack enabled the deck is ~55KB, close enough to the ~58KB ceiling
+ * above which a single update is silently dropped on its way to the server that
+ * it is not worth writing whole. Stale chunks from a longer previous deck are
+ * blanked rather than deleted, so a reader that has already seen a higher chunk
+ * count cannot pick up leftovers.
+ */
+function writeBlackDeck(
+  c: { set(k: string, v: unknown): void; get(k: string): unknown },
+  deck: CardId[],
+): void {
+  const previous = parseInt(String(c.get("blackDeckChunks") ?? "0"), 10) || 0;
+  const chunks = splitArrayChunks(deck);
+  for (const [key, value] of chunkEntries("blackDeck", chunks)) {
+    c.set(key, value);
+  }
+  for (let i = chunks.length; i < previous; i++) {
+    c.set(`blackDeck_${i}`, "[]");
+  }
+  // The plain key is no longer authoritative; blank it so a legacy reader that
+  // ignores chunks fails visibly rather than replaying a stale deck.
+  c.set("blackDeck", "[]");
 }
 
 // ─── Composable ─────────────────────────────────────────────────────────────
@@ -128,7 +163,10 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     const c = getCards();
     return {
       whiteDeck: safeParseJson<CardId[]>(c.get("whiteDeck"), []),
-      blackDeck: safeParseJson<CardId[]>(c.get("blackDeck"), []),
+      blackDeck: readChunkedArray<CardId>(
+        Object.fromEntries(c.entries()),
+        "blackDeck",
+      ),
       discardWhite: safeParseJson<CardId[]>(c.get("discardWhite"), []),
       discardBlack: safeParseJson<CardId[]>(c.get("discardBlack"), []),
     };
@@ -607,7 +645,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       });
 
       gs.set("blackCard", JSON.stringify(draw.card));
-      c.set("blackDeck", JSON.stringify(draw.blackDeck));
+      writeBlackDeck(c, draw.blackDeck);
       c.set("discardBlack", JSON.stringify(draw.discardBlack));
 
       // Refill player hands (draw from deck only — no discard recycling).
@@ -788,7 +826,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("readAloudText", "");
 
       gs.set("blackCard", JSON.stringify(draw.card));
-      c.set("blackDeck", JSON.stringify(draw.blackDeck));
+      writeBlackDeck(c, draw.blackDeck);
       c.set("discardBlack", JSON.stringify(discardBlack));
 
       gs.set("blackSkipUsed", JSON.stringify(true));
@@ -913,7 +951,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       // Clear cards and hands
       const c = getCards();
       c.set("whiteDeck", "[]");
-      c.set("blackDeck", "[]");
+      writeBlackDeck(c, []);
       c.set("discardWhite", "[]");
       c.set("discardBlack", "[]");
 
@@ -1065,7 +1103,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
           gs.set("blackCard", null);
         }
 
-        c.set("blackDeck", JSON.stringify(blackDeck));
+        writeBlackDeck(c, blackDeck);
         c.set("discardBlack", JSON.stringify(discardBlack));
         c.set("discardWhite", JSON.stringify(discardWhite));
 

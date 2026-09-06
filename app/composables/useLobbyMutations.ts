@@ -11,6 +11,11 @@
 //   mutations.initializeLobby({ ... })
 
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import {
+  chunkEntries,
+  splitArrayChunks,
+  splitRecordChunks,
+} from "~/utils/chunkedDocValue";
 import type { PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 
@@ -286,9 +291,18 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     //    useCardTexts. This is what removed the old cardTexts_0…N chunking;
     //    a pick map is small enough to be a single key.
     const cards = getCards();
-    ydoc.transact(() => {
-      cards.set("blackPicks", JSON.stringify(payload.blackPicks ?? {}));
-    });
+    // Chunked, and each chunk in its own transaction. With every pack enabled
+    // the pick map is ~58.6KB and the deck ~55.7KB — a single update that large
+    // is silently dropped on the way to the server, leaving the document with
+    // no cards at all and nothing for a joining client to sync or snapshot.
+    // Many small updates accumulate fine, so the size cap is per update, not
+    // per document.
+    for (const [key, value] of chunkEntries(
+      "blackPicks",
+      splitRecordChunks(payload.blackPicks ?? {}),
+    )) {
+      ydoc.transact(() => cards.set(key, value));
+    }
 
     // 2. Decks (split white and black to keep each update small)
     ydoc.transact(() => {
@@ -296,9 +310,14 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       cards.set("discardWhite", "[]");
       cards.set("discardBlack", "[]");
     });
-    ydoc.transact(() => {
-      cards.set("blackDeck", JSON.stringify(payload.blackDeck));
-    });
+    for (const [key, value] of chunkEntries(
+      "blackDeck",
+      splitArrayChunks(payload.blackDeck),
+    )) {
+      ydoc.transact(() => cards.set(key, value));
+    }
+    // The plain key stays blank: chunks are authoritative from here on.
+    ydoc.transact(() => cards.set("blackDeck", "[]"));
 
     // 3. Hands
     ydoc.transact(() => {

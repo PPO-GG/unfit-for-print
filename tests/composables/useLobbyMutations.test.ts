@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useLobbyMutations } from "~/composables/useLobbyMutations";
+import {
+  CHUNK_MAX_BYTES,
+  readChunkedArray,
+  readChunkedRecord,
+} from "~/utils/chunkedDocValue";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 
 function makeStubDoc(): LobbyDocResult {
@@ -86,17 +91,61 @@ describe("useLobbyMutations.startGame card payload", () => {
     judgeId: "p1",
   };
 
+  // Written across chunk keys, not one: with every pack enabled the pick map is
+  // ~58KB and the deck ~55KB, and a single Y.Doc update that large is silently
+  // dropped on its way to the server. Asserted through the reader, since the
+  // contract is that the value round-trips — not which keys hold it.
   it("writes the black pick map into the cards map", () => {
     const stub = makeStubDoc();
     const mutations = useLobbyMutations(stub);
 
     mutations.startGame(basePayload as any);
 
-    expect(JSON.parse(stub.getCards().get("blackPicks") as string)).toEqual({
+    const raw = Object.fromEntries(stub.getCards().entries());
+    expect(readChunkedRecord<number>(raw, "blackPicks")).toEqual({
       b1: 2,
       b2: 1,
       b3: 3,
     });
+  });
+
+  it("writes the black deck so it reads back intact", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+
+    mutations.startGame(basePayload as any);
+
+    const raw = Object.fromEntries(stub.getCards().entries());
+    expect(readChunkedArray<string>(raw, "blackDeck")).toEqual(["b2", "b3"]);
+  });
+
+  // The reason chunking exists: no single update may approach the ~58KB
+  // ceiling, however many packs the host enabled.
+  it("keeps every card key under the chunk budget for an all-packs deck", () => {
+    const bigDeck = Array.from(
+      { length: 1500 },
+      (_, i) => `${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`,
+    );
+    const bigPicks = Object.fromEntries(bigDeck.map((id) => [id, 1]));
+
+    const stub = makeStubDoc();
+    useLobbyMutations(stub).startGame({
+      ...basePayload,
+      blackDeck: bigDeck,
+      blackPicks: bigPicks,
+    } as any);
+
+    const raw = Object.fromEntries(stub.getCards().entries());
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof value === "string") {
+        expect(
+          Buffer.byteLength(value),
+          `${key} exceeds the chunk budget`,
+        ).toBeLessThanOrEqual(CHUNK_MAX_BYTES);
+      }
+    }
+    expect(readChunkedArray<string>(raw, "blackDeck")).toEqual(bigDeck);
+    expect(readChunkedRecord<number>(raw, "blackPicks")).toEqual(bigPicks);
   });
 
   it("writes no card-text keys at all", () => {
