@@ -10,7 +10,7 @@ export const useCardImporter = (options?: { onComplete?: () => void }) => {
   // Auth headers are dropped; sending a bogus
   // `Authorization: Bearer undefined` would incorrectly route through
   // requireAuth's activity-token branch and break admin auth entirely.
-  // Uses $activityFetch (same as other admin composables, e.g. CardManager.vue)
+  // Uses $activityFetch (same as other admin components, e.g. CardManagerUpload.vue)
   // so this still works from inside the Discord Activity iframe, where cookies
   // aren't available and auth rides on the activity token header instead.
   // /api/dev/seed/progress (the EventSource below) has no server-side auth
