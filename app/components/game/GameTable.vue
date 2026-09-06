@@ -1,17 +1,16 @@
 <script lang="ts" setup>
-import { ref, computed, watch, nextTick, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import type { Player } from "~/types/player";
 import type { CardTexts } from "~/types/gamecards";
 import { gsap } from "gsap";
-import { MotionPathPlugin } from "gsap/MotionPathPlugin";
-gsap.registerPlugin(MotionPathPlugin);
-import confetti from "canvas-confetti";
-import { shuffle } from "lodash-es";
-import { useCardFlyCoords } from "~/composables/useCardFlyCoords";
+import { mergeCardText } from "~/composables/useMergeCards";
 import { getJudgingCardScale } from "~/composables/useJudgingDensity";
 import { useCardPlayPreferences } from "~/composables/useCardPlayPreferences";
-import { mergeCardText } from "~/composables/useMergeCards";
-import { SFX, SPRITES } from "~/config/sfx.config";
+import { useCardPileChoreography } from "~/composables/useCardPileChoreography";
+import { useJudgingFlip, type Submission } from "~/composables/useJudgingFlip";
+import { useWinnerTableCelebration } from "~/composables/useWinnerTableCelebration";
+import { useSfx } from "~/composables/useSfx";
+import { SFX } from "~/config/sfx.config";
 import ScoreFlyBadge from "./ScoreFlyBadge.vue";
 
 interface BlackCard {
@@ -19,11 +18,6 @@ interface BlackCard {
   text: string;
   pick: number;
   [key: string]: unknown;
-}
-
-interface Submission {
-  playerId: string;
-  cards: string[];
 }
 
 const props = withDefaults(
@@ -47,7 +41,7 @@ const props = withDefaults(
     judgeId?: string | null;
     /** Whether the TTS engine is currently speaking (driven by parent). */
     readingAloud?: boolean;
-    /** Resolved card texts keyed by card ID — eliminates per-card Appwrite fetches. */
+    /** Resolved card texts keyed by card ID — eliminates per-card fetches. */
     cardTexts?: CardTexts;
   }>(),
   {
@@ -74,64 +68,16 @@ const emit = defineEmits([
 ]);
 
 const { t } = useI18n();
-const { consumeCentroid } = useCardFlyCoords();
 const { playMode, cycleMode } = useCardPlayPreferences();
-
-/**
- * Read a submission's merged card combination aloud for everyone.
- * Emits an event to the parent (GameBoard) which calls the API
- * to broadcast the text to all clients via realtime.
- */
-async function readAloud(playerId: string) {
-  if (!import.meta.client) return;
-  const sub = props.submissions[playerId];
-  if (!sub || !props.blackCard) return;
-
-  // Check which card IDs are missing from the cardTexts map
-  const missingIds = sub.filter((cardId) => !props.cardTexts?.[cardId]?.text);
-
-  // Resolve missing texts on-demand (submitted cards aren't always in cardTexts)
-  const resolvedTexts: Record<string, { text: string; pack: string }> = {};
-  if (missingIds.length > 0) {
-    try {
-      const resolved = await $fetch<
-        { id: string; text: string; pack: string }[]
-      >("/api/cards/resolve", { method: "POST", body: { ids: missingIds } });
-      for (const card of resolved) {
-        resolvedTexts[card.id] = { text: card.text, pack: card.pack };
-      }
-    } catch (err) {
-      console.error("[ReadAloud] Failed to resolve card texts:", err);
-    }
-  }
-
-  // Merge cardTexts prop + freshly resolved texts
-  const whiteTexts = sub.map(
-    (cardId) =>
-      props.cardTexts?.[cardId]?.text ?? resolvedTexts[cardId]?.text ?? "",
-  );
-
-  const merged = mergeCardText(props.blackCard.text, whiteTexts);
-  if (!merged) return;
-
-  emit("read-aloud", merged);
-}
-
-// Sprite-based SFX for card landing sounds
-const { playSfx: playCardLandSfx } = useSfx(
-  SPRITES.cardLand.src,
-  SPRITES.cardLand.map,
-);
-// General SFX (individual files)
 const { playSfx } = useSfx();
 
-// ── Score fly badge state ────────────────────────────────────────
-const scoreFly = ref<{
-  from: { x: number; y: number };
-  to: { x: number; y: number };
-} | null>(null);
+// ── Element refs shared with the animation composables ──────────
+const tableRef = ref<HTMLElement | null>(null);
+const cardContainerRef = ref<HTMLElement | null>(null);
+const ghostTemplateRef = ref<HTMLElement | null>(null);
+const gridCellRefs = ref<Record<string, HTMLElement | null>>({});
 
-// ── State ───────────────────────────────────────────────────────
+// ── Phase ───────────────────────────────────────────────────────
 // We delay the transition to "judging" locally so the final submission
 // animation has time to physically land in the pile before the FLIP layout change.
 const localPhase = ref(props.phase);
@@ -149,572 +95,78 @@ watch(
   { immediate: true },
 );
 
-const tableRef = ref<HTMLElement | null>(null);
-const pileAreaRef = ref<HTMLElement | null>(null);
-const cardContainerRef = ref<HTMLElement | null>(null);
-const ghostTemplateRef = ref<HTMLElement | null>(null);
+const isSubmitting = computed(() => localPhase.value === "submitting");
+const isJudging = computed(() => localPhase.value === "judging");
 
-// Track previous submissions for fly-in animations
-const prevSubmissionKeys = ref<Set<string>>(new Set());
-
-// Shuffled submission order (set once when judging starts, not re-shuffled)
-const shuffledOrder = ref<Submission[]>([]);
-
-// Track if we've already transitioned cards from pile → row
-const hasTransitionedToRow = ref(false);
-
-// Track whether the FLIP animation is currently running
-const isFlipAnimating = ref(false);
-
-// Track the most recently revealed card (for flash effect)
-const justRevealed = ref<string | null>(null);
-
-// Track random angles for thrown cards (stable per player).
-// Plain object (non-reactive) so that caching a new card's angle
-// doesn't trigger Vue re-renders on every existing pile card.
-let cardAngles: Record<string, { rotate: number; tx: number; ty: number }> = {};
-
-// Show judging UI (labels, buttons) only after FLIP animation completes
-const showJudgingUI = ref(false);
-
-// Track whether the winner slide-to-center animation is in progress.
-// While true, the template keeps all grid-cells visible so GSAP can animate them.
-const winnerAnimating = ref(false);
-
-// ── Grid cell refs for FLIP targeting ───────────────────────────
-const gridCellRefs = ref<Record<string, HTMLElement | null>>({});
-
-// ── Optimal grid columns based on submission count ──────────────
-const gridCols = computed(() => {
-  const count = displaySubmissions.value.length;
-  if (count <= 2) return 2;
-  if (count <= 3) return 3;
-  if (count <= 4) return 2;
-  if (count <= 6) return 3;
-  if (count <= 8) return 4;
-  return 4;
+// ── Animation composables ───────────────────────────────────────
+const {
+  peekCardAngle,
+  getPileCardStyle,
+  flyOptimisticSubmission,
+  adoptExistingSubmissions,
+  resetForNewRound: resetPile,
+} = useCardPileChoreography({
+  submissions: () => props.submissions,
+  myId: () => props.myId,
+  isSubmitting: () => isSubmitting.value,
+  cardContainerRef,
+  ghostTemplateRef,
 });
 
-// ── Submission helpers ──────────────────────────────────────────
-function getPlayerName(playerId: string): string {
-  const p = props.players.find(
-    (pl) => pl.userId === playerId || pl.$id === playerId,
-  );
-  return p?.name || t("lobby.unknown_player");
-}
+const { shuffledOrder, hasTransitionedToRow, showJudgingUI } = useJudgingFlip({
+  submissions: () => props.submissions,
+  phase: () => localPhase.value,
+  cardContainerRef,
+  gridCellRefs,
+  peekCardAngle,
+});
 
-function getPlayerScore(playerId: string): number {
-  return props.scores?.[playerId] ?? 0;
-}
+const {
+  scoreFly,
+  winnerAnimating,
+  resetForNewRound: resetCelebration,
+} = useWinnerTableCelebration({
+  effectiveRoundWinner: () => props.effectiveRoundWinner,
+  winnerSelected: () => props.winnerSelected,
+  myId: () => props.myId,
+  hasTransitionedToRow: () => hasTransitionedToRow.value,
+  cardContainerRef,
+  gridCellRefs,
+});
 
+// ── Round boundary ──────────────────────────────────────────────
+// The phase prop is the authoritative round-boundary signal, NOT the
+// submissions map emptying — that happens transiently while realtime state
+// re-parses, and treating it as a new round makes every card re-animate.
+watch(
+  () => props.phase,
+  (newPhase, oldPhase) => {
+    if (newPhase === "submitting" && oldPhase === "judging") {
+      resetPile();
+      resetCelebration();
+    }
+  },
+);
+
+onMounted(() => {
+  // Existing submissions (hot reload, late join, refresh) must appear in the
+  // pile without replaying their fly-in animations.
+  adoptExistingSubmissions(localPhase.value === "submitting");
+});
+
+// ── Derived state ───────────────────────────────────────────────
 const submissionCount = computed(() => Object.keys(props.submissions).length);
 const totalParticipants = computed(
   () => props.players.filter((p) => p.playerType !== "spectator").length - 1,
 );
 
-//* ── Random card scatter for natural pile feel ────────────────────
-// Each card gets a fully random rotation, direction, and distance
-// from center, producing a messy, organic pile that looks different
-// every round. Cached per player so angles stay stable within a round.
-function getCardAngle(playerId: string) {
-  if (!cardAngles[playerId]) {
-    // Fully random rotation between -25° and +25°
-    const rotate = (Math.random() - 0.5) * 50;
-
-    // Random direction (any angle around the center)
-    const theta = Math.random() * Math.PI * 2;
-
-    // Random distance from center (15–60px)
-    const radius = 15 + Math.random() * 45;
-
-    cardAngles[playerId] = {
-      rotate,
-      tx: Math.cos(theta) * radius,
-      ty: Math.sin(theta) * radius,
-    };
-  }
-  return cardAngles[playerId];
-}
-
-// ── Position a pile card at its scatter offset via GSAP ──────────
-// Also sets opacity: 1 because .unified-card--pile defaults to opacity: 0
-// to prevent flash-of-unstyled-card before GSAP takes control.
-function setPilePosition(el: HTMLElement, pid: string) {
-  const angle = getCardAngle(pid);
-  gsap.set(el, {
-    x: angle.tx,
-    y: angle.ty,
-    rotation: angle.rotate,
-    opacity: 1,
-  });
-}
-
-// ── Fly-in animation for new submissions ────────────────────────
-// Guard: track which player IDs have already been animated this round
-// to prevent duplicate fly-ins when the deep watcher fires multiple times.
-const animatedPids = new Set<string>();
-// Track pids with in-flight ghost animations (real card stays hidden)
-const flyingGhosts = ref<Set<string>>(new Set());
-// Optimistic ghosts that must persist until the real pile card arrives
-const pendingOptimisticGhosts = new Map<string, HTMLElement>();
-// Pids whose submission arrived (Y.Doc sync) BEFORE the GSAP animation finished.
-// The GSAP onComplete checks this set to self-clean instead of storing a persistent ghost.
-const earlyArrivalPids = new Set<string>();
-
-// Vue-controlled pile card positioning. Returns the inline style for
-// each pile card so Vue maintains positions through re-renders.
-function getPileCardStyle(pid: string) {
-  // Hide real card while ghost is flying
-  if (flyingGhosts.value.has(pid)) return { opacity: 0 };
-  const angle = cardAngles[pid];
-  if (!angle) return { opacity: 0 }; // not yet positioned
-  return {
-    transform: `translate(${angle.tx}px, ${angle.ty}px) rotate(${angle.rotate}deg)`,
-    opacity: 1,
-  };
-}
-
-// ── Round-reset: clear animation state when a new round begins ──
-// Uses the phase prop as the authoritative round-boundary signal,
-// NOT the submissions emptying (which can happen transiently during
-// Appwrite realtime state updates, causing all cards to re-animate).
-watch(
-  () => props.phase,
-  (newPhase, oldPhase) => {
-    // When phase cycles back to "submitting" from "judging",
-    // it's a new round — clear all animation trackers.
-    if (newPhase === "submitting" && oldPhase === "judging") {
-      animatedPids.clear();
-      flyingGhosts.value.clear();
-      // Clean up any lingering optimistic ghosts
-      for (const ghost of pendingOptimisticGhosts.values()) ghost.remove();
-      pendingOptimisticGhosts.clear();
-      earlyArrivalPids.clear();
-      cardAngles = {};
-      prevSubmissionKeys.value = new Set();
-      winnerAnimating.value = false;
-
-      // Remove ALL leaked ghost DOM elements (safety net for unmount/remount races)
-      document
-        .querySelectorAll<HTMLElement>("[data-unfit-ghost]")
-        .forEach((el) => {
-          gsap.killTweensOf(el);
-          el.remove();
-        });
-
-      // Clear GSAP transforms from grid cells to prevent stale state
-      const container = cardContainerRef.value;
-      if (container) {
-        const cells = container.querySelectorAll<HTMLElement>(".grid-cell");
-        cells.forEach((cell) => {
-          gsap.killTweensOf(cell);
-          gsap.set(cell, { clearProps: "all" });
-        });
-      }
-    }
-  },
-);
-
-watch(
-  () => props.submissions,
-  async (newSubs) => {
-    const newKeys = new Set(Object.keys(newSubs));
-    const addedKeys: string[] = [];
-    for (const key of newKeys) {
-      const isNewlyAdded =
-        !prevSubmissionKeys.value.has(key) && !animatedPids.has(key);
-      if (isNewlyAdded) {
-        flyingGhosts.value.add(key); // hide real card BEFORE angle is set
-        getCardAngle(key);
-        addedKeys.push(key);
-        animatedPids.add(key);
-      }
-
-      // Its own fly-in animation hasn't started yet (that happens below,
-      // after nextTick), so there's no ghost to reconcile against yet.
-      // Checking here would immediately see the flyingGhosts flag we just
-      // set above and wrongly treat it as an "early arrival", un-hiding
-      // the real pile card before the ghost even starts flying.
-      if (isNewlyAdded) continue;
-
-      // Clean up optimistic ghost now that the real pile card exists.
-      // Only the GSAP onComplete handlers may clear flyingGhosts — doing
-      // it here would reveal the real card before its fly-in finishes.
-      const ghost = pendingOptimisticGhosts.get(key);
-      if (ghost) {
-        if (flyingGhosts.value.has(key)) {
-          // Animation still in progress — let GSAP onComplete handle wrapper
-          // removal so the fly-in animation finishes visually.
-          earlyArrivalPids.add(key);
-        } else {
-          // Animation already finished — safe to remove immediately
-          ghost.remove();
-          pendingOptimisticGhosts.delete(key);
-        }
-      } else if (animatedPids.has(key) && flyingGhosts.value.has(key)) {
-        // Submission arrived before GSAP animation completed — mark for
-        // self-cleanup in onComplete so the ghost doesn't persist forever.
-        earlyArrivalPids.add(key);
-      }
-    }
-
-    prevSubmissionKeys.value = newKeys;
-
-    // NOTE: Round-reset is now handled by the phase watcher above.
-    // Do NOT clear animatedPids here when newKeys.size === 0, because
-    // transient empty states from Appwrite realtime re-parsing would
-    // cause every subsequent submission to re-animate all cards.
-
-    if (addedKeys.length === 0 || !isSubmitting.value) return;
-
-    // Wait for Vue to render the new card elements
-    await nextTick();
-    await nextTick(); // double nextTick ensures DOM is fully flushed
-
-    const container = cardContainerRef.value;
-    if (!container) return;
-
-    addedKeys.forEach((pid, animIndex) => {
-      const el = container.querySelector(
-        `[data-player-id="${pid}"]`,
-      ) as HTMLElement;
-
-      if (!el) return;
-
-      const finalAngle = getCardAngle(pid);
-      let isLocal = pid === props.myId;
-
-      // ── Step 1: Measure the pile card's final screen position ──────
-      // Temporarily place it at the pile position to measure.
-      setPilePosition(el, pid);
-      const elRect = el.getBoundingClientRect();
-      const destX = elRect.left + elRect.width / 2;
-      const destY = elRect.top + elRect.height / 2;
-
-      const cardWidth = el.offsetWidth;
-      const cardHeight = el.offsetHeight;
-
-      // Re-hide the real card immediately after measuring so it doesn't
-      // flash at the destination while the ghost clone flies in.
-      gsap.set(el, { opacity: 0 });
-
-      // ── Step 2: Determine where the card should fly FROM ──────────
-      let fromX = destX;
-      let fromY = destY;
-
-      if (isLocal) {
-        const centroid = consumeCentroid();
-        if (centroid) {
-          fromX = centroid.x;
-          fromY = centroid.y;
-        } else {
-          fromY = window.innerHeight + 200;
-        }
-      } else {
-        const pillEl = document.querySelector(
-          `[data-player-pill="${pid}"]`,
-        ) as HTMLElement;
-        if (pillEl) {
-          const pillRect = pillEl.getBoundingClientRect();
-          fromX = pillRect.left + pillRect.width / 2;
-          fromY = pillRect.top + pillRect.height / 2;
-        } else {
-          fromX = destX + (Math.random() - 0.5) * 200;
-          fromY = -200;
-        }
-      }
-
-      // ── Step 3: Mark as flying, create a ghost clone ───────────────
-      // The ghost lives outside Vue's control so reactivity can't kill it.
-      // Mark in reactive set so Vue hides the real card via :style binding.
-      flyingGhosts.value.add(pid);
-      const ghost = el.cloneNode(true) as HTMLElement;
-      // Strip ALL classes to remove conflicting .unified-card--pile rules
-      // (inset: 0, margin: auto, opacity: 0, position: absolute)
-      ghost.className = "";
-      ghost.dataset.unfitGhost = "true";
-      ghost.style.cssText = `
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: ${cardWidth}px;
-        height: ${cardHeight}px;
-        pointer-events: none;
-        z-index: 9999;
-        opacity: 1;
-      `;
-      document.body.appendChild(ghost);
-
-      // Physics-based spin
-      const spinDirection = Math.random() > 0.5 ? 1 : -1;
-      const startRotation =
-        finalAngle.rotate +
-        spinDirection *
-          (isLocal ? 60 + Math.random() * 60 : 360 + Math.random() * 180);
-
-      // ── Step 4: Animate the ghost from source → destination ────────
-      // Ghost uses position:fixed with left:0;top:0, so GSAP x/y are
-      // screen coordinates directly.
-      const startX = fromX - cardWidth / 2;
-      const startY = fromY - cardHeight / 2;
-      const endX = destX - cardWidth / 2;
-      const endY = destY - cardHeight / 2;
-
-      // Control point: midpoint horizontally, lifted vertically for arc
-      const cpX = (startX + endX) / 2;
-      const cpY = Math.min(startY, endY) - 120 - Math.random() * 80;
-
-      gsap.set(ghost, {
-        x: startX,
-        y: startY,
-        rotation: startRotation,
-        scale: isLocal ? 1.05 : 0.15,
-      });
-
-      const tl = gsap.timeline({
-        delay: animIndex * 0.2,
-        onStart: () => {
-          if (!isLocal) {
-            playSfx(SFX.cardSelect, {
-              volume: [0.3, 0.5],
-              pitch: [0.9, 1.1],
-            });
-          }
-        },
-        onComplete: () => {
-          // Remove ghost, let Vue reveal the real pile card via :style
-          ghost.remove();
-          flyingGhosts.value.delete(pid);
-
-          playCardLandSfx("", {
-            volume: isLocal ? [0.7, 0.9] : [0.4, 0.6],
-            pitch: [0.9, 1.1],
-          });
-        },
-      });
-
-      // Arc flight
-      tl.to(ghost, {
-        motionPath: {
-          path: [
-            { x: startX, y: startY },
-            { x: cpX, y: cpY },
-            { x: endX, y: endY },
-          ],
-          type: "quadratic",
-        },
-        rotation: finalAngle.rotate,
-        scale: 1,
-        duration: isLocal ? 0.6 : 0.8,
-        ease: "power2.inOut",
-      });
-
-      // Landing bounce (slight overshoot settle)
-      tl.to(ghost, {
-        y: endY - 6,
-        scale: 1.03,
-        duration: 0.08,
-        ease: "power1.out",
-      });
-      tl.to(ghost, {
-        y: endY,
-        scale: 1,
-        duration: 0.12,
-        ease: "power2.in",
-      });
-    });
-  },
-  { deep: true },
-);
-
-// ── Reveal flash: detect newly revealed cards ────────────────────
-watch(
-  () => props.revealedCards,
-  (newVal, oldVal) => {
-    if (!newVal) return;
-    for (const id of Object.keys(newVal)) {
-      if (!oldVal?.[id]) {
-        justRevealed.value = id;
-        setTimeout(() => {
-          if (justRevealed.value === id) justRevealed.value = null;
-        }, 600);
-        // Play flip whoosh SFX
-        playSfx(SFX.cardFlip, { volume: [0.4, 0.6], pitch: [0.95, 1.05] });
-      }
-    }
-  },
-  { deep: true },
-);
-
-// ── Judging: shuffle once & FLIP animate when phase changes ─────
-watch(
-  localPhase,
-  (newPhase, oldPhase) => {
-    if (newPhase === "judging" && oldPhase === "submitting") {
-      // Shuffle submissions for judging
-      const subs = Object.entries(props.submissions).map(([pid, cards]) => ({
-        playerId: pid,
-        cards,
-      }));
-      shuffledOrder.value = shuffle(subs);
-      hasTransitionedToRow.value = false;
-      showJudgingUI.value = false;
-
-      // ── FLIP animation: capture pile positions, switch to grid, animate ──
-      const container = cardContainerRef.value;
-      if (container) {
-        // 1. Capture the FIRST positions (pile layout)
-        const cards = container.querySelectorAll<HTMLElement>(".unified-card");
-        const firstRects = new Map<string, DOMRect>();
-        cards.forEach((el) => {
-          const pid = el.dataset.playerId;
-          if (pid) firstRects.set(pid, el.getBoundingClientRect());
-        });
-
-        // 2. Switch to grid layout
-        nextTick(() => {
-          hasTransitionedToRow.value = true;
-          isFlipAnimating.value = true;
-
-          // 3. Wait for grid to mount (double-tick: nextTick for v-if swap, then rAF for layout)
-          nextTick(() => {
-            requestAnimationFrame(() => {
-              // Animate each card from its pile position into its grid cell
-              shuffledOrder.value.forEach((sub, index) => {
-                const pid = sub.playerId;
-                const cellEl = gridCellRefs.value[pid];
-                if (!cellEl) return;
-
-                // Find the card element inside its cell (it's been moved by v-for)
-                const cardEl = cellEl.querySelector<HTMLElement>(
-                  `[data-player-id="${pid}"]`,
-                );
-                if (!cardEl) return;
-
-                const firstRect = firstRects.get(pid);
-                const lastRect = cardEl.getBoundingClientRect();
-
-                if (firstRect && lastRect) {
-                  const dx = firstRect.left - lastRect.left;
-                  const dy = firstRect.top - lastRect.top;
-                  const angle = cardAngles[pid];
-                  const rotate = angle?.rotate || 0;
-
-                  gsap.fromTo(
-                    cardEl,
-                    {
-                      x: dx,
-                      y: dy,
-                      rotation: rotate,
-                      scale: 0.75,
-                      opacity: 1,
-                    },
-                    {
-                      x: 0,
-                      y: 0,
-                      rotation: 0,
-                      scale: 1,
-                      opacity: 1,
-                      duration: 0.7,
-                      delay: index * 0.06,
-                      ease: "back.out(1.4)",
-                      clearProps: "all",
-                      onComplete: () => {
-                        if (index === shuffledOrder.value.length - 1) {
-                          isFlipAnimating.value = false;
-                          showJudgingUI.value = true;
-                        }
-                      },
-                    },
-                  );
-                }
-              });
-
-              // Fallback: if no cards to animate, show UI immediately
-              if (shuffledOrder.value.length === 0) {
-                isFlipAnimating.value = false;
-                showJudgingUI.value = true;
-              }
-            });
-          });
-        });
-      } else {
-        // No container ref — fallback to instant transition
-        hasTransitionedToRow.value = true;
-        showJudgingUI.value = true;
-      }
-    }
-  },
-  { immediate: true },
-);
-
-// Initialize shuffled order if already in judging phase on mount
-onMounted(() => {
-  if (localPhase.value === "judging") {
-    const subs = Object.entries(props.submissions).map(([pid, cards]) => ({
-      playerId: pid,
-      cards,
-    }));
-    if (shuffledOrder.value.length === 0) {
-      shuffledOrder.value = shuffle(subs);
-    }
-    hasTransitionedToRow.value = true;
-    showJudgingUI.value = true;
-  }
-
-  // Initialize previous submission keys AND mark them as already animated
-  // so existing submissions (e.g. hot-reload, late join, page refresh)
-  // don't trigger fly-in animations.
-  const existingKeys = Object.keys(props.submissions);
-  prevSubmissionKeys.value = new Set(existingKeys);
-  existingKeys.forEach((pid) => animatedPids.add(pid));
-
-  // Initialize card angles for any existing pile cards (e.g. hot-reload or late join)
-  // Vue's :style binding via getPileCardStyle() handles the actual positioning
-  if (localPhase.value === "submitting") {
-    existingKeys.forEach((pid) => {
-      getCardAngle(pid);
-    });
-  }
-});
-
-// ── "All submitted" pulse: fire when every participant has submitted ──
-const allSubmittedDuringPhase = computed(
-  () =>
-    localPhase.value === "submitting" &&
-    submissionCount.value > 0 &&
-    submissionCount.value >= totalParticipants.value,
-);
-
-watch(allSubmittedDuringPhase, (allIn) => {
-  if (!allIn) return;
-  const zone = cardContainerRef.value;
-  if (zone) {
-    gsap.fromTo(
-      zone,
-      { boxShadow: "0 0 0 rgba(139, 92, 246, 0)" },
-      {
-        boxShadow: "0 0 40px rgba(139, 92, 246, 0.2)",
-        duration: 0.4,
-        yoyo: true,
-        repeat: 1,
-        ease: "power2.inOut",
-      },
-    );
-  }
-});
-
-// ── Derived state ───────────────────────────────────────────────
-const isSubmitting = computed(() => localPhase.value === "submitting");
-const isJudging = computed(() => localPhase.value === "judging");
-
-const displaySubmissions = computed(() => {
+const displaySubmissions = computed<Submission[]>(() => {
   if (isJudging.value && shuffledOrder.value.length > 0) {
     return shuffledOrder.value;
   }
   // During submission show all players' submissions
-  return Object.entries(props.submissions).map(([pid, cards]) => ({
-    playerId: pid,
+  return Object.entries(props.submissions).map(([playerId, cards]) => ({
+    playerId,
     cards,
   }));
 });
@@ -749,445 +201,102 @@ function isRevealed(playerId: string): boolean {
   return !!props.revealedCards?.[playerId];
 }
 
-const allRevealed = computed(() => {
-  return displaySubmissions.value.every(
-    (sub) => props.revealedCards?.[sub.playerId],
+const allRevealed = computed(() =>
+  displaySubmissions.value.every((sub) => props.revealedCards?.[sub.playerId]),
+);
+
+// ── Reveal flash: detect newly revealed cards ────────────────────
+const justRevealed = ref<string | null>(null);
+watch(
+  () => props.revealedCards,
+  (newVal, oldVal) => {
+    if (!newVal) return;
+    for (const id of Object.keys(newVal)) {
+      if (oldVal?.[id]) continue;
+      justRevealed.value = id;
+      setTimeout(() => {
+        if (justRevealed.value === id) justRevealed.value = null;
+      }, 600);
+      // Play flip whoosh SFX
+      playSfx(SFX.cardFlip, { volume: [0.4, 0.6], pitch: [0.95, 1.05] });
+    }
+  },
+  { deep: true },
+);
+
+// ── "All submitted" pulse: fire when every participant has submitted ──
+const allSubmittedDuringPhase = computed(
+  () =>
+    localPhase.value === "submitting" &&
+    submissionCount.value > 0 &&
+    submissionCount.value >= totalParticipants.value,
+);
+
+watch(allSubmittedDuringPhase, (allIn) => {
+  if (!allIn) return;
+  const zone = cardContainerRef.value;
+  if (!zone) return;
+  gsap.fromTo(
+    zone,
+    { boxShadow: "0 0 0 rgba(139, 92, 246, 0)" },
+    {
+      boxShadow: "0 0 40px rgba(139, 92, 246, 0.2)",
+      duration: 0.4,
+      yoyo: true,
+      repeat: 1,
+      ease: "power2.inOut",
+    },
   );
 });
 
-// ── Confetti! ───────────────────────────────────────────────────
-watch(
-  () => props.winnerSelected,
-  (selected) => {
-    if (selected) {
-      fireConfetti();
+/**
+ * Read a submission's merged card combination aloud for everyone.
+ * Emits an event to the parent (GameBoard) which calls the API
+ * to broadcast the text to all clients via realtime.
+ */
+async function readAloud(playerId: string) {
+  if (!import.meta.client) return;
+  const sub = props.submissions[playerId];
+  if (!sub || !props.blackCard) return;
+
+  // Check which card IDs are missing from the cardTexts map
+  const missingIds = sub.filter((cardId) => !props.cardTexts?.[cardId]?.text);
+
+  // Resolve missing texts on-demand (submitted cards aren't always in cardTexts)
+  const resolvedTexts: Record<string, { text: string; pack: string }> = {};
+  if (missingIds.length > 0) {
+    try {
+      const resolved = await $fetch<{ id: string; text: string; pack: string }[]>(
+        "/api/cards/resolve",
+        { method: "POST", body: { ids: missingIds } },
+      );
+      for (const card of resolved) {
+        resolvedTexts[card.id] = { text: card.text, pack: card.pack };
+      }
+    } catch (err) {
+      console.error("[ReadAloud] Failed to resolve card texts:", err);
     }
-  },
-);
+  }
 
-// ── Self-win confetti: bottom-left corner blast when OUR card is picked ──
-watch(
-  () => props.effectiveRoundWinner,
-  (winnerId) => {
-    if (!winnerId || winnerId !== props.myId) return;
+  // Merge cardTexts prop + freshly resolved texts
+  const whiteTexts = sub.map(
+    (cardId) =>
+      props.cardTexts?.[cardId]?.text ?? resolvedTexts[cardId]?.text ?? "",
+  );
 
-    const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
+  const merged = mergeCardText(props.blackCard.text, whiteTexts);
+  if (!merged) return;
 
-    // Immediate burst — angled upward/right from the bottom-left corner
-    confetti({
-      particleCount: 60,
-      angle: 55,
-      spread: 60,
-      startVelocity: 45,
-      origin: { x: 0.05, y: 0.95 },
-      colors,
-      gravity: 0.9,
-      ticks: 120,
-      scalar: 1.1,
-    });
-
-    // Delayed secondary burst for a layered feel
-    setTimeout(() => {
-      confetti({
-        particleCount: 40,
-        angle: 70,
-        spread: 50,
-        startVelocity: 35,
-        origin: { x: 0.1, y: 0.98 },
-        colors,
-        gravity: 1.0,
-        ticks: 100,
-        scalar: 0.9,
-      });
-    }, 200);
-
-    // Third burst — wider fan
-    setTimeout(() => {
-      confetti({
-        particleCount: 30,
-        angle: 45,
-        spread: 80,
-        startVelocity: 30,
-        origin: { x: 0.02, y: 0.92 },
-        colors,
-        gravity: 1.1,
-        ticks: 80,
-        scalar: 0.7,
-      });
-    }, 400);
-  },
-);
-
-// ── Winner Slide-to-Center Animation ────────────────────────────
-// When effectiveRoundWinner changes from null → a player ID, animate:
-// 1. Losing cards fade + shrink out
-// 2. Winning card slides to horizontal center of the table
-// Note: winnerAnimating stays true until the round resets (phase-change
-// watcher) — this prevents CSS class changes from causing a flex reflow
-// that shifts the card behind the celebration overlay.
-watch(
-  () => props.effectiveRoundWinner,
-  async (winnerId, oldWinnerId) => {
-    if (!winnerId || oldWinnerId) return; // only on first selection
-    if (!hasTransitionedToRow.value) return; // must be in grid mode
-
-    const container = cardContainerRef.value;
-    if (!container) return;
-
-    winnerAnimating.value = true;
-
-    await nextTick();
-
-    const allCells = container.querySelectorAll<HTMLElement>(".grid-cell");
-    const winnerCell = gridCellRefs.value[winnerId];
-
-    if (!winnerCell) {
-      winnerAnimating.value = false;
-      return;
-    }
-
-    // ── Animate losing cells out (dim + blur + scale) ──────────
-    const nonWinnerCells: HTMLElement[] = [];
-    allCells.forEach((cell) => {
-      const cardEl = cell.querySelector<HTMLElement>(".unified-card");
-      const pid = cardEl?.dataset.playerId;
-      if (pid === winnerId) return;
-
-      nonWinnerCells.push(cell);
-      gsap.to(cell, {
-        opacity: 0.3,
-        scale: 0.85,
-        filter: "blur(3px)",
-        duration: 0.45,
-        ease: "power2.out",
-      });
-    });
-
-    // ── Strip cell chrome from the winner so only the card slides ──
-    gsap.set(winnerCell, {
-      borderColor: "transparent",
-      background: "transparent",
-      boxShadow: "none",
-    });
-
-    // ── Slide winning card to the horizontal center of the table ──
-    // Use the table-center parent for a visually accurate center.
-    const tableCenter = container.closest(".table-center");
-    const anchorRect = tableCenter
-      ? tableCenter.getBoundingClientRect()
-      : container.getBoundingClientRect();
-    const winnerRect = winnerCell.getBoundingClientRect();
-
-    const anchorCenterX = anchorRect.left + anchorRect.width / 2;
-    const winnerCenterX = winnerRect.left + winnerRect.width / 2;
-    const dx = anchorCenterX - winnerCenterX;
-
-    gsap.to(winnerCell, {
-      x: dx,
-      duration: 0.6,
-      ease: "power3.out",
-      // Do NOT set winnerAnimating = false here.
-      // It stays true until the celebration overlay appears or the round resets.
-      // This prevents CSS from hiding / reflowing the card.
-    });
-
-    // ── Winner spotlight: golden glow + scale-up ─────────────────
-    gsap.to(winnerCell, {
-      scale: 1.05,
-      duration: 0.5,
-      ease: "back.out(1.7)",
-      onStart: () => {
-        winnerCell.classList.add("winner-spotlight");
-      },
-    });
-
-    // ── Screen shake ─────────────────────────────────────────────
-    const tableRoot = document.querySelector(".game-table-root");
-    if (tableRoot) {
-      tableRoot.classList.add("screen-shake");
-      setTimeout(() => tableRoot.classList.remove("screen-shake"), 250);
-    }
-
-    // ── Localized confetti burst from winner card position ────────
-    const winnerBurstRect = winnerCell.getBoundingClientRect();
-    const x =
-      (winnerBurstRect.left + winnerBurstRect.width / 2) / window.innerWidth;
-    const y =
-      (winnerBurstRect.top + winnerBurstRect.height / 2) / window.innerHeight;
-
-    confetti({
-      particleCount: 40,
-      spread: 55,
-      origin: { x, y },
-      colors: ["#eab308", "#a78bfa", "#e2e8f0"],
-      startVelocity: 20,
-      gravity: 0.8,
-      ticks: 80,
-    });
-
-    // ── Score fly badge: arc +1 from winner card to winner pill in header ──
-    const from = {
-      x: winnerBurstRect.left + winnerBurstRect.width / 2,
-      y: winnerBurstRect.top + winnerBurstRect.height / 2,
-    };
-
-    const pillEl = document.querySelector(
-      `[data-player-pill="${winnerId}"]`,
-    ) as HTMLElement;
-    if (pillEl) {
-      const pillRect = pillEl.getBoundingClientRect();
-      const to = {
-        x: pillRect.left + pillRect.width / 2,
-        y: pillRect.top + pillRect.height / 2,
-      };
-      scoreFly.value = { from, to };
-    } else {
-      scoreFly.value = {
-        from,
-        to: { x: window.innerWidth / 2, y: 50 },
-      };
-    }
-
-    // ── Slide losing cards off-table edges after spotlight settles ─
-    setTimeout(() => {
-      nonWinnerCells.forEach((cell, i) => {
-        const direction = i % 2 === 0 ? -1 : 1;
-        gsap.to(cell, {
-          x: direction * 300,
-          opacity: 0,
-          rotation: direction * 15,
-          duration: 0.4,
-          delay: i * 0.05,
-          ease: "power2.in",
-        });
-      });
-    }, 800);
-  },
-);
-
-// winnerAnimating stays true until the round resets (handled by the
-// phase-change watcher). Resetting it when the celebration overlay
-// appears caused a CSS-class-driven flex reflow that visually shifted
-// the winner card behind the overlay.
-
-function fireConfetti() {
-  // Multiple bursts for a big celebration
-  const duration = 3000;
-  const end = Date.now() + duration;
-
-  const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
-
-  const frame = () => {
-    confetti({
-      particleCount: 3,
-      angle: 60,
-      spread: 55,
-      origin: { x: 0, y: 0.7 },
-      colors,
-    });
-    confetti({
-      particleCount: 3,
-      angle: 120,
-      spread: 55,
-      origin: { x: 1, y: 0.7 },
-      colors,
-    });
-
-    if (Date.now() < end) {
-      requestAnimationFrame(frame);
-    }
-  };
-  frame();
-
-  // Big center burst
-  setTimeout(() => {
-    confetti({
-      particleCount: 100,
-      spread: 100,
-      origin: { x: 0.5, y: 0.5 },
-      colors,
-      startVelocity: 30,
-      gravity: 0.8,
-    });
-  }, 200);
+  emit("read-aloud", merged);
 }
 
 // ── Handlers ────────────────────────────────────────────────────
 function handleCardSubmit(cardIds: string[]) {
-  const pid = props.myId;
-  const cardCount = cardIds.length;
-
-  // ── Optimistic fly-in ─────────────────────────────────────────
-  // Start the ghost animation IMMEDIATELY so the card visually leaves
-  // the hand the instant the player clicks — before the server round-trip.
-  // The submissions watcher will skip this pid because animatedPids
-  // already contains it, preventing a duplicate animation.
-  animatedPids.add(pid);
-  getCardAngle(pid);
-  flyingGhosts.value.add(pid);
-
-  // Source: centroid snapshot set by UserHand.snapshotCards() just before emit
-  const centroid = consumeCentroid();
-  const fromX = centroid?.x ?? window.innerWidth / 2;
-  const fromY = centroid?.y ?? window.innerHeight + 200;
-
-  // Destination: center of the pile area
-  const pileEl = pileAreaRef.value || cardContainerRef.value;
-  let destX = window.innerWidth / 2;
-  let destY = window.innerHeight / 3;
-  if (pileEl) {
-    const pileRect = pileEl.getBoundingClientRect();
-    destX = pileRect.left + pileRect.width / 2;
-    destY = pileRect.top + pileRect.height / 2;
-  }
-
-  // Measure card dimensions from the hidden template
-  const tpl =
-    ghostTemplateRef.value?.querySelector<HTMLElement>(".card-scaler");
-  let cardWidth: number;
-  let cardHeight: number;
-
-  if (tpl) {
-    const rect = tpl.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      cardWidth = rect.width;
-      cardHeight = rect.height;
-    } else {
-      const vw12 = window.innerWidth * 0.12;
-      cardWidth = Math.max(96, Math.min(288, vw12));
-      cardHeight = cardWidth * (4 / 3);
-    }
-  } else {
-    const vw12 = window.innerWidth * 0.12;
-    cardWidth = Math.max(96, Math.min(288, vw12));
-    cardHeight = cardWidth * (4 / 3);
-  }
-
-  const finalAngle = getCardAngle(pid);
-
-  // Create wrapper for ghost elements — registered immediately so the
-  // submissions watcher can find and clean it up if the Y.Doc update
-  // arrives before the GSAP animation finishes.
-  const ghostWrapper = document.createElement("div");
-  ghostWrapper.dataset.unfitGhost = "true";
-  ghostWrapper.style.cssText =
-    "position:fixed;top:0;left:0;pointer-events:none;z-index:9998;";
-  document.body.appendChild(ghostWrapper);
-  pendingOptimisticGhosts.set(pid, ghostWrapper);
-
-  // Create one ghost per card for multi-pick visual feedback
-  const ghosts: HTMLElement[] = [];
-  for (let i = 0; i < cardCount; i++) {
-    let ghost: HTMLElement;
-    if (tpl) {
-      ghost = tpl.cloneNode(true) as HTMLElement;
-      // Retain container classes (card-scaler) so container queries (cqi)
-      // evaluate against card dimensions rather than the full viewport.
-      ghost.className = tpl.className;
-      ghost.style.position = "fixed";
-      ghost.style.left = "0";
-      ghost.style.top = "0";
-      ghost.style.width = `${cardWidth}px`;
-      ghost.style.height = `${cardHeight}px`;
-      ghost.style.pointerEvents = "none";
-      ghost.style.zIndex = `${9999 - i}`;
-      ghost.style.opacity = "1";
-    } else {
-      ghost = document.createElement("div");
-      ghost.style.cssText = `
-        position: fixed; left: 0; top: 0; box-sizing: border-box;
-        width: ${cardWidth}px; height: ${cardHeight}px;
-        background: #e7e1de; border-radius: 12px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-        pointer-events: none; z-index: ${9999 - i}; opacity: 1;
-        border: 6px solid rgba(0,0,0,0.25);
-      `;
-    }
-    ghostWrapper.appendChild(ghost);
-    ghosts.push(ghost);
-
-    // Each card gets a unique spin and a visibly fanned landing position
-    const cardRotOffset = cardCount > 1 ? (i - (cardCount - 1) / 2) * 8 : 0;
-    const cardTxOffset = cardCount > 1 ? (i - (cardCount - 1) / 2) * 30 : 0;
-    const cardTyOffset = cardCount > 1 ? i * 6 : 0;
-    const spinDir = Math.random() > 0.5 ? 1 : -1;
-    const startRot =
-      finalAngle.rotate + cardRotOffset + spinDir * (60 + Math.random() * 60);
-
-    gsap.fromTo(
-      ghost,
-      {
-        x: fromX - cardWidth / 2 + (i - (cardCount - 1) / 2) * 20,
-        y: fromY - cardHeight / 2,
-        rotation: startRot,
-        scale: 1.05,
-      },
-      {
-        x: destX - cardWidth / 2 + finalAngle.tx + cardTxOffset,
-        y: destY - cardHeight / 2 + finalAngle.ty + cardTyOffset,
-        rotation: finalAngle.rotate + cardRotOffset,
-        scale: 1,
-        duration: 0.6,
-        delay: i * 0.12,
-        ease: "power3.out",
-        onComplete: () => {
-          // Only the last ghost manages lifecycle.
-          if (i === cardCount - 1) {
-            playCardLandSfx("", {
-              volume: [0.7, 0.9],
-              pitch: [0.9, 1.1],
-            });
-
-            // Reveal the real pile card now that the fly-in has actually
-            // finished (not before — that's what caused the real card to
-            // flash into view at its final spot while the ghost was
-            // still mid-flight).
-            flyingGhosts.value.delete(pid);
-
-            if (earlyArrivalPids.has(pid)) {
-              // Y.Doc submission arrived before animation finished —
-              // remove the wrapper now that the animation is done.
-              earlyArrivalPids.delete(pid);
-              ghostWrapper.remove();
-              pendingOptimisticGhosts.delete(pid);
-            }
-            // else: animation finished before Y.Doc data arrived —
-            // wrapper stays for the submissions watcher to clean up
-            // once the real data lands.
-          }
-        },
-      },
-    );
-  }
-
+  // Start the ghost animation IMMEDIATELY so the card visually leaves the
+  // hand the instant the player clicks — before the server round-trip.
+  flyOptimisticSubmission(cardIds);
   emit("select-cards", cardIds);
 }
-
-// ── Unmount cleanup: remove leaked ghost DOM elements + kill GSAP tweens ──
-// If GameTable unmounts mid-animation (e.g., reactive state flicker during
-// a transient Teleportal reconnect), ghost clones on document.body would
-// otherwise persist indefinitely — the "cards stuck on screen" bug.
-onBeforeUnmount(() => {
-  // 1. Kill tweens AND remove ALL tagged ghost elements from document.body.
-  //    Previous version only killed tweens without removing the elements,
-  //    leaving orphan ghosts visible on screen after Teleportal reconnects.
-  document.querySelectorAll<HTMLElement>("[data-unfit-ghost]").forEach((el) => {
-    gsap.killTweensOf(el);
-    el.remove();
-  });
-
-  // 2. Remove any pendingOptimisticGhosts not caught by the selector
-  for (const wrapper of pendingOptimisticGhosts.values()) {
-    gsap.killTweensOf(wrapper);
-    wrapper.remove();
-  }
-  pendingOptimisticGhosts.clear();
-
-  // 3. Clear reactive tracking state
-  flyingGhosts.value.clear();
-  animatedPids.clear();
-  earlyArrivalPids.clear();
-});
 
 function convertToPlayer(playerId: string) {
   emit("convert-to-player", playerId);
