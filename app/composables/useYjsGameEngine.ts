@@ -119,6 +119,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       config: safeParseJson<{ maxPoints: number }>(gs.get("config"), {
         maxPoints: 10,
       }),
+      promptSerial: (gs.get("promptSerial") as number) ?? 0,
+      blackSkipUsed: safeParseJson<boolean>(gs.get("blackSkipUsed"), false),
     };
   };
 
@@ -261,6 +263,26 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       });
     } catch (err) {
       console.warn("[GameEngine] Failed to record round stats:", err);
+    }
+  };
+
+  /**
+   * Records that the judge refused this prompt.
+   *
+   * Counterpart to reportRoundStats: that one counts prompts that reached a
+   * verdict, this one counts prompts that never got played. Fire-and-forget —
+   * the swap has already happened in the doc and must not block on it.
+   */
+  const reportBlackSkip = async (blackCardId: string): Promise<void> => {
+    try {
+      const lobbyId = await resolveLobbyId();
+      if (!lobbyId) return;
+      await $activityFetch("/api/game/record-skip", {
+        method: "POST",
+        body: { lobbyId, blackCardId },
+      });
+    } catch (err) {
+      console.warn("[GameEngine] Failed to record black card skip:", err);
     }
   };
 
@@ -627,6 +649,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("readAloudText", "");
       gs.set("skippedPlayers", "[]");
       gs.set("round", state.round + 1);
+      gs.set("blackSkipUsed", JSON.stringify(false));
+      gs.set("promptSerial", state.promptSerial + 1);
       gs.set("phase", "submitting");
     });
 
@@ -692,6 +716,83 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("phase", "roundEnd");
       gs.set("roundEndStartTime", Date.now());
     });
+
+    return { success: true };
+  };
+
+  // ── Skip Black Card ────────────────────────────────────────────────────
+
+  /**
+   * Lets the judge swap out a prompt that is not going to produce anything.
+   *
+   * This is the same round with a different prompt: `round`, `judgeId`,
+   * `scores` and `skippedPlayers` are all deliberately left alone. Submitted
+   * cards go back to the hands they came from, so nobody loses a card to a
+   * prompt they can no longer answer.
+   *
+   * One skip per round, judge only. `promptSerial` is what tells the animation
+   * layer a new prompt is on the table — the phase never changes here, so the
+   * phase-edge watcher in GameTable cannot see this on its own.
+   */
+  const skipBlackCard = (): { success: boolean; reason?: string } => {
+    const ydoc = requireDoc();
+    const state = readGameState();
+    const cards = readCards();
+
+    if (state.phase !== "submitting")
+      return { success: false, reason: "Not in submitting phase" };
+    if (myId() !== state.judgeId)
+      return { success: false, reason: "Only the judge can skip the prompt" };
+    if (state.blackSkipUsed)
+      return { success: false, reason: "Already skipped a prompt this round" };
+
+    const maxPick = safeParseJson<number>(
+      lobbyDoc.getSettings().get("maxPick"),
+      3,
+    );
+    const outgoingId = state.blackCard?.id || "";
+    const discardBlack = [...cards.discardBlack];
+    // Never let the exhausted-deck sentinel into the discard pile.
+    if (outgoingId) discardBlack.push(outgoingId);
+
+    const draw = drawEligibleBlackCard({
+      blackDeck: cards.blackDeck,
+      discardBlack,
+      blackPicks: readBlackPicks(getCards()),
+      maxPick,
+    });
+
+    // Nothing to swap to — either the deck is truly exhausted, or the only
+    // card the reshuffle could hand back is the one we're trying to get away
+    // from. Either way, leave the round exactly as it was.
+    if (!draw.card.id || draw.card.id === outgoingId)
+      return { success: false, reason: "No replacement prompt available" };
+
+    ydoc.transact(() => {
+      const gs = getGameState();
+      const c = getCards();
+      const handsMap = getHands();
+
+      // Give every submitted card back to the hand it came from.
+      for (const [pid, cardIds] of Object.entries(state.submissions)) {
+        const hand = safeParseJson<CardId[]>(handsMap.get(pid), []);
+        hand.push(...cardIds);
+        handsMap.set(pid, JSON.stringify(hand));
+      }
+
+      gs.set("submissions", "{}");
+      gs.set("revealedCards", "{}");
+      gs.set("readAloudText", "");
+
+      gs.set("blackCard", JSON.stringify(draw.card));
+      c.set("blackDeck", JSON.stringify(draw.blackDeck));
+      c.set("discardBlack", JSON.stringify(draw.discardBlack));
+
+      gs.set("blackSkipUsed", JSON.stringify(true));
+      gs.set("promptSerial", state.promptSerial + 1);
+    });
+
+    if (outgoingId) void reportBlackSkip(outgoingId);
 
     return { success: true };
   };
@@ -1060,6 +1161,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     nextRound,
     skipPlayer,
     skipJudge,
+    skipBlackCard,
     setReadAloud,
     convertToPlayer,
     resetGame,
