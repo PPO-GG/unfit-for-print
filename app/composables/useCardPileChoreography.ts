@@ -636,9 +636,19 @@ export function useCardPileChoreography(
       // Start at the angle the card was resting at so takeoff doesn't snap.
       const startRotation = peekCardAngle(pid)?.rotate ?? 0;
 
+      // Position BEFORE the timeline, exactly as the fly-in does. createGhost
+      // appends the clone at position:fixed; left:0; top:0; opacity:1, so a
+      // `.set()` inside a delayed timeline can leave the ghost visible in the
+      // viewport's top-left corner until its stagger delay elapses.
+      gsap.set(ghost, {
+        x: startX,
+        y: startY,
+        rotation: startRotation,
+        scale: 1,
+      });
+
       gsap
         .timeline({ delay: i * 0.06, onComplete: () => ghost.remove() })
-        .set(ghost, { x: startX, y: startY, rotation: startRotation, scale: 1 })
         // Takeoff: a small lift instead of the fly-in's landing bounce, which
         // reads wrong at the start of a flight.
         .to(ghost, { scale: 1.06, duration: 0.1, ease: "power1.out" })
