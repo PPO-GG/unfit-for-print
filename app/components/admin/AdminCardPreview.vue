@@ -59,7 +59,8 @@ import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
 
 const props = defineProps<{
   text: string;
-  pack: string;
+  /** Optional: cards.pack is nullable, so the list route can return no pack. */
+  pack?: string;
   active?: boolean;
   type: "white" | "black";
   pick?: number;

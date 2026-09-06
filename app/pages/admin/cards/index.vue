@@ -1,582 +1,67 @@
 <script setup lang="ts">
-import { useNotifications } from "~/composables/useNotifications";
-import { useCardSearch } from "~/composables/useCardSearch";
+import { ref, watch, onMounted } from "vue";
 import { watchDebounced } from "@vueuse/core";
+import { useCardSearch } from "~/composables/useCardSearch";
+import { useAdminPackStats } from "~/composables/useAdminPackStats";
+import { useAdminCardList } from "~/composables/useAdminCardList";
+import { useAdminCardMutations } from "~/composables/useAdminCardMutations";
 import { getCardImageUrl } from "~/utils/cardImage";
+import type { AdminCard } from "~/composables/useAdminCardList";
 
 definePageMeta({ middleware: "admin" });
-
-const { $activityFetch } = useNuxtApp();
-const { notify } = useNotifications();
-const { confirm } = useConfirm();
 
 // ── Shared search state (persists across navigation) ──────────────────────────
 const { searchTerm, cardType, selectedPack } = useCardSearch();
 
-// ── Pack sidebar state ─────────────────────────────────────────────────────────
-interface PackTypeStat {
-  total: number;
-  active: number;
-}
-interface PackStat {
-  name: string;
-  black: PackTypeStat;
-  white: PackTypeStat;
-}
+// ── Data layers ───────────────────────────────────────────────────────────────
+const packs = useAdminPackStats();
+const {
+  packStats,
+  loadingPacks,
+  packSearchTerm,
+  sortedPacks,
+  defaultPacks,
+  selectedPacks,
+  loadPacks,
+  loadDefaultPacks,
+  toggleDefaultPack,
+  togglePackSelection,
+  clearPackSelection,
+  typeStatDotClass,
+} = packs;
 
-const packStats = ref<Record<string, PackStat>>({});
-const loadingPacks = ref(false);
+const list = useAdminCardList();
+const {
+  cards,
+  visibleCards,
+  totalCards,
+  loadingCards,
+  isFetchingBackground,
+  isPageTransitioning,
+  numPick,
+  currentPage,
+  pageSize,
+  fetchCards,
+} = list;
+
+const {
+  bulkActionLoading,
+  toggleCardActive,
+  saveCardEdit: commitCardEdit,
+  deleteCard,
+  createCard,
+  togglePackActive,
+  togglePackActiveAll,
+  deletePackAll,
+  deletePackType,
+  bulkTogglePacks,
+  bulkDeletePacks,
+} = useAdminCardMutations({ list, packs });
+
+// ── Sidebar UI state ──────────────────────────────────────────────────────────
 const packSidebarOpen = ref(true);
 const expandedPack = ref<string | null>(null);
-const selectedPacks = ref<string[]>([]);
-const defaultPacks = ref<string[]>([]);
-const bulkActionLoading = ref(false);
-const packSearchTerm = ref("");
 
-const sortedPacks = computed(() => {
-  const packs = Object.values(packStats.value).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
-  const term = packSearchTerm.value.trim().toLowerCase();
-  if (!term) return packs;
-  return packs.filter((p) => p.name.toLowerCase().includes(term));
-});
-
-// ── Card grid state ────────────────────────────────────────────────────────────
-const cards = ref<any[]>([]);
-const loadingCards = ref(false);
-const totalCards = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(30);
-const numPick = ref(0); // 0 = any (black only filter)
-
-// Decoupled from currentPage so pagination can show a skeleton before swapping
-const visibleCards = ref<any[]>([]);
-const isPageTransitioning = ref(false);
-
-const totalPages = computed(() =>
-  Math.ceil(cards.value.length / pageSize.value),
-);
-// ↑ kept for the clamp logic in the cards watcher; UPagination uses items-per-page directly
-
-// When the full card list refreshes, clamp page to valid range then update slice
-watch(
-  cards,
-  () => {
-    const maxPage = Math.max(1, Math.ceil(cards.value.length / pageSize.value));
-    if (currentPage.value > maxPage) currentPage.value = 1;
-    const start = (currentPage.value - 1) * pageSize.value;
-    visibleCards.value = cards.value.slice(start, start + pageSize.value);
-  },
-  { immediate: true },
-);
-
-// When user changes page via pagination, show skeleton first → swap cards → hide
-watch(currentPage, async () => {
-  if (loadingCards.value) return; // Full fetch already owns the skeleton
-  isPageTransitioning.value = true;
-  await nextTick();
-  const start = (currentPage.value - 1) * pageSize.value;
-  visibleCards.value = cards.value.slice(start, start + pageSize.value);
-  isPageTransitioning.value = false;
-});
-
-// ── Modals ─────────────────────────────────────────────────────────────────────
-const showEditModal = ref(false);
-const editingCard = ref<any>(null);
-
-const showAddModal = ref(false);
-
-// ── Load packs ────────────────────────────────────────────────────────────────
-// Consolidated pack-stats route (Task 10) — one request covers both types.
-function toStatsMap(
-  rows: { pack: string; total: number; active: number }[],
-): Record<string, PackTypeStat> {
-  const stats: Record<string, PackTypeStat> = {};
-  for (const row of rows) {
-    stats[row.pack] = { total: row.total, active: row.active };
-  }
-  return stats;
-}
-
-const loadPacks = async () => {
-  loadingPacks.value = true;
-  packStats.value = {};
-  try {
-    const { white, black } = await $activityFetch<{
-      white: { pack: string; total: number; active: number }[];
-      black: { pack: string; total: number; active: number }[];
-    }>("/api/cards/packs");
-
-    const blackStats = toStatsMap(black);
-    const whiteStats = toStatsMap(white);
-    const allNames = new Set([
-      ...Object.keys(blackStats),
-      ...Object.keys(whiteStats),
-    ]);
-    const merged: Record<string, PackStat> = {};
-    for (const name of allNames) {
-      merged[name] = {
-        name,
-        black: blackStats[name] ?? { total: 0, active: 0 },
-        white: whiteStats[name] ?? { total: 0, active: 0 },
-      };
-    }
-    packStats.value = merged;
-  } catch (err) {
-    console.error("Failed to load packs:", err);
-  } finally {
-    loadingPacks.value = false;
-  }
-};
-
-// ── In-Memory Query Cache ─────────────────────────────────────────────────────
-const cardListCache = new Map<string, any[]>();
-const isFetchingBackground = ref(false);
-
-function getCacheKey(
-  type: string,
-  pack?: string,
-  pick?: number,
-  search?: string,
-): string {
-  return `${type}::${pack || ""}::${pick || 0}::${search || ""}`;
-}
-
-function invalidateCardCache() {
-  cardListCache.clear();
-}
-
-// ── Fetch cards for selected pack / search ────────────────────────────────────
-const fetchCards = async () => {
-  const queryType = cardType.value;
-  const queryPack = selectedPack.value;
-  const queryPick = cardType.value === "black" ? numPick.value : 0;
-  const querySearch = searchTerm.value;
-
-  const cacheKey = getCacheKey(queryType, queryPack, queryPick, querySearch);
-  const cached = cardListCache.get(cacheKey);
-
-  if (cached) {
-    cards.value = cached;
-    totalCards.value = cached.length;
-    currentPage.value = 1;
-    isFetchingBackground.value = true;
-  } else {
-    if (!cards.value.length) {
-      loadingCards.value = true;
-    } else {
-      isFetchingBackground.value = true;
-    }
-  }
-
-  try {
-    const query: Record<string, string> = { type: queryType };
-    if (queryPack) query.pack = queryPack;
-    if (queryPick > 0) query.pick = String(queryPick);
-    if (querySearch) query.search = querySearch;
-
-    const result = await $activityFetch<any[]>("/api/admin/cards/list", {
-      query,
-    });
-
-    if (
-      cardType.value === queryType &&
-      selectedPack.value === queryPack &&
-      (cardType.value !== "black" || numPick.value === queryPick) &&
-      searchTerm.value === querySearch
-    ) {
-      cardListCache.set(cacheKey, result);
-      cards.value = result;
-      totalCards.value = result.length;
-    }
-  } catch (err) {
-    console.error("Failed to fetch cards:", err);
-  } finally {
-    loadingCards.value = false;
-    isFetchingBackground.value = false;
-  }
-};
-
-// ── Card CRUD ─────────────────────────────────────────────────────────────────
-const toggleCardActive = async (card: any) => {
-  try {
-    const updated = await $activityFetch<{ active: boolean }>(
-      "/api/admin/cards/toggle",
-      { method: "POST", body: { id: card.id, type: cardType.value } },
-    );
-    card.active = updated.active;
-    invalidateCardCache();
-    // Update pack stat for the currently loaded type
-    const packName = card.pack || "(no pack)";
-    const typeKey = cardType.value as "black" | "white";
-    if (packStats.value[packName]) {
-      packStats.value[packName][typeKey].active += updated.active ? 1 : -1;
-    }
-  } catch (err) {
-    notify({
-      title: "Update Failed",
-      description: "Could not toggle card status.",
-      color: "error",
-    });
-  }
-};
-
-const togglePackActive = async (pack: string, setActive: boolean) => {
-  const packCards = cards.value.filter((c) => c.pack === pack);
-  if (!packCards.length) return;
-
-  loadingCards.value = true;
-  try {
-    await $activityFetch("/api/admin/cards/toggle-pack", {
-      method: "POST",
-      body: { pack, type: cardType.value, active: setActive },
-    });
-    invalidateCardCache();
-    packCards.forEach((c) => (c.active = setActive));
-    if (packStats.value[pack]) {
-      const typeKey = cardType.value as "black" | "white";
-      packStats.value[pack][typeKey].active = setActive
-        ? packStats.value[pack][typeKey].total
-        : 0;
-    }
-    notify({
-      title: `Pack ${setActive ? "Activated" : "Deactivated"}`,
-      description: `All cards in "${pack}" have been ${setActive ? "activated" : "deactivated"}.`,
-      color: "success",
-    });
-  } catch {
-    notify({
-      title: "Update Failed",
-      description: "Could not toggle pack status.",
-      color: "error",
-    });
-  } finally {
-    loadingCards.value = false;
-  }
-};
-
-// Disables/enables a pack's white AND black cards together in one call —
-// the combined counterpart to togglePackActive (which is scoped to
-// whichever type is currently selected).
-const togglePackActiveAll = async (pack: string, setActive: boolean) => {
-  try {
-    await $activityFetch("/api/admin/cards/toggle-pack", {
-      method: "POST",
-      body: { pack, type: "all", active: setActive },
-    });
-    invalidateCardCache();
-    if (selectedPack.value === pack) {
-      cards.value.forEach((c) => {
-        if (c.pack === pack) c.active = setActive;
-      });
-    }
-    if (packStats.value[pack]) {
-      const s = packStats.value[pack];
-      s.black.active = setActive ? s.black.total : 0;
-      s.white.active = setActive ? s.white.total : 0;
-    }
-  } catch {
-    notify({
-      title: "Update Failed",
-      description: `Could not update pack "${pack}".`,
-      color: "error",
-    });
-  }
-};
-
-const deletePackAll = async (packName: string) => {
-  const s = packStats.value[packName];
-  const totalCardsInPack = s ? s.black.total + s.white.total : 0;
-  const confirmed = await confirm({
-    title: "Delete Pack",
-    message: `Are you sure you want to permanently delete "${packName}" (${totalCardsInPack} card${totalCardsInPack === 1 ? "" : "s"})? This cannot be undone.`,
-    confirmButtonText: "Delete Pack",
-    confirmButtonColor: "error",
-  });
-  if (!confirmed) return;
-
-  try {
-    await $activityFetch("/api/admin/cards/delete-pack", {
-      method: "POST",
-      body: { pack: packName, type: "all" },
-    });
-
-    invalidateCardCache();
-    delete packStats.value[packName];
-    defaultPacks.value = defaultPacks.value.filter((p) => p !== packName);
-    selectedPacks.value = selectedPacks.value.filter((p) => p !== packName);
-
-    if (selectedPack.value === packName) {
-      selectedPack.value = undefined;
-      cards.value = [];
-      totalCards.value = 0;
-    }
-
-    notify({
-      title: "Pack Deleted",
-      description: `Pack "${packName}" and its ${totalCardsInPack} cards were deleted.`,
-      color: "success",
-    });
-  } catch {
-    notify({
-      title: "Delete Failed",
-      description: `Could not delete pack "${packName}".`,
-      color: "error",
-    });
-  }
-};
-
-const deletePackType = async (packName: string, type: "black" | "white") => {
-  const s = packStats.value[packName];
-  const typeCount = s ? s[type].total : 0;
-  const confirmed = await confirm({
-    title: `Delete ${type === "black" ? "Black" : "White"} Cards`,
-    message: `Are you sure you want to delete all ${typeCount} ${type} card${typeCount === 1 ? "" : "s"} in "${packName}"? This cannot be undone.`,
-    confirmButtonText: "Delete Cards",
-    confirmButtonColor: "error",
-  });
-  if (!confirmed) return;
-
-  try {
-    await $activityFetch("/api/admin/cards/delete-pack", {
-      method: "POST",
-      body: { pack: packName, type },
-    });
-
-    invalidateCardCache();
-    if (packStats.value[packName]) {
-      packStats.value[packName][type].total = 0;
-      packStats.value[packName][type].active = 0;
-      const updated = packStats.value[packName];
-      if (updated.black.total <= 0 && updated.white.total <= 0) {
-        delete packStats.value[packName];
-        defaultPacks.value = defaultPacks.value.filter((p) => p !== packName);
-        selectedPacks.value = selectedPacks.value.filter((p) => p !== packName);
-      }
-    }
-
-    if (selectedPack.value === packName && cardType.value === type) {
-      cards.value = [];
-      totalCards.value = 0;
-    }
-
-    notify({
-      title: `${type === "black" ? "Black" : "White"} Cards Deleted`,
-      description: `Deleted ${typeCount} ${type} card${typeCount === 1 ? "" : "s"} in "${packName}".`,
-      color: "success",
-    });
-  } catch {
-    notify({
-      title: "Delete Failed",
-      description: `Could not delete ${type} cards in "${packName}".`,
-      color: "error",
-    });
-  }
-};
-
-const togglePackSelection = (packName: string) => {
-  const idx = selectedPacks.value.indexOf(packName);
-  if (idx === -1) selectedPacks.value.push(packName);
-  else selectedPacks.value.splice(idx, 1);
-};
-
-const clearPackSelection = () => {
-  selectedPacks.value = [];
-};
-
-const bulkTogglePacks = async (setActive: boolean) => {
-  if (!selectedPacks.value.length) return;
-  bulkActionLoading.value = true;
-  try {
-    await Promise.all(selectedPacks.value.map((pack) => togglePackActiveAll(pack, setActive)));
-    notify({
-      title: `${selectedPacks.value.length} Pack${selectedPacks.value.length === 1 ? "" : "s"} ${setActive ? "Activated" : "Deactivated"}`,
-      color: "success",
-    });
-  } finally {
-    bulkActionLoading.value = false;
-  }
-};
-
-const bulkDeletePacks = async () => {
-  if (!selectedPacks.value.length) return;
-  const count = selectedPacks.value.length;
-  let totalCardsCount = 0;
-  for (const p of selectedPacks.value) {
-    const s = packStats.value[p];
-    if (s) totalCardsCount += s.black.total + s.white.total;
-  }
-
-  const confirmed = await confirm({
-    title: `Delete ${count} Pack${count === 1 ? "" : "s"}`,
-    message: `Are you sure you want to delete ${count} selected pack${count === 1 ? "" : "s"} (${totalCardsCount} total cards)? This cannot be undone.`,
-    confirmButtonText: `Delete ${count} Pack${count === 1 ? "" : "s"}`,
-    confirmButtonColor: "error",
-  });
-  if (!confirmed) return;
-
-  bulkActionLoading.value = true;
-  try {
-    const packsToDelete = [...selectedPacks.value];
-    await Promise.all(
-      packsToDelete.map((pack) =>
-        $activityFetch("/api/admin/cards/delete-pack", {
-          method: "POST",
-          body: { pack, type: "all" },
-        }),
-      ),
-    );
-
-    invalidateCardCache();
-    for (const pack of packsToDelete) {
-      delete packStats.value[pack];
-      defaultPacks.value = defaultPacks.value.filter((p) => p !== pack);
-    }
-    if (selectedPack.value && packsToDelete.includes(selectedPack.value)) {
-      selectedPack.value = undefined;
-      cards.value = [];
-      totalCards.value = 0;
-    }
-    selectedPacks.value = [];
-
-    notify({
-      title: `${count} Pack${count === 1 ? "" : "s"} Deleted`,
-      description: `Deleted ${count} pack${count === 1 ? "" : "s"} (${totalCardsCount} cards).`,
-      color: "success",
-    });
-  } catch {
-    notify({
-      title: "Delete Failed",
-      description: "Could not delete selected packs.",
-      color: "error",
-    });
-  } finally {
-    bulkActionLoading.value = false;
-  }
-};
-
-// ── Default packs (used to seed every new lobby's card-pack selection) ────────
-const loadDefaultPacks = async () => {
-  try {
-    const { packs } = await $activityFetch<{ packs: string[] }>(
-      "/api/admin/cards/default-packs",
-    );
-    defaultPacks.value = packs;
-  } catch (err) {
-    console.error("Failed to load default packs:", err);
-  }
-};
-
-const toggleDefaultPack = async (packName: string) => {
-  const isDefault = defaultPacks.value.includes(packName);
-  try {
-    await $activityFetch("/api/admin/cards/toggle-default-pack", {
-      method: "POST",
-      body: { pack: packName, isDefault: !isDefault },
-    });
-    defaultPacks.value = isDefault
-      ? defaultPacks.value.filter((p) => p !== packName)
-      : [...defaultPacks.value, packName];
-  } catch {
-    notify({
-      title: "Update Failed",
-      description: `Could not update default status for "${packName}".`,
-      color: "error",
-    });
-  }
-};
-
-const openEditModal = (card: any) => {
-  editingCard.value = { ...card };
-  showEditModal.value = true;
-};
-
-const saveCardEdit = async (updateData: any) => {
-  try {
-    const updated = await $activityFetch<any>("/api/admin/cards/edit", {
-      method: "POST",
-      body: updateData,
-    });
-    invalidateCardCache();
-    const idx = cards.value.findIndex((c) => c.id === updated.id);
-    if (idx !== -1) {
-      cards.value[idx] = { ...cards.value[idx], ...updated };
-    }
-    showEditModal.value = false;
-    notify({ title: "Card Updated", color: "success" });
-  } catch {
-    notify({ title: "Update Failed", color: "error" });
-  }
-};
-
-const deleteCard = async (card: any) => {
-  try {
-    await $activityFetch("/api/admin/cards/delete", {
-      method: "POST",
-      body: { id: card.id, type: cardType.value },
-    });
-    invalidateCardCache();
-    cards.value = cards.value.filter((c) => c.id !== card.id);
-    totalCards.value--;
-    const packName = card.pack || "(no pack)";
-    if (packStats.value[packName]) {
-      const typeKey = cardType.value as "black" | "white";
-      packStats.value[packName][typeKey].total--;
-      if (card.active) packStats.value[packName][typeKey].active--;
-      const s = packStats.value[packName];
-      if (s.black.total <= 0 && s.white.total <= 0)
-        delete packStats.value[packName];
-    }
-    notify({ title: "Card Deleted", color: "success" });
-  } catch {
-    notify({ title: "Delete Failed", color: "error" });
-  }
-};
-
-const handleAddCard = async (payload: Record<string, unknown>) => {
-  loadingCards.value = true;
-  try {
-    const newCard = await $activityFetch<any>("/api/admin/cards/create", {
-      method: "POST",
-      body: payload,
-    });
-
-    invalidateCardCache();
-    const type = payload.type as "white" | "black";
-    if (
-      cardType.value === type &&
-      (!selectedPack.value || selectedPack.value === payload.pack)
-    ) {
-      cards.value.unshift(newCard);
-      totalCards.value++;
-    }
-
-    const packName = (payload.pack as string) || "(no pack)";
-    if (!packStats.value[packName]) {
-      packStats.value[packName] = {
-        name: packName,
-        black: { total: 0, active: 0 },
-        white: { total: 0, active: 0 },
-      };
-    }
-    packStats.value[packName][type].total++;
-    packStats.value[packName][type].active++;
-
-    showAddModal.value = false;
-    notify({
-      title: "Card Added",
-      description: `Added to pack "${newCard.pack}"`,
-      color: "success",
-    });
-  } catch {
-    notify({ title: "Add Failed", color: "error" });
-  } finally {
-    loadingCards.value = false;
-  }
-};
-
-// ── Pack sidebar helpers ──────────────────────────────────────────────────────
 const togglePackExpand = (packName: string) => {
   expandedPack.value = expandedPack.value === packName ? null : packName;
 };
@@ -587,11 +72,21 @@ const selectPack = (packName: string) => {
     return;
   }
   expandedPack.value = packName;
+  // Fall back to the type that actually has cards, so clicking a
+  // white-only pack while "black" is selected doesn't show an empty grid.
   const stats = packStats.value[packName];
   if (stats) {
-    if (cardType.value === "black" && stats.black.total === 0 && stats.white.total > 0) {
+    if (
+      cardType.value === "black" &&
+      stats.black.total === 0 &&
+      stats.white.total > 0
+    ) {
       cardType.value = "white";
-    } else if (cardType.value === "white" && stats.white.total === 0 && stats.black.total > 0) {
+    } else if (
+      cardType.value === "white" &&
+      stats.white.total === 0 &&
+      stats.black.total > 0
+    ) {
       cardType.value = "black";
     }
   }
@@ -610,10 +105,22 @@ const selectPackType = (packName: string, type: "black" | "white") => {
   expandedPack.value = packName;
 };
 
-const typeStatDotClass = (stat: PackTypeStat) => {
-  if (stat.active === 0) return "bg-red-500";
-  if (stat.active === stat.total) return "bg-green-400";
-  return "bg-yellow-400";
+// ── Modals ────────────────────────────────────────────────────────────────────
+const showEditModal = ref(false);
+const editingCard = ref<AdminCard | null>(null);
+const showAddModal = ref(false);
+
+const openEditModal = (card: AdminCard) => {
+  editingCard.value = { ...card };
+  showEditModal.value = true;
+};
+
+const saveCardEdit = async (updateData: Record<string, unknown>) => {
+  if (await commitCardEdit(updateData)) showEditModal.value = false;
+};
+
+const handleAddCard = async (payload: Record<string, unknown>) => {
+  if (await createCard(payload)) showAddModal.value = false;
 };
 
 // ── Watchers ──────────────────────────────────────────────────────────────────
