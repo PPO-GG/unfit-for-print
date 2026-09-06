@@ -222,6 +222,55 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     }
   };
 
+  const isBot = (playerId: PlayerId): boolean =>
+    safeParseJson<{ playerType?: string }>(getPlayers().get(playerId), {})
+      .playerType === "bot";
+
+  /**
+   * Records one finished round's card statistics in Postgres.
+   *
+   * `white_cards.times_played` / `times_won` and `black_cards.times_played`
+   * have existed since the initial migration with nothing to write them — the
+   * game runs client-side in the Y.Doc, so no server route ever knew a round
+   * had ended. The judge reports it: exactly one actor per round, so clients
+   * cannot double-count each other.
+   *
+   * Bot activity is excluded, because the point of these numbers is which
+   * cards *humans* play and pick. A bot's submission is dropped, a bot winner
+   * earns no `times_won`, and a bot-judged round is never reported at all —
+   * `useBots` drives `selectWinner` from the host's client, so the judge check
+   * at the call site already suppresses it.
+   *
+   * Fire-and-forget: the round is decided and must not block on this.
+   */
+  const reportRoundStats = async (
+    submissions: Record<string, CardId[]>,
+    winnerId: PlayerId,
+    blackCardId: string | null,
+  ): Promise<void> => {
+    try {
+      const playedWhiteIds: CardId[] = [];
+      for (const [pid, cardIds] of Object.entries(submissions)) {
+        if (isBot(pid)) continue;
+        playedWhiteIds.push(...cardIds);
+      }
+      // An all-bot round carries no signal worth a round trip.
+      if (playedWhiteIds.length === 0) return;
+
+      const wonWhiteIds = isBot(winnerId) ? [] : (submissions[winnerId] ?? []);
+
+      const lobbyId = await resolveLobbyId();
+      if (!lobbyId) return;
+
+      await $activityFetch("/api/game/record-round", {
+        method: "POST",
+        body: { lobbyId, blackCardId, playedWhiteIds, wonWhiteIds },
+      });
+    } catch (err) {
+      console.warn("[GameEngine] Failed to record round stats:", err);
+    }
+  };
+
   /**
    * Fetches fresh white cards from the server and merges them into the Y.Doc.
    * Only the host should call this to avoid duplicate fetches.
@@ -475,6 +524,17 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         gs.set("roundEndStartTime", Date.now());
       }
     });
+
+    // One reporter per round, and it is the judge — anyone may technically
+    // call selectWinner, so this is what keeps two clients from both counting
+    // the same round.
+    if (myId() === state.judgeId) {
+      void reportRoundStats(
+        state.submissions,
+        winnerId,
+        state.blackCard?.id || null,
+      );
+    }
 
     return { success: true, phase: finalPhase };
   };

@@ -1,10 +1,13 @@
 /**
  * Picks which card in a duplicate cluster is the one worth keeping.
  *
- * Pure and Vue-free so it can be unit-tested directly. Only signals the schema
- * actually maintains are used: `times_played` / `times_won` exist as columns
- * but nothing ever increments them — scoring happens client-side in the Y.Doc,
- * so no server route is in a position to write them, and they are always 0.
+ * Pure and Vue-free so it can be unit-tested directly. `times_played` /
+ * `times_won` are still not used as signals here, but the reason has changed:
+ * they used to be permanently 0 (nothing incremented them at all), and now
+ * they are written per round by POST /api/game/record-round. Every card that
+ * predates that route still reads 0, so using them today would just penalise
+ * older cards in a duplicate contest. Worth revisiting once the counts have
+ * had time to accumulate.
  */
 
 import type { ScannableCard } from "./duplicateScan";
