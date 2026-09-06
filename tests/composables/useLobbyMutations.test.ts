@@ -121,4 +121,22 @@ describe("useLobbyMutations.startGame card payload", () => {
     );
     expect(blackCard).toEqual({ id: "b1", pick: 2 });
   });
+
+  it("seeds promptSerial and blackSkipUsed to enable first prompt reset", () => {
+    // These seeds are critical: without them the card-table animation reset
+    // guards both decline on the first prompt change of a game, since the
+    // GameTable watchers require a defined prior state and the legacy-round-start
+    // logic only fires while the serial is absent.
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+
+    mutations.startGame(basePayload as any);
+
+    const gs = stub.getGameState();
+    // promptSerial must be a raw number (like round), not a string
+    expect(gs.get("promptSerial")).toBe(0);
+    // blackSkipUsed must be JSON-stringified (unlike promptSerial);
+    // stored and retrieved as the string "false", not the boolean false
+    expect(gs.get("blackSkipUsed")).toBe("false");
+  });
 });
