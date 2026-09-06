@@ -11,6 +11,7 @@ const activityState = vi.hoisted(() => ({
   },
   addPlayer: vi.fn(),
   lobbyCode: { value: null as string | null },
+  synced: { value: true },
   meta: new Map<string, string>(),
   players: new Map<string, string>(),
   tables: { listRows: vi.fn() },
@@ -30,6 +31,9 @@ vi.mock("~/composables/useLobbyDoc", () => ({
     getMeta: () => activityState.meta,
     getPlayers: () => activityState.players,
     lobbyCode: activityState.lobbyCode,
+    // joinLobby waits for the doc to carry server state before reading or
+    // writing it. These tests exercise the post-sync path, so it starts synced.
+    synced: activityState.synced,
   }),
 }));
 
@@ -197,5 +201,41 @@ describe("useLobby Activity reconnect", () => {
 
     expect(activityState.addPlayer).toHaveBeenCalled();
     expect(result.player).toBeNull();
+  });
+
+  // The doc's meta is empty until sync lands, so deriving playerType from it
+  // defaulted a mid-game join to "player" and seated the joiner in a running
+  // game — while the server had already clamped them to spectator. The server's
+  // answer is the only authoritative one.
+  it("seats a mid-game joiner as the spectator the server clamped them to", async () => {
+    const userStore = useUserStore();
+    userStore.setActivityUser({
+      id: "6ac4a08e-0000-4000-8000-000000000001",
+      name: "DiscordPlayer",
+      avatarUrl: null,
+      discordUserId: "discord-user",
+    });
+
+    // Exactly the race: doc meta has not arrived, so it looks like "waiting".
+    activityState.meta.clear();
+
+    activityState.activityFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/api/lobby/by-code/")) {
+        return { id: "lobby-1", code: "ABC123" };
+      }
+      if (url === "/api/lobby/join") {
+        return {
+          lobby: { id: "lobby-1", code: "ABC123" },
+          player: { id: "player-1", playerType: "spectator" },
+        };
+      }
+      return null;
+    });
+
+    await useLobby().joinLobby("ABC123", { username: "DiscordPlayer" });
+
+    expect(activityState.addPlayer).toHaveBeenCalledWith(
+      expect.objectContaining({ playerType: "spectator" }),
+    );
   });
 });

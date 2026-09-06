@@ -1,4 +1,4 @@
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useUserStore } from "~/stores/userStore";
 import { isAnonymousUser } from "~/composables/useUserUtils";
 import { getRandomHexString } from "~/composables/useCrypto";
@@ -197,6 +197,36 @@ export const useLobby = () => {
   // requireAuth on the server already has a valid session to resolve the
   // user from.
 
+  /**
+   * Resolves once the Y.Doc has the server's state, or after a short grace
+   * period. `lobbyDoc.connect()` only creates the provider; sync lands later on
+   * a provider event, so anything that reads or writes the doc immediately
+   * after connecting is looking at an empty document.
+   *
+   * The timeout is deliberate: a doc that never syncs (Teleportal down) should
+   * degrade to the old behaviour rather than hang the join forever.
+   */
+  const waitForSync = async (timeoutMs = 5000): Promise<void> => {
+    if (lobbyDoc.synced.value) return;
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        stop();
+        clearTimeout(timer);
+        resolve();
+      };
+      const stop = watch(lobbyDoc.synced, (isSynced) => {
+        if (isSynced) finish();
+      });
+      const timer = setTimeout(() => {
+        console.warn("[useLobby] Y.Doc did not sync in time; joining anyway");
+        finish();
+      }, timeoutMs);
+    });
+  };
+
   const joinLobby = async (
     code: string,
     options?: {
@@ -228,10 +258,12 @@ export const useLobby = () => {
       await lobbyDoc.connect(code);
     }
 
-    // Determine player type: spectators if game is in progress
-    const meta = lobbyDoc.getMeta();
-    const status = meta.get("status") || "waiting";
-    const playerType = status === "playing" ? "spectator" : "player";
+    // `connect()` resolves as soon as the provider exists — it does NOT mean the
+    // server's state has arrived. Reading or writing the doc before that made
+    // joining look like creating: the local doc is empty, so the page renders a
+    // lobby containing nothing but you, at the same code. Worse, the local write
+    // later merged into the real doc and seated you mid-game.
+    await waitForSync();
 
     // Check if player is already in the Y.Doc
     const existingPlayer = lobbyDoc.getPlayers().get(enrichedUser.id);
@@ -259,7 +291,6 @@ export const useLobby = () => {
           code,
           playerName: username,
           avatar: avatarUrl || "",
-          playerType,
           password: options?.password,
         },
       });
@@ -276,6 +307,12 @@ export const useLobby = () => {
 
     if (!existingPlayer) {
       const activeDecoration = enrichedUser.activeDecoration || "";
+
+      // Seat them as whatever the SERVER decided. It clamps a mid-game join to
+      // spectator, and it is the only party that reads the authoritative lobby
+      // status — guessing here from doc meta produced a doc that disagreed with
+      // Postgres whenever the doc had not synced yet.
+      const playerType = serverPlayer?.playerType ?? "player";
 
       mutations.addPlayer({
         userId: enrichedUser.id,

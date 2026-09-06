@@ -1,7 +1,7 @@
 <template>
   <UForm :state="formState" @submit="onSubmit" class="">
     <UFormField
-      v-if="showIfAnonymous"
+      v-if="needsUsername"
       :label="t('modal.join_username')"
       name="username"
     >
@@ -20,6 +20,18 @@
         class="uppercase"
       />
     </UFormField>
+    <UFormField
+      v-if="requiresPassword"
+      :label="t('modal.join_password')"
+      name="password"
+    >
+      <UInput
+        v-model="formState.password"
+        type="password"
+        autocomplete="off"
+      />
+    </UFormField>
+
     <UFieldGroup size="lg" class="">
       <UButton
         type="submit"
@@ -44,8 +56,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, computed } from "vue";
-import { useUserAccess } from "~/composables/useUserUtils";
+import { onMounted, reactive, ref, computed, watch } from "vue";
+import { requiresJoinUsername, useUserAccess } from "~/composables/useUserUtils";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useUserStore } from "~/stores/userStore";
 
@@ -63,7 +75,39 @@ const userStore = useUserStore();
 const formState = reactive({
   username: "",
   code: "",
+  password: "",
 });
+
+/**
+ * Whether to ask for a name. NOT `showIfAnonymous` — that is
+ * `!!user && user.isGuest`, which is FALSE for a visitor with no session at
+ * all, so a fresh tab was never asked and fell through to a Player_XXX
+ * fallback. JoinTakeover has always used this predicate; the two join surfaces
+ * disagreed.
+ */
+const needsUsername = computed(() => requiresJoinUsername(userStore.user));
+
+// Reveal the password field as soon as the typed code names a protected lobby,
+// so the player is asked before committing rather than after a rejection.
+const requiresPassword = ref(false);
+watch(
+  () => formState.code,
+  async (raw) => {
+    const code = (raw || "").trim().toUpperCase();
+    if (code.length !== 4) {
+      requiresPassword.value = false;
+      return;
+    }
+    try {
+      const lobby = await $fetch<{ hasPassword?: boolean } | null>(
+        `/api/lobby/by-code/${code}`,
+      );
+      requiresPassword.value = !!lobby?.hasPassword;
+    } catch {
+      requiresPassword.value = false;
+    }
+  },
+);
 
 /**
  * Get the authenticated user's username if available
@@ -91,12 +135,12 @@ onMounted(() => {
 
 const onSubmit = async () => {
   // Use authenticated username if available, otherwise use the form input
-  let username = showIfAnonymous.value
+  let username = needsUsername.value
     ? formState.username
     : authenticatedUsername.value;
 
   // Ensure username is not empty for authenticated users
-  if (!showIfAnonymous.value && (!username || username.trim() === "")) {
+  if (!needsUsername.value && (!username || username.trim() === "")) {
     let randomSuffix: number = 0;
     do {
       randomSuffix = crypto.getRandomValues(new Uint32Array(1))[0] as number;
@@ -113,6 +157,7 @@ const onSubmit = async () => {
     formState.code,
     (msg) => (error.value = msg),
     (val) => (joining.value = val),
+    formState.password || undefined,
   );
 
   // console.log('🟢 join result:', ok, formState.code);
