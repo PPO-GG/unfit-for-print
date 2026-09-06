@@ -168,6 +168,13 @@ watch(
   },
 );
 
+// promptSerial also moves on a normal round advance; only a skip should
+// announce itself. blackSkipUsed is true only between a skip and the next
+// nextRound, so pairing them isolates the skip.
+const skipAnnounceSerial = computed(() =>
+  props.blackSkipUsed ? props.promptSerial : undefined,
+);
+
 onMounted(() => {
   // Existing submissions (hot reload, late join, refresh) must appear in the
   // pile without replaying their fly-in animations.
@@ -638,6 +645,9 @@ function handleSelectWinner(playerId: string) {
       :my-id="myId"
       :card-texts="cardTexts"
     />
+
+    <!-- Prompt Skipped Overlay -->
+    <PromptSkippedOverlay :trigger="skipAnnounceSerial" />
 
     <!-- Score Fly Badge -->
     <ScoreFlyBadge
