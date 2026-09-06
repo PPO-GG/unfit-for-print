@@ -16,23 +16,11 @@
 import { inArray, sql } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { blackCards, whiteCards } from "~~/server/db/schema";
+import { isCardId, cleanCardIds } from "~~/server/utils/cardIds";
 import { requirePlayerInLobby } from "~~/server/utils/session";
 
 /** A round is bounded by players x pick; anything past this is not a real game. */
 const MAX_CARDS_PER_ROUND = 100;
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * Card ids reach here from the Y.Doc, which also carries non-uuid sentinels —
- * `nextRound` writes `{ id: "" }` when the black deck runs dry. Comparing those
- * against a uuid column is a query error, not a miss, so they are dropped here.
- */
-const cleanIds = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? [...new Set(value.filter((id): id is string => typeof id === "string" && UUID_RE.test(id)))]
-    : [];
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
@@ -60,8 +48,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const played = cleanIds(body?.playedWhiteIds);
-  const won = cleanIds(body?.wonWhiteIds);
+  const played = cleanCardIds(body?.playedWhiteIds);
+  const won = cleanCardIds(body?.wonWhiteIds);
 
   if (
     played.length > MAX_CARDS_PER_ROUND ||
@@ -92,12 +80,11 @@ export default defineEventHandler(async (event) => {
       .where(inArray(whiteCards.id, won));
   }
 
-  const black = typeof blackCardId === "string" && UUID_RE.test(blackCardId);
-  if (black) {
+  if (isCardId(blackCardId)) {
     await db
       .update(blackCards)
       .set({ timesPlayed: sql`${blackCards.timesPlayed} + 1` })
-      .where(inArray(blackCards.id, [blackCardId as string]));
+      .where(inArray(blackCards.id, [blackCardId]));
   }
 
   return { success: true };
