@@ -318,6 +318,15 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       gs.set("revealedCards", "{}");
       gs.set("readAloudText", "");
       gs.set("gameEndTime", null);
+      // Seed the per-prompt keys so round 1 is a normal round like any other.
+      // `promptSerial` must be a RAW number (like `round`); without it the
+      // GameTable watchers both decline on the first write — `isNewPrompt`
+      // needs a defined `prev`, and `isLegacyRoundStart` only fires while the
+      // serial is absent — so the first prompt change of every game lost its
+      // pile reset. `blackSkipUsed` must be seeded too, or a skip in the final
+      // round of a game carries into the rematch and disables the button.
+      gs.set("promptSerial", 0);
+      gs.set("blackSkipUsed", JSON.stringify(false));
 
       const scores: Record<string, number> = {};
       for (const playerId of payload.playerOrder) {
