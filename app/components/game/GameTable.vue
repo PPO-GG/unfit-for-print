@@ -37,6 +37,15 @@ const props = withDefaults(
     promptSerial?: number;
     /** Whether the judge has already spent their one skip this round. */
     blackSkipUsed?: boolean;
+    /**
+     * Whether the engine would actually accept a skip right now. `phase` above
+     * is the *display* phase: GameBoard maps the brief `submitting-complete`
+     * window onto "submitting" so the pile→grid FLIP can capture positions.
+     * The engine checks the raw phase, so gating the button on `isSubmitting`
+     * alone let the judge click during that window — the pile flew home and
+     * then the engine refused with "Not in submitting phase".
+     */
+    canSkipPrompt?: boolean;
     revealedCards: Record<string, boolean>;
     effectiveRoundWinner?: string | null;
     confirmedRoundWinner?: string | null;
@@ -60,6 +69,7 @@ const props = withDefaults(
     judgeId: null,
     readingAloud: false,
     cardTexts: () => ({}),
+    canSkipPrompt: false,
   },
 );
 
@@ -631,11 +641,12 @@ function handleSelectWinner(playerId: string) {
           t("game.waiting_for_submissions")
         }}</span>
         <UButton
+          v-if="canSkipPrompt"
           size="xs"
           color="warning"
           variant="soft"
           icon="i-mdi-debug-step-over"
-          :disabled="blackSkipUsed"
+          :disabled="blackSkipUsed || !canSkipPrompt"
           :title="blackSkipUsed ? t('game.skip_prompt_used') : t('game.skip_prompt')"
           @click="onSkipPrompt"
         >

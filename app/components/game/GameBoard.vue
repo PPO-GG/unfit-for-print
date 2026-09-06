@@ -318,6 +318,12 @@ const activePhase = computed<"submitting" | "judging">(() => {
   return "submitting";
 });
 
+// The RAW phase, for controls the engine will validate against it. `activePhase`
+// deliberately reports "submitting" through the brief "submitting-complete"
+// window (see above), but the engine rejects a skip there — so gating the skip
+// button on the display phase made it fly the pile home and then error.
+const canSkipPrompt = computed(() => state.value?.phase === "submitting");
+
 // Watch for roundWinner from the server
 watch(
   () => state.value?.roundWinner,
@@ -601,6 +607,7 @@ function handleMobileContinue() {
           :phase="activePhase"
           :prompt-serial="state?.promptSerial"
           :black-skip-used="state?.blackSkipUsed"
+          :can-skip-prompt="canSkipPrompt"
           :revealed-cards="revealedCards"
           :effective-round-winner="effectiveRoundWinner"
           :confirmed-round-winner="confirmedRoundWinner"
