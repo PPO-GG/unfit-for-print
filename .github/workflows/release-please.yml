@@ -56,64 +56,104 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # ── Step 2: Detect which image(s) actually changed ──────────────────────
-  # Diffs the push's before→after range (i.e. everything the merged Release
-  # PR accumulated since the last release) so an image only rebuilds when
-  # its own source changed. Manual dispatch always rebuilds both.
+  # Diffs the PREVIOUS RELEASE TAG against HEAD — i.e. everything this release
+  # actually contains.
+  #
+  # This used to diff `github.event.before`, which is wrong on the only push
+  # that matters: when the Release PR merges, `before` is the commit right
+  # before the merge, so the diff contained nothing but release-please's own
+  # version + changelog commit. `teleportal-server/**` therefore never matched
+  # and the teleportal image was silently never rebuilt on a release, while
+  # `web` always matched because its '**' filter catches CHANGELOG.md.
+  #
+  # Emits the build matrix itself so a component that genuinely did not change
+  # produces NO job, rather than a job whose steps are all skipped but which
+  # still reports success.
   detect-changes:
     name: Detect changed paths
     needs: release-please
     if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     outputs:
-      web: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.web == 'true' }}
-      teleportal: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.teleportal == 'true' }}
+      matrix: ${{ steps.filter.outputs.matrix }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags, needed to diff against the last release
 
       - name: Filter changed paths
         id: filter
-        if: ${{ github.event_name == 'push' }}
-        uses: dorny/paths-filter@v3
-        with:
-          base: ${{ github.event.before }}
-          filters: |
-            web:
-              - '**'
-              - '!teleportal-server/**'
-            teleportal:
-              - 'teleportal-server/**'
+        run: |
+          set -euo pipefail
+
+          build_web=false
+          build_teleportal=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual dispatch — rebuilding everything."
+            build_web=true
+            build_teleportal=true
+          else
+            # release-please has just created this release's tag, so the tag
+            # before it marks the previous release.
+            prev_tag=$(git tag --list 'v*' --sort=-v:refname | sed -n '2p')
+            if [ -z "$prev_tag" ]; then
+              echo "No previous release tag found — building everything."
+              build_web=true
+              build_teleportal=true
+            else
+              echo "Diffing $prev_tag..HEAD"
+              changed=$(git diff --name-only "$prev_tag"..HEAD)
+              echo "$changed"
+              if echo "$changed" | grep -q '^teleportal-server/'; then
+                build_teleportal=true
+              fi
+              if echo "$changed" | grep -qv '^teleportal-server/'; then
+                build_web=true
+              fi
+            fi
+          fi
+
+          web_entry='{"name":"web","image":"unfit-web","context":".","file":"./Dockerfile"}'
+          tp_entry='{"name":"teleportal","image":"unfit-teleportal","context":"./teleportal-server","file":"./teleportal-server/Dockerfile"}'
+
+          entries=""
+          if [ "$build_web" = true ]; then
+            entries="$web_entry"
+          fi
+          if [ "$build_teleportal" = true ]; then
+            if [ -n "$entries" ]; then
+              entries="$entries,$tp_entry"
+            else
+              entries="$tp_entry"
+            fi
+          fi
+
+          echo "web=$build_web teleportal=$build_teleportal"
+          echo "matrix=[$entries]" >> "$GITHUB_OUTPUT"
 
   # ── Step 3: Build & Publish Docker images (only the ones that changed) ──
   build-images:
     name: Build & Publish ${{ matrix.name }} Image
     needs: [release-please, detect-changes]
-    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    # An empty matrix means nothing changed, so no job runs at all — the
+    # honest outcome. Every step below runs unconditionally, so a green tick
+    # here always means an image was actually built and pushed.
+    if: ${{ always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.matrix != '[]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
       matrix:
-        include:
-          - name: web
-            image: unfit-web
-            context: .
-            file: ./Dockerfile
-            changed: ${{ needs.detect-changes.outputs.web }}
-          - name: teleportal
-            image: unfit-teleportal
-            context: ./teleportal-server
-            file: ./teleportal-server/Dockerfile
-            changed: ${{ needs.detect-changes.outputs.teleportal }}
+        include: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
 
     steps:
       - name: Checkout
-        if: ${{ matrix.changed == 'true' }}
         uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
-        if: ${{ matrix.changed == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -121,7 +161,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
-        if: ${{ matrix.changed == 'true' }}
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -137,11 +176,9 @@ jobs:
             type=semver,pattern={{major}},value=${{ needs.release-please.outputs.tag_name }}
 
       - name: Set up Docker Buildx
-        if: ${{ matrix.changed == 'true' }}
         uses: docker/setup-buildx-action@v4
 
       - name: Build and push ${{ matrix.name }} image
-        if: ${{ matrix.changed == 'true' }}
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
