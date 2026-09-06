@@ -2,6 +2,62 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.19.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.18.0...v3.19.0) (2026-09-06)
+
+
+### ✨ Features
+
+* **server:** add explicit set-active route for batch card toggling ([f1b1f78](https://github.com/PPO-GG/unfit-for-print/commit/f1b1f78858248f0da76fd55a1e21511d059b994c))
+* **server:** add public paginated card browse endpoint ([8277130](https://github.com/PPO-GG/unfit-for-print/commit/8277130ee3359c6c72b45d89bfbfc4c31ac8a0b7))
+* **server:** add times_skipped to black cards ([27346b0](https://github.com/PPO-GG/unfit-for-print/commit/27346b08f83db601ed51eb36e641d362aeee4321))
+* **server:** bound guest signups and lobby seats ([2af800a](https://github.com/PPO-GG/unfit-for-print/commit/2af800ac2f5aa430c7aaec93642399e96c7d06c0))
+* **server:** enforce lobby join passwords server-side ([48e44d1](https://github.com/PPO-GG/unfit-for-print/commit/48e44d1ca8438039fc5aca913374a5f82d663880))
+* **server:** record black cards a judge skips ([4f50721](https://github.com/PPO-GG/unfit-for-print/commit/4f5072178353e347d65cc55b98f56b535c0c217e))
+* **server:** record card play statistics for finished rounds ([4a1408f](https://github.com/PPO-GG/unfit-for-print/commit/4a1408f8394267c503c86c7b198e64c09aee102f))
+* upgrade teleportal 0.0.4 -&gt; 0.0.7 ([aa9696d](https://github.com/PPO-GG/unfit-for-print/commit/aa9696dc29c815391673079fb9f67c51ee1cdfb8))
+* **web:** add a judge control for skipping the prompt ([178dcfe](https://github.com/PPO-GG/unfit-for-print/commit/178dcfe343a468b6cde10977269eb3ce51391bc5))
+* **web:** add card pack browser to Unfit Labs ([d49bc05](https://github.com/PPO-GG/unfit-for-print/commit/d49bc05e29d5dad2dc7aea076e0733b8b0b5218b))
+* **web:** announce a skipped prompt on every client ([f0d29da](https://github.com/PPO-GG/unfit-for-print/commit/f0d29dae1bf8be893422d3ae3cac9325a18fed55))
+* **web:** bring prompt skipping to the mobile layout ([61250d1](https://github.com/PPO-GG/unfit-for-print/commit/61250d107ff97656fd00224c153fc0065f2faa6c))
+* **web:** fly submitted cards home when the prompt is skipped ([bb4ccfc](https://github.com/PPO-GG/unfit-for-print/commit/bb4ccfcaa2ea5b0819680c718459a3c5afa32bd9))
+* **web:** give display cards a 3D edge and a steeper hover tilt ([aad9480](https://github.com/PPO-GG/unfit-for-print/commit/aad94804dfb3a5dc5303eba57a762406cb147f09))
+* **web:** let the judge skip a black card mid-round ([46ce1a9](https://github.com/PPO-GG/unfit-for-print/commit/46ce1a9e81b50c2392a9c9e376f910f2b418d60f))
+* **web:** prompt for the lobby password and stop broadcasting it ([4315db1](https://github.com/PPO-GG/unfit-for-print/commit/4315db10ba8333589e06b358b4b4c16f42541404))
+* **web:** reset the card pile on prompt changes, not phase edges ([54e2926](https://github.com/PPO-GG/unfit-for-print/commit/54e29260c732c3f62a6401611264446f18ae9c22))
+* **web:** rework the duplicate card finder around clusters and disabling ([e71a88e](https://github.com/PPO-GG/unfit-for-print/commit/e71a88ea6c8038769ddb16dccdcd4f448c174fb3))
+* **web:** translate the Unfit Labs page ([2835c59](https://github.com/PPO-GG/unfit-for-print/commit/2835c59790091d4cc9853831e881477c684c5e1d))
+
+
+### 🐛 Bug Fixes
+
+* **ci:** detect release changes from the previous tag, not github.event.before ([ff40a10](https://github.com/PPO-GG/unfit-for-print/commit/ff40a1075aee4d99ac1cbe5c3c70a0d3d31dbf43))
+* **server:** enforce the lobby host and join rules server-side ([7174206](https://github.com/PPO-GG/unfit-for-print/commit/71742061eaec29456690f93fed45626a2112a97b))
+* **server:** preload lobby documents over HTTP to bypass the sync ceiling ([ce78741](https://github.com/PPO-GG/unfit-for-print/commit/ce78741f66d31d046dc72b9f088d4082902a1f20))
+* **server:** stop /api/cards/packs leaking deactivated packs to public clients ([ca270db](https://github.com/PPO-GG/unfit-for-print/commit/ca270dba85f348db4b791332a284d920fea3eeaa))
+* **server:** stop sessions outliving the accounts they name ([0f3abdc](https://github.com/PPO-GG/unfit-for-print/commit/0f3abdc9711ecb42ef8e7777349e610641300061))
+* **web:** bump promptSerial when a departing judge swaps the prompt ([9294e64](https://github.com/PPO-GG/unfit-for-print/commit/9294e64f317e74e8fb663c061a56f44235dd700c))
+* **web:** chunk the black deck and pick map across Y.Doc updates ([dbfb001](https://github.com/PPO-GG/unfit-for-print/commit/dbfb001b7eedb6e5cac28b831a7a3fbdb2d96ff7))
+* **web:** fall back to English for untranslated strings ([388517e](https://github.com/PPO-GG/unfit-for-print/commit/388517e668a08e0a21b706ad657b9ed0dd256597))
+* **web:** gate the skip-prompt button on the raw phase ([4f93bae](https://github.com/PPO-GG/unfit-for-print/commit/4f93bae3c97e25809f13587ca486871de55c9cb0))
+* **web:** keep the crypto-secure shuffle for card decks ([de87fb0](https://github.com/PPO-GG/unfit-for-print/commit/de87fb0441cd487dede602b7656a876df8315a16))
+* **web:** keep the skipped black card out of the draw pool in skipBlackCard ([04f7048](https://github.com/PPO-GG/unfit-for-print/commit/04f704899ea5939cca1ec5391d5f211d0aae1a09))
+* **web:** make the prompt-skipped overlay actually able to fire ([9b30013](https://github.com/PPO-GG/unfit-for-print/commit/9b30013f9d5ecb732439324fc6b1cf20dbbd09dd))
+* **web:** position homeward card ghosts before their staggered flight ([8a06eec](https://github.com/PPO-GG/unfit-for-print/commit/8a06eec71754abc924ed3e2d3ab4900e510768b1))
+* **web:** re-check the round before the deferred judging transition ([ea1af0b](https://github.com/PPO-GG/unfit-for-print/commit/ea1af0b2ff350af46df8b1179c589a92e97e9c33))
+* **web:** refuse a manual draw from a player who already submitted ([6bb86d3](https://github.com/PPO-GG/unfit-for-print/commit/6bb86d3b226c0764e244495463b7f3c503e0b9f7))
+* **web:** seed promptSerial and blackSkipUsed when a game starts ([be0f19f](https://github.com/PPO-GG/unfit-for-print/commit/be0f19f8ca64d9d65949aea8e4f68fe83a2b463d))
+* **web:** stop cards leaking an animation frame loop after unmount ([935e778](https://github.com/PPO-GG/unfit-for-print/commit/935e778ee9329c577d9eba9a555b4b69e9b04d78))
+* **web:** stop joining a lobby before its doc has synced ([b44dc44](https://github.com/PPO-GG/unfit-for-print/commit/b44dc44901e2483d6d4dbc3e5596a0477042aa14))
+* **web:** stop the menu card flip losing its animation to a fast fetch ([40cbd5f](https://github.com/PPO-GG/unfit-for-print/commit/40cbd5f6724202ff411cda813ba74c47dd50fe48))
+
+
+### ♻️ Refactors
+
+* **web:** drop the orphaned CardManager monolith ([0ce20e4](https://github.com/PPO-GG/unfit-for-print/commit/0ce20e469218de3ad116dbf5f56f3a92d9219310))
+* **web:** extract the eligible black card draw from nextRound ([5c2c18f](https://github.com/PPO-GG/unfit-for-print/commit/5c2c18f318898cdca1d4f6a2cd63b0f581831f44))
+* **web:** split GameTable animation logic into composables ([f2d925d](https://github.com/PPO-GG/unfit-for-print/commit/f2d925d9f43a396de064ea349651248581e242ec))
+* **web:** split the admin card manager page into composables ([3697bd2](https://github.com/PPO-GG/unfit-for-print/commit/3697bd288094bc6c72930b551295ed18cb0538b6))
+
 ## [3.18.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.17.1...v3.18.0) (2026-09-05)
 
 
