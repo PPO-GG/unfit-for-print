@@ -9,7 +9,7 @@
       class="pack-grid__card"
       role="button"
       tabindex="0"
-      :aria-label="`Enlarge card: ${card.text ?? 'picture card'}`"
+      :aria-label="t('labs.enlarge_card', { text: card.text ?? t('labs.picture_card') })"
       @click="emit('select', i)"
       @keydown.enter.prevent="emit('select', i)"
       @keydown.space.prevent="emit('select', i)"
@@ -55,6 +55,8 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{ (e: "select", index: number): void }>();
+
+const { t } = useI18n();
 </script>
 
 <style scoped>

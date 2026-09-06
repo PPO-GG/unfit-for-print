@@ -4,30 +4,28 @@
     <template v-if="!selectedPack">
       <div class="labs-feed-heading">
         <div>
-          <p class="labs-eyebrow">Deck inventory</p>
-          <h2>Card packs</h2>
+          <p class="labs-eyebrow">{{ t("labs.packs_eyebrow") }}</p>
+          <h2>{{ t("labs.packs_title") }}</h2>
         </div>
         <p>
-          {{ visiblePacks.length }}
-          {{ visiblePacks.length === 1 ? "pack" : "packs" }} ·
-          {{ visibleCards.toLocaleString() }}
-          {{ visibleCards === 1 ? "card" : "cards" }}
+          {{ t("labs.pack_count", visiblePacks.length) }} ·
+          {{ t("labs.card_count", visibleCards) }}
         </p>
       </div>
 
       <div class="labs-controls">
-        <div class="labs-filter-group" aria-label="Pack filters">
+        <div class="labs-filter-group" :aria-label="t('labs.packs_title')">
           <button
             :class="{ active: !defaultOnly }"
             @click="defaultOnly = false"
           >
-            All packs
+            {{ t("labs.filter_all_packs") }}
           </button>
           <button
             :class="{ active: defaultOnly }"
             @click="defaultOnly = true"
           >
-            Default rotation
+            {{ t("labs.filter_default_rotation") }}
           </button>
         </div>
         <ClientOnly>
@@ -35,7 +33,7 @@
             v-model="packSearch"
             class="labs-search"
             icon="i-solar-minimalistic-magnifer-bold-duotone"
-            placeholder="Search packs"
+            :placeholder="t('labs.search_packs')"
           />
         </ClientOnly>
         <ClientOnly>
@@ -49,16 +47,16 @@
 
       <div v-if="packsLoading" class="labs-state">
         <Icon name="solar:loading-bold-duotone" class="animate-spin" />
-        <p>Counting the deck…</p>
+        <p>{{ t("labs.loading_packs") }}</p>
       </div>
       <div v-else-if="visiblePacks.length === 0" class="labs-state">
         <Icon name="solar:inbox-line-bold-duotone" />
-        <h3>No packs found</h3>
+        <h3>{{ t("labs.no_packs_title") }}</h3>
         <p>
           {{
             defaultOnly
-              ? "No packs in the default rotation match that search."
-              : "Nothing matches that search."
+              ? t("labs.no_packs_default_body")
+              : t("labs.no_packs_body")
           }}
         </p>
       </div>
@@ -71,15 +69,15 @@
           @click="openPack(tile.pack)"
         >
           <span v-if="tile.isDefault" class="pack-tile__badge"
-            >In default rotation</span
+            >{{ t("labs.in_default_rotation") }}</span
           >
           <span class="pack-tile__name">{{ tile.pack }}</span>
           <span class="pack-tile__counts">
             <span class="pack-tile__count pack-tile__count--white">
-              <i /> {{ tile.white }} answers
+              <i /> {{ t("labs.answers_count", tile.white) }}
             </span>
             <span class="pack-tile__count pack-tile__count--black">
-              <i /> {{ tile.black }} prompts
+              <i /> {{ t("labs.prompts_count", tile.black) }}
             </span>
           </span>
         </button>
@@ -91,26 +89,26 @@
       <div class="labs-feed-heading">
         <div>
           <button class="pack-back" type="button" @click="closePack">
-            <Icon name="solar:alt-arrow-left-bold-duotone" /> All packs
+            <Icon name="solar:alt-arrow-left-bold-duotone" /> {{ t("labs.back_to_packs") }}
           </button>
           <h2>{{ selectedPack }}</h2>
         </div>
-        <p>{{ total }} {{ cardNoun }}</p>
+        <p>{{ cardNoun }}</p>
       </div>
 
       <div class="labs-controls">
-        <div class="labs-filter-group" aria-label="Card type filters">
+        <div class="labs-filter-group" :aria-label="t('labs.packs_title')">
           <button
             :class="{ active: type === 'white' }"
             @click="setType('white')"
           >
-            Answers
+            {{ t("labs.filter_answers") }}
           </button>
           <button
             :class="{ active: type === 'black' }"
             @click="setType('black')"
           >
-            Prompts
+            {{ t("labs.filter_prompts") }}
           </button>
         </div>
         <ClientOnly>
@@ -118,23 +116,23 @@
             v-model="search"
             class="labs-search"
             icon="i-solar-minimalistic-magnifer-bold-duotone"
-            placeholder="Search this pack"
+            :placeholder="t('labs.search_this_pack')"
           />
         </ClientOnly>
       </div>
 
       <div v-if="cardsLoading" class="labs-state">
         <Icon name="solar:loading-bold-duotone" class="animate-spin" />
-        <p>Dealing…</p>
+        <p>{{ t("labs.loading_cards") }}</p>
       </div>
       <div v-else-if="cards.length === 0" class="labs-state">
         <Icon name="solar:card-search-bold-duotone" />
-        <h3>Nothing here</h3>
+        <h3>{{ t("labs.no_cards_title") }}</h3>
         <p>
           {{
             search
-              ? "No cards in this pack match your search."
-              : "This pack has no active cards of that type."
+              ? t("labs.no_cards_search")
+              : t("labs.no_cards_type")
           }}
         </p>
       </div>
@@ -154,10 +152,13 @@
         />
         <div v-if="total > perPage" class="labs-pagination">
           <p class="pack-range">
-            Showing {{ (page - 1) * perPage + 1 }}–{{
-              Math.min(page * perPage, total)
+            {{
+              t("labs.showing_range", {
+                from: (page - 1) * perPage + 1,
+                to: Math.min(page * perPage, total),
+                total,
+              })
             }}
-            of {{ total }}
           </p>
           <ClientOnly>
             <UPagination
@@ -189,6 +190,7 @@ import {
 const PER_PAGE = 24;
 
 const { $activityFetch } = useNuxtApp();
+const { t } = useI18n();
 
 // Shared with the Labs hero's card-count stat — see useCardPacks.
 const {
@@ -209,11 +211,11 @@ const cards = ref<CardBrowseResponse["cards"]>([]);
 const total = ref(0);
 const cardsLoading = ref(false);
 
-const packSortOptions = [
-  { label: "Most cards", value: "cards-desc" },
-  { label: "Fewest cards", value: "cards-asc" },
-  { label: "A–Z", value: "name" },
-];
+const packSortOptions = computed(() => [
+  { label: t("labs.sort_most_cards"), value: "cards-desc" },
+  { label: t("labs.sort_fewest_cards"), value: "cards-asc" },
+  { label: t("labs.sort_alpha"), value: "name" },
+]);
 
 const visiblePacks = computed(() =>
   filterAndSortPacks(packTiles.value, {
@@ -268,10 +270,12 @@ function stepLightbox(delta: number) {
   if (next.page !== page.value) page.value = next.page;
 }
 
-const cardNoun = computed(() => {
-  const noun = type.value === "black" ? "prompt" : "answer";
-  return total.value === 1 ? noun : `${noun}s`;
-});
+const cardNoun = computed(() =>
+  t(
+    type.value === "black" ? "labs.prompts_count" : "labs.answers_count",
+    total.value,
+  ),
+);
 
 // `search` is bound to the input; `searchTerm` is the debounced value the query
 // actually uses. Kept as two plain refs (rather than refDebounced) so opening a
@@ -329,7 +333,7 @@ async function fetchCards() {
   } catch (error) {
     if (seq !== requestSeq) return;
     console.error("Error loading cards:", error);
-    useToast().add({ title: "Couldn’t load cards", color: "error" });
+    useToast().add({ title: t("labs.error_cards"), color: "error" });
   } finally {
     if (seq === requestSeq) cardsLoading.value = false;
   }

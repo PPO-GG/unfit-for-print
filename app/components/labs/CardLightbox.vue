@@ -1,7 +1,7 @@
 <template>
   <UModal
     v-model:open="open"
-    :title="card?.pack || 'Card'"
+    :title="card?.pack || t('labs.card')"
     :description="positionLabel"
     :ui="{ content: 'card-lightbox' }"
   >
@@ -11,7 +11,7 @@
           v-if="total > 1"
           class="lightbox__nav lightbox__nav--prev"
           type="button"
-          aria-label="Previous card"
+          :aria-label="t('labs.prev_card')"
           @click="emit('step', -1)"
         >
           <Icon name="solar:alt-arrow-left-bold-duotone" />
@@ -65,7 +65,7 @@
           v-if="total > 1"
           class="lightbox__nav lightbox__nav--next"
           type="button"
-          aria-label="Next card"
+          :aria-label="t('labs.next_card')"
           @click="emit('step', 1)"
         >
           <Icon name="solar:alt-arrow-right-bold-duotone" />
@@ -77,7 +77,7 @@
             v-if="type === 'black' && (card?.pick ?? 1) > 1"
             class="lightbox__chip"
           >
-            Pick {{ card?.pick }}
+            {{ t("labs.pick_n", { count: card?.pick }) }}
           </span>
           <span v-if="total > 1" class="lightbox__position">
             {{ position.toLocaleString() }} / {{ total.toLocaleString() }}
@@ -110,12 +110,17 @@ const emit = defineEmits<{ (e: "step", delta: number): void }>();
 
 const shell = ref<HTMLElement | null>(null);
 
+const { t } = useI18n();
+
 const typeLabel = computed(() =>
-  props.type === "black" ? "Prompt" : "Answer",
+  t(props.type === "black" ? "labs.prompt" : "labs.answer"),
 );
-const positionLabel = computed(
-  () =>
-    `${typeLabel.value} ${props.position.toLocaleString()} of ${props.total.toLocaleString()}`,
+const positionLabel = computed(() =>
+  t("labs.lightbox_position", {
+    type: typeLabel.value,
+    position: props.position.toLocaleString(),
+    total: props.total.toLocaleString(),
+  }),
 );
 
 // Bigger than the grid thumbnails but still bounded, so a tall prompt card fits

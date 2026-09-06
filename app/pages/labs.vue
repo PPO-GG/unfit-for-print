@@ -5,48 +5,45 @@
       <section class="labs-hero">
         <div class="labs-hero__copy">
           <div class="labs-chip labs-chip--lime">
-            <Icon name="solar:test-tube-bold-duotone" /> Community R&amp;D
+            <Icon name="solar:test-tube-bold-duotone" /> {{ t("labs.chip") }}
           </div>
-          <p class="labs-eyebrow">Peer review for bad taste</p>
+          <p class="labs-eyebrow">{{ t("labs.eyebrow") }}</p>
           <h1>UNFIT <span>LABS</span></h1>
-          <p class="labs-hero__description">
-            Submit cards, vote on what’s funny, and help the worst ideas make it
-            into the deck.
-          </p>
+          <p class="labs-hero__description">{{ t("labs.description") }}</p>
           <div class="labs-hero__actions">
             <UButton
               class="labs-primary-action"
               icon="i-solar-add-circle-bold-duotone"
               @click="submitCardOpen = true"
-              >Submit a card</UButton
+              >{{ t("labs.submit_card") }}</UButton
             >
             <a
               class="labs-secondary-action"
               href="#submissions"
               @click="activeTab = 'submissions'"
-              ><Icon name="solar:card-send-bold-duotone" /> Browse
-              submissions</a
+              ><Icon name="solar:card-send-bold-duotone" />
+              {{ t("labs.browse_submissions") }}</a
             >
             <a
               class="labs-secondary-action"
               href="#submissions"
               @click="activeTab = 'packs'"
-              ><Icon name="solar:cardholder-bold-duotone" /> Browse card
-              packs</a
+              ><Icon name="solar:cardholder-bold-duotone" />
+              {{ t("labs.browse_packs") }}</a
             >
           </div>
         </div>
         <div class="labs-hero__stats">
           <div class="labs-stat">
-            <span>Submissions</span
+            <span>{{ t("labs.stat_submissions") }}</span
             ><strong class="labs-stat--cyan">{{ submissions.length }}</strong>
           </div>
           <div class="labs-stat">
-            <span>Votes cast</span
+            <span>{{ t("labs.stat_votes") }}</span
             ><strong class="labs-stat--yellow">{{ totalVotes }}</strong>
           </div>
           <div class="labs-stat labs-stat--wide">
-            <span>Cards in the deck</span
+            <span>{{ t("labs.stat_cards") }}</span
             ><strong class="labs-stat--lime-lg">{{
               packsLoading ? "—" : totalCards.toLocaleString()
             }}</strong>
@@ -62,7 +59,7 @@
             type="button"
             @click="activeTab = 'submissions'"
           >
-            <Icon name="solar:test-tube-bold-duotone" /> Submissions
+            <Icon name="solar:test-tube-bold-duotone" /> {{ t("labs.tab_submissions") }}
             <span>{{ submissions.length }}</span>
           </button>
           <button
@@ -71,7 +68,7 @@
             type="button"
             @click="activeTab = 'packs'"
           >
-            <Icon name="solar:cardholder-bold-duotone" /> Card packs
+            <Icon name="solar:cardholder-bold-duotone" /> {{ t("labs.tab_packs") }}
             <span v-if="!packsLoading">{{ totalCards }}</span>
           </button>
         </div>
@@ -83,30 +80,30 @@
         <template v-else>
         <div class="labs-feed-heading">
           <div>
-            <p class="labs-eyebrow">Experiment queue</p>
-            <h2>Community submissions</h2>
+            <p class="labs-eyebrow">{{ t("labs.queue_eyebrow") }}</p>
+            <h2>{{ t("labs.queue_title") }}</h2>
           </div>
-          <p>{{ filteredSubmissions.length }} cards · {{ sortLabel }}</p>
+          <p>{{ t("labs.queue_summary", { count: filteredSubmissions.length, sort: sortLabel }) }}</p>
         </div>
         <div class="labs-controls">
-          <div class="labs-filter-group" aria-label="Card type filters">
+          <div class="labs-filter-group" :aria-label="t('labs.queue_title')">
             <button
               :class="{ active: filters.cardType === 'all' }"
               @click="filters.cardType = 'all'"
             >
-              All
+              {{ t("labs.filter_all") }}
             </button>
             <button
               :class="{ active: filters.cardType === 'white' }"
               @click="filters.cardType = 'white'"
             >
-              Answers
+              {{ t("labs.filter_answers") }}
             </button>
             <button
               :class="{ active: filters.cardType === 'black' }"
               @click="filters.cardType = 'black'"
             >
-              Prompts
+              {{ t("labs.filter_prompts") }}
             </button>
           </div>
           <ClientOnly
@@ -114,7 +111,7 @@
               v-model="filters.search"
               class="labs-search"
               icon="i-solar-minimalistic-magnifer-bold-duotone"
-              placeholder="Search experiments"
+              :placeholder="t('labs.search_experiments')"
           /></ClientOnly>
           <ClientOnly
             ><USelect
@@ -126,13 +123,13 @@
         <ClientOnly>
           <div v-if="loading" class="labs-state">
             <Icon name="solar:loading-bold-duotone" class="animate-spin" />
-            <p>Loading experiments…</p>
+            <p>{{ t("labs.loading_experiments") }}</p>
           </div>
           <div v-else-if="submissions.length === 0" class="labs-state">
             <Icon name="solar:test-tube-bold-duotone" />
-            <h3>Nothing in the lab yet</h3>
-            <p>Be the first to submit a card.</p>
-            <UButton @click="submitCardOpen = true">Submit a card</UButton>
+            <h3>{{ t("labs.empty_title") }}</h3>
+            <p>{{ t("labs.empty_body") }}</p>
+            <UButton @click="submitCardOpen = true">{{ t("labs.submit_card") }}</UButton>
           </div>
           <template v-else>
             <SubmissionsList
@@ -158,8 +155,8 @@
     </div>
     <UModal
       v-model:open="submitCardOpen"
-      title="Submit a card"
-      description="Add your latest experiment to the community queue."
+      :title="t('labs.submit_card')"
+      :description="t('labs.submit_modal_description')"
       :ui="{ content: 'labs-submit-modal' }"
     >
       <template #body
@@ -176,6 +173,7 @@ import { watchDebounced } from "@vueuse/core";
 import { useIsAdmin } from "~/composables/useAdminCheck";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useUserStore } from "~/stores/userStore";
+const { t } = useI18n();
 useHead({ title: "Unfit Labs" });
 const submitCardOpen = ref(false);
 const activeTab = ref<"submissions" | "packs">("submissions");
@@ -196,16 +194,17 @@ const filters = ref({
   search: "",
 });
 const pagination = ref({ page: 1, perPage: 12 });
-const sortOptions = [
-  { label: "Newest first", value: "timestamp" },
-  { label: "Most upvoted", value: "upvotes" },
-  { label: "Shortest text", value: "textLength" },
-];
-const perPageOptions = [
-  { label: "12 per page", value: 12 },
-  { label: "24 per page", value: 24 },
-  { label: "48 per page", value: 48 },
-];
+const sortOptions = computed(() => [
+  { label: t("labs.sort_newest"), value: "timestamp" },
+  { label: t("labs.sort_upvotes"), value: "upvotes" },
+  { label: t("labs.sort_shortest"), value: "textLength" },
+]);
+const perPageOptions = computed(() =>
+  [12, 24, 48].map((count) => ({
+    label: t("labs.per_page", { count }),
+    value: count,
+  })),
+);
 const totalVotes = computed(() =>
   submissions.value.reduce(
     (sum, submission) => sum + (submission.upvotes || 0),
@@ -214,9 +213,9 @@ const totalVotes = computed(() =>
 );
 const sortLabel = computed(
   () =>
-    sortOptions
+    sortOptions.value
       .find((option) => option.value === filters.value.sortBy)
-      ?.label.toLowerCase() || "newest first",
+      ?.label.toLowerCase() || t("labs.sort_newest").toLowerCase(),
 );
 const filteredSubmissions = computed(() => {
   const search = filters.value.search.trim().toLowerCase();
@@ -288,8 +287,8 @@ async function fetchSubmissions() {
   } catch (error) {
     console.error("Error fetching submissions:", error);
     useToast().add({
-      title: "Couldn’t load submissions",
-      description: "Try refreshing the page.",
+      title: t("labs.error_submissions"),
+      description: t("labs.error_refresh"),
       color: "error",
     });
   } finally {
@@ -310,7 +309,7 @@ async function handleUpvote(submissionId: string) {
     });
   } catch (error) {
     console.error("Error upvoting submission:", error);
-    useToast().add({ title: "Couldn’t update vote", color: "error" });
+    useToast().add({ title: t("labs.error_vote"), color: "error" });
   } finally {
     upvoteInProgress.value = false;
   }
@@ -332,7 +331,7 @@ async function handleDelete(submissionId: string) {
     );
   } catch (error) {
     console.error("Error deleting submission:", error);
-    useToast().add({ title: "Couldn’t delete submission", color: "error" });
+    useToast().add({ title: t("labs.error_delete"), color: "error" });
   }
 }
 async function handleAdopt(submission: any) {
@@ -347,7 +346,7 @@ async function handleAdopt(submission: any) {
     );
   } catch (error) {
     console.error("Error adopting submission:", error);
-    useToast().add({ title: "Couldn’t adopt submission", color: "error" });
+    useToast().add({ title: t("labs.error_adopt"), color: "error" });
   }
 }
 onMounted(() => {
