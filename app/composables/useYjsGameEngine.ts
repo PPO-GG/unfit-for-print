@@ -1025,7 +1025,16 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         );
         const blackPicks = readBlackPicks(c);
 
-        // Find next eligible black card (pick <= maxPick)
+        // Find next eligible black card (pick <= maxPick).
+        // NOTE: this is an older, DIVERGED copy of the draw loop that
+        // `drawEligibleBlackCard` (used by nextRound and skipBlackCard) owns.
+        // It differs in two observable ways: it empties the reshuffled discard
+        // pile in place (`discardBlack.length = 0`), and on exhaustion it sets
+        // `blackCard` to null rather than the
+        // `{ id: "", text: "No eligible cards remain", pick: 1 }` sentinel the
+        // shared helper returns. Deduping it is a real change of behaviour and
+        // is deliberately out of scope here — a future dedup task should start
+        // from those two differences.
         let nextBlackId: string | null = null;
         let reshuffled = false;
         while (!nextBlackId) {
@@ -1085,6 +1094,15 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         // Reset round state
         gs.set("revealedCards", "{}");
         gs.set("skippedPlayers", "[]");
+        gs.set("readAloudText", "");
+        // A fresh prompt is on the table, so the animation layer has to be
+        // told. This used to ride on the judging -> submitting phase edge, but
+        // that fallback switches off as soon as the doc carries a serial, so
+        // without the bump NEITHER GameTable watcher fires and the rest of the
+        // round loses its fly-ins. The new prompt also returns the judge's one
+        // skip for the round.
+        gs.set("promptSerial", state.promptSerial + 1);
+        gs.set("blackSkipUsed", JSON.stringify(false));
         gs.set("phase", "submitting");
         return;
       }
