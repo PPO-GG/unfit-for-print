@@ -2,7 +2,7 @@
   <!-- Empty seat -->
   <div
     v-if="!player"
-    class="lobby-seat"
+    class="lobby-seat cursor-pointer"
     :class="{ 'lobby-seat--clickable': isHostUser }"
     :style="positionStyle"
     @click="isHostUser ? $emit('add-bot') : undefined"
