@@ -588,6 +588,7 @@ function handleMobileContinue() {
           :is-host="isHost"
           :players="props.players"
           :phase="activePhase"
+          :prompt-serial="state?.promptSerial"
           :revealed-cards="revealedCards"
           :effective-round-winner="effectiveRoundWinner"
           :confirmed-round-winner="confirmedRoundWinner"

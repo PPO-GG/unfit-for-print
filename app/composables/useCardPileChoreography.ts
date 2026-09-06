@@ -20,9 +20,13 @@
  * card from either flashing at its destination early or leaving a ghost stuck
  * on screen forever.
  *
- * Round boundaries are driven by the caller via `resetForNewRound()` — the
- * phase prop is the authoritative signal, NOT `submissions` emptying, which
- * can happen transiently while realtime state re-parses.
+ * Round boundaries are driven by the caller via `resetForNewRound()`, which
+ * GameTable fires when `promptSerial` changes — a new prompt on the table,
+ * whether from a normal round advance or a judge skipping the black card.
+ * It is deliberately NOT driven by `submissions` emptying, which happens
+ * transiently while realtime state re-parses and would make every card
+ * re-animate. Legacy docs with no serial fall back to the judging → submitting
+ * phase edge.
  */
 import { ref, onBeforeUnmount, watch, nextTick, type Ref } from "vue";
 import { gsap } from "gsap";

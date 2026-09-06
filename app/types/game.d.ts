@@ -24,6 +24,11 @@ export interface GameState {
   revealedCards?: Record<PlayerId, boolean>;
   /** Ephemeral TTS text set by the judge — all clients read it aloud then clear it. */
   readAloudText?: string;
+  /** Bumped whenever a new prompt reaches the table — by nextRound and by a
+   *  judge's skip. Absent on docs created before black-card skipping shipped. */
+  promptSerial?: number;
+  /** Whether the judge has already used their one skip this round. */
+  blackSkipUsed?: boolean;
   gameEndTime?: number;
 
   config: {

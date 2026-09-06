@@ -11,6 +11,7 @@ import { useJudgingFlip, type Submission } from "~/composables/useJudgingFlip";
 import { useWinnerTableCelebration } from "~/composables/useWinnerTableCelebration";
 import { useSfx } from "~/composables/useSfx";
 import { SFX } from "~/config/sfx.config";
+import { isNewPrompt, isLegacyRoundStart } from "~/utils/roundBoundary";
 import ScoreFlyBadge from "./ScoreFlyBadge.vue";
 
 interface BlackCard {
@@ -32,6 +33,8 @@ const props = withDefaults(
     isHost: boolean;
     players: Player[];
     phase: "submitting" | "judging";
+    /** Bumped whenever a new prompt hits the table. Undefined on legacy docs. */
+    promptSerial?: number;
     revealedCards: Record<string, boolean>;
     effectiveRoundWinner?: string | null;
     confirmedRoundWinner?: string | null;
@@ -135,16 +138,30 @@ const {
 });
 
 // ── Round boundary ──────────────────────────────────────────────
-// The phase prop is the authoritative round-boundary signal, NOT the
-// submissions map emptying — that happens transiently while realtime state
-// re-parses, and treating it as a new round makes every card re-animate.
+// A new prompt on the table is the real reset signal. It used to be inferred
+// from the judging → submitting phase edge, but a judge skipping a black card
+// swaps the prompt without any phase change at all, so the edge cannot see it.
+// `promptSerial` states the fact directly, and because only the engine ever
+// increments it, the transient submissions re-parses that ruled out watching
+// `submissions` cannot trigger it either.
+watch(
+  () => props.promptSerial,
+  (next, prev) => {
+    if (!isNewPrompt(next, prev)) return;
+    resetPile();
+    resetCelebration();
+  },
+);
+
+// Legacy docs (created before black-card skipping shipped) carry no serial.
+// Keep the old phase edge alive for them so a game in flight across the deploy
+// does not lose its round boundary entirely.
 watch(
   () => props.phase,
   (newPhase, oldPhase) => {
-    if (newPhase === "submitting" && oldPhase === "judging") {
-      resetPile();
-      resetCelebration();
-    }
+    if (!isLegacyRoundStart(props.promptSerial, newPhase, oldPhase)) return;
+    resetPile();
+    resetCelebration();
   },
 );
 

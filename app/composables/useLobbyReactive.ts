@@ -168,6 +168,8 @@ function parseGameState(raw: Record<string, any>): GameState {
     skippedPlayers: safeParseJson(raw.skippedPlayers, []),
     revealedCards: safeParseJson(raw.revealedCards, {}),
     readAloudText: raw.readAloudText ?? "",
+    promptSerial: raw.promptSerial ?? undefined,
+    blackSkipUsed: safeParseJson(raw.blackSkipUsed, false),
     gameEndTime: raw.gameEndTime ?? undefined,
     returnedToLobby: safeParseJson(raw.returnedToLobby, {}),
     players: safeParseJson(raw.players, {}),
