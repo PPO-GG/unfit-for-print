@@ -29,3 +29,21 @@ export function isLegacyRoundStart(
     promptSerial === undefined && next === "submitting" && prev === "judging"
   );
 }
+
+/**
+ * Whether a change in the skip-announcement trigger should announce a skip.
+ *
+ * The trigger is the prompt serial while a skip is in effect and `undefined`
+ * otherwise, so a real skip always reads as `undefined -> N`: `nextRound`
+ * clears the skip flag every round, and a second skip in one round is refused
+ * by the engine. Only two transitions must stay silent — falling back to
+ * `undefined` when the next round clears the flag, and a value that did not
+ * actually change. A late-joining client is already covered by the watcher not
+ * being `immediate`.
+ */
+export function isSkipAnnouncement(
+  next: number | undefined,
+  prev: number | undefined,
+): boolean {
+  return next !== undefined && next !== prev;
+}

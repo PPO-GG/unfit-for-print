@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { ref, watch } from "vue";
 import { gsap } from "gsap";
+import { isSkipAnnouncement } from "~/utils/roundBoundary";
 
 const props = defineProps<{
   /** Bumped whenever a prompt is skipped. Undefined on legacy docs. */
@@ -16,9 +17,7 @@ let hideTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
   () => props.trigger,
   (next, prev) => {
-    // Only a genuine change counts — not a doc gaining the key for the
-    // first time, which is what an undefined `prev` means.
-    if (next === undefined || prev === undefined || next === prev) return;
+    if (!isSkipAnnouncement(next, prev)) return;
 
     visible.value = true;
     if (hideTimer) clearTimeout(hideTimer);

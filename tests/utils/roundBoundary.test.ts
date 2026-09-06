@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isNewPrompt, isLegacyRoundStart } from "~/utils/roundBoundary";
+import {
+  isNewPrompt,
+  isLegacyRoundStart,
+  isSkipAnnouncement,
+} from "~/utils/roundBoundary";
 
 describe("isNewPrompt", () => {
   it("is true when the serial advances", () => {
@@ -33,5 +37,26 @@ describe("isLegacyRoundStart", () => {
 
   it("is false on any other phase transition", () => {
     expect(isLegacyRoundStart(undefined, "judging", "submitting")).toBe(false);
+  });
+});
+
+describe("isSkipAnnouncement", () => {
+  it("announces when the trigger appears from undefined (a real skip)", () => {
+    // This is the transition every legitimate skip produces — without the
+    // fix, requiring a defined `prev` blocked it entirely.
+    expect(isSkipAnnouncement(4, undefined)).toBe(true);
+  });
+
+  it("stays silent when the trigger falls back to undefined", () => {
+    // nextRound clears blackSkipUsed every round.
+    expect(isSkipAnnouncement(undefined, 4)).toBe(false);
+  });
+
+  it("stays silent when the value has not changed", () => {
+    expect(isSkipAnnouncement(4, 4)).toBe(false);
+  });
+
+  it("announces a later skip in a subsequent round", () => {
+    expect(isSkipAnnouncement(9, 4)).toBe(true);
   });
 });
