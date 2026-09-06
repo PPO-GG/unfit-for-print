@@ -28,7 +28,7 @@ const variants = (name: string, count: number, ext = "wav"): string[] =>
 export const SFX = {
   // ── Card interactions (hand) ───────────────────────────────
   /** Card hover in hand (random variant) */
-  cardHover: variants("hover", 4),
+  cardHover: variants("hover", 3),
   /** Card select / deselect in hand (random variant) */
   cardSelect: variants("cardSelect", 3),
   /** Card flip / reveal (random variant) */
