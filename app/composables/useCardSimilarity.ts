@@ -1,6 +1,11 @@
 import { ref } from "vue";
-import { compareTwoStrings } from "string-similarity";
 import { useNotifications } from "~/composables/useNotifications";
+import {
+  diceSimilarity,
+  normalizeCardText,
+  type DuplicateCluster,
+  type ScannableCard,
+} from "~/utils/duplicateScan";
 
 export const useCardSimilarity = () => {
   const { notify } = useNotifications();
@@ -8,18 +13,13 @@ export const useCardSimilarity = () => {
   const processingAllSimilarCards = ref(false);
   const loadingSimilarity = ref(false);
   const similarCards = ref<any[]>([]);
-  const allSimilarPairs = ref<
-    { card1: any; card2: any; similarity: number; similarityScore?: number }[]
-  >([]);
+  const duplicateClusters = ref<DuplicateCluster<any>[]>([]);
   const showSimilarCardsModal = ref(false);
-  const showAllSimilarCardsModal = ref(false);
   const selectedCard = ref<any>(null);
   const similarityThreshold = ref(0.7);
 
   /** 0–1 progress reported by the worker during a scan. */
   const scanProgress = ref(0);
-  /** Human-readable pair counts reported mid-scan. */
-  const scanStats = ref({ processed: 0, total: 0 });
 
   // ── Per-card similarity (used by the single-card modal path) ─────────────────
   const findSimilarCards = async (card: any, cardsList: any[]) => {
@@ -32,14 +32,14 @@ export const useCardSimilarity = () => {
 
     try {
       const results = [];
-      const targetText = card.text.toLowerCase();
+      const targetText = normalizeCardText(card.text);
 
       for (const otherCard of cardsList) {
-        if (otherCard.$id === card.$id) continue;
+        if (otherCard.id === card.id) continue;
 
-        const similarity = compareTwoStrings(
+        const similarity = diceSimilarity(
           targetText,
-          otherCard.text.toLowerCase(),
+          normalizeCardText(otherCard.text),
         );
 
         if (similarity >= similarityThreshold.value) {
@@ -73,64 +73,72 @@ export const useCardSimilarity = () => {
     }
   };
 
-  // ── Full-scan via Web Worker ──────────────────────────────────────────────────
+  // ── Full scan via Web Worker ─────────────────────────────────────────────────
   /**
-   * Offloads the O(n²) scan to a dedicated Web Worker so the main thread
-   * (and Vue reactivity / UI) stays completely unblocked during processing.
-   *
-   * Progress is reported ~every 1 % of pairs processed via `scanProgress`.
+   * Offloads the scan to a dedicated Web Worker so Vue reactivity and the UI
+   * stay unblocked. Results come back as clusters — N mutually-similar cards
+   * are one group to review, not N² separate pairs.
    */
-  const findAllSimilarCards = (cardsList: any[]): Promise<void> => {
+  const findAllSimilarCards = (
+    cardsList: ScannableCard[],
+    cardType: string,
+    samePackOnly = false,
+  ): Promise<void> => {
     return new Promise((resolve) => {
       processingAllSimilarCards.value = true;
-      allSimilarPairs.value = [];
+      duplicateClusters.value = [];
       scanProgress.value = 0;
-      scanStats.value = { processed: 0, total: 0 };
 
-      const worker = new Worker("/workers/cardSimilarity.worker.js");
+      // `new URL(..., import.meta.url)` rather than Vite's `?worker` helper:
+      // under Nuxt's `_nuxt` base the helper emits a broken `@fs` path that
+      // 404s in dev, taking the worker down with an empty error event.
+      const worker = new Worker(
+        new URL("../workers/cardSimilarity.worker.ts", import.meta.url),
+        { type: "module" },
+      );
 
-      worker.onmessage = (event) => {
+      const finish = () => {
+        processingAllSimilarCards.value = false;
+        worker.terminate();
+        resolve();
+      };
+
+      worker.onmessage = (event: MessageEvent) => {
         const data = event.data as {
           type: string;
           progress?: number;
-          processed?: number;
-          total?: number;
-          pairs?: any[];
+          clusters?: DuplicateCluster<any>[];
           message?: string;
         };
 
         if (data.type === "progress") {
           scanProgress.value = data.progress ?? 0;
-          scanStats.value = {
-            processed: data.processed ?? 0,
-            total: data.total ?? 0,
-          };
           return;
         }
 
         if (data.type === "result") {
-          allSimilarPairs.value = data.pairs ?? [];
-          processingAllSimilarCards.value = false;
+          duplicateClusters.value = data.clusters ?? [];
           scanProgress.value = 1;
-          worker.terminate();
+          finish();
 
-          if (allSimilarPairs.value.length > 0) {
-            showAllSimilarCardsModal.value = true;
+          const count = duplicateClusters.value.length;
+          if (count > 0) {
+            const cards = duplicateClusters.value.reduce(
+              (total, cluster) => total + cluster.cards.length,
+              0,
+            );
             notify({
-              title: "Similar Cards Found",
-              description: `Found ${allSimilarPairs.value.length} pairs of similar cards.`,
+              title: "Duplicates Found",
+              description: `${count} group${count === 1 ? "" : "s"} covering ${cards} cards.`,
               color: "success",
             });
           } else {
             notify({
-              title: "No Similar Cards",
-              description:
-                "No similar cards were found above the similarity threshold.",
+              title: "No Duplicates",
+              description: "No cards were similar enough to flag.",
               color: "info",
             });
           }
-
-          resolve();
           return;
         }
 
@@ -141,29 +149,27 @@ export const useCardSimilarity = () => {
             description: data.message || "Failed to scan for similar cards.",
             color: "error",
           });
-          processingAllSimilarCards.value = false;
-          worker.terminate();
-          resolve();
+          finish();
         }
       };
 
-      worker.onerror = (err) => {
+      worker.onerror = (err: ErrorEvent) => {
         console.error("Worker crashed:", err);
         notify({
           title: "Scan Error",
           description: "The scan worker encountered an unexpected error.",
           color: "error",
         });
-        processingAllSimilarCards.value = false;
-        worker.terminate();
-        resolve();
+        finish();
       };
 
-      // Kick off the scan — only the plain card data is transferred (no Vue proxies)
+      // Only plain card data crosses the boundary — no Vue proxies.
       worker.postMessage({
         type: "scan",
         cards: JSON.parse(JSON.stringify(cardsList)),
         threshold: similarityThreshold.value,
+        cardType,
+        samePackOnly,
       });
     });
   };
@@ -172,13 +178,11 @@ export const useCardSimilarity = () => {
     processingAllSimilarCards,
     loadingSimilarity,
     similarCards,
-    allSimilarPairs,
+    duplicateClusters,
     showSimilarCardsModal,
-    showAllSimilarCardsModal,
     selectedCard,
     similarityThreshold,
     scanProgress,
-    scanStats,
     findSimilarCards,
     findAllSimilarCards,
   };
