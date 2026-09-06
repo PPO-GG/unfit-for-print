@@ -431,6 +431,43 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
   // ── Play Card ──────────────────────────────────────────────────────────
   // Replaces: POST /api/game/play-card
 
+  /** How long `submitting-complete` is held so the "all cards in" animation
+   *  can play before the judging table appears. */
+  const SUBMIT_ANIMATION_MS = 500;
+
+  /**
+   * The deferred half of the submitting -> judging transition.
+   *
+   * `playCard` sets `submitting-complete` and hands the real phase change to a
+   * timer, and half a second is long enough for the round to change underneath
+   * it. Both `skipBlackCard` and `handlePlayerLeave` clear `submissions`
+   * without ever seeing `submitting-complete` — the client that ran them was
+   * still on `submitting` — so a blind `set("phase", "judging")` when the timer
+   * fires drops the table into judging with nothing on it: no submission to
+   * pick, and `skipJudge` the only way out.
+   *
+   * So the decision gets re-derived from whatever the doc holds at fire time
+   * rather than from the state that scheduled it. Only `submitting-complete` is
+   * ours to move; anything else means another client already resolved the round.
+   */
+  const settleSubmittingComplete = (): void => {
+    // disconnect() nulls the doc ref and every accessor throws after that.
+    if (!doc.value) return;
+
+    const state = readGameState();
+    if (state.phase !== "submitting-complete") return;
+
+    const eligible = getActivePlayerIds().filter(
+      (id) => id !== state.judgeId && !state.skippedPlayers.includes(id),
+    );
+    const submitted = Object.keys(state.submissions).length;
+    const stillComplete = submitted > 0 && submitted >= eligible.length;
+
+    doc.value.transact(() => {
+      getGameState().set("phase", stillComplete ? "judging" : "submitting");
+    });
+  };
+
   const playCard = (
     cardIds: CardId[],
     playerId?: PlayerId,
@@ -476,13 +513,10 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       );
       if (Object.keys(submissions).length >= eligiblePlayers.length) {
         gs.set("phase", "submitting-complete");
-        // Short delay then transition to judging — let the UI animate
-        // The actual phase transition happens client-side after animations
-        setTimeout(() => {
-          ydoc.transact(() => {
-            gs.set("phase", "judging");
-          });
-        }, 500);
+        // Short delay then transition to judging — let the UI animate.
+        // settleSubmittingComplete re-checks the round before committing,
+        // because it can change inside this window.
+        setTimeout(settleSubmittingComplete, SUBMIT_ANIMATION_MS);
       }
     });
 
