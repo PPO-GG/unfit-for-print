@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, players, users } from "~~/server/db/schema";
-import { requireAuth } from "~~/server/utils/session";
+import { requireNonGuest } from "~~/server/utils/session";
 
 function randomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -9,7 +9,10 @@ function randomCode(): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const userId = await requireAuth(event);
+  // Hosting creates durable state other people join, so it needs a real
+  // account. The home page already hides this from guests; this is the half
+  // a client cannot skip.
+  const userId = await requireNonGuest(event);
   const body = await readBody<{
     hostUserId: string;
     lobbyName?: string;

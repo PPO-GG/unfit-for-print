@@ -74,6 +74,35 @@ export async function requireHost(
   return userId;
 }
 
+/**
+ * Ensures the caller holds a real account rather than a guest session.
+ *
+ * Guests are minted by POST /api/auth/guest with nothing but a username, so a
+ * guest session proves nothing about who is calling. Anything that creates
+ * durable state someone else has to live with — a lobby, for one — needs this
+ * rather than bare `requireAuth`, which accepts guest and Discord sessions
+ * alike. The UI already disables those actions for guests; this is the half
+ * that a client cannot skip.
+ */
+export async function requireNonGuest(event: H3Event): Promise<string> {
+  const userId = await requireAuth(event);
+  const db = useDb();
+
+  const [user] = await db
+    .select({ isGuest: users.isGuest })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user || user.isGuest) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Forbidden: sign in to do this",
+    });
+  }
+  return userId;
+}
+
 /** Ensures the authenticated user is currently an admin. */
 export async function requireAdmin(event: H3Event): Promise<string> {
   const userId = await requireAuth(event);

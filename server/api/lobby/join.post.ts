@@ -29,7 +29,19 @@ export default defineEventHandler(async (event) => {
 
   // Runtime clamp: TypeScript's narrowed body type doesn't stop a raw
   // request body from smuggling "bot" (or anything else) past readBody.
-  const playerType = body.playerType === "spectator" ? "spectator" : "player";
+  const requestedType = body.playerType === "spectator" ? "spectator" : "player";
+
+  // A lobby that is no longer waiting only takes spectators. Seating someone as
+  // an active player mid-round would put them in the players table while the
+  // Y.Doc's playerOrder, hands and scores know nothing about them — the doc is
+  // authoritative for gameplay and it is not consulted here. Latecomers are
+  // meant to arrive as spectators and be dealt in explicitly via the engine's
+  // convertToPlayer, which does update the doc.
+  //
+  // This is deliberately below the `existing` early-return above, so a player
+  // whose tab dropped mid-round reconnects as a player rather than being
+  // demoted to spectator.
+  const playerType = lobby.status === "waiting" ? requestedType : "spectator";
 
   const [player] = await db
     .insert(players)

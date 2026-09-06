@@ -11,6 +11,10 @@ vi.mock("~/server/utils/session", async (importOriginal) => {
   return {
     ...actual,
     requireAuth: async () => currentUserId,
+    // Stubbed alongside requireAuth because it wraps it: these tests cover
+    // registry behaviour, not the guest guard, which has its own suite in
+    // lobby-guards.test.ts.
+    requireNonGuest: async () => currentUserId,
     requirePlayerInLobby: async (_event: unknown, lobbyId: string) => {
       const [row] = await useDb()
         .select()

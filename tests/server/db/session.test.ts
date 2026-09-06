@@ -8,6 +8,7 @@ import {
   requireAdmin,
   requireAuth,
   requireHost,
+  requireNonGuest,
   requirePlayerInLobby,
 } from "~/server/utils/session";
 
@@ -96,5 +97,47 @@ describe("requireAdmin", () => {
     mockSessionUserId = user.id;
 
     await expect(requireAdmin(mockEvent())).resolves.toBe(user.id);
+  });
+});
+
+describe("requireNonGuest", () => {
+  it("throws 403 for a guest session", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ name: "G", isGuest: true })
+      .returning();
+    mockSessionUserId = user.id;
+
+    await expect(requireNonGuest(mockEvent())).rejects.toMatchObject({
+      statusCode: 403,
+    });
+  });
+
+  it("returns the id for a signed-in user", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ name: "R", isGuest: false, discordUserId: "d-1" })
+      .returning();
+    mockSessionUserId = user.id;
+
+    await expect(requireNonGuest(mockEvent())).resolves.toBe(user.id);
+  });
+
+  it("throws 401 before it ever looks the user up, with no session", async () => {
+    mockSessionUserId = null;
+
+    await expect(requireNonGuest(mockEvent())).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+
+  // A session whose user row has since been deleted must not slip through the
+  // isGuest check by simply being absent.
+  it("throws 403 when the session points at a user that no longer exists", async () => {
+    mockSessionUserId = "00000000-0000-0000-0000-000000000000";
+
+    await expect(requireNonGuest(mockEvent())).rejects.toMatchObject({
+      statusCode: 403,
+    });
   });
 });
