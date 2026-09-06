@@ -160,3 +160,120 @@ describe("admin cards CRUD", () => {
   });
 });
 
+describe("admin cards set-active", () => {
+  const load = () =>
+    import("~/server/api/admin/cards/set-active.post").then((m) => m.default);
+
+  it("disables every card it is given in one call", async () => {
+    const rows = await db
+      .insert(whiteCards)
+      .values([
+        { text: "dupe a", active: true },
+        { text: "dupe b", active: true },
+      ])
+      .returning();
+
+    const handler = await load();
+    const result = await handler(
+      mockEvent({ ids: rows.map((r) => r.id), type: "white", active: false }),
+    );
+
+    expect(result.updated).toBe(2);
+    const after = await db.select().from(whiteCards);
+    expect(after.every((r) => r.active === false)).toBe(true);
+  });
+
+  it("is idempotent, unlike toggle", async () => {
+    // The whole point of not reusing toggle.post: resolving the same duplicate
+    // cluster twice must not quietly put the card back into rotation.
+    const [card] = await db
+      .insert(whiteCards)
+      .values({ text: "already off", active: false })
+      .returning();
+
+    const handler = await load();
+    await handler(mockEvent({ ids: [card.id], type: "white", active: false }));
+
+    const [after] = await db
+      .select()
+      .from(whiteCards)
+      .where(eq(whiteCards.id, card.id));
+    expect(after.active).toBe(false);
+  });
+
+  it("leaves cards outside the id list untouched", async () => {
+    const [target] = await db
+      .insert(whiteCards)
+      .values({ text: "target", active: true })
+      .returning();
+    const [bystander] = await db
+      .insert(whiteCards)
+      .values({ text: "bystander", active: true })
+      .returning();
+
+    const handler = await load();
+    await handler(mockEvent({ ids: [target.id], type: "white", active: false }));
+
+    const [after] = await db
+      .select()
+      .from(whiteCards)
+      .where(eq(whiteCards.id, bystander.id));
+    expect(after.active).toBe(true);
+  });
+
+  it("re-enables cards when active is true", async () => {
+    const [card] = await db
+      .insert(whiteCards)
+      .values({ text: "restore me", active: false })
+      .returning();
+
+    const handler = await load();
+    await handler(mockEvent({ ids: [card.id], type: "white", active: true }));
+
+    const [after] = await db
+      .select()
+      .from(whiteCards)
+      .where(eq(whiteCards.id, card.id));
+    expect(after.active).toBe(true);
+  });
+
+  it("disables black cards too", async () => {
+    const [card] = await db
+      .insert(blackCards)
+      .values({ text: "why _?", active: true, pick: 1 })
+      .returning();
+
+    const handler = await load();
+    await handler(mockEvent({ ids: [card.id], type: "black", active: false }));
+
+    const [after] = await db
+      .select()
+      .from(blackCards)
+      .where(eq(blackCards.id, card.id));
+    expect(after.active).toBe(false);
+  });
+
+  it("rejects an empty id list rather than touching the whole table", async () => {
+    await db.insert(whiteCards).values({ text: "safe", active: true });
+
+    const handler = await load();
+    await expect(
+      handler(mockEvent({ ids: [], type: "white", active: false })),
+    ).rejects.toThrow();
+
+    const after = await db.select().from(whiteCards);
+    expect(after.every((r) => r.active === true)).toBe(true);
+  });
+
+  it("rejects a non-boolean active flag", async () => {
+    const [card] = await db
+      .insert(whiteCards)
+      .values({ text: "safe", active: true })
+      .returning();
+
+    const handler = await load();
+    await expect(
+      handler(mockEvent({ ids: [card.id], type: "white" })),
+    ).rejects.toThrow();
+  });
+});
