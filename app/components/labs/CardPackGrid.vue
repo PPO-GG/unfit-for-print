@@ -16,6 +16,7 @@
     >
       <BlackCard
         v-if="type === 'black'"
+        disable-hover
         :card-id="card.id"
         :text="card.text ?? ''"
         :card-pack="card.pack ?? ''"
@@ -27,6 +28,7 @@
       <WhiteCard
         v-else
         flat
+        disable-hover
         :card-id="card.id"
         :text="card.text ?? ''"
         :card-pack="card.pack ?? ''"

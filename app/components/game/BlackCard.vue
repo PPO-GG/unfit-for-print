@@ -153,6 +153,9 @@ import { gsap } from "gsap";
 import { computed, onMounted, ref, watch } from "vue";
 import { debounce } from "lodash-es";
 import ReportCard from "~/components/ReportCard.vue";
+// Imported rather than auto-imported so the component can be mounted outside a
+// Nuxt context, as tests/components/game/BlackCard.test.ts does.
+import { useCardShine } from "~/composables/useCardShine";
 import { SFX } from "~/config/sfx.config";
 import type { CardAttachmentConfig } from "~/types/card";
 import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
@@ -180,6 +183,9 @@ const props = withDefaults(
     flipped?: boolean;
     threeDeffect?: boolean;
     shine?: boolean;
+    /** Skips hover tilt and the shine's frame loop. Worth setting for cards
+     *  rendered in bulk, where per-card mouse tracking buys nothing. */
+    disableHover?: boolean;
     backLogoUrl?: string;
     maskUrl?: string;
     /** Size scale as a percentage. 100 = default size, 50 = half size, etc. */
@@ -297,7 +303,9 @@ watch(
 
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
-const shineOffset = ref({ x: 0, y: 0 });
+// Owns its own frame loop and cancels it on unmount — see useCardShine. Guarded
+// by disableHover to match WhiteCard; this loop used to start unconditionally.
+const { shineOffset } = useCardShine(rotation, () => !props.disableHover);
 const showReportPopover = ref(false);
 const showReportModal = ref(false);
 
@@ -306,13 +314,6 @@ watch(showReportModal, (isOpen) => {
     showReportPopover.value = false;
   }
 });
-
-function animateShine() {
-  const ease = 0.05;
-  shineOffset.value.x += (rotation.value.x - shineOffset.value.x) * ease;
-  shineOffset.value.y += (rotation.value.y - shineOffset.value.y) * ease;
-  requestAnimationFrame(animateShine);
-}
 
 const shineStyle = computed(() => {
   const angle = (-shineOffset.value.y + shineOffset.value.x) * 2 + 45;
@@ -359,6 +360,7 @@ const shineStyle = computed(() => {
 function handleMouseMove(e: MouseEvent) {
   if (!card.value) return;
   if (isMobile) return;
+  if (props.disableHover) return;
 
   const cardRect = card.value.getBoundingClientRect();
   const x = e.clientX - cardRect.left;
@@ -555,8 +557,9 @@ onMounted(async () => {
     }
   }
 
-  resetTransform();
-  animateShine();
+  if (!props.disableHover) {
+    resetTransform();
+  }
 });
 </script>
 

@@ -173,6 +173,9 @@ defineOptions({
 });
 
 import ReportCard from "~/components/ReportCard.vue";
+// Imported rather than auto-imported so the component can be mounted outside a
+// Nuxt context, as tests/components/game/WhiteCard.test.ts does.
+import { useCardShine } from "~/composables/useCardShine";
 import { SFX } from "~/config/sfx.config";
 import type { CardAttachmentConfig } from "~/types/card";
 import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
@@ -304,7 +307,8 @@ watch(
 
 const card = ref<HTMLElement | null>(null);
 const rotation = ref({ x: 0, y: 0 });
-const shineOffset = ref({ x: 0, y: 0 });
+// Owns its own frame loop and cancels it on unmount — see useCardShine.
+const { shineOffset } = useCardShine(rotation, () => !props.disableHover);
 const showReportPopover = ref(false);
 const showReportModal = ref(false);
 
@@ -313,13 +317,6 @@ watch(showReportModal, (isOpen) => {
     showReportPopover.value = false;
   }
 });
-
-function animateShine() {
-  const ease = 0.05;
-  shineOffset.value.x += (rotation.value.x - shineOffset.value.x) * ease;
-  shineOffset.value.y += (rotation.value.y - shineOffset.value.y) * ease;
-  requestAnimationFrame(animateShine);
-}
 
 const shineStyle = computed(() => {
   const angle = (-shineOffset.value.y + shineOffset.value.x) * 2 + 45;
@@ -559,7 +556,6 @@ onMounted(async () => {
 
   if (!props.disableHover) {
     resetTransform();
-    animateShine();
   }
 });
 </script>
