@@ -1143,6 +1143,12 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     if (state.judgeId === pid)
       return { success: false, reason: "Judge cannot draw cards" };
 
+    // A player who has already submitted is owed those cards back if the judge
+    // skips the prompt; letting them draw to full now would inflate the hand
+    // past cardsPerPlayer permanently, since nextRound only tops up a deficit.
+    if (state.submissions[pid])
+      return { success: false, reason: "Already submitted this round" };
+
     const manualDraw = lobbyDoc.getSettings().get("manualDraw");
     if (!manualDraw)
       return { success: false, reason: "Manual draw is not enabled" };
