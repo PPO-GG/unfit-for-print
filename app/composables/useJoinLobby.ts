@@ -102,6 +102,17 @@ export const useJoinLobby = () => {
         setError?.(t("modal.error_join_wrong_password"));
         return false;
       }
+      if (status === 409) {
+        // Every seat in the lobby is taken (server/utils/lobbyCapacity.ts).
+        setError?.(t("modal.error_lobby_full"));
+        return false;
+      }
+      if (status === 429) {
+        // Guest-session throttle on /api/auth/guest. Signing in with Discord
+        // is the way through, so the message says so rather than just "wait".
+        setError?.(t("modal.error_too_many_guests"));
+        return false;
+      }
       console.error("Join error:", err);
       setError?.(err.message || "Something went wrong while joining.");
     } finally {

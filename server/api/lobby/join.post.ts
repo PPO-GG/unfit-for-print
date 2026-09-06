@@ -1,6 +1,10 @@
 import { eq, and } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, lobbyPasswords, players } from "~~/server/db/schema";
+import {
+  MAX_ACTIVE_PLAYERS,
+  MAX_LOBBY_SEATS,
+} from "~~/server/utils/lobbyCapacity";
 import { verifyLobbyPassword } from "~~/server/utils/lobbyPassword";
 import { requireAuth } from "~~/server/utils/session";
 
@@ -57,17 +61,42 @@ export default defineEventHandler(async (event) => {
   // request body from smuggling "bot" (or anything else) past readBody.
   const requestedType = body.playerType === "spectator" ? "spectator" : "player";
 
-  // A lobby that is no longer waiting only takes spectators. Seating someone as
-  // an active player mid-round would put them in the players table while the
-  // Y.Doc's playerOrder, hands and scores know nothing about them — the doc is
-  // authoritative for gameplay and it is not consulted here. Latecomers are
-  // meant to arrive as spectators and be dealt in explicitly via the engine's
-  // convertToPlayer, which does update the doc.
+  // Seat limits, counted live rather than kept on the lobby row: a stale
+  // counter could wedge a lobby shut, and this is one indexed read on a route
+  // that already does three.
   //
-  // This is deliberately below the `existing` early-return above, so a player
-  // whose tab dropped mid-round reconnects as a player rather than being
-  // demoted to spectator.
-  const playerType = lobby.status === "waiting" ? requestedType : "spectator";
+  // Like the password challenge, both caps sit below the `existing`
+  // early-return above. A player whose tab dropped already holds a seat and a
+  // hand in the Y.Doc, and must not be turned away from — or demoted in —
+  // their own game.
+  const occupants = await db
+    .select({ playerType: players.playerType })
+    .from(players)
+    .where(eq(players.lobbyId, lobby.id));
+
+  if (occupants.length >= MAX_LOBBY_SEATS) {
+    throw createError({ statusCode: 409, statusMessage: "Lobby is full" });
+  }
+
+  const activeCount = occupants.filter(
+    (p) => p.playerType !== "spectator",
+  ).length;
+
+  // Two ways to end up spectating: the game is already running, or every
+  // playing seat is taken.
+  //
+  // A lobby that is no longer waiting only takes spectators because seating
+  // someone as an active player mid-round would put them in the players table
+  // while the Y.Doc's playerOrder, hands and scores know nothing about them —
+  // the doc is authoritative for gameplay and is not consulted here.
+  //
+  // Both cases clamp rather than refuse, so a latecomer still gets in to watch
+  // and can be dealt in explicitly via the engine's convertToPlayer, which
+  // does update the doc.
+  const playerType =
+    lobby.status === "waiting" && activeCount < MAX_ACTIVE_PLAYERS
+      ? requestedType
+      : "spectator";
 
   const [player] = await db
     .insert(players)

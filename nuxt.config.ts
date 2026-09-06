@@ -150,6 +150,12 @@ export default defineNuxtConfig({
     r2SecretAccessKey: process.env.NUXT_R2_SECRET_ACCESS_KEY,
     r2Bucket: process.env.NUXT_R2_BUCKET,
 
+    // New guest identities allowed per IP per 10 minutes (POST /api/auth/guest
+    // is unauthenticated and inserts a `users` row). 0 disables the throttle —
+    // the escape hatch if the app ends up behind a proxy that hides client IPs
+    // and every caller collapses into one bucket.
+    guestRateLimit: Number(process.env.NUXT_GUEST_RATE_LIMIT ?? 20),
+
     // nuxt-auth-utils session cookie config. Without maxAge, h3 issues the
     // session cookie with no Expires/Max-Age, making it a browser-session
     // cookie that's wiped on browser close instead of persisting.
