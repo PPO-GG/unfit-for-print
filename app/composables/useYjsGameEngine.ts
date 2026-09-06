@@ -751,22 +751,25 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       3,
     );
     const outgoingId = state.blackCard?.id || "";
-    const discardBlack = [...cards.discardBlack];
-    // Never let the exhausted-deck sentinel into the discard pile.
-    if (outgoingId) discardBlack.push(outgoingId);
 
+    // Draw from the pool WITHOUT the outgoing card: adding it first lets an
+    // exhausted deck reshuffle and deal the judge back the very prompt they
+    // just rejected. It joins the discard pile after the draw instead, so it
+    // stays available for later rounds.
     const draw = drawEligibleBlackCard({
       blackDeck: cards.blackDeck,
-      discardBlack,
+      discardBlack: cards.discardBlack,
       blackPicks: readBlackPicks(getCards()),
       maxPick,
     });
 
-    // Nothing to swap to — either the deck is truly exhausted, or the only
-    // card the reshuffle could hand back is the one we're trying to get away
-    // from. Either way, leave the round exactly as it was.
-    if (!draw.card.id || draw.card.id === outgoingId)
+    // Nothing to swap to — leave the round exactly as it was.
+    if (!draw.card.id)
       return { success: false, reason: "No replacement prompt available" };
+
+    const discardBlack = [...draw.discardBlack];
+    // Never let the exhausted-deck sentinel into the discard pile.
+    if (outgoingId) discardBlack.push(outgoingId);
 
     ydoc.transact(() => {
       const gs = getGameState();
@@ -786,7 +789,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
 
       gs.set("blackCard", JSON.stringify(draw.card));
       c.set("blackDeck", JSON.stringify(draw.blackDeck));
-      c.set("discardBlack", JSON.stringify(draw.discardBlack));
+      c.set("discardBlack", JSON.stringify(discardBlack));
 
       gs.set("blackSkipUsed", JSON.stringify(true));
       gs.set("promptSerial", state.promptSerial + 1);

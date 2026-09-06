@@ -250,6 +250,29 @@ describe("useYjsGameEngine.skipBlackCard", () => {
     });
   });
 
+  it("swaps to another eligible discarded card, never the one just skipped", () => {
+    // Regression for a real bug: pushing the outgoing card into discardBlack
+    // BEFORE drawing lets an empty-deck reshuffle deal it straight back out,
+    // even when a perfectly good replacement is sitting right next to it in
+    // the discard pile. With blackDeck empty and exactly one other candidate
+    // in discardBlack, the result can't depend on shuffle order — there is
+    // only one card to draw. The skip must succeed and hand back that other
+    // card, not "b-old", and "b-old" must end up in the discard pile after.
+    stubFetch();
+    const stub = makeStubDoc();
+    seedSubmitting(stub, { blackDeck: [] });
+    stub.getCards().set("discardBlack", JSON.stringify(["b-other"]));
+    stub.getCards().set("blackPicks", JSON.stringify({ "b-other": 1 }));
+
+    const result = useYjsGameEngine(stub).skipBlackCard();
+
+    expect(result.success).toBe(true);
+    expect(gsRead(stub, "blackCard", null)).toEqual({ id: "b-other", pick: 1 });
+    expect(JSON.parse(stub.getCards().get("discardBlack") as string)).toContain(
+      "b-old",
+    );
+  });
+
   it("reports the skipped card to the server", async () => {
     const { calls } = stubFetch();
     const stub = makeStubDoc();
