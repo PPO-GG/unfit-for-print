@@ -532,6 +532,20 @@ useHead({
   title: "Unfit for Print",
 });
 
+// How long to hold the cards face-down before swapping in the new ones. The
+// flip is a 1.5s elastic tween in WhiteCard/BlackCard, but that duration is
+// mostly settle: elastic.out(0.2, 0.1) crosses 90 degrees at ~86ms and reaches
+// 180 at ~187ms, so the travel is over well before the tween is. Anything past
+// that reads as face-down.
+//
+// This has to be a real wait, not a bare setTimeout. Flipping back re-enters the
+// same watcher, which calls gsap.killTweensOf() -- so if the fetch resolves
+// first, the outbound flip is killed a few percent in and the return tween
+// starts from ~0deg, i.e. no visible flip at all. On localhost the round trip is
+// ~35ms against a 1500ms tween, which is why the animation usually vanished; a
+// cold or slow request happened to be long enough to show one.
+const FLIP_OUT_MS = 350;
+
 const fetchNewCards = async () => {
   if (isFetching.value) return;
   isFetching.value = true;
@@ -539,31 +553,34 @@ const fetchNewCards = async () => {
   whiteCardFlipped.value = true;
   blackCardFlipped.value = true;
 
+  // Anchored here rather than after the sfx: playSfx awaits the audio buffer
+  // load, which is slow on the first call and instant afterwards, and the flip
+  // has already started by this point regardless.
+  const flipOutDone = new Promise((resolve) =>
+    setTimeout(resolve, FLIP_OUT_MS),
+  );
+
   if (isClient.value) {
     await playSfx(SFX.cardThrow, { pitch: [0.8, 1.2], volume: 0.75 });
+    vibrate();
   }
 
-  setTimeout(async () => {
-    if (isClient.value) {
-      vibrate();
-    }
+  // Concurrent, so a slow request doesn't stack on top of the hold.
+  const [[black, white]] = await Promise.all([
+    Promise.all([fetchRandomCard("black", 1), fetchRandomCard("white")]),
+    flipOutDone,
+  ]);
 
-    const [black, white] = await Promise.all([
-      fetchRandomCard("black", 1),
-      fetchRandomCard("white"),
-    ]);
+  blackCard.value = black;
+  randomCard.value = black;
+  blackCardFlipped.value = false;
 
-    blackCard.value = black;
-    randomCard.value = black;
-    blackCardFlipped.value = false;
+  whiteCard.value = white;
+  whiteCardFlipped.value = false;
 
-    whiteCard.value = white;
-    whiteCardFlipped.value = false;
-
-    setTimeout(() => {
-      isFetching.value = false;
-    }, 1250);
-  });
+  setTimeout(() => {
+    isFetching.value = false;
+  }, 1250);
 };
 
 onMounted(() => {
