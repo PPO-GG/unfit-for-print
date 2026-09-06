@@ -191,6 +191,39 @@ export function useCardPileChoreography(
     if (positionInPile) existingKeys.forEach((pid) => getCardAngle(pid));
   }
 
+  /**
+   * Clone a card into a free-floating ghost on document.body.
+   *
+   * The ghost lives outside Vue's control so reactivity cannot kill it
+   * mid-flight. All classes are stripped because .unified-card--pile carries
+   * inset/margin/opacity/position rules that fight absolute placement, and
+   * position:fixed with left:0;top:0 means GSAP x/y are screen coordinates
+   * directly.
+   */
+  function createGhost(
+    el: HTMLElement,
+    cardWidth: number,
+    cardHeight: number,
+  ): HTMLElement {
+    const ghost = el.cloneNode(true) as HTMLElement;
+    // Strip ALL classes to remove conflicting .unified-card--pile rules
+    // (inset: 0, margin: auto, opacity: 0, position: absolute)
+    ghost.className = "";
+    ghost.dataset.unfitGhost = "true";
+    ghost.style.cssText = `
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: ${cardWidth}px;
+      height: ${cardHeight}px;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 1;
+    `;
+    document.body.appendChild(ghost);
+    return ghost;
+  }
+
   // ── Fly-in animation for submissions arriving over the wire ─────
   watch(
     submissions,
@@ -306,22 +339,7 @@ export function useCardPileChoreography(
         // The ghost lives outside Vue's control so reactivity can't kill it.
         // Mark in reactive set so Vue hides the real card via :style binding.
         flyingGhosts.value.add(pid);
-        const ghost = el.cloneNode(true) as HTMLElement;
-        // Strip ALL classes to remove conflicting .unified-card--pile rules
-        // (inset: 0, margin: auto, opacity: 0, position: absolute)
-        ghost.className = "";
-        ghost.dataset.unfitGhost = "true";
-        ghost.style.cssText = `
-          position: fixed;
-          left: 0;
-          top: 0;
-          width: ${cardWidth}px;
-          height: ${cardHeight}px;
-          pointer-events: none;
-          z-index: 9999;
-          opacity: 1;
-        `;
-        document.body.appendChild(ghost);
+        const ghost = createGhost(el, cardWidth, cardHeight);
 
         // Physics-based spin
         const spinDirection = Math.random() > 0.5 ? 1 : -1;
@@ -544,6 +562,104 @@ export function useCardPileChoreography(
     }
   }
 
+  /**
+   * Where a returning card should land, mirroring the fly-in's origin lookup
+   * (the `isLocal` / pill branch in the submissions watcher above) in reverse.
+   *
+   * Remote players have a seat pill in the DOM; the local player's hand sits
+   * off the bottom of the viewport, which is the same fallback the fly-in uses
+   * when it has no centroid snapshot to work from.
+   */
+  function resolveHomeTarget(
+    pid: string,
+    rect: DOMRect,
+  ): { x: number; y: number } {
+    if (pid === myId()) {
+      return { x: rect.left + rect.width / 2, y: window.innerHeight + 200 };
+    }
+    const pillEl = document.querySelector(
+      `[data-player-pill="${pid}"]`,
+    ) as HTMLElement | null;
+    if (pillEl) {
+      const r = pillEl.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+    return { x: rect.left + rect.width / 2, y: -200 };
+  }
+
+  /**
+   * Sends the pile's cards back to their owners' hands after a judge skips the
+   * prompt. A sibling of the fly-in rather than a reversal of it: the fly-in's
+   * timeline is discarded on completion (onComplete removes the ghost), and its
+   * stored endpoints are stale by the time a skip happens.
+   *
+   * MUST be called before the Y.Doc write clears `submissions`, or the pile
+   * cards unmount before their positions can be captured.
+   *
+   * The ghosts are tagged `data-unfit-ghost-return` rather than
+   * `data-unfit-ghost` ON PURPOSE. A skip bumps `promptSerial` in the same tick
+   * as the Y.Doc write, and GameTable's serial watcher answers that by calling
+   * `resetForNewRound()`, whose `[data-unfit-ghost]` sweep would kill these
+   * tweens before a single frame rendered. The unmount cleanup below still
+   * collects them, so they cannot leak.
+   */
+  function flyPileCardsHome(pids: string[]) {
+    const container = cardContainerRef.value;
+    if (!container) return;
+
+    pids.forEach((pid, i) => {
+      const el = container.querySelector<HTMLElement>(
+        `[data-pile-pid="${pid}"]`,
+      );
+      if (!el) return;
+
+      // Pile cards carry a scatter rotation, so their bounding rect is wider
+      // than the card itself. Size the ghost from the layout box (as the fly-in
+      // does) and derive endpoints from the rect's centre.
+      const rect = el.getBoundingClientRect();
+      const cardWidth = el.offsetWidth;
+      const cardHeight = el.offsetHeight;
+
+      const ghost = createGhost(el, cardWidth, cardHeight);
+      delete ghost.dataset.unfitGhost;
+      ghost.dataset.unfitGhostReturn = "true";
+
+      const startX = rect.left + rect.width / 2 - cardWidth / 2;
+      const startY = rect.top + rect.height / 2 - cardHeight / 2;
+      const home = resolveHomeTarget(pid, rect);
+      const endX = home.x - cardWidth / 2;
+      const endY = home.y - cardHeight / 2;
+      // Same arc shape as the fly-in, lifted between the two endpoints.
+      const cpX = (startX + endX) / 2;
+      const cpY = Math.min(startY, endY) - 140;
+
+      // Start at the angle the card was resting at so takeoff doesn't snap.
+      const startRotation = peekCardAngle(pid)?.rotate ?? 0;
+
+      gsap
+        .timeline({ delay: i * 0.06, onComplete: () => ghost.remove() })
+        .set(ghost, { x: startX, y: startY, rotation: startRotation, scale: 1 })
+        // Takeoff: a small lift instead of the fly-in's landing bounce, which
+        // reads wrong at the start of a flight.
+        .to(ghost, { scale: 1.06, duration: 0.1, ease: "power1.out" })
+        .to(ghost, {
+          motionPath: {
+            path: [
+              { x: startX, y: startY },
+              { x: cpX, y: cpY },
+              { x: endX, y: endY },
+            ],
+            type: "quadratic",
+          },
+          rotation: 0,
+          scale: 0.15,
+          opacity: 0,
+          duration: 0.55,
+          ease: "power2.inOut",
+        });
+    });
+  }
+
   // ── Unmount cleanup: remove leaked ghost DOM elements + kill GSAP tweens ──
   // If GameTable unmounts mid-animation (e.g., reactive state flicker during
   // a transient Teleportal reconnect), ghost clones on document.body would
@@ -552,10 +668,16 @@ export function useCardPileChoreography(
     // 1. Kill tweens AND remove ALL tagged ghost elements from document.body.
     //    An earlier version only killed tweens without removing the elements,
     //    leaving orphan ghosts visible on screen after Teleportal reconnects.
-    document.querySelectorAll<HTMLElement>("[data-unfit-ghost]").forEach((el) => {
-      gsap.killTweensOf(el);
-      el.remove();
-    });
+    //    Homeward ghosts are included here — they carry their own attribute so
+    //    the round reset leaves them alone, but nothing may survive unmount.
+    document
+      .querySelectorAll<HTMLElement>(
+        "[data-unfit-ghost], [data-unfit-ghost-return]",
+      )
+      .forEach((el) => {
+        gsap.killTweensOf(el);
+        el.remove();
+      });
 
     // 2. Remove any pendingOptimisticGhosts not caught by the selector
     for (const wrapper of pendingOptimisticGhosts.values()) {
@@ -575,6 +697,7 @@ export function useCardPileChoreography(
     peekCardAngle,
     getPileCardStyle,
     flyOptimisticSubmission,
+    flyPileCardsHome,
     adoptExistingSubmissions,
     resetForNewRound,
   };

@@ -109,6 +109,7 @@ const {
   peekCardAngle,
   getPileCardStyle,
   flyOptimisticSubmission,
+  flyPileCardsHome,
   adoptExistingSubmissions,
   resetForNewRound: resetPile,
 } = useCardPileChoreography({
@@ -174,6 +175,14 @@ watch(
 const skipAnnounceSerial = computed(() =>
   props.blackSkipUsed ? props.promptSerial : undefined,
 );
+
+// The flight has to be launched while the pile cards are still mounted: the
+// engine's skip clears `submissions` inside its transact, which unmounts them
+// before their positions could be measured. Hence fly first, emit second.
+function onSkipPrompt() {
+  flyPileCardsHome(Object.keys(props.submissions));
+  emit("skip-prompt");
+}
 
 onMounted(() => {
   // Existing submissions (hot reload, late join, refresh) must appear in the
@@ -409,6 +418,7 @@ function handleSelectWinner(playerId: string) {
           v-for="sub in displaySubmissions"
           :key="sub.playerId"
           :data-player-id="sub.playerId"
+          :data-pile-pid="sub.playerId"
           class="unified-card unified-card--pile"
           :style="getPileCardStyle(sub.playerId)"
         >
@@ -627,7 +637,7 @@ function handleSelectWinner(playerId: string) {
           icon="i-mdi-debug-step-over"
           :disabled="blackSkipUsed"
           :title="blackSkipUsed ? t('game.skip_prompt_used') : t('game.skip_prompt')"
-          @click="emit('skip-prompt')"
+          @click="onSkipPrompt"
         >
           {{ t("game.skip_prompt") }}
         </UButton>
