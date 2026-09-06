@@ -4,6 +4,17 @@ import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 
+// The production shuffle is an unseedable CSPRNG, which made the draw-pool
+// regression test below a coin flip: a revert only failed it about half the
+// time. `drawEligibleBlackCard` pops from the END of the reshuffled pile, so
+// an identity shuffle deterministically draws whatever was appended last --
+// which under the reverted code is the very card the judge just skipped.
+// No production signature changes; the helper's own `shuffleFn` seam stays
+// unused by the engine.
+vi.mock("~/utils/shuffle", () => ({
+  shuffle: <T,>(array: T[]): T[] => [...array],
+}));
+
 function makeStubDoc(): LobbyDocResult {
   const ydoc = new Y.Doc();
   return {
@@ -255,9 +266,13 @@ describe("useYjsGameEngine.skipBlackCard", () => {
     // BEFORE drawing lets an empty-deck reshuffle deal it straight back out,
     // even when a perfectly good replacement is sitting right next to it in
     // the discard pile. With blackDeck empty and exactly one other candidate
-    // in discardBlack, the result can't depend on shuffle order — there is
-    // only one card to draw. The skip must succeed and hand back that other
-    // card, not "b-old", and "b-old" must end up in the discard pile after.
+    // in discardBlack, a correct implementation can't depend on shuffle order
+    // — there is only one card to draw. The reverted implementation does
+    // depend on it, which the identity shuffle mocked at the top of this file
+    // pins down: it appends "b-old" to the pile and then pops from the end, so
+    // a revert draws "b-old" and fails here EVERY run rather than half of
+    // them. The skip must succeed and hand back "b-other", and "b-old" must
+    // end up in the discard pile after.
     stubFetch();
     const stub = makeStubDoc();
     seedSubmitting(stub, { blackDeck: [] });
