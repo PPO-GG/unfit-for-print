@@ -35,6 +35,8 @@ const props = withDefaults(
     phase: "submitting" | "judging";
     /** Bumped whenever a new prompt hits the table. Undefined on legacy docs. */
     promptSerial?: number;
+    /** Whether the judge has already spent their one skip this round. */
+    blackSkipUsed?: boolean;
     revealedCards: Record<string, boolean>;
     effectiveRoundWinner?: string | null;
     confirmedRoundWinner?: string | null;
@@ -68,6 +70,7 @@ const emit = defineEmits([
   "reveal-card",
   "read-aloud",
   "skip-player",
+  "skip-prompt",
 ]);
 
 const { t } = useI18n();
@@ -610,6 +613,17 @@ function handleSelectWinner(playerId: string) {
         <span class="judge-hand-subtitle">{{
           t("game.waiting_for_submissions")
         }}</span>
+        <UButton
+          size="xs"
+          color="warning"
+          variant="soft"
+          icon="i-mdi-debug-step-over"
+          :disabled="blackSkipUsed"
+          :title="blackSkipUsed ? t('game.skip_prompt_used') : t('game.skip_prompt')"
+          @click="emit('skip-prompt')"
+        >
+          {{ t("game.skip_prompt") }}
+        </UButton>
       </div>
     </Transition>
 

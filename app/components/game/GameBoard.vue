@@ -412,6 +412,14 @@ function handleSelectWinner(playerId: string) {
   playSfx(SFX.selectWinner, { pitch: [0.95, 1.05], volume: 0.75 });
 }
 
+// Skip the current black card (judge-only) — direct Y.Doc mutation
+function handleSkipPrompt() {
+  const result = engine.skipBlackCard();
+  if (!result.success) {
+    notify({ title: t("game.skip_prompt_failed"), color: "error" });
+  }
+}
+
 // Reveal a card — direct Y.Doc mutation
 function revealCard(playerId: string) {
   if (revealedCards.value[playerId]) return;
@@ -589,6 +597,7 @@ function handleMobileContinue() {
           :players="props.players"
           :phase="activePhase"
           :prompt-serial="state?.promptSerial"
+          :black-skip-used="state?.blackSkipUsed"
           :revealed-cards="revealedCards"
           :effective-round-winner="effectiveRoundWinner"
           :confirmed-round-winner="confirmedRoundWinner"
@@ -604,6 +613,7 @@ function handleMobileContinue() {
           @reveal-card="revealCard"
           @read-aloud="handleReadAloud"
           @skip-player="emit('skip-player', $event)"
+          @skip-prompt="handleSkipPrompt"
         />
 
         <!-- Waiting State -->
