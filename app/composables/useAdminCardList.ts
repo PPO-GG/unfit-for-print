@@ -32,7 +32,16 @@ export interface AdminCard {
   pick?: number;
   imageKey?: string | null;
   attachment?: CardAttachmentConfig | null;
+  /**
+   * Written by the game engine and already returned by
+   * /api/admin/cards/list — it selects whole rows — but never declared here
+   * until now, so nothing in the admin could read them.
+   */
   timesPlayed?: number;
+  /** White cards. */
+  timesWon?: number;
+  /** Black cards. */
+  timesSkipped?: number;
 }
 
 export type AdminCardSort = "pack" | "az" | "played-desc" | "played-asc";
