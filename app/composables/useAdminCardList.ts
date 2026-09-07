@@ -1,6 +1,6 @@
 /**
  * The queried card list behind the admin card manager: fetching it, caching
- * it, paginating it, and keeping it in sync after a mutation.
+ * it, sorting it, and keeping it in sync after a mutation.
  *
  * Two things here are less obvious than they look:
  *
@@ -8,14 +8,14 @@
  *    stale hit immediately while re-requesting in the background. The result
  *    is only committed if the query hasn't changed in the meantime, so fast
  *    typing in the search box can't land an old response over a newer one.
- *  - **`visibleCards` is deliberately decoupled from `cards` + `currentPage`**
- *    rather than being a computed slice, so paging can show a skeleton for a
- *    tick before the rows swap.
+ *  - **`sortedCards` is a computed view, never an in-place sort** — `cards`
+ *    stays in the order the server returned so switching back to "pack"
+ *    order never needs a refetch.
  *
  * Mutations never write to `cards` directly — they go through the small
  * mutator functions below so both the list and its cache stay consistent.
  */
-import { ref, watch, nextTick } from "vue";
+import { ref, computed } from "vue";
 import { useCardSearch } from "~/composables/useCardSearch";
 import type { AdminCardType, AdminCardFilter } from "~/composables/useCardSearch";
 import type { CardAttachmentConfig } from "~/types/card";
@@ -32,7 +32,10 @@ export interface AdminCard {
   pick?: number;
   imageKey?: string | null;
   attachment?: CardAttachmentConfig | null;
+  timesPlayed?: number;
 }
+
+export type AdminCardSort = "pack" | "az" | "played-desc" | "played-asc";
 
 export function useAdminCardList() {
   const { $activityFetch } = useNuxtApp();
@@ -45,11 +48,6 @@ export function useAdminCardList() {
 
   /** 0 = any; only meaningful for black cards. */
   const numPick = ref(0);
-
-  const currentPage = ref(1);
-  const pageSize = ref(30);
-  const visibleCards = ref<AdminCard[]>([]);
-  const isPageTransitioning = ref(false);
 
   // ── Selection ─────────────────────────────────────────────────────────────
   // Cleared whenever the query changes, so a move can never be applied to
@@ -76,7 +74,7 @@ export function useAdminCardList() {
       toggleCardSelected(id);
       return;
     }
-    const ids = visibleCards.value.map((c) => c.id);
+    const ids = sortedCards.value.map((c) => c.id);
     const from = ids.indexOf(anchor);
     const to = ids.indexOf(id);
     if (from === -1 || to === -1) {
@@ -115,35 +113,6 @@ export function useAdminCardList() {
     cardListCache.clear();
   }
 
-  // ── Pagination ───────────────────────────────────────────────────────────
-  function sliceCurrentPage() {
-    const start = (currentPage.value - 1) * pageSize.value;
-    visibleCards.value = cards.value.slice(start, start + pageSize.value);
-  }
-
-  // When the full card list refreshes, clamp page to valid range then update slice
-  watch(
-    cards,
-    () => {
-      const maxPage = Math.max(
-        1,
-        Math.ceil(cards.value.length / pageSize.value),
-      );
-      if (currentPage.value > maxPage) currentPage.value = 1;
-      sliceCurrentPage();
-    },
-    { immediate: true },
-  );
-
-  // When user changes page via pagination, show skeleton first → swap cards → hide
-  watch(currentPage, async () => {
-    if (loadingCards.value) return; // Full fetch already owns the skeleton
-    isPageTransitioning.value = true;
-    await nextTick();
-    sliceCurrentPage();
-    isPageTransitioning.value = false;
-  });
-
   /** One typed request, with every row tagged as it lands. */
   async function fetchOneType(
     type: AdminCardType,
@@ -179,7 +148,6 @@ export function useAdminCardList() {
     if (cached) {
       cards.value = cached;
       totalCards.value = cached.length;
-      currentPage.value = 1;
       isFetchingBackground.value = true;
     } else if (!cards.value.length) {
       loadingCards.value = true;
@@ -255,16 +223,39 @@ export function useAdminCardList() {
     }
   }
 
+  /**
+   * Sorting is a computed view, never an in-place sort: `cards` stays in the
+   * order the server returned so "pack" can restore it without a refetch.
+   */
+  const sort = ref<AdminCardSort>("pack");
+
+  const sortedCards = computed(() => {
+    const rows = cards.value;
+    if (sort.value === "pack") return rows;
+    const copy = [...rows];
+    switch (sort.value) {
+      case "az":
+        return copy.sort((a, b) =>
+          (a.text || "").localeCompare(b.text || "", undefined, {
+            sensitivity: "base",
+          }),
+        );
+      case "played-desc":
+        return copy.sort((a, b) => (b.timesPlayed ?? 0) - (a.timesPlayed ?? 0));
+      case "played-asc":
+        return copy.sort((a, b) => (a.timesPlayed ?? 0) - (b.timesPlayed ?? 0));
+    }
+    return copy;
+  });
+
   return {
     cards,
-    visibleCards,
     totalCards,
     loadingCards,
     isFetchingBackground,
-    isPageTransitioning,
     numPick,
-    currentPage,
-    pageSize,
+    sort,
+    sortedCards,
     selectedCardIds,
     isCardSelected,
     toggleCardSelected,
