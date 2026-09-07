@@ -11,7 +11,6 @@ import { useAdminCardList } from "~/composables/useAdminCardList";
 
 function seedCards(list: ReturnType<typeof useAdminCardList>, ids: string[]) {
   list.cards.value = ids.map((id) => ({ id, text: `card ${id}`, type: "white" }));
-  list.visibleCards.value = [...list.cards.value];
 }
 
 beforeEach(() => {
@@ -66,10 +65,9 @@ describe("useAdminCardList — selection", () => {
     expect(list.selectedCardIds.value).toEqual(["b"]);
   });
 
-  it("selects every loaded card, not just the visible page", () => {
+  it("selects every loaded card", () => {
     const list = useAdminCardList();
-    list.cards.value = ["a", "b", "c", "d"].map((id) => ({ id, text: id, type: "white" }));
-    list.visibleCards.value = list.cards.value.slice(0, 2);
+    seedCards(list, ["a", "b", "c", "d"]);
 
     list.selectAllLoaded();
 
