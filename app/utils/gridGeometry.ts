@@ -9,6 +9,10 @@
 export const GRID_MIN_TILE = 200;
 export const GRID_GAP = 12;
 
+/** Matches `aspect-ratio: 3 / 4` on .admin-card-preview. A tile has no fixed
+ *  height — it is derived from its width, so the row height must be too. */
+export const GRID_TILE_ASPECT = 4 / 3;
+
 export function gridGeometry(
   containerWidth: number,
   minTile: number = GRID_MIN_TILE,
@@ -19,6 +23,16 @@ export function gridGeometry(
   const columns = Math.max(1, Math.floor((width + gap) / (minTile + gap)));
   const tileWidth = (width - (columns - 1) * gap) / columns;
   return { columns, tileWidth: Math.max(minTile, tileWidth) };
+}
+
+/** Row height for a given container width: one tile plus the row gap. */
+export function rowHeight(
+  containerWidth: number,
+  minTile: number = GRID_MIN_TILE,
+  gap: number = GRID_GAP,
+): number {
+  const { tileWidth } = gridGeometry(containerWidth, minTile, gap);
+  return Math.round(tileWidth * GRID_TILE_ASPECT) + gap;
 }
 
 export function chunkRows<T>(items: T[], columns: number): T[][] {

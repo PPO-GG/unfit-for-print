@@ -4,12 +4,13 @@
  *
  * Pagination used to cap the DOM at 30 tiles; scrolling a 1,235-card pack
  * would mount all of them, so the rows go through `useVirtualList` and only
- * those near the viewport exist. Row height is a constant here and must match
- * the tile's CSS height plus GRID_GAP.
+ * those near the viewport exist. Row height is derived from the measured
+ * tile width via `rowHeight`, since the tile has no fixed CSS height — it is
+ * `aspect-ratio: 3 / 4` on .admin-card-preview.
  */
 import { computed, ref } from "vue";
 import { useElementSize, useVirtualList } from "@vueuse/core";
-import { gridGeometry, chunkRows, GRID_GAP } from "~/utils/gridGeometry";
+import { gridGeometry, chunkRows, rowHeight, GRID_GAP } from "~/utils/gridGeometry";
 import { getCardImageUrl } from "~/utils/cardImage";
 import type { AdminCard } from "~/composables/useAdminCardList";
 
@@ -23,17 +24,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{ select: [string]; inspect: [string] }>();
 
-/** Tile height (240) + row gap. Keep in step with .admin-card-preview. */
-const ROW_HEIGHT = 240 + GRID_GAP;
-
 const container = ref<HTMLElement | null>(null);
 const { width } = useElementSize(container);
 
 const columns = computed(() => gridGeometry(width.value).columns);
 const rows = computed(() => chunkRows(props.cards, columns.value));
+const rowPx = computed(() => rowHeight(width.value));
 
 const { list, containerProps, wrapperProps } = useVirtualList(rows, {
-  itemHeight: ROW_HEIGHT,
+  itemHeight: () => rowPx.value,
   overscan: 4,
 });
 
@@ -51,7 +50,7 @@ const isSelected = (id: string) => props.selectedIds.includes(id);
           :style="{
             gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
             gap: `${GRID_GAP}px`,
-            height: `${ROW_HEIGHT}px`,
+            height: `${rowPx}px`,
           }"
         >
           <AdminCardPreview
