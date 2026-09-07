@@ -33,10 +33,12 @@ const suggestions = computed(() => {
   return available.value.filter((p) => p.toLowerCase().includes(term));
 });
 
+// Exactly, not case-insensitively: the server keys packs by the raw string,
+// so "base" and "Base" really are two different packs and typing one when the
+// other exists really does create a new one.
 const isNewPack = computed(() => {
   if (!trimmed.value) return false;
-  const term = trimmed.value.toLowerCase();
-  return !props.packs.some((p) => p.toLowerCase() === term);
+  return !props.packs.includes(trimmed.value);
 });
 
 function pick(pack: string) {

@@ -42,10 +42,12 @@ function makeList() {
 
 function makePacks() {
   return {
+    packStats: ref<Record<string, unknown>>({}),
+    packMeta: ref<Record<string, unknown>>({}),
+    defaultPacks: ref<string[]>([]),
     selectedPacks: ref<string[]>([]),
     applyCardsMoved: vi.fn(),
-    applyPackRenamed: vi.fn(),
-    applyPacksMerged: vi.fn(),
+    applyWholePackMoved: vi.fn(),
     applyCardCreated: vi.fn(),
     applyCardDeleted: vi.fn(),
     applyCardToggled: vi.fn(),
@@ -69,7 +71,7 @@ describe("moveSelectedCards", () => {
     const list = makeList();
     const packs = makePacks();
     list.selectedCardIds.value = ["a", "b"];
-    fetchMock.mockResolvedValue({ moved: { white: 2, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 2, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     const ok = await m.moveSelectedCards("Target");
@@ -85,7 +87,7 @@ describe("moveSelectedCards", () => {
     const list = makeList();
     const packs = makePacks();
     list.selectedCardIds.value = ["a", "b"]; // one active, one not
-    fetchMock.mockResolvedValue({ moved: { white: 2, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 2, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     await m.moveSelectedCards("Target");
@@ -97,7 +99,7 @@ describe("moveSelectedCards", () => {
     const list = makeList();
     const packs = makePacks();
     list.selectedCardIds.value = ["a"];
-    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     await m.moveSelectedCards("Target");
@@ -136,13 +138,63 @@ describe("moveSelectedCards", () => {
     const list = makeList();
     const packs = makePacks();
     list.selectedCardIds.value = ["a"];
-    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     await m.moveSelectedCards("Target");
 
     expect(list.cards.value.map((c: { id: string }) => c.id)).toEqual(["b"]);
     expect(list.totalCards.value).toBe(1);
+  });
+
+  it("splits a selection larger than the server's cap into sequential requests", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    const ids = Array.from({ length: 1200 }, (_, i) => `id-${i}`);
+    list.cards.value = ids.map((id) => ({ id, text: id, pack: "Source", active: true }));
+    list.selectedCardIds.value = [...ids];
+    fetchMock
+      .mockResolvedValueOnce({ moved: { white: 500, black: 0 }, aux: null })
+      .mockResolvedValueOnce({ moved: { white: 500, black: 0 }, aux: null })
+      .mockResolvedValueOnce({ moved: { white: 200, black: 0 }, aux: null });
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.moveSelectedCards("Target");
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const sent = fetchMock.mock.calls.map((c) => c[1].body.from.ids.length);
+    expect(sent).toEqual([500, 500, 200]);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ description: expect.stringMatching(/1200 cards/) }),
+    );
+  });
+
+  it("mirrors only the chunks that completed when a later one fails", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    const ids = Array.from({ length: 1200 }, (_, i) => `id-${i}`);
+    list.cards.value = ids.map((id) => ({ id, text: id, pack: "Source", active: true }));
+    list.selectedCardIds.value = [...ids];
+    fetchMock
+      .mockResolvedValueOnce({ moved: { white: 500, black: 0 }, aux: null })
+      .mockRejectedValueOnce(new Error("boom"));
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.moveSelectedCards("Target");
+
+    expect(ok).toBe(false);
+    expect(packs.applyCardsMoved).toHaveBeenCalledTimes(1);
+    expect(packs.applyCardsMoved).toHaveBeenCalledWith("Source", "Target", "white", 500, 500);
+    expect(list.selectedCardIds.value).toHaveLength(700);
+    expect(list.selectedCardIds.value[0]).toBe("id-500");
+    expect(list.cards.value).toHaveLength(700);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: "error",
+        description: expect.stringMatching(/500 of 1200/),
+      }),
+    );
   });
 
   it("debits each source pack separately when a search spans packs", async () => {
@@ -154,7 +206,7 @@ describe("moveSelectedCards", () => {
       { id: "c", text: "c", pack: "Alpha", active: false },
     ];
     list.selectedCardIds.value = ["a", "b", "c"];
-    fetchMock.mockResolvedValue({ moved: { white: 3, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 3, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     await m.moveSelectedCards("Target");
@@ -169,7 +221,7 @@ describe("renamePack", () => {
   it("confirms, posts the whole-pack move, and re-keys the mirror", async () => {
     const list = makeList();
     const packs = makePacks();
-    fetchMock.mockResolvedValue({ moved: { white: 3, black: 1 } });
+    fetchMock.mockResolvedValue({ moved: { white: 3, black: 1 }, aux: "move" });
 
     const m = useAdminCardMutations({ list, packs });
     const ok = await m.renamePack("Old", "New");
@@ -179,13 +231,28 @@ describe("renamePack", () => {
       method: "POST",
       body: { from: { pack: "Old" }, toPack: "New", type: "all" },
     });
-    expect(packs.applyPackRenamed).toHaveBeenCalledWith("Old", "New");
+    expect(packs.applyWholePackMoved).toHaveBeenCalledWith("Old", "New", "move");
+  });
+
+  it("uses the merge copy, and the server's verdict, when the target already exists", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    packs.packStats.value = { New: { name: "New" } };
+    fetchMock.mockResolvedValue({ moved: { white: 3, black: 1 }, aux: "drop" });
+
+    const m = useAdminCardMutations({ list, packs });
+    await m.renamePack("Old", "New");
+
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/already exists/i) }),
+    );
+    expect(packs.applyWholePackMoved).toHaveBeenCalledWith("Old", "New", "drop");
   });
 
   it("warns that in-progress lobbies lose the pack from their selection", async () => {
     const list = makeList();
     const packs = makePacks();
-    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     await m.renamePack("Old", "New");
@@ -223,7 +290,7 @@ describe("mergePacks", () => {
   it("posts one move per source and folds them into the target", async () => {
     const list = makeList();
     const packs = makePacks();
-    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     const ok = await m.mergePacks(["A", "B"], "Target");
@@ -234,13 +301,14 @@ describe("mergePacks", () => {
       method: "POST",
       body: { from: { pack: "A" }, toPack: "Target", type: "all" },
     });
-    expect(packs.applyPacksMerged).toHaveBeenCalledWith(["A", "B"], "Target");
+    expect(packs.applyWholePackMoved).toHaveBeenCalledWith("A", "Target", null);
+    expect(packs.applyWholePackMoved).toHaveBeenCalledWith("B", "Target", null);
   });
 
   it("tells the admin the target's metadata wins", async () => {
     const list = makeList();
     const packs = makePacks();
-    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     await m.mergePacks(["A"], "Target");
@@ -250,10 +318,25 @@ describe("mergePacks", () => {
     );
   });
 
+  it("says the first source carries its details when the target is new", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: "move" });
+
+    const m = useAdminCardMutations({ list, packs });
+    await m.mergePacks(["A", "B"], "Brand New");
+
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringMatching(/"A" becomes "Brand New"/),
+      }),
+    );
+  });
+
   it("skips a source that is also the target", async () => {
     const list = makeList();
     const packs = makePacks();
-    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 } });
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
     await m.mergePacks(["A", "Target"], "Target");
@@ -269,7 +352,7 @@ describe("mergePacks", () => {
       { id: "b", text: "b", pack: "B", active: true },
     ];
     fetchMock
-      .mockResolvedValueOnce({ moved: { white: 1, black: 0 } })
+      .mockResolvedValueOnce({ moved: { white: 1, black: 0 }, aux: "move" })
       .mockRejectedValueOnce(new Error("boom"));
 
     const m = useAdminCardMutations({ list, packs });
@@ -277,7 +360,8 @@ describe("mergePacks", () => {
 
     expect(ok).toBe(false);
     expect(list.invalidateCache).toHaveBeenCalled();
-    expect(packs.applyPacksMerged).toHaveBeenCalledWith(["A"], "Target");
+    expect(packs.applyWholePackMoved).toHaveBeenCalledTimes(1);
+    expect(packs.applyWholePackMoved).toHaveBeenCalledWith("A", "Target", "move");
     expect(list.cards.value.find((c: { id: string }) => c.id === "a")?.pack).toBe("Target");
     expect(list.cards.value.find((c: { id: string }) => c.id === "b")?.pack).toBe("B");
     expect(notifyMock).toHaveBeenCalledWith(

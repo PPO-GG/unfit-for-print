@@ -184,6 +184,14 @@ export function useAdminPackStats() {
     return packStats.value[name]!;
   }
 
+  /** Fold one pack's four counters into another's. */
+  function addStat(target: AdminPackStat, source: AdminPackStat) {
+    target.black.total += source.black.total;
+    target.black.active += source.black.active;
+    target.white.total += source.white.total;
+    target.white.active += source.white.active;
+  }
+
   function applyCardCreated(pack: string | undefined, type: AdminCardType) {
     const name = pack || NO_PACK;
     const stat = ensurePack(name);
@@ -262,57 +270,51 @@ export function useAdminPackStats() {
     forgetPackIfEmpty(fromName);
   }
 
-  /** A pack was renamed: its stats, default flag and selection follow it. */
-  function applyPackRenamed(oldName: string, newName: string) {
-    if (oldName === newName) return;
-    const stat = packStats.value[oldName];
-    const wasDefault = defaultPacks.value.includes(oldName);
-    const wasSelected = selectedPacks.value.includes(oldName);
-
-    if (stat) {
-      const target = ensurePack(newName);
-      target.black.total += stat.black.total;
-      target.black.active += stat.black.active;
-      target.white.total += stat.white.total;
-      target.white.active += stat.white.active;
-    }
-
-    const meta = packMeta.value[oldName];
-    if (meta && !packMeta.value[newName]) {
-      packMeta.value = {
-        ...packMeta.value,
-        [newName]: { ...meta, pack: newName },
-      };
-    }
-    delete packMeta.value[oldName];
-
-    forgetPack(oldName);
-
-    if (wasDefault && !defaultPacks.value.includes(newName)) {
-      defaultPacks.value = [...defaultPacks.value, newName];
-    }
-    if (wasSelected && !selectedPacks.value.includes(newName)) {
-      selectedPacks.value = [...selectedPacks.value, newName];
-    }
-  }
-
   /**
-   * Several packs merged into one. The target's default status is whatever it
-   * already was — merging never grants it, matching what the server does.
+   * A whole pack's cards moved to `target`. Counts always fold into the
+   * target and the source is forgotten. What happens to default status and
+   * metadata is decided by the server — `aux` is what it reported — so this
+   * never re-derives the collision rule: "move" carries them to the target,
+   * "drop" discards them (the target keeps whatever it had), "leave" means the
+   * source still exists and nothing else changes.
    */
-  function applyPacksMerged(sourceNames: string[], targetName: string) {
-    const target = ensurePack(targetName);
-    for (const name of sourceNames) {
-      if (name === targetName) continue;
-      const stat = packStats.value[name];
-      if (stat) {
-        target.black.total += stat.black.total;
-        target.black.active += stat.black.active;
-        target.white.total += stat.white.total;
-        target.white.active += stat.white.active;
+  function applyWholePackMoved(
+    source: string,
+    target: string,
+    aux: "move" | "drop" | "leave" | null,
+  ) {
+    if (source === target) return;
+
+    const stat = packStats.value[source];
+    const wasDefault = defaultPacks.value.includes(source);
+    const sourceMeta = packMeta.value[source];
+
+    const targetStat = ensurePack(target);
+    if (stat) addStat(targetStat, stat);
+
+    if (aux === "leave") {
+      // The source pack survives the move, so its own rows stay where they
+      // are. In practice the callers only ever send `type: "all"`, which
+      // cannot leave anything behind; this branch is here for honesty.
+      forgetPackIfEmpty(source);
+      return;
+    }
+
+    forgetPack(source);
+    delete packMeta.value[source];
+
+    if (aux === "move") {
+      if (wasDefault && !defaultPacks.value.includes(target)) {
+        defaultPacks.value = [...defaultPacks.value, target];
       }
-      delete packMeta.value[name];
-      forgetPack(name);
+      // The server only says "move" when nothing was at the target key, so a
+      // target row here means the mirror disagrees with it. Keep the target's.
+      if (sourceMeta && !packMeta.value[target]) {
+        packMeta.value = {
+          ...packMeta.value,
+          [target]: { ...sourceMeta, pack: target },
+        };
+      }
     }
   }
 
@@ -350,8 +352,7 @@ export function useAdminPackStats() {
     applyPackToggled,
     applyPackTypeCleared,
     applyCardsMoved,
-    applyPackRenamed,
-    applyPacksMerged,
+    applyWholePackMoved,
     cardCountFor,
     typeStatDotClass,
   };

@@ -16,6 +16,17 @@ import { useConfirm } from "~/composables/useConfirm";
 import type { AdminCard, AdminCardList } from "~/composables/useAdminCardList";
 import type { AdminPackStats, AdminCardType } from "~/composables/useAdminPackStats";
 
+/** Mirrors the server's MAX_IDS cap in server/api/admin/cards/move.post.ts. */
+const MOVE_CHUNK = 500;
+
+/** What the move route reports it did with the pack's auxiliary rows. */
+type PackMoveAux = "move" | "drop" | "leave" | null;
+
+interface MoveResponse {
+  moved: { white: number; black: number };
+  aux: PackMoveAux;
+}
+
 export interface AdminCardMutationsOptions {
   list: AdminCardList;
   packs: AdminPackStats;
@@ -331,33 +342,33 @@ export function useAdminCardMutations({
     const selected = list.cards.value.filter((c: AdminCard) => ids.includes(c.id));
     const sourcePack = selectedPack.value;
 
+    // The route caps a request at MOVE_CHUNK ids, and "select all N matching"
+    // routinely selects more than that, so send the selection in slices.
+    // Sequentially, not in parallel: a partial failure has to leave a
+    // prefix that completed, not an arbitrary subset.
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += MOVE_CHUNK) {
+      chunks.push(ids.slice(i, i + MOVE_CHUNK));
+    }
+
     bulkActionLoading.value = true;
+    const done = new Set<string>();
+    let total = 0;
     try {
-      const { moved } = await $activityFetch<{
-        moved: { white: number; black: number };
-      }>("/api/admin/cards/move", {
-        method: "POST",
-        body: { from: { ids }, toPack: target, type: cardType.value },
-      });
+      for (const chunk of chunks) {
+        const { moved } = await $activityFetch<MoveResponse>(
+          "/api/admin/cards/move",
+          {
+            method: "POST",
+            body: { from: { ids: chunk }, toPack: target, type: cardType.value },
+          },
+        );
+        total += moved.white + moved.black;
+        for (const id of chunk) done.add(id);
+      }
 
-      const total = moved.white + moved.black;
       list.invalidateCache();
-
-      // In search mode (no pack filter) the selection can span several
-      // source packs. Debit each one separately from `selected`'s real
-      // `.pack` values — crediting the target off a single `sourcePack`
-      // (which is `undefined` in search mode) would inflate the sidebar
-      // until a refetch, since the real sources never got debited.
-      const groups = new Map<string | undefined, AdminCard[]>();
-      for (const card of selected) {
-        const group = groups.get(card.pack);
-        if (group) group.push(card);
-        else groups.set(card.pack, [card]);
-      }
-      for (const [groupPack, cards] of groups) {
-        const groupActive = cards.filter((c) => c.active).length;
-        packs.applyCardsMoved(groupPack, target, cardType.value, cards.length, groupActive);
-      }
+      mirrorMovedCards(selected, target);
 
       // A pack-filtered grid no longer matches cards moved to a different
       // pack, so drop them instead of leaving them mislabelled until the
@@ -378,9 +389,30 @@ export function useAdminCardMutations({
       });
       return true;
     } catch {
+      // Chunks that completed really did move, so mirror exactly those and
+      // leave the rest selected — the admin can retry them as they stand.
+      if (done.size > 0) {
+        const movedCards = selected.filter((c: AdminCard) => done.has(c.id));
+        list.invalidateCache();
+        mirrorMovedCards(movedCards, target);
+
+        if (sourcePack && sourcePack !== target) {
+          list.cards.value = list.cards.value.filter(
+            (c: AdminCard) => !done.has(c.id),
+          );
+          list.totalCards.value = list.cards.value.length;
+        } else {
+          for (const card of movedCards) card.pack = target;
+        }
+        list.selectedCardIds.value = ids.filter((id) => !done.has(id));
+      }
+
       notify({
         title: "Move Failed",
-        description: `Could not move the selected cards to "${target}".`,
+        description:
+          done.size > 0
+            ? `Moved ${done.size} of ${ids.length} cards to "${target}" before a request failed.`
+            : `Could not move the selected cards to "${target}".`,
         color: "error",
       });
       return false;
@@ -389,25 +421,65 @@ export function useAdminCardMutations({
     }
   };
 
+  /**
+   * Debit each source pack separately. In search mode (no pack filter) the
+   * selection can span several source packs; crediting the target off a
+   * single `selectedPack` (which is `undefined` there) would inflate the
+   * sidebar until a refetch, since the real sources never got debited.
+   */
+  function mirrorMovedCards(cards: AdminCard[], target: string) {
+    const groups = new Map<string | undefined, AdminCard[]>();
+    for (const card of cards) {
+      const group = groups.get(card.pack);
+      if (group) group.push(card);
+      else groups.set(card.pack, [card]);
+    }
+    for (const [groupPack, group] of groups) {
+      const groupActive = group.filter((c) => c.active).length;
+      packs.applyCardsMoved(groupPack, target, cardType.value, group.length, groupActive);
+    }
+  }
+
   /** The one line every rename and merge confirm has to carry. */
-  const LIVE_LOBBY_WARNING =
-    "Any game in progress that has this pack selected will drop it until the lobby restarts.";
+  const liveLobbyWarning = (n: number) =>
+    n === 1
+      ? "Any game in progress that has this pack selected will drop it until the lobby restarts."
+      : "Any game in progress that has these packs selected will drop them until the lobby restarts.";
+
+  /**
+   * Does anything already live under this name? The server decides the real
+   * rename-vs-merge question (it can see rows the mirror never loads), but the
+   * confirm copy has to say which one the admin is about to get.
+   */
+  function packExists(name: string) {
+    return Boolean(
+      packs.packStats.value[name] ||
+        packs.packMeta.value[name] ||
+        packs.defaultPacks.value.includes(name),
+    );
+  }
 
   const renamePack = async (packName: string, newName: string) => {
     const target = newName.trim();
     if (!target || target === packName) return false;
 
+    const targetExists = packExists(target);
+
     const confirmed = await confirm({
-      title: "Rename Pack",
-      message: `Rename "${packName}" to "${target}"? ${LIVE_LOBBY_WARNING}`,
-      confirmButtonText: "Rename Pack",
+      title: targetExists ? "Merge Pack" : "Rename Pack",
+      message: targetExists
+        ? `Rename "${packName}" onto "${target}"? "${target}" already exists, so this merges ` +
+          `"${packName}" into it — "${target}" keeps its own description and default status ` +
+          `and "${packName}"'s are discarded. ${liveLobbyWarning(1)}`
+        : `Rename "${packName}" to "${target}"? ${liveLobbyWarning(1)}`,
+      confirmButtonText: targetExists ? "Merge Pack" : "Rename Pack",
       confirmButtonColor: "primary",
     });
     if (!confirmed) return false;
 
     bulkActionLoading.value = true;
     try {
-      await $activityFetch("/api/admin/cards/move", {
+      const { aux } = await $activityFetch<MoveResponse>("/api/admin/cards/move", {
         method: "POST",
         body: { from: { pack: packName }, toPack: target, type: "all" },
       });
@@ -416,12 +488,14 @@ export function useAdminCardMutations({
       for (const card of list.cards.value) {
         if (card.pack === packName) card.pack = target;
       }
-      packs.applyPackRenamed(packName, target);
+      packs.applyWholePackMoved(packName, target, aux);
       if (selectedPack.value === packName) selectedPack.value = target;
 
       notify({
-        title: "Pack Renamed",
-        description: `"${packName}" is now "${target}".`,
+        title: targetExists ? "Pack Merged" : "Pack Renamed",
+        description: targetExists
+          ? `Merged "${packName}" into "${target}".`
+          : `"${packName}" is now "${target}".`,
         color: "success",
       });
       return true;
@@ -442,12 +516,25 @@ export function useAdminCardMutations({
     const sources = sourceNames.filter((n) => n && n !== target);
     if (!target || !sources.length) return false;
 
+    // Into a name nothing occupies yet, the first source is *renamed* into it
+    // server-side and keeps its auxiliary rows; only the rest are merged. Say
+    // so, or the "the target's settings win" line would be a lie.
+    const targetExists = packExists(target);
+    const rest = sources.slice(1);
+
     const confirmed = await confirm({
       title: `Merge ${plural(sources.length, "Pack")}`,
-      message:
-        `Merge ${sources.map((s) => `"${s}"`).join(", ")} into "${target}"? ` +
-        `"${target}" keeps its own description and default status — the merged packs' settings are discarded. ` +
-        LIVE_LOBBY_WARNING,
+      message: targetExists
+        ? `Merge ${sources.map((s) => `"${s}"`).join(", ")} into "${target}"? ` +
+          `"${target}" keeps its own description and default status — the merged packs' settings are discarded. ` +
+          liveLobbyWarning(sources.length)
+        : `Merge ${sources.map((s) => `"${s}"`).join(", ")} into "${target}"? ` +
+          `"${target}" does not exist yet, so "${sources[0]}" becomes "${target}" and keeps its own ` +
+          `description and default status` +
+          (rest.length
+            ? `; then ${rest.map((s) => `"${s}"`).join(", ")} merge into it. `
+            : `. `) +
+          liveLobbyWarning(sources.length),
       confirmButtonText: "Merge Packs",
       confirmButtonColor: "primary",
     });
@@ -457,23 +544,25 @@ export function useAdminCardMutations({
     // Sources that already completed their move server-side before a later
     // one failed. On a partial failure the mirror and cache need to reflect
     // these, or they keep describing packs that no longer hold their cards.
-    const completed: string[] = [];
+    const completed: { source: string; aux: PackMoveAux }[] = [];
     try {
       // Sequential, not Promise.all: each move re-reads whether the target
       // already has cards, and concurrent writes would race that check.
       for (const source of sources) {
-        await $activityFetch("/api/admin/cards/move", {
+        const { aux } = await $activityFetch<MoveResponse>("/api/admin/cards/move", {
           method: "POST",
           body: { from: { pack: source }, toPack: target, type: "all" },
         });
-        completed.push(source);
+        completed.push({ source, aux });
       }
 
       list.invalidateCache();
       for (const card of list.cards.value) {
         if (card.pack && sources.includes(card.pack)) card.pack = target;
       }
-      packs.applyPacksMerged(sources, target);
+      for (const { source, aux } of completed) {
+        packs.applyWholePackMoved(source, target, aux);
+      }
       packs.clearPackSelection();
       if (selectedPack.value && sources.includes(selectedPack.value)) {
         selectedPack.value = target;
@@ -491,11 +580,14 @@ export function useAdminCardMutations({
       // did complete really did move server-side, so leaving the mirror
       // untouched would itself be the lie.
       if (completed.length > 0) {
+        const done = completed.map((c) => c.source);
         list.invalidateCache();
         for (const card of list.cards.value) {
-          if (card.pack && completed.includes(card.pack)) card.pack = target;
+          if (card.pack && done.includes(card.pack)) card.pack = target;
         }
-        packs.applyPacksMerged(completed, target);
+        for (const { source, aux } of completed) {
+          packs.applyWholePackMoved(source, target, aux);
+        }
       }
 
       notify({

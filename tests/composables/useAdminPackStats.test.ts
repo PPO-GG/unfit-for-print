@@ -276,12 +276,12 @@ describe("useAdminPackStats — moving cards between packs", () => {
   });
 });
 
-describe("useAdminPackStats — renaming a pack", () => {
-  it("re-keys the stats under the new name", () => {
+describe("useAdminPackStats — whole-pack moves", () => {
+  it("folds the counts into the target and forgets the source on a rename", () => {
     const packs = useAdminPackStats();
     seed(packs, { Old: { white: [10, 8], black: [3, 3] } });
 
-    packs.applyPackRenamed("Old", "New");
+    packs.applyWholePackMoved("Old", "New", "move");
 
     expect(packs.packStats.value.Old).toBeUndefined();
     expect(packs.packStats.value.New.white).toEqual({ total: 10, active: 8 });
@@ -289,52 +289,97 @@ describe("useAdminPackStats — renaming a pack", () => {
     expect(packs.packStats.value.New.name).toBe("New");
   });
 
-  it("carries default status and selection to the new name", () => {
-    const packs = useAdminPackStats();
-    seed(packs, { Old: { white: [1, 1] } });
-    packs.defaultPacks.value = ["Old", "Other"];
-    packs.selectedPacks.value = ["Old"];
-
-    packs.applyPackRenamed("Old", "New");
-
-    expect(packs.defaultPacks.value.sort()).toEqual(["New", "Other"]);
-    expect(packs.selectedPacks.value).toEqual(["New"]);
-  });
-});
-
-describe("useAdminPackStats — merging packs", () => {
-  it("sums every source into the target and forgets the sources", () => {
+  it("folds the counts into the target and forgets the source on a merge", () => {
     const packs = useAdminPackStats();
     seed(packs, {
       A: { white: [5, 4], black: [2, 2] },
-      B: { white: [3, 3] },
       Target: { white: [1, 1], black: [1, 0] },
     });
 
-    packs.applyPacksMerged(["A", "B"], "Target");
+    packs.applyWholePackMoved("A", "Target", "drop");
 
     expect(packs.packStats.value.A).toBeUndefined();
-    expect(packs.packStats.value.B).toBeUndefined();
-    expect(packs.packStats.value.Target.white).toEqual({ total: 9, active: 8 });
+    expect(packs.packStats.value.Target.white).toEqual({ total: 6, active: 5 });
     expect(packs.packStats.value.Target.black).toEqual({ total: 3, active: 2 });
   });
 
-  it("drops the sources' default status rather than granting it to the target", () => {
+  it("carries default status and metadata when the server says 'move'", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Old: { white: [1, 1] } });
+    packs.defaultPacks.value = ["Old", "Other"];
+    packs.packMeta.value = {
+      Old: { pack: "Old", description: "travels" } as never,
+    };
+
+    packs.applyWholePackMoved("Old", "New", "move");
+
+    expect(packs.defaultPacks.value.sort()).toEqual(["New", "Other"]);
+    expect(packs.packMeta.value.Old).toBeUndefined();
+    expect(packs.packMeta.value.New).toEqual({ pack: "New", description: "travels" });
+  });
+
+  it("discards the source's default status and metadata when the server says 'drop'", () => {
     const packs = useAdminPackStats();
     seed(packs, { A: { white: [1, 1] }, Target: { white: [1, 1] } });
     packs.defaultPacks.value = ["A"];
+    packs.packMeta.value = {
+      A: { pack: "A", description: "discarded" } as never,
+      Target: { pack: "Target", description: "kept" } as never,
+    };
 
-    packs.applyPacksMerged(["A"], "Target");
+    packs.applyWholePackMoved("A", "Target", "drop");
 
     expect(packs.defaultPacks.value).toEqual([]);
+    expect(packs.packMeta.value.A).toBeUndefined();
+    expect(packs.packMeta.value.Target).toEqual({ pack: "Target", description: "kept" });
   });
 
-  it("ignores a source that is also the target", () => {
+  it("never lets a 'move' source clobber metadata the target already has", () => {
+    // Unreachable in practice — the server only says "move" when nothing was
+    // at the target key — but the mirror must not lose the target's row if the
+    // two ever disagree.
+    const packs = useAdminPackStats();
+    seed(packs, { A: { white: [1, 1] }, Target: { white: [1, 1] } });
+    packs.packMeta.value = {
+      A: { pack: "A", description: "source" } as never,
+      Target: { pack: "Target", description: "target" } as never,
+    };
+
+    packs.applyWholePackMoved("A", "Target", "move");
+
+    expect(packs.packMeta.value.Target).toEqual({
+      pack: "Target",
+      description: "target",
+    });
+  });
+
+  it("leaves the source's default status and metadata alone when the server says 'leave'", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Mixed: { white: [2, 2], black: [1, 1] }, Target: { white: [1, 1] } });
+    packs.defaultPacks.value = ["Mixed"];
+    packs.packMeta.value = {
+      Mixed: { pack: "Mixed", description: "still here" } as never,
+    };
+
+    packs.applyWholePackMoved("Mixed", "Target", "leave");
+
+    expect(packs.defaultPacks.value).toEqual(["Mixed"]);
+    expect(packs.packMeta.value.Mixed).toEqual({
+      pack: "Mixed",
+      description: "still here",
+    });
+    expect(packs.packStats.value.Mixed).toBeDefined();
+    expect(packs.packStats.value.Target.white).toEqual({ total: 3, active: 3 });
+  });
+
+  it("ignores a move onto the pack's own name", () => {
     const packs = useAdminPackStats();
     seed(packs, { Target: { white: [4, 4] } });
+    packs.defaultPacks.value = ["Target"];
 
-    packs.applyPacksMerged(["Target"], "Target");
+    packs.applyWholePackMoved("Target", "Target", "move");
 
     expect(packs.packStats.value.Target.white).toEqual({ total: 4, active: 4 });
+    expect(packs.defaultPacks.value).toEqual(["Target"]);
   });
 });

@@ -560,15 +560,19 @@ onMounted(async () => {
                 </UTooltip>
 
                 <!-- Pack actions -->
-                <UDropdownMenu :items="packMenuItems(pack.name)">
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    color="neutral"
-                    icon="i-solar-menu-dots-bold"
-                    @click.stop
-                  />
-                </UDropdownMenu>
+                <UTooltip text="Pack actions">
+                  <UDropdownMenu :items="packMenuItems(pack.name)">
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      icon="i-solar-menu-dots-bold"
+                      aria-label="Pack actions"
+                      class="flex-shrink-0"
+                      @click.stop
+                    />
+                  </UDropdownMenu>
+                </UTooltip>
 
                 <!-- Combined activate/deactivate/delete (both card types at once) -->
                 <div
@@ -1000,7 +1004,7 @@ onMounted(async () => {
           </UButton>
           <UButton
             color="primary"
-            :disabled="!renameTarget.trim() || renameTarget === renameSource"
+            :disabled="!renameTarget.trim() || renameTarget.trim() === renameSource"
             :loading="bulkActionLoading"
             @click="confirmRename"
           >

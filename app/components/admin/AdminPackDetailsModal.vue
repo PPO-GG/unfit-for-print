@@ -52,7 +52,13 @@ function seed() {
     : blank();
 }
 seed();
-watch(() => [props.pack, props.meta], seed);
+// Also on `open` flipping true: a cancelled edit is discarded, not resumed.
+watch(
+  () => [props.open, props.pack, props.meta],
+  ([open]) => {
+    if (open) seed();
+  },
+);
 
 const orNull = (v: string) => (v.trim() ? v.trim() : null);
 

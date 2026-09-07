@@ -67,6 +67,16 @@ describe("AdminPackDetailsModal", () => {
     expect(wrapper.vm.form.official).toBe(true);
   });
 
+  it("re-seeds the form when it reopens, so a cancelled edit is not resumed", async () => {
+    const wrapper = mountModal(null);
+    wrapper.vm.form.description = "draft";
+
+    await wrapper.setProps({ open: false });
+    await wrapper.setProps({ open: true });
+
+    expect(wrapper.vm.form.description).toBe("");
+  });
+
   it("posts the form, sending empty strings as null", async () => {
     fetchMock.mockResolvedValue({ pack: "Base", displayName: null });
     const wrapper = mountModal(null);

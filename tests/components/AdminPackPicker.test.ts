@@ -40,8 +40,13 @@ describe("AdminPackPicker", () => {
     expect(wrapper.vm.isNewPack).toBe(true);
   });
 
-  it("does not call an exact existing match new, ignoring case", async () => {
+  it("treats a case variant as a new pack, because the server does", async () => {
     const wrapper = mountPicker({ modelValue: "base" });
+    expect(wrapper.vm.isNewPack).toBe(true);
+  });
+
+  it("does not call an exact existing match new", async () => {
+    const wrapper = mountPicker({ modelValue: "Base" });
     expect(wrapper.vm.isNewPack).toBe(false);
   });
 
