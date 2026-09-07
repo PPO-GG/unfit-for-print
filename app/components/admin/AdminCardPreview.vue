@@ -1,7 +1,10 @@
 <template>
   <div
     class="admin-card-preview group relative select-none"
-    :class="[isBlack ? 'card--black' : 'card--white']"
+    :class="[
+      isBlack ? 'card--black' : 'card--white',
+      { selected, 'ring-2 ring-primary-500 ring-offset-2 ring-offset-slate-900': selected },
+    ]"
     @click="$emit('click')"
   >
     <!-- Active status badge -->
@@ -57,16 +60,21 @@ import { useFitText } from "~/composables/useFitText";
 import type { CardAttachmentConfig } from "~/types/card";
 import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
 
-const props = defineProps<{
-  text: string;
-  /** Optional: cards.pack is nullable, so the list route can return no pack. */
-  pack?: string;
-  active?: boolean;
-  type: "white" | "black";
-  pick?: number;
-  imageUrl?: string;
-  attachment?: CardAttachmentConfig | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    text: string;
+    /** Optional: cards.pack is nullable, so the list route can return no pack. */
+    pack?: string;
+    active?: boolean;
+    type: "white" | "black";
+    pick?: number;
+    imageUrl?: string;
+    attachment?: CardAttachmentConfig | null;
+    /** True when this card is part of the current bulk selection. */
+    selected?: boolean;
+  }>(),
+  { selected: false },
+);
 
 defineEmits(["click"]);
 
@@ -273,7 +281,8 @@ const formattedText = computed(() => {
   border-radius: 10px;
 }
 
-.admin-card-preview:hover .action-overlay {
+.admin-card-preview:hover .action-overlay,
+.admin-card-preview.selected .action-overlay {
   opacity: 1;
 }
 </style>

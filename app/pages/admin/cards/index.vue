@@ -862,6 +862,7 @@ onMounted(async () => {
                 :pick="card.pick"
                 :image-url="card.imageKey ? getCardImageUrl(card.imageKey) : undefined"
                 :attachment="card.attachment"
+                :selected="isCardSelected(card.id)"
               >
                 <template #actions>
                   <!-- Selection checkbox -->

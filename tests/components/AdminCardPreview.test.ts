@@ -80,6 +80,18 @@ describe("AdminCardPreview.vue — Showbill V4 layout", () => {
     await wrapper.find(".admin-card-preview").trigger("click");
     expect(wrapper.emitted("click")).toBeTruthy();
   });
+
+  it("shows a selection ring only when selected is true", () => {
+    const selected = mount(AdminCardPreview, {
+      props: { text: "x", pack: "Base", active: true, type: "white", selected: true },
+    });
+    expect(selected.find(".admin-card-preview").classes()).toContain("ring-2");
+
+    const unselected = mount(AdminCardPreview, {
+      props: { text: "x", pack: "Base", active: true, type: "white" },
+    });
+    expect(unselected.find(".admin-card-preview").classes()).not.toContain("ring-2");
+  });
 });
 
 describe("AdminCardPreview.vue — picture cards", () => {
