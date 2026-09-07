@@ -19,6 +19,7 @@ const props = defineProps<{
   packs: string[];
   packName?: string;
   packMeta?: CardPackMeta | null;
+  packCards?: AdminCard[];
 }>();
 
 const emit = defineEmits<{
@@ -52,6 +53,7 @@ const state = computed<"pack" | "card" | "bulk">(() => {
       v-else-if="state === 'card' && card"
       :card="card"
       :packs="packs"
+      :pack-cards="packCards"
       @save="emit('save', $event)"
       @move="emit('move', $event)"
       @toggle-active="emit('toggle-active')"

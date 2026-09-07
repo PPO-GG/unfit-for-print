@@ -7,14 +7,20 @@
  * clicking away from an unsaved edit discards it rather than leaking it onto
  * the next card.
  */
-import { reactive, ref, watch } from "vue";
+import { reactive, ref, watch, computed } from "vue";
 import type { AdminCard } from "~/composables/useAdminCardList";
+import { cardRate, packAverage, MIN_PLAYS_FOR_RATE } from "~/composables/useAdminCardStats";
 
 const props = defineProps<{
   card: AdminCard;
   packs: string[];
+  packCards?: AdminCard[];
   saving?: boolean;
 }>();
+
+const rate = computed(() => cardRate(props.card));
+const average = computed(() => packAverage(props.packCards ?? [], rate.value.kind));
+const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
 const emit = defineEmits<{
   save: [{ text: string; pick?: number }];
@@ -96,6 +102,34 @@ defineExpose({ draft, save });
         @update:model-value="emit('move', $event)"
       />
     </UFormField>
+
+    <div class="pt-1">
+      <p class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Performance</p>
+      <div class="flex justify-between text-xs py-0.5 border-b border-slate-800">
+        <span class="text-slate-400">Times played</span>
+        <span class="text-slate-100 font-semibold">{{ (card.timesPlayed ?? 0).toLocaleString() }}</span>
+      </div>
+      <div class="flex justify-between text-xs py-0.5 border-b border-slate-800">
+        <span class="text-slate-400">{{ rate.kind === "skip" ? "Times skipped" : "Times won" }}</span>
+        <span class="text-slate-100 font-semibold">
+          {{ ((rate.kind === "skip" ? card.timesSkipped : card.timesWon) ?? 0).toLocaleString() }}
+        </span>
+      </div>
+      <p v-if="rate.value === null" class="text-[10px] text-slate-500 mt-1.5">
+        Not enough plays yet — a rate needs {{ MIN_PLAYS_FOR_RATE }}.
+      </p>
+      <template v-else>
+        <div class="flex justify-between text-xs py-0.5">
+          <span class="text-slate-400">{{ rate.kind === "skip" ? "Skip rate" : "Win rate" }}</span>
+          <span :class="rate.kind === 'skip' ? 'text-red-400' : 'text-green-400'" class="font-semibold">
+            {{ pct(rate.value) }}
+          </span>
+        </div>
+        <p v-if="average !== null" class="text-[10px] text-slate-500">
+          pack average {{ pct(average) }}
+        </p>
+      </template>
+    </div>
 
     <div class="flex gap-2 pt-1">
       <UButton

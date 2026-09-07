@@ -28,6 +28,8 @@ const sortItems = [
   { label: "A–Z", value: "az" },
   { label: "Most played", value: "played-desc" },
   { label: "Least played", value: "played-asc" },
+  { label: "Best win rate", value: "winrate-desc" },
+  { label: "Most skipped", value: "skiprate-desc" },
 ];
 </script>
 

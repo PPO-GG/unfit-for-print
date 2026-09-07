@@ -19,6 +19,7 @@ import { ref, computed } from "vue";
 import { useCardSearch } from "~/composables/useCardSearch";
 import type { AdminCardType, AdminCardFilter } from "~/composables/useCardSearch";
 import type { CardAttachmentConfig } from "~/types/card";
+import { cardRate } from "~/composables/useAdminCardStats";
 
 /** A card row as returned by /api/admin/cards/list. */
 export interface AdminCard {
@@ -44,7 +45,13 @@ export interface AdminCard {
   timesSkipped?: number;
 }
 
-export type AdminCardSort = "pack" | "az" | "played-desc" | "played-asc";
+export type AdminCardSort =
+  | "pack"
+  | "az"
+  | "played-desc"
+  | "played-asc"
+  | "winrate-desc"
+  | "skiprate-desc";
 
 export function useAdminCardList() {
   const { $activityFetch } = useNuxtApp();
@@ -253,8 +260,29 @@ export function useAdminCardList() {
         return copy.sort((a, b) => (b.timesPlayed ?? 0) - (a.timesPlayed ?? 0));
       case "played-asc":
         return copy.sort((a, b) => (a.timesPlayed ?? 0) - (b.timesPlayed ?? 0));
+      case "winrate-desc":
+      case "skiprate-desc": {
+        const kind = sort.value === "winrate-desc" ? "win" : "skip";
+        // A card with no rate has no rank — park them all at the end rather
+        // than letting a 2-play card top the list.
+        return copy.sort((a, b) => {
+          const ra = cardRate(a), rb = cardRate(b);
+          const va = ra.kind === kind ? ra.value : null;
+          const vb = rb.kind === kind ? rb.value : null;
+          if (va === null && vb === null) return 0;
+          if (va === null) return 1;
+          if (vb === null) return -1;
+          return vb - va;
+        });
+      }
+      default: {
+        // Exhaustiveness guard: adding a new AdminCardSort member without a
+        // matching case above now fails to compile instead of silently
+        // falling through to an unsorted list at runtime.
+        const _exhaustive: never = sort.value;
+        return _exhaustive;
+      }
     }
-    return copy;
   });
 
   return {

@@ -67,3 +67,26 @@ describe("useAdminCardList — sorting", () => {
     expect(list.cards.value.map((c) => c.id)).toEqual(["c", "a", "b"]);
   });
 });
+
+describe("useAdminCardList — rate sorting", () => {
+  it("ranks by win rate and pushes under-played cards to the end", () => {
+    const list = useAdminCardList();
+    list.cards.value = [
+      { id: "low", text: "l", type: "white", timesPlayed: 100, timesWon: 5 },
+      { id: "high", text: "h", type: "white", timesPlayed: 100, timesWon: 40 },
+      { id: "tiny", text: "t", type: "white", timesPlayed: 2, timesWon: 2 },
+    ] as never;
+    list.sort.value = "winrate-desc";
+    expect(list.sortedCards.value.map((c) => c.id)).toEqual(["high", "low", "tiny"]);
+  });
+
+  it("ranks by skip rate the same way", () => {
+    const list = useAdminCardList();
+    list.cards.value = [
+      { id: "ok", text: "o", type: "black", timesPlayed: 100, timesSkipped: 4 },
+      { id: "bad", text: "b", type: "black", timesPlayed: 100, timesSkipped: 60 },
+    ] as never;
+    list.sort.value = "skiprate-desc";
+    expect(list.sortedCards.value.map((c) => c.id)).toEqual(["bad", "ok"]);
+  });
+});

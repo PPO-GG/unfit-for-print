@@ -264,6 +264,7 @@ onMounted(async () => {
         :packs="allPackNames"
         :pack-name="selectedPack"
         :pack-meta="selectedPack ? (packMeta[selectedPack] ?? null) : null"
+        :pack-cards="cards"
         @save="onSaveCard"
         @move="onInspectorMove"
         @toggle-active="inspected && toggleCardActive(inspected)"

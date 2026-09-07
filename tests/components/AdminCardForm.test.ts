@@ -112,3 +112,44 @@ describe("AdminCardForm", () => {
     expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "Why? _", pick: 2 }]);
   });
 });
+
+describe("AdminCardForm — performance", () => {
+  const packCards = [
+    { id: "p1", text: "p", type: "white", timesPlayed: 100, timesWon: 5 },
+    { id: "p2", text: "q", type: "white", timesPlayed: 100, timesWon: 7 },
+  ];
+
+  const mountWithStats = (card: object) =>
+    mount(AdminCardForm, {
+      props: { card: card as never, packs: ["Base"], packCards: packCards as never },
+      global: { stubs },
+    });
+
+  it("shows the counters and the rate", () => {
+    const text = mountWithStats({
+      id: "w1", text: "A card.", type: "white", pack: "Base", active: true,
+      timesPlayed: 412, timesWon: 38,
+    }).text();
+    expect(text).toContain("412");
+    expect(text).toContain("38");
+    expect(text).toContain("9.2%");
+  });
+
+  it("says so instead of showing a rate below the play threshold", () => {
+    const text = mountWithStats({
+      id: "w1", text: "A card.", type: "white", pack: "Base", active: true,
+      timesPlayed: 3, timesWon: 2,
+    }).text();
+    expect(text).toMatch(/not enough plays/i);
+    expect(text).not.toContain("66.7%");
+  });
+
+  it("shows skips rather than wins for a black card", () => {
+    const text = mountWithStats({
+      id: "b1", text: "Why? _", type: "black", pack: "Base", active: true,
+      timesPlayed: 100, timesSkipped: 30,
+    }).text();
+    expect(text).toMatch(/skipped/i);
+    expect(text).toContain("30");
+  });
+});
