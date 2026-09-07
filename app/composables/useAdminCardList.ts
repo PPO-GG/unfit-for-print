@@ -48,6 +48,54 @@ export function useAdminCardList() {
   const visibleCards = ref<AdminCard[]>([]);
   const isPageTransitioning = ref(false);
 
+  // ── Selection ─────────────────────────────────────────────────────────────
+  // Cleared whenever the query changes, so a move can never be applied to
+  // cards the admin has filtered away.
+  const selectedCardIds = ref<string[]>([]);
+  /** Anchor for shift-click ranges. */
+  const lastClickedId = ref<string | null>(null);
+
+  function isCardSelected(id: string) {
+    return selectedCardIds.value.includes(id);
+  }
+
+  function toggleCardSelected(id: string) {
+    const idx = selectedCardIds.value.indexOf(id);
+    if (idx === -1) selectedCardIds.value.push(id);
+    else selectedCardIds.value.splice(idx, 1);
+    lastClickedId.value = id;
+  }
+
+  /** Shift-click: add the inclusive range between the anchor and this card. */
+  function selectCardRangeTo(id: string) {
+    const anchor = lastClickedId.value;
+    if (!anchor || anchor === id) {
+      toggleCardSelected(id);
+      return;
+    }
+    const ids = visibleCards.value.map((c) => c.id);
+    const from = ids.indexOf(anchor);
+    const to = ids.indexOf(id);
+    if (from === -1 || to === -1) {
+      toggleCardSelected(id);
+      return;
+    }
+    const [lo, hi] = from < to ? [from, to] : [to, from];
+    const range = ids.slice(lo, hi + 1);
+    selectedCardIds.value = [...new Set([...selectedCardIds.value, ...range])];
+    lastClickedId.value = id;
+  }
+
+  /** Every card the current query loaded — not just the visible page. */
+  function selectAllLoaded() {
+    selectedCardIds.value = cards.value.map((c) => c.id);
+  }
+
+  function clearCardSelection() {
+    selectedCardIds.value = [];
+    lastClickedId.value = null;
+  }
+
   // ── In-memory query cache ────────────────────────────────────────────────
   const cardListCache = new Map<string, AdminCard[]>();
 
@@ -101,6 +149,8 @@ export function useAdminCardList() {
     const querySearch = searchTerm.value;
 
     const cacheKey = getCacheKey(queryType, queryPack, queryPick, querySearch);
+    // A new query means a new result set; never carry a selection across.
+    clearCardSelection();
     const cached = cardListCache.get(cacheKey);
 
     if (cached) {
@@ -159,6 +209,7 @@ export function useAdminCardList() {
     invalidateCache();
     cards.value = cards.value.filter((c) => c.id !== id);
     totalCards.value--;
+    selectedCardIds.value = selectedCardIds.value.filter((sid) => sid !== id);
   }
 
   function prependCard(card: AdminCard) {
@@ -170,6 +221,7 @@ export function useAdminCardList() {
   function clearList() {
     cards.value = [];
     totalCards.value = 0;
+    clearCardSelection();
   }
 
   /** Reflect a pack-wide activate/deactivate on the rows currently loaded. */
@@ -190,6 +242,12 @@ export function useAdminCardList() {
     numPick,
     currentPage,
     pageSize,
+    selectedCardIds,
+    isCardSelected,
+    toggleCardSelected,
+    selectCardRangeTo,
+    selectAllLoaded,
+    clearCardSelection,
     fetchCards,
     invalidateCache,
     applyCardUpdate,
