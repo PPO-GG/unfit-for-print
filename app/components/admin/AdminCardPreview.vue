@@ -3,9 +3,9 @@
     class="admin-card-preview group relative select-none"
     :class="[
       isBlack ? 'card--black' : 'card--white',
-      { selected, 'ring-2 ring-primary-500 ring-offset-2 ring-offset-slate-900': selected },
+      { selected, inspected, 'ring-2 ring-primary-500 ring-offset-2 ring-offset-slate-900': selected },
     ]"
-    @click="$emit('click')"
+    @click="emit('click')"
   >
     <!-- Active status badge -->
     <div class="absolute top-1.5 right-1.5 z-20">
@@ -47,10 +47,29 @@
       <span v-if="isBlack && pick && pick > 1" class="card-footer-pick">PICK {{ pick }}</span>
     </div>
 
-    <!-- Hover action overlay -->
-    <div class="action-overlay">
-      <slot name="actions" />
-    </div>
+    <!-- Pack colour stripe. Only rendered when the pack has a colour, so a
+         pack with no metadata row looks exactly as it does today. It earns
+         its place in cross-pack search results, where the footer's pack name
+         is the only other cue. -->
+    <span
+      v-if="stripeColor"
+      data-testid="card-stripe"
+      class="card-stripe"
+      :style="{ background: stripeColor }"
+    />
+
+    <!-- Selection checkbox — always visible: it is how bulk selection is
+         discovered, so it must not depend on hover. -->
+    <button
+      type="button"
+      data-testid="card-select"
+      class="card-select"
+      :aria-pressed="selected"
+      aria-label="Select card"
+      @click.stop="emit('toggle-select')"
+    >
+      <span class="card-select-box" :class="{ 'is-on': selected }" />
+    </button>
   </div>
 </template>
 
@@ -72,11 +91,15 @@ const props = withDefaults(
     attachment?: CardAttachmentConfig | null;
     /** True when this card is part of the current bulk selection. */
     selected?: boolean;
+    /** True when this card is currently inspected in the sidebar. */
+    inspected?: boolean;
+    /** Optional pack colour as a hex or rgb string for the stripe. */
+    stripeColor?: string;
   }>(),
-  { selected: false },
+  { selected: false, inspected: false },
 );
 
-defineEmits(["click"]);
+const emit = defineEmits<{ click: []; "toggle-select": [] }>();
 
 const isBlack = computed(() => props.type === "black");
 
@@ -264,25 +287,35 @@ const formattedText = computed(() => {
   line-height: 1;
 }
 
-/* ── Hover action overlay ── */
-.action-overlay {
+.card-select {
   position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  z-index: 15;
-  border-radius: 10px;
+  top: 0.375rem;
+  left: 0.375rem;
+  z-index: 20;
+  padding: 2px;
+  cursor: pointer;
 }
-
-.admin-card-preview:hover .action-overlay,
-.admin-card-preview.selected .action-overlay {
-  opacity: 1;
+.card-select-box {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgb(100 116 139);
+  background: rgba(15, 23, 42, 0.85);
+}
+.card-select-box.is-on {
+  border-color: rgb(34 211 238);
+  background: rgb(8 145 178);
+}
+.admin-card-preview.inspected {
+  outline: 2px solid rgb(34 211 238);
+  outline-offset: 2px;
+}
+.card-stripe {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  z-index: 15;
+  border-radius: inherit 0 0 inherit;
 }
 </style>

@@ -134,3 +134,54 @@ describe("AdminCardPreview.vue — picture cards", () => {
     expect(wrapper.find(".card-image").exists()).toBe(false);
   });
 });
+
+describe("AdminCardPreview — selection affordances", () => {
+  const base = { text: "A card.", pack: "Base", active: true, type: "white" as const };
+
+  it("always renders the checkbox, not only on hover", () => {
+    const wrapper = mount(AdminCardPreview, { props: base });
+    expect(wrapper.find('[data-testid="card-select"]').exists()).toBe(true);
+  });
+
+  it("emits toggle-select from the checkbox without emitting click", async () => {
+    const wrapper = mount(AdminCardPreview, { props: base });
+    await wrapper.find('[data-testid="card-select"]').trigger("click");
+    expect(wrapper.emitted("toggle-select")).toHaveLength(1);
+    expect(wrapper.emitted("click")).toBeUndefined();
+  });
+
+  it("emits click from the tile body", async () => {
+    const wrapper = mount(AdminCardPreview, { props: base });
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("click")).toHaveLength(1);
+  });
+
+  it("marks the inspected card distinctly from a selected one", () => {
+    const inspected = mount(AdminCardPreview, { props: { ...base, inspected: true } });
+    expect(inspected.classes().join(" ")).toContain("inspected");
+    const selected = mount(AdminCardPreview, { props: { ...base, selected: true } });
+    expect(selected.classes().join(" ")).toContain("ring-2");
+  });
+
+  it("no longer exposes an actions slot", () => {
+    const wrapper = mount(AdminCardPreview, {
+      props: base,
+      slots: { actions: '<button id="legacy">x</button>' },
+    });
+    expect(wrapper.find("#legacy").exists()).toBe(false);
+  });
+
+  it("paints the pack stripe when a colour is supplied", () => {
+    const wrapper = mount(AdminCardPreview, {
+      props: { ...base, stripeColor: "#7c3aed" },
+    });
+    const stripe = wrapper.find('[data-testid="card-stripe"]');
+    expect(stripe.exists()).toBe(true);
+    expect(stripe.attributes("style")).toContain("rgb(124, 58, 237)");
+  });
+
+  it("omits the stripe entirely when the pack has no colour", () => {
+    const wrapper = mount(AdminCardPreview, { props: base });
+    expect(wrapper.find('[data-testid="card-stripe"]').exists()).toBe(false);
+  });
+});
