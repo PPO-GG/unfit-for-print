@@ -53,7 +53,7 @@ const sortItems = [
       @click="emit('update:filter', chip.id as AdminCardFilter | 'inactive')"
     >
       {{ chip.label }}
-      <span class="opacity-70 ml-1">{{ chip.n }}</span>
+      <span class="opacity-70 ml-1">{{ chip.n.toLocaleString() }}</span>
     </button>
 
     <UInput

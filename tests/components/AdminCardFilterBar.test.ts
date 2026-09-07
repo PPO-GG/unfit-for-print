@@ -27,10 +27,16 @@ function mountBar(props = {}) {
 describe("AdminCardFilterBar", () => {
   it("shows a count on every chip", () => {
     const text = mountBar().text();
-    expect(text).toContain("1235");
+    expect(text).toContain("1,235");
     expect(text).toContain("735");
     expect(text).toContain("500");
     expect(text).toContain("12");
+  });
+
+  it("groups thousands in the counts, matching the rail and selection bar", () => {
+    const text = mountBar().text();
+    expect(text).toContain("1,235");
+    expect(text).not.toContain("1235");
   });
 
   it("marks the active filter", () => {
