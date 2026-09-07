@@ -230,3 +230,111 @@ describe("useAdminPackStats — typeStatDotClass", () => {
     );
   });
 });
+
+describe("useAdminPackStats — moving cards between packs", () => {
+  it("moves totals and actives from the source pack to the target", () => {
+    const packs = useAdminPackStats();
+    seed(packs, {
+      Source: { white: [10, 8] },
+      Target: { white: [2, 2] },
+    });
+
+    packs.applyCardsMoved("Source", "Target", "white", 3, 2);
+
+    expect(packs.packStats.value.Source.white).toEqual({ total: 7, active: 6 });
+    expect(packs.packStats.value.Target.white).toEqual({ total: 5, active: 4 });
+  });
+
+  it("creates the target pack when it did not exist yet", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Source: { white: [4, 4] } });
+
+    packs.applyCardsMoved("Source", "Brand New", "white", 2, 2);
+
+    expect(packs.packStats.value["Brand New"].white).toEqual({ total: 2, active: 2 });
+    expect(packs.packStats.value["Brand New"].black).toEqual({ total: 0, active: 0 });
+  });
+
+  it("forgets the source pack once its last card leaves", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Source: { white: [2, 2] }, Target: { white: [1, 1] } });
+
+    packs.applyCardsMoved("Source", "Target", "white", 2, 2);
+
+    expect(packs.packStats.value.Source).toBeUndefined();
+    expect(packs.packStats.value.Target.white).toEqual({ total: 3, active: 3 });
+  });
+
+  it("keeps the source pack when it still holds the other card type", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Mixed: { white: [2, 2], black: [1, 1] } });
+
+    packs.applyCardsMoved("Mixed", "Elsewhere", "white", 2, 2);
+
+    expect(packs.packStats.value.Mixed.white).toEqual({ total: 0, active: 0 });
+    expect(packs.packStats.value.Mixed.black).toEqual({ total: 1, active: 1 });
+  });
+});
+
+describe("useAdminPackStats — renaming a pack", () => {
+  it("re-keys the stats under the new name", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Old: { white: [10, 8], black: [3, 3] } });
+
+    packs.applyPackRenamed("Old", "New");
+
+    expect(packs.packStats.value.Old).toBeUndefined();
+    expect(packs.packStats.value.New.white).toEqual({ total: 10, active: 8 });
+    expect(packs.packStats.value.New.black).toEqual({ total: 3, active: 3 });
+    expect(packs.packStats.value.New.name).toBe("New");
+  });
+
+  it("carries default status and selection to the new name", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Old: { white: [1, 1] } });
+    packs.defaultPacks.value = ["Old", "Other"];
+    packs.selectedPacks.value = ["Old"];
+
+    packs.applyPackRenamed("Old", "New");
+
+    expect(packs.defaultPacks.value.sort()).toEqual(["New", "Other"]);
+    expect(packs.selectedPacks.value).toEqual(["New"]);
+  });
+});
+
+describe("useAdminPackStats — merging packs", () => {
+  it("sums every source into the target and forgets the sources", () => {
+    const packs = useAdminPackStats();
+    seed(packs, {
+      A: { white: [5, 4], black: [2, 2] },
+      B: { white: [3, 3] },
+      Target: { white: [1, 1], black: [1, 0] },
+    });
+
+    packs.applyPacksMerged(["A", "B"], "Target");
+
+    expect(packs.packStats.value.A).toBeUndefined();
+    expect(packs.packStats.value.B).toBeUndefined();
+    expect(packs.packStats.value.Target.white).toEqual({ total: 9, active: 8 });
+    expect(packs.packStats.value.Target.black).toEqual({ total: 3, active: 2 });
+  });
+
+  it("drops the sources' default status rather than granting it to the target", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { A: { white: [1, 1] }, Target: { white: [1, 1] } });
+    packs.defaultPacks.value = ["A"];
+
+    packs.applyPacksMerged(["A"], "Target");
+
+    expect(packs.defaultPacks.value).toEqual([]);
+  });
+
+  it("ignores a source that is also the target", () => {
+    const packs = useAdminPackStats();
+    seed(packs, { Target: { white: [4, 4] } });
+
+    packs.applyPacksMerged(["Target"], "Target");
+
+    expect(packs.packStats.value.Target.white).toEqual({ total: 4, active: 4 });
+  });
+});

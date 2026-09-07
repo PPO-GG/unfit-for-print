@@ -152,8 +152,8 @@ export function useAdminPackStats() {
     }
   }
 
-  function applyCardCreated(pack: string | undefined, type: AdminCardType) {
-    const name = pack || NO_PACK;
+  /** Ensure a pack has an entry in the mirror, creating an empty one if not. */
+  function ensurePack(name: string): AdminPackStat {
     if (!packStats.value[name]) {
       packStats.value[name] = {
         name,
@@ -161,7 +161,12 @@ export function useAdminPackStats() {
         white: { total: 0, active: 0 },
       };
     }
-    const stat = packStats.value[name]!;
+    return packStats.value[name]!;
+  }
+
+  function applyCardCreated(pack: string | undefined, type: AdminCardType) {
+    const name = pack || NO_PACK;
+    const stat = ensurePack(name);
     stat[type].total++;
     stat[type].active++;
   }
@@ -212,6 +217,75 @@ export function useAdminPackStats() {
     forgetPackIfEmpty(packName);
   }
 
+  /** Cards of one type moved from one pack to another. */
+  function applyCardsMoved(
+    fromPack: string | undefined,
+    toPack: string | undefined,
+    type: AdminCardType,
+    total: number,
+    active: number,
+  ) {
+    const fromName = fromPack || NO_PACK;
+    const toName = toPack || NO_PACK;
+    if (fromName === toName || total <= 0) return;
+
+    const source = packStats.value[fromName];
+    if (source) {
+      source[type].total -= total;
+      source[type].active -= active;
+    }
+
+    const target = ensurePack(toName);
+    target[type].total += total;
+    target[type].active += active;
+
+    forgetPackIfEmpty(fromName);
+  }
+
+  /** A pack was renamed: its stats, default flag and selection follow it. */
+  function applyPackRenamed(oldName: string, newName: string) {
+    if (oldName === newName) return;
+    const stat = packStats.value[oldName];
+    const wasDefault = defaultPacks.value.includes(oldName);
+    const wasSelected = selectedPacks.value.includes(oldName);
+
+    if (stat) {
+      const target = ensurePack(newName);
+      target.black.total += stat.black.total;
+      target.black.active += stat.black.active;
+      target.white.total += stat.white.total;
+      target.white.active += stat.white.active;
+    }
+
+    forgetPack(oldName);
+
+    if (wasDefault && !defaultPacks.value.includes(newName)) {
+      defaultPacks.value = [...defaultPacks.value, newName];
+    }
+    if (wasSelected && !selectedPacks.value.includes(newName)) {
+      selectedPacks.value = [...selectedPacks.value, newName];
+    }
+  }
+
+  /**
+   * Several packs merged into one. The target's default status is whatever it
+   * already was — merging never grants it, matching what the server does.
+   */
+  function applyPacksMerged(sourceNames: string[], targetName: string) {
+    const target = ensurePack(targetName);
+    for (const name of sourceNames) {
+      if (name === targetName) continue;
+      const stat = packStats.value[name];
+      if (stat) {
+        target.black.total += stat.black.total;
+        target.black.active += stat.black.active;
+        target.white.total += stat.white.total;
+        target.white.active += stat.white.active;
+      }
+      forgetPack(name);
+    }
+  }
+
   function cardCountFor(packName: string): number {
     const stat = packStats.value[packName];
     return stat ? stat.black.total + stat.white.total : 0;
@@ -242,6 +316,9 @@ export function useAdminPackStats() {
     applyCardToggled,
     applyPackToggled,
     applyPackTypeCleared,
+    applyCardsMoved,
+    applyPackRenamed,
+    applyPacksMerged,
     cardCountFor,
     typeStatDotClass,
   };
