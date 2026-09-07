@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { whiteCards, blackCards, defaultCardPacks } from "~~/server/db/schema";
+import { whiteCards, blackCards, defaultCardPacks, cardPacks } from "~~/server/db/schema";
 import { cardTable } from "~~/server/utils/cardTable";
 import { requireAdmin } from "~~/server/utils/session";
 
@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
       db.delete(whiteCards).where(eq(whiteCards.pack, pack)),
       db.delete(blackCards).where(eq(blackCards.pack, pack)),
       db.delete(defaultCardPacks).where(eq(defaultCardPacks.pack, pack)),
+      db.delete(cardPacks).where(eq(cardPacks.pack, pack)),
     ]);
     return { success: true };
   }
@@ -31,6 +32,7 @@ export default defineEventHandler(async (event) => {
   const remaining = await db.select({ id: oppositeTable.id }).from(oppositeTable).where(eq(oppositeTable.pack, pack)).limit(1);
   if (!remaining.length) {
     await db.delete(defaultCardPacks).where(eq(defaultCardPacks.pack, pack));
+    await db.delete(cardPacks).where(eq(cardPacks.pack, pack));
   }
 
   return { success: true };
