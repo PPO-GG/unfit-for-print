@@ -48,14 +48,15 @@ defineExpose({ suggestions, isNewPack, pick });
 
 <template>
   <div class="flex flex-col gap-2">
-    <label class="text-xs font-medium text-slate-400">{{ label }}</label>
-
-    <UInput
-      :model-value="modelValue"
-      :placeholder="placeholder"
-      icon="i-solar-folder-with-files-line-duotone"
-      @update:model-value="emit('update:modelValue', String($event))"
-    />
+    <UFormField :label="label">
+      <UInput
+        :model-value="modelValue"
+        :placeholder="placeholder"
+        icon="i-solar-folder-with-files-line-duotone"
+        class="w-full"
+        @update:model-value="emit('update:modelValue', String($event))"
+      />
+    </UFormField>
 
     <p v-if="isNewPack" class="text-xs text-primary-400">
       Creates a new pack named &ldquo;{{ trimmed }}&rdquo;.

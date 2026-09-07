@@ -9,6 +9,7 @@ const stubs = {
     template: `<input :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
   },
   UButton: { template: "<button><slot /></button>" },
+  UFormField: { props: ["label"], template: "<div><label>{{ label }}</label><slot /></div>" },
 };
 
 function mountPicker(props: Record<string, unknown> = {}) {
