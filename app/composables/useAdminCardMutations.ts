@@ -315,6 +315,168 @@ export function useAdminCardMutations({
     }
   };
 
+  // ── Pack reorganisation ──────────────────────────────────────────────────
+  // Rename, merge and move-these-cards are the same server call with a
+  // different `from`. What differs here is the confirm copy and which stat
+  // helper repairs the mirror afterwards.
+
+  /** Move every currently-selected card into `toPack`. */
+  const moveSelectedCards = async (toPack: string) => {
+    const ids = [...list.selectedCardIds.value];
+    const target = toPack.trim();
+    if (!ids.length || !target) return false;
+
+    // The server returns counts, not rows, so derive the active count here
+    // while the loaded cards still say which of them were active.
+    const selected = list.cards.value.filter((c: AdminCard) => ids.includes(c.id));
+    const activeCount = selected.filter((c: AdminCard) => c.active).length;
+    const sourcePack = selectedPack.value;
+
+    bulkActionLoading.value = true;
+    try {
+      const { moved } = await $activityFetch<{
+        moved: { white: number; black: number };
+      }>("/api/admin/cards/move", {
+        method: "POST",
+        body: { from: { ids }, toPack: target, type: cardType.value },
+      });
+
+      const total = moved.white + moved.black;
+      list.invalidateCache();
+      // A pack-filtered grid no longer matches cards moved to a different
+      // pack, so drop them instead of leaving them mislabelled until the
+      // next fetch. In search mode (no pack filter) there is nothing to
+      // drop them from, so just relabel them in place.
+      if (sourcePack && sourcePack !== target) {
+        list.cards.value = list.cards.value.filter((c: AdminCard) => !ids.includes(c.id));
+        list.totalCards.value = list.cards.value.length;
+      } else {
+        for (const card of selected) card.pack = target;
+      }
+      packs.applyCardsMoved(sourcePack, target, cardType.value, total, activeCount);
+      list.clearCardSelection();
+
+      notify({
+        title: "Cards Moved",
+        description: `Moved ${plural(total)} to "${target}".`,
+        color: "success",
+      });
+      return true;
+    } catch {
+      notify({
+        title: "Move Failed",
+        description: `Could not move the selected cards to "${target}".`,
+        color: "error",
+      });
+      return false;
+    } finally {
+      bulkActionLoading.value = false;
+    }
+  };
+
+  /** The one line every rename and merge confirm has to carry. */
+  const LIVE_LOBBY_WARNING =
+    "Any game in progress that has this pack selected will drop it until the lobby restarts.";
+
+  const renamePack = async (packName: string, newName: string) => {
+    const target = newName.trim();
+    if (!target || target === packName) return false;
+
+    const confirmed = await confirm({
+      title: "Rename Pack",
+      message: `Rename "${packName}" to "${target}"? ${LIVE_LOBBY_WARNING}`,
+      confirmButtonText: "Rename Pack",
+      confirmButtonColor: "primary",
+    });
+    if (!confirmed) return false;
+
+    bulkActionLoading.value = true;
+    try {
+      await $activityFetch("/api/admin/cards/move", {
+        method: "POST",
+        body: { from: { pack: packName }, toPack: target, type: "all" },
+      });
+
+      list.invalidateCache();
+      for (const card of list.cards.value) {
+        if (card.pack === packName) card.pack = target;
+      }
+      packs.applyPackRenamed(packName, target);
+      if (selectedPack.value === packName) selectedPack.value = target;
+
+      notify({
+        title: "Pack Renamed",
+        description: `"${packName}" is now "${target}".`,
+        color: "success",
+      });
+      return true;
+    } catch {
+      notify({
+        title: "Rename Failed",
+        description: `Could not rename "${packName}".`,
+        color: "error",
+      });
+      return false;
+    } finally {
+      bulkActionLoading.value = false;
+    }
+  };
+
+  const mergePacks = async (sourceNames: string[], targetName: string) => {
+    const target = targetName.trim();
+    const sources = sourceNames.filter((n) => n && n !== target);
+    if (!target || !sources.length) return false;
+
+    const confirmed = await confirm({
+      title: `Merge ${plural(sources.length, "Pack")}`,
+      message:
+        `Merge ${sources.map((s) => `"${s}"`).join(", ")} into "${target}"? ` +
+        `"${target}" keeps its own description and default status — the merged packs' settings are discarded. ` +
+        LIVE_LOBBY_WARNING,
+      confirmButtonText: "Merge Packs",
+      confirmButtonColor: "primary",
+    });
+    if (!confirmed) return false;
+
+    bulkActionLoading.value = true;
+    try {
+      // Sequential, not Promise.all: each move re-reads whether the target
+      // already has cards, and concurrent writes would race that check.
+      for (const source of sources) {
+        await $activityFetch("/api/admin/cards/move", {
+          method: "POST",
+          body: { from: { pack: source }, toPack: target, type: "all" },
+        });
+      }
+
+      list.invalidateCache();
+      for (const card of list.cards.value) {
+        if (card.pack && sources.includes(card.pack)) card.pack = target;
+      }
+      packs.applyPacksMerged(sources, target);
+      packs.clearPackSelection();
+      if (selectedPack.value && sources.includes(selectedPack.value)) {
+        selectedPack.value = target;
+      }
+
+      notify({
+        title: `${plural(sources.length, "Pack")} Merged`,
+        description: `Merged ${plural(sources.length, "pack")} into "${target}".`,
+        color: "success",
+      });
+      return true;
+    } catch {
+      notify({
+        title: "Merge Failed",
+        description: `Could not merge into "${target}".`,
+        color: "error",
+      });
+      return false;
+    } finally {
+      bulkActionLoading.value = false;
+    }
+  };
+
   return {
     bulkActionLoading,
     toggleCardActive,
@@ -327,5 +489,8 @@ export function useAdminCardMutations({
     deletePackType,
     bulkTogglePacks,
     bulkDeletePacks,
+    moveSelectedCards,
+    renamePack,
+    mergePacks,
   };
 }
