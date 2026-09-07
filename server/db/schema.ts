@@ -110,6 +110,27 @@ export const defaultCardPacks = pgTable("default_card_packs", {
   pack: text("pack").primaryKey(),
 });
 
+/**
+ * Per-pack metadata. Deliberately has **no foreign key** to the card tables:
+ * a pack exists because cards point at it, and this row is optional
+ * decoration on top. Packs with no row keep working exactly as before, which
+ * is also why nothing here is required beyond the key itself.
+ *
+ * `color` is stored ahead of any reader: /api/cards/resolve already returns
+ * each card's `pack`, so a future per-pack card treatment (foil, pattern,
+ * accent) is a pure rendering change with no migration behind it.
+ */
+export const cardPacks = pgTable("card_packs", {
+  pack: text("pack").primaryKey(),
+  displayName: text("display_name"),
+  description: text("description"),
+  icon: text("icon"),
+  color: text("color"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  official: boolean("official").notNull().default(false),
+  nsfw: boolean("nsfw").notNull().default(false),
+});
+
 export const submissions = pgTable("submissions", {
   id: uuid("id").primaryKey().defaultRandom(),
   submitterId: uuid("submitter_id")
