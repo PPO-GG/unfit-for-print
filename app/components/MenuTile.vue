@@ -22,7 +22,7 @@
     <div class="mt-auto pt-4">
       <div
         class="font-display leading-none tracking-wide"
-        :class="featured ? 'text-3xl sm:text-4xl' : 'text-xl sm:text-2xl'"
+        :class="featured ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl'"
       >
         {{ label }}
       </div>
@@ -162,7 +162,7 @@ function onClick(e: MouseEvent) {
 .menu-tile__description {
   margin-top: 0.5rem;
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   line-height: 1.2;
   text-transform: uppercase;
