@@ -47,6 +47,19 @@ const inactiveOnly = ref(false);
 // keystroke without firing a request per keystroke.
 const searchInput = ref(searchTerm.value);
 
+const SORTS: AdminCardSort[] = [
+  "pack",
+  "az",
+  "played-desc",
+  "played-asc",
+  "winrate-desc",
+  "skiprate-desc",
+];
+
+function readSort(raw: unknown): AdminCardSort {
+  return SORTS.includes(raw as AdminCardSort) ? (raw as AdminCardSort) : "pack";
+}
+
 function readRoute() {
   const q = route.query;
   selectedPack.value = (q.pack as string) || undefined;
@@ -55,7 +68,7 @@ function readRoute() {
   cardType.value = (inactiveOnly.value ? "all" : t) as AdminCardFilter;
   searchTerm.value = (q.q as string) || "";
   searchInput.value = searchTerm.value;
-  sort.value = ((q.sort as string) || "pack") as AdminCardSort;
+  sort.value = readSort(q.sort);
 }
 readRoute();
 watch(() => route.query, readRoute);

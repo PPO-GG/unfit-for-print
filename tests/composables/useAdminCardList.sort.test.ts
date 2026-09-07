@@ -89,4 +89,31 @@ describe("useAdminCardList — rate sorting", () => {
     list.sort.value = "skiprate-desc";
     expect(list.sortedCards.value.map((c) => c.id)).toEqual(["bad", "ok"]);
   });
+
+  it("falls back to unsorted rather than returning a non-array for an unknown sort", () => {
+    const list = useAdminCardList();
+    list.cards.value = [
+      { id: "a", text: "a", type: "white" },
+      { id: "b", text: "b", type: "white" },
+    ] as never;
+    // Simulates a stale bookmark reaching the composable past the route guard.
+    (list.sort as unknown as { value: string }).value = "bogus-sort";
+    expect(Array.isArray(list.sortedCards.value)).toBe(true);
+    expect(list.sortedCards.value.map((c) => c.id)).toEqual(["a", "b"]);
+  });
+
+  it("parks cards of the other type at the end when sorting by a rate", () => {
+    const list = useAdminCardList();
+    list.cards.value = [
+      { id: "black", text: "b", type: "black", timesPlayed: 100, timesSkipped: 50 },
+      { id: "white-good", text: "w", type: "white", timesPlayed: 100, timesWon: 40 },
+      { id: "white-poor", text: "w2", type: "white", timesPlayed: 100, timesWon: 5 },
+    ] as never;
+    list.sort.value = "winrate-desc";
+    expect(list.sortedCards.value.map((c) => c.id)).toEqual([
+      "white-good",
+      "white-poor",
+      "black",
+    ]);
+  });
 });

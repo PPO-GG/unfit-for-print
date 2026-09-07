@@ -276,11 +276,12 @@ export function useAdminCardList() {
         });
       }
       default: {
-        // Exhaustiveness guard: adding a new AdminCardSort member without a
-        // matching case above now fails to compile instead of silently
-        // falling through to an unsorted list at runtime.
+        // `never` is compile-time only: this still fails to build if a new
+        // AdminCardSort member has no case, but at runtime an unrecognised
+        // value must degrade to unsorted rather than returning a string.
         const _exhaustive: never = sort.value;
-        return _exhaustive;
+        void _exhaustive;
+        return copy;
       }
     }
   });
