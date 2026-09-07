@@ -7,10 +7,11 @@
  * packs, which is what removed the two-selection-systems confusion.
  */
 import { computed, ref, onMounted } from "vue";
-import { useAdminPackStats } from "~/composables/useAdminPackStats";
+import { useAdminPackStats, type AdminPackStat } from "~/composables/useAdminPackStats";
 import { useAdminCardList } from "~/composables/useAdminCardList";
 import { useAdminCardMutations } from "~/composables/useAdminCardMutations";
 import { useConfirm } from "~/composables/useConfirm";
+import { commonPackPrefix } from "~/utils/packName";
 
 definePageMeta({ middleware: "admin" });
 
@@ -18,7 +19,7 @@ const router = useRouter();
 
 const packs = useAdminPackStats();
 const {
-  packStats, sortedPacks, packMeta, defaultPacks, selectedPacks,
+  packStats, sortedPacks, packMeta, defaultPacks, selectedPacks, packSearchTerm,
   loadPacks, loadDefaultPacks, loadPackMeta,
   togglePackSelection, clearPackSelection, toggleDefaultPack,
 } = packs;
@@ -75,8 +76,51 @@ const packSortItems = [
   { label: "Defaults first", value: "default" },
 ];
 
+// Chips narrow the already-loaded set; they never refetch. `sortedPacks` has
+// already applied the search box, so this composes on top of it.
+type PackChip = "all" | "default" | "official" | "nsfw" | "inactive";
+const packChip = ref<PackChip>("all");
+
+const isDark = (p: AdminPackStat) => p.black.active + p.white.active === 0;
+
+function matchesChip(p: AdminPackStat, chip: PackChip): boolean {
+  switch (chip) {
+    case "default":
+      return defaultPacks.value.includes(p.name);
+    case "official":
+      return Boolean(packMeta.value[p.name]?.official);
+    case "nsfw":
+      return Boolean(packMeta.value[p.name]?.nsfw);
+    case "inactive":
+      return isDark(p);
+    default:
+      return true;
+  }
+}
+
+// Counts come off the full roster, not the filtered view, so a chip always
+// reports how many it would show rather than how many survive the other chip.
+const chipCounts = computed(() => {
+  const all = Object.values(packStats.value);
+  return {
+    all: all.length,
+    default: all.filter((p) => matchesChip(p, "default")).length,
+    official: all.filter((p) => matchesChip(p, "official")).length,
+    nsfw: all.filter((p) => matchesChip(p, "nsfw")).length,
+    inactive: all.filter((p) => matchesChip(p, "inactive")).length,
+  };
+});
+
+// 106 of 111 packs share the "Cards Against Humanity:" prefix; the tile shows
+// it small so the distinguishing half can take the headline. Derived from the
+// full roster rather than the filtered view so the series label does not
+// change as you type in the search box.
+const seriesPrefix = computed(() =>
+  commonPackPrefix(Object.keys(packStats.value)),
+);
+
 const orderedPacks = computed(() => {
-  const rows = [...sortedPacks.value];
+  const rows = sortedPacks.value.filter((p) => matchesChip(p, packChip.value));
   if (packSort.value === "size") {
     return rows.sort(
       (a, b) => b.black.total + b.white.total - (a.black.total + a.white.total),
@@ -151,6 +195,12 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
         {{ sortedPacks.length }} packs · {{ totalCards.toLocaleString() }} cards
       </span>
       <span class="flex-1" />
+      <UInput
+        v-model="packSearchTerm"
+        placeholder="Search packs…"
+        icon="i-solar-magnifer-linear"
+        class="w-64"
+      />
       <USelectMenu
         v-model="packSort"
         :items="packSortItems"
@@ -201,13 +251,43 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
       <UButton size="xs" variant="ghost" @click="clearPackSelection">Clear</UButton>
     </div>
 
+    <div class="flex items-center gap-2 px-4 py-2 border-b border-slate-700/60 bg-slate-900/40">
+      <button
+        v-for="chip in [
+          { id: 'all', label: 'All', n: chipCounts.all },
+          { id: 'default', label: 'Default', n: chipCounts.default },
+          { id: 'official', label: 'Official', n: chipCounts.official },
+          { id: 'nsfw', label: 'NSFW', n: chipCounts.nsfw },
+          { id: 'inactive', label: 'Inactive', n: chipCounts.inactive },
+        ]"
+        :key="chip.id"
+        type="button"
+        :data-testid="`pack-chip-${chip.id}`"
+        :aria-pressed="packChip === chip.id"
+        class="rounded-full px-3 py-1 text-xs transition-colors"
+        :class="
+          packChip === chip.id
+            ? 'bg-primary-600 text-white'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+        "
+        @click="packChip = chip.id as typeof packChip"
+      >
+        {{ chip.label }}
+        <span class="opacity-70 ml-1">{{ chip.n.toLocaleString() }}</span>
+      </button>
+    </div>
+
     <div class="flex-1 overflow-y-auto p-4">
-      <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(230px, 1fr))">
+      <p v-if="!orderedPacks.length" class="text-xs text-slate-500">
+        No packs match this filter.
+      </p>
+      <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))">
         <AdminPackTile
           v-for="pack in orderedPacks"
           :key="pack.name"
           :pack="pack"
           :meta="packMeta[pack.name] ?? null"
+          :series-prefix="seriesPrefix"
           :is-default="defaultPacks.includes(pack.name)"
           :selected="selectedPacks.includes(pack.name)"
           @open="openPack(pack.name)"

@@ -90,3 +90,91 @@ describe("AdminPackTile", () => {
     expect(wrapper.find('[data-testid="pack-open"]').classes()).toContain("z-0");
   });
 });
+
+describe("AdminPackTile — lobby-card treatment", () => {
+  const prefix = "Cards Against Humanity:";
+
+  it("splits the series prefix away from the distinguishing name", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: {
+        pack: { ...pack, name: "Cards Against Humanity: Blue Box Expansion" },
+        seriesPrefix: prefix,
+      },
+    });
+    expect(wrapper.find('[data-testid="pack-series"]').text()).toBe(prefix);
+    expect(wrapper.find('[data-testid="pack-name"]').text()).toBe(
+      "Blue Box Expansion",
+    );
+  });
+
+  it("shows no series line for a pack outside the series", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: { pack: { ...pack, name: "Unfit Labs" }, seriesPrefix: prefix },
+    });
+    expect(wrapper.find('[data-testid="pack-series"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="pack-name"]').text()).toBe("Unfit Labs");
+  });
+
+  it("prefers an explicit display name over the derived split", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: {
+        pack: { ...pack, name: "Cards Against Humanity: Hot Box" },
+        meta: { pack: "x", displayName: "The Hot One" },
+        seriesPrefix: prefix,
+      },
+    });
+    expect(wrapper.find('[data-testid="pack-name"]').text()).toBe("The Hot One");
+  });
+
+  it("derives a stable accent colour when the pack has none", () => {
+    const mountFor = (name: string) =>
+      mount(AdminPackTile, { props: { pack: { ...pack, name } } });
+    const a = mountFor("Alpha").find('[data-testid="pack-accent"]').attributes("style");
+    const again = mountFor("Alpha").find('[data-testid="pack-accent"]').attributes("style");
+    const b = mountFor("Beta").find('[data-testid="pack-accent"]').attributes("style");
+    expect(a).toBe(again);
+    expect(a).not.toBe(b);
+  });
+
+  it("lets a real colour override the derived one", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: { pack, meta: { pack: "x", color: "#ff0000" } },
+    });
+    expect(
+      wrapper.find('[data-testid="pack-accent"]').attributes("style"),
+    ).toContain("rgb(255, 0, 0)");
+  });
+
+  it("shows the description when one is set", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: { pack, meta: { pack: "x", description: "The original 500." } },
+    });
+    expect(wrapper.text()).toContain("The original 500.");
+  });
+
+  it("reports inactive cards when a pack is partly switched off", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: {
+        pack: {
+          name: "Base",
+          black: { total: 500, active: 500 },
+          white: { total: 735, active: 723 },
+        },
+      },
+    });
+    expect(wrapper.text()).toContain("12 inactive");
+  });
+
+  it("says nothing about inactive cards when the whole pack is live", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: {
+        pack: {
+          name: "Base",
+          black: { total: 500, active: 500 },
+          white: { total: 735, active: 735 },
+        },
+      },
+    });
+    expect(wrapper.text()).not.toContain("inactive");
+  });
+});
