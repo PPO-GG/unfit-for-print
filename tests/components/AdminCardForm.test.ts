@@ -19,7 +19,7 @@ const stubs = {
 };
 
 const white = { id: "w1", text: "A card.", type: "white" as const, pack: "Base", active: true };
-const black = { id: "b1", text: "Why? _", type: "black" as const, pack: "Base", active: true, pick: 2 };
+const black = { id: "b1", text: "Why? _", type: "black" as const, pack: "Base", active: true, pick: 1 };
 
 const mountForm = (card = white) =>
   mount(AdminCardForm, { props: { card, packs: ["Base", "Blue"] }, global: { stubs } });
@@ -45,6 +45,7 @@ describe("AdminCardForm", () => {
 
   it("includes pick for black cards only", async () => {
     const wrapper = mountForm(black);
+    wrapper.vm.draft.pick = 2;
     await wrapper.vm.save();
     expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "Why? _", pick: 2 }]);
   });
@@ -59,5 +60,37 @@ describe("AdminCardForm", () => {
   it("labels the deactivate action by current state", () => {
     expect(mountForm().text()).toContain("Deactivate");
     expect(mountForm({ ...white, active: false }).text()).toContain("Activate");
+  });
+
+  it("does not save when nothing changed", async () => {
+    const wrapper = mountForm();
+    await wrapper.vm.save();
+    expect(wrapper.emitted("save")).toBeUndefined();
+  });
+
+  it("saves once when the same edit is committed twice", async () => {
+    const wrapper = mountForm();
+    wrapper.vm.draft.text = "Edited.";
+    await wrapper.vm.save(); // Ctrl+Enter
+    await wrapper.setProps({ card: { ...white, text: "Edited." } }); // Parent updates the card
+    await wrapper.vm.save(); // the blur that follows
+    expect(wrapper.emitted("save")).toHaveLength(1);
+  });
+
+  it("saves again once the card prop catches up and the text changes again", async () => {
+    const wrapper = mountForm();
+    wrapper.vm.draft.text = "Edited.";
+    await wrapper.vm.save();
+    await wrapper.setProps({ card: { ...white, text: "Edited." } });
+    wrapper.vm.draft.text = "Edited twice.";
+    await wrapper.vm.save();
+    expect(wrapper.emitted("save")).toHaveLength(2);
+  });
+
+  it("still saves a changed pick on a black card", async () => {
+    const wrapper = mountForm(black);
+    wrapper.vm.draft.pick = 2;
+    await wrapper.vm.save();
+    expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "Why? _", pick: 2 }]);
   });
 });

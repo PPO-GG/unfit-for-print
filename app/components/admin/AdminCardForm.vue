@@ -36,10 +36,16 @@ watch(
 function save() {
   const text = draft.text.trim();
   if (!text) return;
-  emit("save", {
-    text,
-    pick: props.card.type === "black" ? Number(draft.pick) || 1 : undefined,
-  });
+
+  const pick = props.card.type === "black" ? Number(draft.pick) || 1 : undefined;
+  // Both blur and Ctrl/Cmd+Enter reach this. Without a dirty check, saving
+  // with the keyboard and then moving focus away sends the same edit twice.
+  const unchanged =
+    text === (props.card.text ?? "").trim() &&
+    pick === (props.card.type === "black" ? props.card.pick ?? 1 : undefined);
+  if (unchanged) return;
+
+  emit("save", { text, pick });
 }
 
 defineExpose({ draft, save });
