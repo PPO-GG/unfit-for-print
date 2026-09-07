@@ -329,7 +329,6 @@ export function useAdminCardMutations({
     // The server returns counts, not rows, so derive the active count here
     // while the loaded cards still say which of them were active.
     const selected = list.cards.value.filter((c: AdminCard) => ids.includes(c.id));
-    const activeCount = selected.filter((c: AdminCard) => c.active).length;
     const sourcePack = selectedPack.value;
 
     bulkActionLoading.value = true;
@@ -343,6 +342,23 @@ export function useAdminCardMutations({
 
       const total = moved.white + moved.black;
       list.invalidateCache();
+
+      // In search mode (no pack filter) the selection can span several
+      // source packs. Debit each one separately from `selected`'s real
+      // `.pack` values — crediting the target off a single `sourcePack`
+      // (which is `undefined` in search mode) would inflate the sidebar
+      // until a refetch, since the real sources never got debited.
+      const groups = new Map<string | undefined, AdminCard[]>();
+      for (const card of selected) {
+        const group = groups.get(card.pack);
+        if (group) group.push(card);
+        else groups.set(card.pack, [card]);
+      }
+      for (const [groupPack, cards] of groups) {
+        const groupActive = cards.filter((c) => c.active).length;
+        packs.applyCardsMoved(groupPack, target, cardType.value, cards.length, groupActive);
+      }
+
       // A pack-filtered grid no longer matches cards moved to a different
       // pack, so drop them instead of leaving them mislabelled until the
       // next fetch. In search mode (no pack filter) there is nothing to
@@ -353,7 +369,6 @@ export function useAdminCardMutations({
       } else {
         for (const card of selected) card.pack = target;
       }
-      packs.applyCardsMoved(sourcePack, target, cardType.value, total, activeCount);
       list.clearCardSelection();
 
       notify({
@@ -439,6 +454,10 @@ export function useAdminCardMutations({
     if (!confirmed) return false;
 
     bulkActionLoading.value = true;
+    // Sources that already completed their move server-side before a later
+    // one failed. On a partial failure the mirror and cache need to reflect
+    // these, or they keep describing packs that no longer hold their cards.
+    const completed: string[] = [];
     try {
       // Sequential, not Promise.all: each move re-reads whether the target
       // already has cards, and concurrent writes would race that check.
@@ -447,6 +466,7 @@ export function useAdminCardMutations({
           method: "POST",
           body: { from: { pack: source }, toPack: target, type: "all" },
         });
+        completed.push(source);
       }
 
       list.invalidateCache();
@@ -466,9 +486,24 @@ export function useAdminCardMutations({
       });
       return true;
     } catch {
+      // Unlike every other mutation here, a partial merge is a deliberate
+      // exception to "never touch the mirror on failure": the sources that
+      // did complete really did move server-side, so leaving the mirror
+      // untouched would itself be the lie.
+      if (completed.length > 0) {
+        list.invalidateCache();
+        for (const card of list.cards.value) {
+          if (card.pack && completed.includes(card.pack)) card.pack = target;
+        }
+        packs.applyPacksMerged(completed, target);
+      }
+
       notify({
         title: "Merge Failed",
-        description: `Could not merge into "${target}".`,
+        description:
+          completed.length > 0
+            ? `Merged ${completed.length} of ${plural(sources.length, "pack")} into "${target}" before a request failed.`
+            : `Could not merge into "${target}".`,
         color: "error",
       });
       return false;

@@ -144,6 +144,25 @@ describe("moveSelectedCards", () => {
     expect(list.cards.value.map((c: { id: string }) => c.id)).toEqual(["b"]);
     expect(list.totalCards.value).toBe(1);
   });
+
+  it("debits each source pack separately when a search spans packs", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    list.cards.value = [
+      { id: "a", text: "a", pack: "Alpha", active: true },
+      { id: "b", text: "b", pack: "Beta", active: true },
+      { id: "c", text: "c", pack: "Alpha", active: false },
+    ];
+    list.selectedCardIds.value = ["a", "b", "c"];
+    fetchMock.mockResolvedValue({ moved: { white: 3, black: 0 } });
+
+    const m = useAdminCardMutations({ list, packs });
+    await m.moveSelectedCards("Target");
+
+    expect(packs.applyCardsMoved).toHaveBeenCalledTimes(2);
+    expect(packs.applyCardsMoved).toHaveBeenCalledWith("Alpha", "Target", "white", 2, 1);
+    expect(packs.applyCardsMoved).toHaveBeenCalledWith("Beta", "Target", "white", 1, 1);
+  });
 });
 
 describe("renamePack", () => {
@@ -240,5 +259,29 @@ describe("mergePacks", () => {
     await m.mergePacks(["A", "Target"], "Target");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("mirrors the sources that did merge when a later request fails", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    list.cards.value = [
+      { id: "a", text: "a", pack: "A", active: true },
+      { id: "b", text: "b", pack: "B", active: true },
+    ];
+    fetchMock
+      .mockResolvedValueOnce({ moved: { white: 1, black: 0 } })
+      .mockRejectedValueOnce(new Error("boom"));
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.mergePacks(["A", "B"], "Target");
+
+    expect(ok).toBe(false);
+    expect(list.invalidateCache).toHaveBeenCalled();
+    expect(packs.applyPacksMerged).toHaveBeenCalledWith(["A"], "Target");
+    expect(list.cards.value.find((c: { id: string }) => c.id === "a")?.pack).toBe("Target");
+    expect(list.cards.value.find((c: { id: string }) => c.id === "b")?.pack).toBe("B");
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "error", description: expect.stringMatching(/1 of 2/) }),
+    );
   });
 });
