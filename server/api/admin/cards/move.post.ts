@@ -19,6 +19,7 @@ import {
 } from "~~/server/db/schema";
 import { cardTable } from "~~/server/utils/cardTable";
 import { planPackMove } from "~~/server/utils/planPackMove";
+import type { PackMoveAuxAction } from "~~/server/utils/planPackMove";
 import { requireAdmin } from "~~/server/utils/session";
 
 const MAX_IDS = 500;
@@ -52,6 +53,14 @@ export default defineEventHandler(async (event) => {
       statusMessage: "from must carry either a pack name or a non-empty ids array",
     });
   }
+  // The two are different operations with different auxiliary-row rules, and
+  // silently preferring one would make the other's outcome unpredictable.
+  if (sourcePack !== undefined && ids !== undefined) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "from must carry a pack name or an ids array, not both",
+    });
+  }
   if (ids && ids.length > MAX_IDS) {
     throw createError({
       statusCode: 400,
@@ -74,7 +83,7 @@ export default defineEventHandler(async (event) => {
 
   // Renaming a pack onto its own name changes nothing.
   if (sourcePack && target === sourcePack) {
-    return { moved: { white: 0, black: 0 } };
+    return { moved: { white: 0, black: 0 }, aux: null };
   }
 
   const db = useDb();
@@ -112,10 +121,15 @@ export default defineEventHandler(async (event) => {
       moved[key] = rows.length;
     }
 
-    // Auxiliary rows only ever travel on a whole-pack move.
+    // Auxiliary rows only ever travel on a whole-pack move. What happened to
+    // them goes back in the response: the client mirrors default status and
+    // metadata by this verdict rather than re-deriving the collision rule,
+    // which it cannot see (a target with rows but no cards is invisible to it).
+    let auxAction: PackMoveAuxAction | null = null;
     if (sourcePack && target !== null) {
       const sourceRetainsCards = await packHasCards(tx, sourcePack);
       const { aux } = planPackMove({ sourceRetainsCards, targetExisted });
+      auxAction = aux;
 
       if (aux === "move") {
         await tx
@@ -132,7 +146,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    return { moved };
+    return { moved, aux: auxAction };
   });
 });
 

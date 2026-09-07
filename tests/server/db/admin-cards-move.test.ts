@@ -52,7 +52,7 @@ describe("POST /api/admin/cards/move — rename", () => {
 
     const result = await callMove({ from: { pack: "Old" }, toPack: "New", type: "all" });
 
-    expect(result).toEqual({ moved: { white: 2, black: 1 } });
+    expect(result).toEqual({ moved: { white: 2, black: 1 }, aux: "move" });
     expect(await packsOf(whiteCards)).toEqual(["New", "New"]);
     expect(await packsOf(blackCards)).toEqual(["New"]);
   });
@@ -79,7 +79,7 @@ describe("POST /api/admin/cards/move — rename", () => {
 
     const result = await callMove({ from: { pack: "Same" }, toPack: "Same", type: "all" });
 
-    expect(result).toEqual({ moved: { white: 0, black: 0 } });
+    expect(result).toEqual({ moved: { white: 0, black: 0 }, aux: null });
     expect(await packsOf(whiteCards)).toEqual(["Same"]);
   });
 });
@@ -97,7 +97,7 @@ describe("POST /api/admin/cards/move — merge", () => {
 
     const result = await callMove({ from: { pack: "Source" }, toPack: "Target", type: "all" });
 
-    expect(result).toEqual({ moved: { white: 1, black: 0 } });
+    expect(result).toEqual({ moved: { white: 1, black: 0 }, aux: "drop" });
     expect(await packsOf(whiteCards)).toEqual(["Target", "Target"]);
 
     const meta = await db.select().from(cardPacks);
@@ -133,6 +133,19 @@ describe("POST /api/admin/cards/move — merge", () => {
     const defaults = await db.select().from(defaultCardPacks);
     expect(defaults).toEqual([]);
   });
+
+  it("leaves the target's default status untouched", async () => {
+    await db.insert(whiteCards).values([
+      { text: "src", pack: "Source" },
+      { text: "tgt", pack: "Target" },
+    ]);
+    await db.insert(defaultCardPacks).values([{ pack: "Source" }, { pack: "Target" }]);
+
+    await callMove({ from: { pack: "Source" }, toPack: "Target", type: "all" });
+
+    const defaults = await db.select().from(defaultCardPacks);
+    expect(defaults.map((d) => d.pack)).toEqual(["Target"]);
+  });
 });
 
 describe("POST /api/admin/cards/move — partial and by-id", () => {
@@ -152,7 +165,7 @@ describe("POST /api/admin/cards/move — partial and by-id", () => {
       type: "white",
     });
 
-    expect(result).toEqual({ moved: { white: 1, black: 0 } });
+    expect(result).toEqual({ moved: { white: 1, black: 0 }, aux: null });
     expect(await packsOf(whiteCards)).toEqual(["Source", "Target"]);
   });
 
@@ -161,8 +174,9 @@ describe("POST /api/admin/cards/move — partial and by-id", () => {
     await db.insert(blackCards).values({ text: "b", pack: "Mixed" });
     await db.insert(cardPacks).values({ pack: "Mixed", description: "still here" });
 
-    await callMove({ from: { pack: "Mixed" }, toPack: "Elsewhere", type: "white" });
+    const result = await callMove({ from: { pack: "Mixed" }, toPack: "Elsewhere", type: "white" });
 
+    expect(result).toEqual({ moved: { white: 1, black: 0 }, aux: "leave" });
     expect(await packsOf(whiteCards)).toEqual(["Elsewhere"]);
     expect(await packsOf(blackCards)).toEqual(["Mixed"]);
 
@@ -174,7 +188,9 @@ describe("POST /api/admin/cards/move — partial and by-id", () => {
     await db.insert(whiteCards).values({ text: "w", pack: "WhiteOnly" });
     await db.insert(cardPacks).values({ pack: "WhiteOnly", description: "travels" });
 
-    await callMove({ from: { pack: "WhiteOnly" }, toPack: "Renamed", type: "white" });
+    const result = await callMove({ from: { pack: "WhiteOnly" }, toPack: "Renamed", type: "white" });
+
+    expect(result).toEqual({ moved: { white: 1, black: 0 }, aux: "move" });
 
     const meta = await db.select().from(cardPacks);
     expect(meta).toHaveLength(1);
@@ -185,7 +201,9 @@ describe("POST /api/admin/cards/move — partial and by-id", () => {
   it("moves cards out of any pack when toPack is null", async () => {
     await db.insert(whiteCards).values({ text: "w", pack: "Source" });
 
-    await callMove({ from: { pack: "Source" }, toPack: null, type: "all" });
+    const result = await callMove({ from: { pack: "Source" }, toPack: null, type: "all" });
+
+    expect(result).toEqual({ moved: { white: 1, black: 0 }, aux: null });
 
     const [row] = await db.select().from(whiteCards);
     expect(row.pack).toBeNull();
@@ -201,6 +219,16 @@ describe("POST /api/admin/cards/move — validation", () => {
 
   it("rejects a request with neither pack nor ids", async () => {
     await expect(callMove({ from: {}, toPack: "Target" })).rejects.toThrow(/from/i);
+  });
+
+  it("rejects a request carrying both a pack and ids", async () => {
+    await expect(
+      callMove({
+        from: { pack: "Source", ids: [crypto.randomUUID()] },
+        toPack: "Target",
+        type: "white",
+      }),
+    ).rejects.toThrow(/not both/i);
   });
 
   it("rejects more than 500 ids", async () => {
