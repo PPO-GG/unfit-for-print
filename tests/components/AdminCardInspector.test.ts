@@ -6,6 +6,11 @@ import AdminCardInspector from "~/components/admin/AdminCardInspector.vue";
 
 const stubs = {
   AdminCardForm: { props: ["card", "packs"], template: "<div class='card-form' />" },
+  AdminPackForm: {
+    props: ["pack", "meta"],
+    emits: ["saved"],
+    template: "<div class='pack-form' />",
+  },
   UButton: { template: "<button><slot /></button>" },
 };
 
@@ -18,10 +23,19 @@ const mountInspector = (props = {}) =>
   });
 
 describe("AdminCardInspector", () => {
-  it("shows the pack state when nothing is selected", () => {
-    const wrapper = mountInspector({ packName: "Base" });
+  it("shows the pack state when nothing is selected", async () => {
+    const meta = { pack: "Base", displayName: "Base Set" };
+    const wrapper = mountInspector({ packName: "Base", packMeta: meta });
     expect(wrapper.find('[data-testid="state-pack"]').exists()).toBe(true);
     expect(wrapper.find(".card-form").exists()).toBe(false);
+
+    const packForm = wrapper.findComponent(stubs.AdminPackForm);
+    expect(packForm.exists()).toBe(true);
+    expect(packForm.props("pack")).toBe("Base");
+    expect(packForm.props("meta")).toEqual(meta);
+
+    await packForm.vm.$emit("saved", meta);
+    expect(wrapper.emitted("pack-saved")?.at(-1)).toEqual([meta]);
   });
 
   it("shows the card editor for a single inspected card", () => {

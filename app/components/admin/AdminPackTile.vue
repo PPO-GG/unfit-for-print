@@ -59,7 +59,7 @@ function commitRename() {
     <button
       type="button"
       data-testid="pack-select"
-      class="absolute top-2 right-2 w-3.5 h-3.5 rounded border"
+      class="absolute top-2 right-2 z-10 w-3.5 h-3.5 rounded border"
       :class="selected ? 'bg-primary-600 border-primary-400' : 'border-slate-500 bg-slate-900/80'"
       :aria-pressed="selected"
       aria-label="Select pack"
@@ -72,7 +72,7 @@ function commitRename() {
         ref="inputEl"
         v-model="draft"
         data-testid="pack-rename"
-        class="w-full bg-slate-900 border border-primary-500 rounded px-1 text-sm text-white"
+        class="relative z-10 w-full bg-slate-900 border border-primary-500 rounded px-1 text-sm text-white"
         @keydown.enter="commitRename"
         @keydown.esc="editing = false"
         @blur="commitRename"
@@ -80,7 +80,7 @@ function commitRename() {
       <h3
         v-else
         data-testid="pack-name"
-        class="text-sm font-semibold text-slate-100 truncate pr-5"
+        class="relative z-10 text-sm font-semibold text-slate-100 truncate pr-5"
         @dblclick.stop="startRename"
       >
         <span v-if="meta?.icon" class="mr-1">{{ meta.icon }}</span>{{ title }}

@@ -57,4 +57,12 @@ describe("AdminPackTile", () => {
     await input.trigger("keydown.enter");
     expect(wrapper.emitted("rename")?.at(-1)).toEqual(["Renamed"]);
   });
+
+  it("keeps the checkbox and name above the open overlay", () => {
+    const wrapper = mountTile();
+    for (const id of ["pack-select", "pack-name"]) {
+      expect(wrapper.find(`[data-testid="${id}"]`).classes()).toContain("z-10");
+    }
+    expect(wrapper.find('[data-testid="pack-open"]').classes()).toContain("z-0");
+  });
 });

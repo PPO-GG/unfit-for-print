@@ -19,7 +19,7 @@ const packs = useAdminPackStats();
 const {
   packStats, sortedPacks, packMeta, defaultPacks, selectedPacks,
   loadPacks, loadDefaultPacks, loadPackMeta,
-  togglePackSelection, clearPackSelection,
+  togglePackSelection, clearPackSelection, toggleDefaultPack,
 } = packs;
 
 const list = useAdminCardList();
@@ -31,6 +31,29 @@ const mergeTarget = ref("");
 const mergeOpen = ref(false);
 
 const allPackNames = computed(() => Object.keys(packStats.value).sort());
+
+// Every selected pack is already a default -> the action unsets; otherwise
+// it sets, so a mixed selection defaults to "make them all default" rather
+// than "clear the ones that already are".
+const allSelectedDefault = computed(
+  () =>
+    selectedPacks.value.length > 0 &&
+    selectedPacks.value.every((name) => defaultPacks.value.includes(name)),
+);
+
+const toggleSelectedDefault = async () => {
+  const makeDefault = !allSelectedDefault.value;
+  const targets = selectedPacks.value.filter(
+    (name) => defaultPacks.value.includes(name) !== makeDefault,
+  );
+  if (!targets.length) return;
+  bulkActionLoading.value = true;
+  try {
+    await Promise.all(targets.map((name) => toggleDefaultPack(name)));
+  } finally {
+    bulkActionLoading.value = false;
+  }
+};
 
 const totalCards = computed(() =>
   sortedPacks.value.reduce((n, p) => n + p.black.total + p.white.total, 0),
@@ -131,8 +154,12 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
           </div>
         </template>
       </UPopover>
-      <UButton size="xs" variant="ghost" @click="bulkTogglePacks(false)">Deactivate</UButton>
-      <UButton size="xs" color="error" variant="ghost" @click="bulkDeletePacks">Delete</UButton>
+      <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="toggleSelectedDefault">
+        {{ allSelectedDefault ? "Unset default" : "Set as default" }}
+      </UButton>
+      <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="bulkTogglePacks(true)">Activate</UButton>
+      <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="bulkTogglePacks(false)">Deactivate</UButton>
+      <UButton size="xs" color="error" variant="ghost" :loading="bulkActionLoading" @click="bulkDeletePacks">Delete</UButton>
       <span class="flex-1" />
       <UButton size="xs" variant="ghost" @click="clearPackSelection">Clear</UButton>
     </div>
