@@ -382,6 +382,160 @@ describe("mergePacks", () => {
   });
 });
 
+describe("moveCard", () => {
+  it("moves a single card by id, using the card's own type", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    const card = list.cards.value[0]!; // id "a", pack "Source", type "white", active true
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.moveCard(card, "Target");
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/cards/move", {
+      method: "POST",
+      body: { from: { ids: ["a"] }, toPack: "Target", type: "white" },
+    });
+    expect(card.pack).toBe("Target");
+    expect(packs.applyCardsMoved).toHaveBeenCalledWith("Source", "Target", "white", 1, 1);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "success" }),
+    );
+  });
+
+  it("no-ops when the target equals the card's current pack", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    const card = list.cards.value[0]!;
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.moveCard(card, "Source");
+
+    expect(ok).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+
+  it("reports failure and leaves the card's pack unchanged", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    const card = list.cards.value[0]!;
+    fetchMock.mockRejectedValue(new Error("boom"));
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.moveCard(card, "Target");
+
+    expect(ok).toBe(false);
+    expect(card.pack).toBe("Source");
+    expect(packs.applyCardsMoved).not.toHaveBeenCalled();
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "error" }),
+    );
+  });
+});
+
+describe("deleteSelectedCards", () => {
+  it("emits one honest summary toast when every delete succeeds", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    list.selectedCardIds.value = ["a", "b"];
+    fetchMock.mockResolvedValue({});
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.deleteSelectedCards();
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: "success",
+        description: expect.stringMatching(/2 cards/),
+      }),
+    );
+  });
+
+  it("reports an honest partial count in one toast when some deletes fail", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    list.selectedCardIds.value = ["a", "b"];
+    fetchMock.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("boom"));
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.deleteSelectedCards();
+
+    expect(ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: "error",
+        description: expect.stringMatching(/1 of 2/),
+      }),
+    );
+  });
+
+  it("aborts after 5 consecutive failures and reports what was deleted before stopping", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    const ids = Array.from({ length: 10 }, (_, i) => `id-${i}`);
+    list.cards.value = ids.map((id) => ({
+      id,
+      text: id,
+      pack: "Source",
+      active: true,
+      type: "white",
+    }));
+    list.selectedCardIds.value = [...ids];
+    fetchMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockRejectedValue(new Error("boom"));
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.deleteSelectedCards();
+
+    expect(ok).toBe(false);
+    // 2 successes, then 5 consecutive failures trip the abort — 7 attempts,
+    // not all 10.
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        color: "error",
+        description: expect.stringMatching(/2 of 10/),
+      }),
+    );
+  });
+
+  it("does nothing when nothing is selected", async () => {
+    const list = makeList();
+    const packs = makePacks();
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.deleteSelectedCards();
+
+    expect(ok).toBe(false);
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the confirmation is declined", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    list.selectedCardIds.value = ["a"];
+    confirmMock.mockResolvedValue(false);
+
+    const m = useAdminCardMutations({ list, packs });
+    const ok = await m.deleteSelectedCards();
+
+    expect(ok).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("single-card actions while browsing All", () => {
   it("toggles using the card's own type, never the ambient filter", async () => {
     const list = makeList();

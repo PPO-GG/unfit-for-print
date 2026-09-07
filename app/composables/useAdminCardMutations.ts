@@ -99,7 +99,12 @@ export function useAdminCardMutations({
     }
   };
 
-  const deleteCard = async (card: AdminCard) => {
+  /**
+   * `silent` is for `deleteSelectedCards`: 200 cards looping this would
+   * otherwise fire 200 toasts. It still does the list/mirror bookkeeping —
+   * only the notify() is skipped.
+   */
+  const deleteCard = async (card: AdminCard, opts?: { silent?: boolean }) => {
     const type = resolveCardType(card);
     try {
       await $activityFetch("/api/admin/cards/delete", {
@@ -108,9 +113,49 @@ export function useAdminCardMutations({
       });
       list.removeCard(card.id);
       packs.applyCardDeleted(card.pack, type, !!card.active);
-      notify({ title: "Card Deleted", color: "success" });
+      if (!opts?.silent) notify({ title: "Card Deleted", color: "success" });
+      return true;
     } catch {
-      notify({ title: "Delete Failed", color: "error" });
+      if (!opts?.silent) notify({ title: "Delete Failed", color: "error" });
+      return false;
+    }
+  };
+
+  /**
+   * Move one card — the inspector's pack picker. Distinct from
+   * moveSelectedCards, which operates on the bulk selection: the inspector is
+   * shown when at most one card is ticked, so routing it through the bulk
+   * path either did nothing (no selection) or moved a different card (one
+   * card selected that isn't the one being inspected).
+   */
+  const moveCard = async (card: AdminCard, toPack: string) => {
+    const target = toPack.trim();
+    if (!target || target === card.pack) return false;
+    const type = resolveCardType(card);
+
+    bulkActionLoading.value = true;
+    try {
+      await $activityFetch<MoveResponse>("/api/admin/cards/move", {
+        method: "POST",
+        body: { from: { ids: [card.id] }, toPack: target, type },
+      });
+
+      const from = card.pack;
+      list.invalidateCache();
+      card.pack = target;
+      packs.applyCardsMoved(from, target, type, 1, card.active ? 1 : 0);
+
+      notify({ title: "Card Moved", description: `Moved to "${target}".`, color: "success" });
+      return true;
+    } catch {
+      notify({
+        title: "Move Failed",
+        description: `Could not move the card to "${target}".`,
+        color: "error",
+      });
+      return false;
+    } finally {
+      bulkActionLoading.value = false;
     }
   };
 
@@ -200,9 +245,14 @@ export function useAdminCardMutations({
   /**
    * Delete every currently-selected card. There is no bulk delete route —
    * `delete.post.ts` takes one id per call — so this confirms once for the
-   * whole selection and then loops the existing single-card `deleteCard`,
-   * which already does the per-card list/mirror bookkeeping and reports its
-   * own failures.
+   * whole selection and then loops the existing single-card `deleteCard`
+   * (which already does the per-card list/mirror bookkeeping) in silent
+   * mode, counting successes and failures itself so the admin gets one
+   * honest summary toast instead of one per card.
+   *
+   * Stops after 5 *consecutive* failures rather than grinding through the
+   * rest of a selection that is clearly failing (auth dropped, network
+   * down, …) — whatever succeeded before that point is still reported.
    */
   const deleteSelectedCards = async () => {
     const ids = [...list.selectedCardIds.value];
@@ -218,11 +268,41 @@ export function useAdminCardMutations({
 
     const selected = list.cards.value.filter((c: AdminCard) => ids.includes(c.id));
     bulkActionLoading.value = true;
+    let succeeded = 0;
+    let consecutiveFailures = 0;
+    let aborted = false;
     try {
       for (const card of selected) {
-        await deleteCard(card);
+        const ok = await deleteCard(card, { silent: true });
+        if (ok) {
+          succeeded++;
+          consecutiveFailures = 0;
+        } else {
+          consecutiveFailures++;
+          if (consecutiveFailures >= 5) {
+            aborted = true;
+            break;
+          }
+        }
       }
-      return true;
+
+      if (succeeded === ids.length) {
+        notify({
+          title: "Cards Deleted",
+          description: `Deleted ${plural(succeeded)}.`,
+          color: "success",
+        });
+        return true;
+      }
+
+      notify({
+        title: aborted ? "Delete Aborted" : "Delete Failed",
+        description: aborted
+          ? `Deleted ${succeeded} of ${ids.length} cards before stopping after repeated failures.`
+          : `Deleted ${succeeded} of ${ids.length} cards.`,
+        color: "error",
+      });
+      return false;
     } finally {
       bulkActionLoading.value = false;
     }
@@ -727,6 +807,7 @@ export function useAdminCardMutations({
     toggleCardActive,
     saveCardEdit,
     deleteCard,
+    moveCard,
     createCard,
     deactivateSelectedCards,
     deleteSelectedCards,

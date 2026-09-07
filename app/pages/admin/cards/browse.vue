@@ -32,7 +32,7 @@ const {
 
 const mutations = useAdminCardMutations({ list, packs });
 const {
-  bulkActionLoading, moveSelectedCards, toggleCardActive, deleteCard, saveCardEdit,
+  bulkActionLoading, moveSelectedCards, toggleCardActive, deleteCard, saveCardEdit, moveCard,
   deactivateSelectedCards, deleteSelectedCards,
 } = mutations;
 
@@ -41,6 +41,12 @@ const { searchTerm, cardType, selectedPack } = useCardSearch();
 // ── Route ⇄ state ───────────────────────────────────────────────────────────
 const inactiveOnly = ref(false);
 
+// The search box's own display value. `searchTerm` (the shared, module-level
+// state that actually drives fetchCards) only updates once this round-trips
+// through the URL — see the watchDebounced below — so the box can show every
+// keystroke without firing a request per keystroke.
+const searchInput = ref(searchTerm.value);
+
 function readRoute() {
   const q = route.query;
   selectedPack.value = (q.pack as string) || undefined;
@@ -48,13 +54,21 @@ function readRoute() {
   inactiveOnly.value = t === "inactive";
   cardType.value = (inactiveOnly.value ? "all" : t) as AdminCardFilter;
   searchTerm.value = (q.q as string) || "";
+  searchInput.value = searchTerm.value;
   sort.value = ((q.sort as string) || "pack") as AdminCardSort;
 }
 readRoute();
 watch(() => route.query, readRoute);
 
+// Every push carries the current (possibly not-yet-debounced) search text as
+// `q`, not just whatever the route already has — otherwise clicking a pack
+// rail entry mid-type would round-trip through readRoute with the old/blank
+// `q` and wipe out what's in the box before its own debounce got a chance to
+// push it.
 function pushQuery(patch: Record<string, string | undefined>) {
-  router.replace({ query: { ...route.query, ...patch } });
+  router.replace({
+    query: { ...route.query, q: searchInput.value || undefined, ...patch },
+  });
 }
 
 // ── Derived ─────────────────────────────────────────────────────────────────
@@ -101,8 +115,16 @@ const onPack = (name: string) => pushQuery({ pack: name });
 const onSelect = (id: string) => toggleCardSelected(id);
 const onInspect = (id: string) => (inspectedId.value = id);
 
+// Selection bar → bulk move over list.selectedCardIds.
 const onMove = async (target: string) => {
   if (await moveSelectedCards(target)) inspectedId.value = null;
+};
+// Inspector → the single card it is showing. AdminCardInspector only renders
+// the form (the source of this emit) when selectedCount <= 1, so this must
+// never go through the bulk path: with nothing selected that path is a
+// no-op, and with one *other* card selected it would move the wrong one.
+const onInspectorMove = async (target: string) => {
+  if (inspected.value) await moveCard(inspected.value, target);
 };
 const onSaveCard = async (payload: { text: string; pick?: number }) => {
   if (!inspected.value) return;
@@ -151,11 +173,19 @@ watch(arrowup!, (v) => v && step(-columns.value));
 watch(arrowdown!, (v) => v && step(columns.value));
 
 // ── Fetching ────────────────────────────────────────────────────────────────
-watch([cardType, selectedPack], () => {
+// One watch across all three query-driving refs, not three separate ones:
+// a pack click while text is still mid-debounce updates `selectedPack` and
+// `searchTerm` in the same readRoute() call (see pushQuery above), and Vue
+// coalesces multiple sources changing in the same flush into a single job —
+// so this fires fetchCards() exactly once per user action instead of racing
+// a second, separately-debounced fetch for the search half of the change.
+watch([cardType, selectedPack, searchTerm], () => {
   inspectedId.value = null;
   fetchCards();
 });
-watchDebounced(searchTerm, () => fetchCards(), { debounce: 400, maxWait: 900 });
+// The only debounce lives here, on the box's own display value, before it
+// ever reaches the route/searchTerm/fetch chain above.
+watchDebounced(searchInput, () => pushQuery({}), { debounce: 400, maxWait: 900 });
 
 onMounted(async () => {
   await Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]);
@@ -191,11 +221,11 @@ onMounted(async () => {
       <section class="flex-1 flex flex-col min-w-0">
         <AdminCardFilterBar
           :filter="activeFilter"
-          :search="searchTerm"
+          :search="searchInput"
           :sort="sort"
           :counts="counts"
           @update:filter="onFilter"
-          @update:search="searchTerm = $event"
+          @update:search="searchInput = $event"
           @update:sort="onSort"
         />
 
@@ -234,7 +264,7 @@ onMounted(async () => {
         :packs="allPackNames"
         :pack-name="selectedPack"
         @save="onSaveCard"
-        @move="onMove"
+        @move="onInspectorMove"
         @toggle-active="inspected && toggleCardActive(inspected)"
         @delete="onDeleteCard"
       />
