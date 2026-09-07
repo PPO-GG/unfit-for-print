@@ -55,16 +55,26 @@ export function useAdminCardMutations({
     list.clearList();
   }
 
+  /**
+   * A card's own type when it carries one, else a best-effort guess from the
+   * ambient filter. `AdminCard.type` is required and populated by
+   * `fetchCards`, so the fallback is only for callers holding a looser type.
+   */
+  function resolveCardType(card: AdminCard): AdminCardType {
+    return card.type ?? (cardType.value === "black" ? "black" : "white");
+  }
+
   // ── Single cards ─────────────────────────────────────────────────────────
   const toggleCardActive = async (card: AdminCard) => {
+    const type = resolveCardType(card);
     try {
       const updated = await $activityFetch<{ active: boolean }>(
         "/api/admin/cards/toggle",
-        { method: "POST", body: { id: card.id, type: cardType.value } },
+        { method: "POST", body: { id: card.id, type } },
       );
       card.active = updated.active;
       list.invalidateCache();
-      packs.applyCardToggled(card.pack, cardType.value, updated.active);
+      packs.applyCardToggled(card.pack, type, updated.active);
     } catch {
       notify({
         title: "Update Failed",
@@ -90,13 +100,14 @@ export function useAdminCardMutations({
   };
 
   const deleteCard = async (card: AdminCard) => {
+    const type = resolveCardType(card);
     try {
       await $activityFetch("/api/admin/cards/delete", {
         method: "POST",
-        body: { id: card.id, type: cardType.value },
+        body: { id: card.id, type },
       });
       list.removeCard(card.id);
-      packs.applyCardDeleted(card.pack, cardType.value, !!card.active);
+      packs.applyCardDeleted(card.pack, type, !!card.active);
       notify({ title: "Card Deleted", color: "success" });
     } catch {
       notify({ title: "Delete Failed", color: "error" });
@@ -347,7 +358,7 @@ export function useAdminCardMutations({
     // the move route rejects type "all" for id-based moves.
     const byType = new Map<AdminCardType, AdminCard[]>();
     for (const card of selected) {
-      const t = card.type ?? (cardType.value === "black" ? "black" : "white");
+      const t = resolveCardType(card);
       if (!byType.has(t)) byType.set(t, []);
       byType.get(t)!.push(card);
     }
@@ -444,7 +455,7 @@ export function useAdminCardMutations({
   function mirrorMovedCards(cards: AdminCard[], target: string) {
     const groups = new Map<string, { pack: string | undefined; type: AdminCardType; cards: AdminCard[] }>();
     for (const card of cards) {
-      const type = card.type ?? (cardType.value === "black" ? "black" : "white");
+      const type = resolveCardType(card);
       const key = `${card.pack ?? ""}::${type}`;
       const group = groups.get(key);
       if (group) group.cards.push(card);

@@ -4,6 +4,7 @@ import { ref } from "vue";
 const fetchMock = vi.fn();
 const notifyMock = vi.fn();
 const confirmMock = vi.fn();
+const cardTypeRef = ref("white");
 
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: fetchMock }));
 vi.mock("~/composables/useNotifications", () => ({
@@ -14,7 +15,7 @@ vi.mock("~/composables/useConfirm", () => ({
 }));
 vi.mock("~/composables/useCardSearch", () => ({
   useCardSearch: () => ({
-    cardType: ref("white"),
+    cardType: cardTypeRef,
     selectedPack: ref<string | undefined>("Source"),
     searchTerm: ref(""),
   }),
@@ -64,6 +65,7 @@ beforeEach(() => {
   notifyMock.mockReset();
   confirmMock.mockReset();
   confirmMock.mockResolvedValue(true);
+  cardTypeRef.value = "white";
 });
 
 describe("moveSelectedCards", () => {
@@ -377,5 +379,39 @@ describe("mergePacks", () => {
     expect(notifyMock).toHaveBeenCalledWith(
       expect.objectContaining({ color: "error", description: expect.stringMatching(/1 of 2/) }),
     );
+  });
+});
+
+describe("single-card actions while browsing All", () => {
+  it("toggles using the card's own type, never the ambient filter", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    cardTypeRef.value = "all";
+    fetchMock.mockResolvedValue({ active: false });
+
+    const m = useAdminCardMutations({ list, packs });
+    await m.toggleCardActive({ id: "b1", text: "b", pack: "Source", active: true, type: "black" } as never);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/cards/toggle", {
+      method: "POST",
+      body: { id: "b1", type: "black" },
+    });
+    expect(packs.applyCardToggled).toHaveBeenCalledWith("Source", "black", false);
+  });
+
+  it("deletes using the card's own type, never the ambient filter", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    cardTypeRef.value = "all";
+    fetchMock.mockResolvedValue({});
+
+    const m = useAdminCardMutations({ list, packs });
+    await m.deleteCard({ id: "w1", text: "w", pack: "Source", active: true, type: "white" } as never);
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/cards/delete", {
+      method: "POST",
+      body: { id: "w1", type: "white" },
+    });
+    expect(packs.applyCardDeleted).toHaveBeenCalledWith("Source", "white", true);
   });
 });
