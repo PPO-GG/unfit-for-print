@@ -68,13 +68,31 @@ describe("AdminCardForm", () => {
     expect(wrapper.emitted("save")).toBeUndefined();
   });
 
-  it("saves once when the same edit is committed twice", async () => {
+  it("saves once when Ctrl+Enter is followed by a blur, before the parent catches up", async () => {
     const wrapper = mountForm();
     wrapper.vm.draft.text = "Edited.";
     await wrapper.vm.save(); // Ctrl+Enter
-    await wrapper.setProps({ card: { ...white, text: "Edited." } }); // Parent updates the card
-    await wrapper.vm.save(); // the blur that follows
+    await wrapper.vm.save(); // the blur that follows, props not yet updated
     expect(wrapper.emitted("save")).toHaveLength(1);
+  });
+
+  it("saves again when the text changes after a save, still before the parent catches up", async () => {
+    const wrapper = mountForm();
+    wrapper.vm.draft.text = "Edited.";
+    await wrapper.vm.save();
+    wrapper.vm.draft.text = "Edited twice.";
+    await wrapper.vm.save();
+    expect(wrapper.emitted("save")).toHaveLength(2);
+  });
+
+  it("lets a different card save the same text the previous one had", async () => {
+    const wrapper = mountForm();
+    wrapper.vm.draft.text = "Shared text.";
+    await wrapper.vm.save();
+    await wrapper.setProps({ card: { ...white, id: "w2", text: "Different." } });
+    wrapper.vm.draft.text = "Shared text.";
+    await wrapper.vm.save();
+    expect(wrapper.emitted("save")).toHaveLength(2);
   });
 
   it("saves again once the card prop catches up and the text changes again", async () => {

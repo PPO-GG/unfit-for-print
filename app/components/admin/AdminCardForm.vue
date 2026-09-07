@@ -7,7 +7,7 @@
  * clicking away from an unsaved edit discards it rather than leaking it onto
  * the next card.
  */
-import { reactive, watch } from "vue";
+import { reactive, ref, watch } from "vue";
 import type { AdminCard } from "~/composables/useAdminCardList";
 
 const props = defineProps<{
@@ -25,11 +25,17 @@ const emit = defineEmits<{
 
 const draft = reactive({ text: props.card.text ?? "", pick: props.card.pick ?? 1 });
 
+// What we last emitted via `save`, so a blur that follows a Ctrl/Cmd+Enter
+// save can be recognized as a repeat even though the parent's save is async
+// and props.card has not caught up yet (see below).
+const lastEmitted = ref<{ text: string; pick?: number } | null>(null);
+
 watch(
   () => props.card.id,
   () => {
     draft.text = props.card.text ?? "";
     draft.pick = props.card.pick ?? 1;
+    lastEmitted.value = null;
   },
 );
 
@@ -40,12 +46,22 @@ function save() {
   const pick = props.card.type === "black" ? Number(draft.pick) || 1 : undefined;
   // Both blur and Ctrl/Cmd+Enter reach this. Without a dirty check, saving
   // with the keyboard and then moving focus away sends the same edit twice.
-  const unchanged =
+  // The parent's save is async, so props.card may still hold the pre-save
+  // values when the second call lands — comparing against lastEmitted (what
+  // we ourselves just sent) catches that case; comparing against props.card
+  // is kept as a cheap short-circuit for the common "nothing changed" case.
+  const payload = { text, pick };
+  const unchangedFromCard =
     text === (props.card.text ?? "").trim() &&
     pick === (props.card.type === "black" ? props.card.pick ?? 1 : undefined);
-  if (unchanged) return;
+  const unchangedFromLastEmitted =
+    lastEmitted.value !== null &&
+    lastEmitted.value.text === payload.text &&
+    lastEmitted.value.pick === payload.pick;
+  if (unchangedFromCard || unchangedFromLastEmitted) return;
 
-  emit("save", { text, pick });
+  lastEmitted.value = payload;
+  emit("save", payload);
 }
 
 defineExpose({ draft, save });
