@@ -10,6 +10,7 @@
 import { reactive, ref, watch, computed } from "vue";
 import type { AdminCard } from "~/composables/useAdminCardList";
 import { cardRate, packAverage, MIN_PLAYS_FOR_RATE } from "~/composables/useAdminCardStats";
+import { getCardImageUrl } from "~/utils/cardImage";
 
 const props = defineProps<{
   card: AdminCard;
@@ -17,6 +18,18 @@ const props = defineProps<{
   packCards?: AdminCard[];
   saving?: boolean;
 }>();
+
+/**
+ * An image card has no text to edit — showing it an empty textarea invited an
+ * edit that /api/admin/cards/edit turns into "this card is text now", nulling
+ * imageKey/imageFormat/attachment. Show the image instead; the page passes the
+ * existing image fields back through on save so they survive a pick change.
+ * Editing the attachment itself is a follow-up.
+ */
+const hasImage = computed(() => Boolean(props.card.imageKey));
+const imageUrl = computed(() =>
+  props.card.imageKey ? getCardImageUrl(props.card.imageKey) : "",
+);
 
 const rate = computed(() => cardRate(props.card));
 const average = computed(() => packAverage(props.packCards ?? [], rate.value.kind));
@@ -47,7 +60,8 @@ watch(
 
 function save() {
   const text = draft.text.trim();
-  if (!text) return;
+  // An image card legitimately has no text, and its `pick` is still editable.
+  if (!text && !hasImage.value) return;
 
   const pick = props.card.type === "black" ? Number(draft.pick) || 1 : undefined;
   // Both blur and Ctrl/Cmd+Enter reach this. Without a dirty check, saving
@@ -79,7 +93,18 @@ defineExpose({ draft, save });
       {{ card.type }} card
     </p>
 
-    <UFormField label="Text">
+    <UFormField v-if="hasImage" label="Image">
+      <img
+        data-testid="card-image"
+        class="w-full rounded border border-slate-700 object-contain bg-slate-950"
+        :src="imageUrl"
+        alt=""
+      />
+      <p class="text-[10px] text-slate-500 mt-1">
+        Image cards have no text. Re-upload to replace the picture.
+      </p>
+    </UFormField>
+    <UFormField v-else label="Text">
       <UTextarea
         v-model="draft.text"
         :rows="4"

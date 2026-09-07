@@ -686,11 +686,13 @@ export function useAdminCardMutations({
 
     const targetExists = packExists(target);
 
-    // No confirm() here: the rename dialog IS the confirmation — the admin
-    // typed a name and pressed its action button. Opening useConfirm's global
-    // modal on top of an already-open one stacked two backdrop blurs and hid
-    // the dialog underneath. The consequences are stated inside that dialog
-    // instead, via renameSummary().
+    // No confirm() here: this used to be reached from a rename dialog, where
+    // opening useConfirm's global modal on top of it stacked two backdrop
+    // blurs and hid the dialog underneath. The inline rename on the pack tile
+    // has no dialog of its own, so the caller confirms instead — see the
+    // rename handler in app/pages/admin/cards/index.vue, which puts
+    // renameSummary() in front of the admin whenever the target already
+    // exists and the rename is really a merge.
     bulkActionLoading.value = true;
     try {
       const { aux } = await $activityFetch<MoveResponse>("/api/admin/cards/move", {
@@ -735,8 +737,8 @@ export function useAdminCardMutations({
     // so, or the "the target's settings win" line would be a lie.
     const targetExists = packExists(target);
 
-    // No confirm() here either — see renamePack. mergeSummary() puts the same
-    // explanation inside the merge dialog, where the admin reads it before
+    // No confirm() here either — see renamePack. mergeSummary() is rendered in
+    // the merge popover on the Packs screen, where the admin reads it before
     // pressing the button rather than after.
     bulkActionLoading.value = true;
     // Sources that already completed their move server-side before a later
@@ -820,6 +822,7 @@ export function useAdminCardMutations({
     moveSelectedCards,
     renamePack,
     mergePacks,
+    packExists,
     renameSummary,
     mergeSummary,
   };

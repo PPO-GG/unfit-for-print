@@ -27,7 +27,7 @@ const list = useAdminCardList();
 const {
   cards, sortedCards, loadingCards, sort,
   selectedCardIds, isCardSelected, toggleCardSelected, selectCardRangeTo,
-  selectAllLoaded, clearCardSelection, fetchCards,
+  selectAllOf, clearCardSelection, fetchCards,
 } = list;
 
 const mutations = useAdminCardMutations({ list, packs });
@@ -39,7 +39,25 @@ const {
 const { searchTerm, cardType, selectedPack } = useCardSearch();
 
 // ── Route ⇄ state ───────────────────────────────────────────────────────────
-const inactiveOnly = ref(false);
+/** The chip row. "inactive" crosses both types, so it is not an AdminCardFilter. */
+type BrowseFilter = AdminCardFilter | "inactive";
+const BROWSE_FILTERS: BrowseFilter[] = ["all", "white", "black", "inactive"];
+
+/**
+ * The chip is **local page state, not `useCardSearch.cardType`**.
+ *
+ * Two reasons, and both are bugs this replaced. Writing "all" into that
+ * module-level singleton leaked out of this page: /admin/cards/duplicates
+ * reads the same ref and sends it as `type` to routes that resolve one table
+ * and 400 on "all", so any visit here left that page broken. And driving the
+ * *fetch* from the chip meant Black loaded only the black table, so the bar
+ * read "White 0" — while the spec's chips are "filters over one loaded result
+ * set, so switching between them costs nothing".
+ *
+ * So: the browser always fetches both tables, and the chip only narrows what
+ * is already in memory. Chip clicks change the URL and nothing else.
+ */
+const typeFilter = ref<BrowseFilter>("all");
 
 // The search box's own display value. `searchTerm` (the shared, module-level
 // state that actually drives fetchCards) only updates once this round-trips
@@ -60,17 +78,29 @@ function readSort(raw: unknown): AdminCardSort {
   return SORTS.includes(raw as AdminCardSort) ? (raw as AdminCardSort) : "pack";
 }
 
+const BROWSE_PATH = "/admin/cards/browse";
+
 function readRoute() {
+  // Nuxt updates `route` before the outgoing page unmounts, so navigating away
+  // to /admin/cards fires this watcher with an empty query — which used to
+  // reset pack/type/search to their widest values and fetch every card in
+  // every pack on the way out the door.
+  if (!route.path.startsWith(BROWSE_PATH)) return;
   const q = route.query;
   selectedPack.value = (q.pack as string) || undefined;
   const t = (q.type as string) || "all";
-  inactiveOnly.value = t === "inactive";
-  cardType.value = (inactiveOnly.value ? "all" : t) as AdminCardFilter;
+  typeFilter.value = BROWSE_FILTERS.includes(t as BrowseFilter)
+    ? (t as BrowseFilter)
+    : "all";
   searchTerm.value = (q.q as string) || "";
   searchInput.value = searchTerm.value;
   sort.value = readSort(q.sort);
 }
 readRoute();
+// Set once, in setup, before the fetch watcher below exists: the browser is a
+// cross-type surface, so every fetch merges both tables and the chips filter
+// the result. Nothing here ever writes a narrower value back.
+cardType.value = "all";
 watch(() => route.query, readRoute);
 
 // Every push carries the current (possibly not-yet-debounced) search text as
@@ -85,8 +115,8 @@ function pushQuery(patch: Record<string, string | undefined>) {
 }
 
 // ── Derived ─────────────────────────────────────────────────────────────────
-const activeFilter = computed(() => (inactiveOnly.value ? "inactive" : cardType.value));
-
+// Counts come off the whole loaded set, never the filtered view — that is what
+// makes "Black 500 · White 735" true whichever chip is active.
 const counts = computed(() => ({
   all: cards.value.length,
   white: cards.value.filter((c) => c.type === "white").length,
@@ -94,9 +124,12 @@ const counts = computed(() => ({
   inactive: cards.value.filter((c) => c.active === false).length,
 }));
 
-const visible = computed(() =>
-  inactiveOnly.value ? sortedCards.value.filter((c) => c.active === false) : sortedCards.value,
-);
+const visible = computed(() => {
+  const rows = sortedCards.value;
+  if (typeFilter.value === "all") return rows;
+  if (typeFilter.value === "inactive") return rows.filter((c) => c.active === false);
+  return rows.filter((c) => c.type === typeFilter.value);
+});
 
 const allPackNames = computed(() => Object.keys(packStats.value).sort());
 
@@ -125,7 +158,18 @@ const onFilter = (f: string) =>
 const onSort = (s: AdminCardSort) => pushQuery({ sort: s === "pack" ? undefined : s });
 const onPack = (name: string) => pushQuery({ pack: name });
 
-const onSelect = (id: string) => toggleCardSelected(id);
+// Shift extends a range; a plain click toggles one card. The range is measured
+// over `visible`, not the loaded set, so a chip-hidden card can never end up
+// selected by a gesture that never touched it.
+const onSelect = (id: string, ev?: MouseEvent) => {
+  if (ev?.shiftKey) selectCardRangeTo(id, visible.value.map((c) => c.id));
+  else toggleCardSelected(id);
+};
+
+// "Select all N" is labelled from the visible set, so it must select the
+// visible set — under the Inactive chip it used to read "Select all 12" and
+// select every loaded card, with Deactivate one click away and no confirm.
+const onSelectAll = () => selectAllOf(visible.value.map((c) => c.id));
 const onInspect = (id: string) => (inspectedId.value = id);
 
 // Selection bar → bulk move over list.selectedCardIds.
@@ -139,9 +183,22 @@ const onMove = async (target: string) => {
 const onInspectorMove = async (target: string) => {
   if (inspected.value) await moveCard(inspected.value, target);
 };
+// /api/admin/cards/edit nulls imageKey/imageFormat/attachment whenever
+// `imageFileId` is absent from the body, so a text-only payload silently turns
+// an image card into an empty text card. Pass the card's existing image fields
+// straight back through. (Editing the image itself is a follow-up; this only
+// stops a routine edit destroying it.)
 const onSaveCard = async (payload: { text: string; pick?: number }) => {
-  if (!inspected.value) return;
-  await saveCardEdit({ id: inspected.value.id, type: inspected.value.type, ...payload });
+  const card = inspected.value;
+  if (!card) return;
+  await saveCardEdit({
+    id: card.id,
+    type: card.type,
+    ...payload,
+    imageFileId: card.imageKey ?? undefined,
+    imageFormat: card.imageFormat ?? undefined,
+    attachment: card.attachment ?? undefined,
+  });
 };
 // deleteCard resolves void — it reports through notify() — so clear the
 // inspection unconditionally rather than testing a return value it never has.
@@ -196,6 +253,12 @@ watch([cardType, selectedPack, searchTerm], () => {
   inspectedId.value = null;
   fetchCards();
 });
+// A chip change fetches nothing, so it does not go through fetchCards' own
+// clearCardSelection — but it does change what is on screen, and a selection
+// that outlives the chip would let Deactivate act on cards the admin can no
+// longer see. Same invariant fetchCards keeps, enforced on the filter too.
+watch(typeFilter, clearCardSelection);
+
 // The only debounce lives here, on the box's own display value, before it
 // ever reaches the route/searchTerm/fetch chain above.
 watchDebounced(searchInput, () => pushQuery({}), { debounce: 400, maxWait: 900 });
@@ -233,7 +296,7 @@ onMounted(async () => {
 
       <section class="flex-1 flex flex-col min-w-0">
         <AdminCardFilterBar
-          :filter="activeFilter"
+          :filter="typeFilter"
           :search="searchInput"
           :sort="sort"
           :counts="counts"
@@ -265,7 +328,7 @@ onMounted(async () => {
           @move="onMove"
           @deactivate="onDeactivateSelected"
           @delete="onDeleteSelected"
-          @select-all="selectAllLoaded"
+          @select-all="onSelectAll"
           @clear="clearCardSelection"
         />
       </section>

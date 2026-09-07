@@ -10,6 +10,7 @@ import { computed, ref, onMounted } from "vue";
 import { useAdminPackStats } from "~/composables/useAdminPackStats";
 import { useAdminCardList } from "~/composables/useAdminCardList";
 import { useAdminCardMutations } from "~/composables/useAdminCardMutations";
+import { useConfirm } from "~/composables/useConfirm";
 
 definePageMeta({ middleware: "admin" });
 
@@ -24,7 +25,12 @@ const {
 
 const list = useAdminCardList();
 const mutations = useAdminCardMutations({ list, packs });
-const { bulkActionLoading, renamePack, mergePacks, bulkTogglePacks, bulkDeletePacks, createCard } = mutations;
+const {
+  bulkActionLoading, renamePack, mergePacks, bulkTogglePacks, bulkDeletePacks, createCard,
+  packExists, renameSummary, mergeSummary,
+} = mutations;
+
+const { confirm } = useConfirm();
 
 const showAdd = ref(false);
 const mergeTarget = ref("");
@@ -89,7 +95,32 @@ const orderedPacks = computed(() => {
 const openPack = (name: string) =>
   router.push({ path: "/admin/cards/browse", query: { pack: name } });
 
-const onRename = (from: string, to: string) => renamePack(from, to);
+/**
+ * Renaming a pack onto a name that already exists is a *merge* server-side:
+ * the source's `card_packs` row is deleted and its description/default status
+ * go with it, with no undo. The inline rename on the tile is not a dialog, so
+ * this is the only place that can put renameSummary()'s warning — the "already
+ * exists, so this merges" line and the live-lobby caveat — in front of the
+ * admin before it happens. A plain rename onto a free name needs no confirm.
+ */
+const onRename = async (from: string, to: string) => {
+  const target = to.trim();
+  if (!target || target === from) return;
+  if (packExists(target)) {
+    const ok = await confirm({
+      title: `Merge "${from}" into "${target}"?`,
+      message: renameSummary(from, target),
+      confirmButtonText: "Merge",
+      confirmButtonColor: "warning",
+    });
+    if (!ok) return;
+  }
+  await renamePack(from, target);
+};
+
+const mergeWarning = computed(() =>
+  mergeSummary([...selectedPacks.value], mergeTarget.value),
+);
 
 const confirmMerge = async () => {
   if (await mergePacks([...selectedPacks.value], mergeTarget.value)) {
@@ -148,6 +179,12 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
               :exclude="selectedPacks"
               label="Destination"
             />
+            <!-- The popover replaced the merge dialog, so this is where the
+                 consequences have to be stated: which pack's settings survive,
+                 and that games in progress drop the merged packs. -->
+            <p v-if="mergeWarning" data-testid="merge-summary" class="text-[11px] text-amber-300/90">
+              {{ mergeWarning }}
+            </p>
             <UButton size="xs" color="primary" :disabled="!mergeTarget.trim()" @click="confirmMerge">
               Merge
             </UButton>

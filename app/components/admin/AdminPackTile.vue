@@ -36,7 +36,16 @@ async function startRename() {
   inputEl.value?.focus();
 }
 
+/**
+ * Reached from both `@keydown.enter` and `@blur`, and Chrome fires `blur` when
+ * a focused element is removed from the DOM — so Enter re-enters this via the
+ * blur its own `editing = false` causes (two racing renames), and Escape,
+ * which only closes the editor, used to commit whatever had been typed. The
+ * re-entrancy guard is what makes both correct: once the editor is closed,
+ * there is nothing left to commit.
+ */
 function commitRename() {
+  if (!editing.value) return;
   const next = draft.value.trim();
   editing.value = false;
   if (next && next !== props.pack.name) emit("rename", next);

@@ -3,7 +3,12 @@
     class="admin-card-preview group relative select-none"
     :class="[
       isBlack ? 'card--black' : 'card--white',
-      { selected, inspected, 'ring-2 ring-primary-500 ring-offset-2 ring-offset-slate-900': selected },
+      {
+        selected,
+        inspected,
+        'ring-2 ring-primary-500 ring-offset-2 ring-offset-slate-900': selected,
+        'opacity-40': active === false,
+      },
     ]"
     @click="emit('click')"
   >
@@ -66,7 +71,7 @@
       class="card-select"
       :aria-pressed="selected"
       aria-label="Select card"
-      @click.stop="emit('toggle-select')"
+      @click.stop="emit('toggle-select', $event)"
     >
       <span class="card-select-box" :class="{ 'is-on': selected }" />
     </button>
@@ -99,9 +104,15 @@ const props = withDefaults(
   { selected: false, inspected: false },
 );
 
-const emit = defineEmits<{ click: []; "toggle-select": [] }>();
+// toggle-select carries its MouseEvent so the page can tell a shift-click
+// (extend the range) from a plain one (toggle this card).
+const emit = defineEmits<{ click: []; "toggle-select": [MouseEvent] }>();
 
 const isBlack = computed(() => props.type === "black");
+
+// The root's `opacity-40` when `active === false` is deliberate: inactive
+// cards are dimmed, not hidden, so a deactivation stays visible in context.
+// That is the whole point of Inactive being a filter chip rather than a mode.
 
 const cardBodyEl = ref<HTMLElement | null>(null);
 const cardTextEl = ref<HTMLElement | null>(null);

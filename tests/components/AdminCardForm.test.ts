@@ -113,6 +113,48 @@ describe("AdminCardForm", () => {
   });
 });
 
+describe("AdminCardForm — image cards", () => {
+  const image = {
+    id: "i1",
+    text: "",
+    type: "white" as const,
+    pack: "Memes",
+    active: true,
+    imageKey: "doge.webp",
+    imageFormat: "webp",
+  };
+
+  it("renders the image instead of the text field", () => {
+    const wrapper = mount(AdminCardForm, {
+      props: { card: image, packs: ["Memes"] },
+      global: { stubs },
+    });
+    const img = wrapper.find('[data-testid="card-image"]');
+    expect(img.exists()).toBe(true);
+    expect(img.attributes("src")).toBe("/api/cards/images/doge.webp");
+    expect(wrapper.find("textarea").exists()).toBe(false);
+  });
+
+  it("still renders the textarea for a text card", () => {
+    const wrapper = mount(AdminCardForm, {
+      props: { card: white, packs: ["Base"] },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="card-image"]').exists()).toBe(false);
+    expect(wrapper.find("textarea").exists()).toBe(true);
+  });
+
+  it("lets an image card save a changed pick, which empty text would otherwise block", async () => {
+    const wrapper = mount(AdminCardForm, {
+      props: { card: { ...image, type: "black" as const, pick: 1 }, packs: ["Memes"] },
+      global: { stubs },
+    });
+    wrapper.vm.draft.pick = 2;
+    await wrapper.vm.save();
+    expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "", pick: 2 }]);
+  });
+});
+
 describe("AdminCardForm — performance", () => {
   const packCards = [
     { id: "p1", text: "p", type: "white", timesPlayed: 100, timesWon: 5 },

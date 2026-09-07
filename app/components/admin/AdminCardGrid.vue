@@ -22,7 +22,9 @@ const props = defineProps<{
   packColors?: Record<string, string>;
 }>();
 
-const emit = defineEmits<{ select: [string]; inspect: [string] }>();
+// `select` carries the originating MouseEvent alongside the id, so the page
+// can route a shift-click to the range selector and a plain click to a toggle.
+const emit = defineEmits<{ select: [string, MouseEvent]; inspect: [string] }>();
 
 const container = ref<HTMLElement | null>(null);
 const { width } = useElementSize(container);
@@ -67,7 +69,7 @@ const isSelected = (id: string) => props.selectedIds.includes(id);
             :image-url="card.imageKey ? getCardImageUrl(card.imageKey) : undefined"
             :attachment="card.attachment"
             @click="emit('inspect', card.id)"
-            @toggle-select="emit('select', card.id)"
+            @toggle-select="emit('select', card.id, $event)"
           />
         </div>
       </div>

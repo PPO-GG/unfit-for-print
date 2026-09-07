@@ -150,6 +150,15 @@ describe("AdminCardPreview — selection affordances", () => {
     expect(wrapper.emitted("click")).toBeUndefined();
   });
 
+  it("hands the originating MouseEvent to toggle-select, so shift can extend a range", async () => {
+    const wrapper = mount(AdminCardPreview, { props: base });
+    await wrapper
+      .find('[data-testid="card-select"]')
+      .trigger("click", { shiftKey: true });
+    const payload = wrapper.emitted("toggle-select")?.at(-1)?.[0] as MouseEvent;
+    expect(payload?.shiftKey).toBe(true);
+  });
+
   it("emits click from the tile body", async () => {
     const wrapper = mount(AdminCardPreview, { props: base });
     await wrapper.trigger("click");
@@ -183,5 +192,20 @@ describe("AdminCardPreview — selection affordances", () => {
   it("omits the stripe entirely when the pack has no colour", () => {
     const wrapper = mount(AdminCardPreview, { props: base });
     expect(wrapper.find('[data-testid="card-stripe"]').exists()).toBe(false);
+  });
+});
+
+describe("AdminCardPreview — inactive cards", () => {
+  const base = { text: "A card.", pack: "Base", type: "white" as const };
+
+  it("dims an inactive card rather than hiding it", () => {
+    const wrapper = mount(AdminCardPreview, { props: { ...base, active: false } });
+    expect(wrapper.find(".admin-card-preview").classes()).toContain("opacity-40");
+    expect(wrapper.find(".card-body-text").text()).toContain("A card.");
+  });
+
+  it("leaves an active card at full opacity", () => {
+    const wrapper = mount(AdminCardPreview, { props: { ...base, active: true } });
+    expect(wrapper.find(".admin-card-preview").classes()).not.toContain("opacity-40");
   });
 });

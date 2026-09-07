@@ -20,6 +20,21 @@ const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
 const { cardType } = useCardSearch();
 
+/**
+ * This page is black-or-white only: every request it makes resolves a single
+ * table via `cardTable(type)`, which 400s on anything else, and its type
+ * toggle has no third state. `cardType` is a module-level singleton shared
+ * with the card browser, so coerce anything wider back to a table this page
+ * can actually scan. Done during setup, before the watcher below exists, so
+ * the coercion does not fire a second loadCards().
+ */
+if (cardType.value !== "white") cardType.value = "black";
+
+/** Never "all", whatever the shared ref later holds. */
+const requestType = computed<"white" | "black">(() =>
+  cardType.value === "white" ? "white" : "black",
+);
+
 const {
   processingAllSimilarCards,
   duplicateClusters,
@@ -149,7 +164,7 @@ const loadCards = async () => {
     const [cards, packs] = await Promise.all([
       $activityFetch<any[]>("/api/admin/cards/list", {
         query: {
-          type: cardType.value,
+          type: requestType.value,
           ...(includeDisabled.value ? {} : { active: "true" }),
         },
       }),
@@ -170,7 +185,7 @@ const runScan = async () => {
   resolvedKeys.value = new Set();
   await findAllSimilarCards(
     allCards.value,
-    cardType.value,
+    requestType.value,
     samePackOnly.value,
   );
 };
@@ -205,7 +220,7 @@ const applyDecision = async () => {
   try {
     await $activityFetch("/api/admin/cards/set-active", {
       method: "POST",
-      body: { ids, type: cardType.value, active: false },
+      body: { ids, type: requestType.value, active: false },
     });
 
     const disabled = new Set(ids);

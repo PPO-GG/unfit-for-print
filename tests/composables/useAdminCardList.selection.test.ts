@@ -65,6 +65,49 @@ describe("useAdminCardList — selection", () => {
     expect(list.selectedCardIds.value).toEqual(["b"]);
   });
 
+  it("ranges over the order it is given, not the whole loaded set", () => {
+    const list = useAdminCardList();
+    seedCards(list, ["a", "b", "c", "d", "e"]);
+    // What the chip leaves on screen: b, d, e — c is filtered away.
+    const visible = ["b", "d", "e"];
+
+    list.toggleCardSelected("b");
+    list.selectCardRangeTo("e", visible);
+
+    expect(list.selectedCardIds.value.sort()).toEqual(["b", "d", "e"]);
+  });
+
+  it("falls back to a plain toggle when the anchor is not in the given order", () => {
+    const list = useAdminCardList();
+    seedCards(list, ["a", "b", "c"]);
+
+    list.toggleCardSelected("a");
+    list.selectCardRangeTo("c", ["b", "c"]);
+
+    expect(list.selectedCardIds.value.sort()).toEqual(["a", "c"]);
+  });
+
+  it("selectAllOf selects exactly the ids given and nothing else", () => {
+    const list = useAdminCardList();
+    seedCards(list, ["a", "b", "c", "d"]);
+
+    list.selectAllOf(["b", "d"]);
+
+    expect(list.selectedCardIds.value.sort()).toEqual(["b", "d"]);
+    expect(list.isCardSelected("a")).toBe(false);
+    expect(list.isCardSelected("c")).toBe(false);
+  });
+
+  it("selectAllOf replaces a previous selection rather than adding to it", () => {
+    const list = useAdminCardList();
+    seedCards(list, ["a", "b", "c"]);
+    list.toggleCardSelected("a");
+
+    list.selectAllOf(["c"]);
+
+    expect(list.selectedCardIds.value).toEqual(["c"]);
+  });
+
   it("selects every loaded card", () => {
     const list = useAdminCardList();
     seedCards(list, ["a", "b", "c", "d"]);

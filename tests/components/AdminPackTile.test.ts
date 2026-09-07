@@ -58,6 +58,30 @@ describe("AdminPackTile", () => {
     expect(wrapper.emitted("rename")?.at(-1)).toEqual(["Renamed"]);
   });
 
+  it("emits rename exactly once when Enter is followed by the blur it causes", async () => {
+    const wrapper = mountTile();
+    await wrapper.find('[data-testid="pack-name"]').trigger("dblclick");
+    const input = wrapper.find('[data-testid="pack-rename"]');
+    await input.setValue("Renamed");
+    await input.trigger("keydown.enter");
+    // Chrome fires blur when the focused input is removed from the DOM, so
+    // the same commit path is reached twice — two racing renamePack calls.
+    await input.trigger("blur");
+    expect(wrapper.emitted("rename")).toHaveLength(1);
+  });
+
+  it("does not rename when the edit is abandoned with Escape", async () => {
+    const wrapper = mountTile();
+    await wrapper.find('[data-testid="pack-name"]').trigger("dblclick");
+    const input = wrapper.find('[data-testid="pack-rename"]');
+    await input.setValue("Typed but abandoned");
+    await input.trigger("keydown.esc");
+    // Escape closes the editor, and its removal fires blur — which used to
+    // commit whatever had been typed.
+    await input.trigger("blur");
+    expect(wrapper.emitted("rename")).toBeUndefined();
+  });
+
   it("keeps the checkbox and name above the open overlay", () => {
     const wrapper = mountTile();
     for (const id of ["pack-select", "pack-name"]) {
