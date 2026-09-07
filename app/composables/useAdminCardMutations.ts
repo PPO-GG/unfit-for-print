@@ -146,6 +146,88 @@ export function useAdminCardMutations({
     }
   };
 
+  /**
+   * Deactivate every currently-selected card. Splits by type since the bulk
+   * route (`set-active.post.ts`) resolves one table per call and 400s on
+   * type "all" — the same split `moveSelectedCards` already does for ids.
+   */
+  const deactivateSelectedCards = async () => {
+    const ids = [...list.selectedCardIds.value];
+    if (!ids.length) return false;
+
+    const selected = list.cards.value.filter((c: AdminCard) => ids.includes(c.id));
+    const byType = new Map<AdminCardType, AdminCard[]>();
+    for (const card of selected) {
+      const t = resolveCardType(card);
+      if (!byType.has(t)) byType.set(t, []);
+      byType.get(t)!.push(card);
+    }
+
+    bulkActionLoading.value = true;
+    try {
+      for (const [type, group] of byType) {
+        await $activityFetch("/api/admin/cards/set-active", {
+          method: "POST",
+          body: { ids: group.map((c) => c.id), type, active: false },
+        });
+        for (const card of group) {
+          // Only decrement the mirror for cards that were actually active —
+          // applyCardToggled always moves the counter by one, so re-applying
+          // it to an already-inactive card would drift the sidebar count.
+          if (card.active !== false) packs.applyCardToggled(card.pack, type, false);
+          card.active = false;
+        }
+      }
+      list.invalidateCache();
+      notify({
+        title: "Cards Deactivated",
+        description: `Deactivated ${plural(selected.length)}.`,
+        color: "success",
+      });
+      return true;
+    } catch {
+      notify({
+        title: "Deactivate Failed",
+        description: "Could not deactivate the selected cards.",
+        color: "error",
+      });
+      return false;
+    } finally {
+      bulkActionLoading.value = false;
+    }
+  };
+
+  /**
+   * Delete every currently-selected card. There is no bulk delete route —
+   * `delete.post.ts` takes one id per call — so this confirms once for the
+   * whole selection and then loops the existing single-card `deleteCard`,
+   * which already does the per-card list/mirror bookkeeping and reports its
+   * own failures.
+   */
+  const deleteSelectedCards = async () => {
+    const ids = [...list.selectedCardIds.value];
+    if (!ids.length) return false;
+
+    const confirmed = await confirm({
+      title: `Delete ${plural(ids.length)}`,
+      message: `Are you sure you want to permanently delete ${plural(ids.length)}? This cannot be undone.`,
+      confirmButtonText: `Delete ${plural(ids.length)}`,
+      confirmButtonColor: "error",
+    });
+    if (!confirmed) return false;
+
+    const selected = list.cards.value.filter((c: AdminCard) => ids.includes(c.id));
+    bulkActionLoading.value = true;
+    try {
+      for (const card of selected) {
+        await deleteCard(card);
+      }
+      return true;
+    } finally {
+      bulkActionLoading.value = false;
+    }
+  };
+
   // ── Whole packs ──────────────────────────────────────────────────────────
   /** Activate/deactivate a pack, scoped to whichever type is selected. */
   const togglePackActive = async (pack: string, setActive: boolean) => {
@@ -646,6 +728,8 @@ export function useAdminCardMutations({
     saveCardEdit,
     deleteCard,
     createCard,
+    deactivateSelectedCards,
+    deleteSelectedCards,
     togglePackActive,
     togglePackActiveAll,
     deletePackAll,
