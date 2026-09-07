@@ -25,8 +25,8 @@ import { useAdminCardMutations } from "~/composables/useAdminCardMutations";
 function makeList() {
   return {
     cards: ref([
-      { id: "a", text: "a", pack: "Source", active: true },
-      { id: "b", text: "b", pack: "Source", active: false },
+      { id: "a", text: "a", pack: "Source", active: true, type: "white" },
+      { id: "b", text: "b", pack: "Source", active: false, type: "white" },
     ]),
     totalCards: ref(2),
     selectedCardIds: ref<string[]>([]),
@@ -151,7 +151,7 @@ describe("moveSelectedCards", () => {
     const list = makeList();
     const packs = makePacks();
     const ids = Array.from({ length: 1200 }, (_, i) => `id-${i}`);
-    list.cards.value = ids.map((id) => ({ id, text: id, pack: "Source", active: true }));
+    list.cards.value = ids.map((id) => ({ id, text: id, pack: "Source", active: true, type: "white" }));
     list.selectedCardIds.value = [...ids];
     fetchMock
       .mockResolvedValueOnce({ moved: { white: 500, black: 0 }, aux: null })
@@ -174,7 +174,7 @@ describe("moveSelectedCards", () => {
     const list = makeList();
     const packs = makePacks();
     const ids = Array.from({ length: 1200 }, (_, i) => `id-${i}`);
-    list.cards.value = ids.map((id) => ({ id, text: id, pack: "Source", active: true }));
+    list.cards.value = ids.map((id) => ({ id, text: id, pack: "Source", active: true, type: "white" }));
     list.selectedCardIds.value = [...ids];
     fetchMock
       .mockResolvedValueOnce({ moved: { white: 500, black: 0 }, aux: null })
@@ -201,9 +201,9 @@ describe("moveSelectedCards", () => {
     const list = makeList();
     const packs = makePacks();
     list.cards.value = [
-      { id: "a", text: "a", pack: "Alpha", active: true },
-      { id: "b", text: "b", pack: "Beta", active: true },
-      { id: "c", text: "c", pack: "Alpha", active: false },
+      { id: "a", text: "a", pack: "Alpha", active: true, type: "white" },
+      { id: "b", text: "b", pack: "Beta", active: true, type: "white" },
+      { id: "c", text: "c", pack: "Alpha", active: false, type: "white" },
     ];
     list.selectedCardIds.value = ["a", "b", "c"];
     fetchMock.mockResolvedValue({ moved: { white: 3, black: 0 }, aux: null });
@@ -214,6 +214,45 @@ describe("moveSelectedCards", () => {
     expect(packs.applyCardsMoved).toHaveBeenCalledTimes(2);
     expect(packs.applyCardsMoved).toHaveBeenCalledWith("Alpha", "Target", "white", 2, 1);
     expect(packs.applyCardsMoved).toHaveBeenCalledWith("Beta", "Target", "white", 1, 1);
+  });
+});
+
+describe("moveSelectedCards — mixed card types", () => {
+  it("splits a cross-type selection into one request per type", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    list.cards.value = [
+      { id: "w1", text: "w", pack: "Source", active: true, type: "white" },
+      { id: "b1", text: "b", pack: "Source", active: true, type: "black" },
+    ];
+    list.selectedCardIds.value = ["w1", "b1"];
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
+
+    const m = useAdminCardMutations({ list, packs });
+    await m.moveSelectedCards("Target");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const types = fetchMock.mock.calls.map((c) => c[1].body.type).sort();
+    expect(types).toEqual(["black", "white"]);
+    // never "all" — the route 400s on it for id moves
+    expect(types).not.toContain("all");
+  });
+
+  it("mirrors each type separately so the sidebar counts stay right", async () => {
+    const list = makeList();
+    const packs = makePacks();
+    list.cards.value = [
+      { id: "w1", text: "w", pack: "Source", active: true, type: "white" },
+      { id: "b1", text: "b", pack: "Source", active: false, type: "black" },
+    ];
+    list.selectedCardIds.value = ["w1", "b1"];
+    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
+
+    const m = useAdminCardMutations({ list, packs });
+    await m.moveSelectedCards("Target");
+
+    expect(packs.applyCardsMoved).toHaveBeenCalledWith("Source", "Target", "white", 1, 1);
+    expect(packs.applyCardsMoved).toHaveBeenCalledWith("Source", "Target", "black", 1, 0);
   });
 });
 

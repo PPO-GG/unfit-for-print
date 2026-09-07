@@ -11,10 +11,11 @@
  */
 import { ref } from "vue";
 import { useCardSearch } from "~/composables/useCardSearch";
+import type { AdminCardType } from "~/composables/useCardSearch";
 import { useNotifications } from "~/composables/useNotifications";
 import { useConfirm } from "~/composables/useConfirm";
 import type { AdminCard, AdminCardList } from "~/composables/useAdminCardList";
-import type { AdminPackStats, AdminCardType } from "~/composables/useAdminPackStats";
+import type { AdminPackStats } from "~/composables/useAdminPackStats";
 
 /** Mirrors the server's MAX_IDS cap in server/api/admin/cards/move.post.ts. */
 const MOVE_CHUNK = 500;
@@ -342,29 +343,40 @@ export function useAdminCardMutations({
     const selected = list.cards.value.filter((c: AdminCard) => ids.includes(c.id));
     const sourcePack = selectedPack.value;
 
-    // The route caps a request at MOVE_CHUNK ids, and "select all N matching"
-    // routinely selects more than that, so send the selection in slices.
-    // Sequentially, not in parallel: a partial failure has to leave a
-    // prefix that completed, not an arbitrary subset.
-    const chunks: string[][] = [];
-    for (let i = 0; i < ids.length; i += MOVE_CHUNK) {
-      chunks.push(ids.slice(i, i + MOVE_CHUNK));
+    // Ids are only unique per table, so a cross-type selection must be split:
+    // the move route rejects type "all" for id-based moves.
+    const byType = new Map<AdminCardType, AdminCard[]>();
+    for (const card of selected) {
+      const t = card.type ?? (cardType.value === "black" ? "black" : "white");
+      if (!byType.has(t)) byType.set(t, []);
+      byType.get(t)!.push(card);
     }
 
     bulkActionLoading.value = true;
     const done = new Set<string>();
     let total = 0;
     try {
-      for (const chunk of chunks) {
-        const { moved } = await $activityFetch<MoveResponse>(
-          "/api/admin/cards/move",
-          {
-            method: "POST",
-            body: { from: { ids: chunk }, toPack: target, type: cardType.value },
-          },
-        );
-        total += moved.white + moved.black;
-        for (const id of chunk) done.add(id);
+      // The route caps a request at MOVE_CHUNK ids, and "select all N matching"
+      // routinely selects more than that, so send each type's slice of the
+      // selection in chunks. Sequentially, not in parallel: a partial failure
+      // has to leave a prefix that completed, not an arbitrary subset.
+      for (const [type, group] of byType) {
+        for (let i = 0; i < group.length; i += MOVE_CHUNK) {
+          const chunk = group.slice(i, i + MOVE_CHUNK);
+          const { moved } = await $activityFetch<MoveResponse>(
+            "/api/admin/cards/move",
+            {
+              method: "POST",
+              body: {
+                from: { ids: chunk.map((c) => c.id) },
+                toPack: target,
+                type,
+              },
+            },
+          );
+          total += moved.white + moved.black;
+          for (const card of chunk) done.add(card.id);
+        }
       }
 
       list.invalidateCache();
@@ -422,21 +434,25 @@ export function useAdminCardMutations({
   };
 
   /**
-   * Debit each source pack separately. In search mode (no pack filter) the
-   * selection can span several source packs; crediting the target off a
-   * single `selectedPack` (which is `undefined` there) would inflate the
-   * sidebar until a refetch, since the real sources never got debited.
+   * Debit each source pack separately, and each type separately within it.
+   * In search mode (no pack filter) the selection can span several source
+   * packs; crediting the target off a single `selectedPack` (which is
+   * `undefined` there) would inflate the sidebar until a refetch, since the
+   * real sources never got debited. It can also span both card types now
+   * that `All` is a filter, and white/black are separate stat buckets.
    */
   function mirrorMovedCards(cards: AdminCard[], target: string) {
-    const groups = new Map<string | undefined, AdminCard[]>();
+    const groups = new Map<string, { pack: string | undefined; type: AdminCardType; cards: AdminCard[] }>();
     for (const card of cards) {
-      const group = groups.get(card.pack);
-      if (group) group.push(card);
-      else groups.set(card.pack, [card]);
+      const type = card.type ?? (cardType.value === "black" ? "black" : "white");
+      const key = `${card.pack ?? ""}::${type}`;
+      const group = groups.get(key);
+      if (group) group.cards.push(card);
+      else groups.set(key, { pack: card.pack, type, cards: [card] });
     }
-    for (const [groupPack, group] of groups) {
+    for (const { pack: groupPack, type, cards: group } of groups.values()) {
       const groupActive = group.filter((c) => c.active).length;
-      packs.applyCardsMoved(groupPack, target, cardType.value, group.length, groupActive);
+      packs.applyCardsMoved(groupPack, target, type, group.length, groupActive);
     }
   }
 
