@@ -48,7 +48,7 @@ docker start unfit-postgres-test
 
 If it needs recreating: `docker run -d --name unfit-postgres-test -p 5433:5432 -e POSTGRES_USER=unfit -e POSTGRES_PASSWORD=unfit -e POSTGRES_DB=unfit postgres:16-alpine`, then apply migrations with `DATABASE_URL=$TEST_DATABASE_URL pnpm db:migrate`.
 
-Known-failing suites as of 2026-09-05, unrelated to card handling: `lobby-detail-admin`, `lobby-prune`, `lobby-registry` (DB), plus `UserHand`, three mobile suites, `useVoicePreview`, `AvatarDecoration`, `userPrefsStore`. Compare against that baseline rather than expecting green.
+Known-failing suites as of 2026-09-05, unrelated to card handling: `lobby-detail-admin`, `lobby-prune`, `lobby-registry` (DB), plus `UserHand`, three mobile suites, `useVoicePreview`, `AvatarDecoration`, `userPrefsStore`, `BlackCard`. Compare against that baseline rather than expecting green.
 
 The same setup file stubs Nitro/H3 globals (`defineEventHandler`, `createError`, …) so server route modules can be imported directly in unit tests without a running server.
 
