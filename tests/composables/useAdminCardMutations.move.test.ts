@@ -234,7 +234,7 @@ describe("renamePack", () => {
     expect(packs.applyWholePackMoved).toHaveBeenCalledWith("Old", "New", "move");
   });
 
-  it("uses the merge copy, and the server's verdict, when the target already exists", async () => {
+  it("uses the server's verdict when the target already exists", async () => {
     const list = makeList();
     const packs = makePacks();
     packs.packStats.value = { New: { name: "New" } };
@@ -243,35 +243,22 @@ describe("renamePack", () => {
     const m = useAdminCardMutations({ list, packs });
     await m.renamePack("Old", "New");
 
-    expect(confirmMock).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringMatching(/already exists/i) }),
-    );
     expect(packs.applyWholePackMoved).toHaveBeenCalledWith("Old", "New", "drop");
   });
 
-  it("warns that in-progress lobbies lose the pack from their selection", async () => {
+  // The rename dialog IS the confirmation: the admin typed a name and pressed
+  // the action button. Stacking useConfirm's global modal on top of the open
+  // one buried it under a second backdrop blur.
+  it("does not stack a second dialog on top of the rename modal", async () => {
     const list = makeList();
     const packs = makePacks();
     fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
-    await m.renamePack("Old", "New");
-
-    expect(confirmMock).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringMatching(/in progress/i) }),
-    );
-  });
-
-  it("does nothing when the confirm is declined", async () => {
-    const list = makeList();
-    const packs = makePacks();
-    confirmMock.mockResolvedValue(false);
-
-    const m = useAdminCardMutations({ list, packs });
     const ok = await m.renamePack("Old", "New");
 
-    expect(ok).toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(ok).toBe(true);
+    expect(confirmMock).not.toHaveBeenCalled();
   });
 
   it("refuses a blank new name without calling the server", async () => {
@@ -305,32 +292,16 @@ describe("mergePacks", () => {
     expect(packs.applyWholePackMoved).toHaveBeenCalledWith("B", "Target", null);
   });
 
-  it("tells the admin the target's metadata wins", async () => {
+  it("does not stack a second dialog on top of the merge modal", async () => {
     const list = makeList();
     const packs = makePacks();
     fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: null });
 
     const m = useAdminCardMutations({ list, packs });
-    await m.mergePacks(["A"], "Target");
+    const ok = await m.mergePacks(["A"], "Target");
 
-    expect(confirmMock).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringMatching(/Target/) }),
-    );
-  });
-
-  it("says the first source carries its details when the target is new", async () => {
-    const list = makeList();
-    const packs = makePacks();
-    fetchMock.mockResolvedValue({ moved: { white: 1, black: 0 }, aux: "move" });
-
-    const m = useAdminCardMutations({ list, packs });
-    await m.mergePacks(["A", "B"], "Brand New");
-
-    expect(confirmMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringMatching(/"A" becomes "Brand New"/),
-      }),
-    );
+    expect(ok).toBe(true);
+    expect(confirmMock).not.toHaveBeenCalled();
   });
 
   it("skips a source that is also the target", async () => {

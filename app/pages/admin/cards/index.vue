@@ -68,6 +68,8 @@ const {
   moveSelectedCards,
   renamePack,
   mergePacks,
+  renameSummary,
+  mergeSummary,
 } = useAdminCardMutations({ list, packs });
 
 // ── Sidebar UI state ──────────────────────────────────────────────────────────
@@ -150,6 +152,16 @@ const showDetailsModal = ref(false);
 const detailsPack = ref("");
 
 const allPackNames = computed(() => Object.keys(packStats.value).sort());
+
+// The consequences of a rename or merge are shown inside their own dialogs.
+// They used to arrive as a second confirm() modal stacked on the open one,
+// which buried it under a second backdrop blur.
+const renameNotice = computed(() =>
+  renameSummary(renameSource.value, renameTarget.value),
+);
+const mergeNotice = computed(() =>
+  mergeSummary([...selectedPacks.value], mergeTarget.value),
+);
 
 const openMoveModal = () => {
   moveTarget.value = "";
@@ -985,13 +997,18 @@ onMounted(async () => {
     <!-- ── Rename Pack Modal ───────────────────────────────────────────────── -->
     <UModal v-model:open="showRenameModal" :title="`Rename ${renameSource}`">
       <template #body>
-        <AdminPackPicker
-          v-model="renameTarget"
-          :packs="allPackNames"
-          :exclude="[renameSource]"
-          label="New name"
-          placeholder="Type a new name, or pick a pack to merge into"
-        />
+        <div class="flex flex-col gap-3">
+          <AdminPackPicker
+            v-model="renameTarget"
+            :packs="allPackNames"
+            :exclude="[renameSource]"
+            label="New name"
+            placeholder="Type a new name, or pick a pack to merge into"
+          />
+          <p v-if="renameNotice" class="text-xs text-amber-400/90 leading-relaxed">
+            {{ renameNotice }}
+          </p>
+        </div>
       </template>
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
@@ -1021,8 +1038,7 @@ onMounted(async () => {
           <p class="text-xs text-slate-400">
             Merging
             <span class="text-slate-200">{{ selectedPacks.join(", ") }}</span>
-            into a destination. The destination keeps its own details and
-            default status.
+            into a destination.
           </p>
           <AdminPackPicker
             v-model="mergeTarget"
@@ -1030,6 +1046,9 @@ onMounted(async () => {
             :exclude="selectedPacks"
             label="Merge into"
           />
+          <p v-if="mergeNotice" class="text-xs text-amber-400/90 leading-relaxed">
+            {{ mergeNotice }}
+          </p>
         </div>
       </template>
       <template #footer>

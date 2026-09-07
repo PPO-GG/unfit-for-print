@@ -459,24 +459,49 @@ export function useAdminCardMutations({
     );
   }
 
+  /**
+   * What the rename dialog tells the admin before they commit. Renaming onto
+   * a name that already exists is a merge server-side, so say which one this
+   * is rather than letting the button lie.
+   */
+  function renameSummary(packName: string, newName: string): string {
+    const target = newName.trim();
+    if (!packName || !target || target === packName) return "";
+    return packExists(target)
+      ? `"${target}" already exists, so this merges "${packName}" into it. ` +
+        `"${target}" keeps its own description and default status; "${packName}"'s are discarded. ` +
+        liveLobbyWarning(1)
+      : liveLobbyWarning(1);
+  }
+
+  /** The same, for the merge dialog. */
+  function mergeSummary(sourceNames: string[], targetName: string): string {
+    const target = targetName.trim();
+    const sources = sourceNames.filter((n) => n && n !== target);
+    if (!target || !sources.length) return "";
+    const rest = sources.slice(1);
+    return packExists(target)
+      ? `"${target}" keeps its own description and default status — the merged packs' settings are discarded. ` +
+        liveLobbyWarning(sources.length)
+      : `"${target}" does not exist yet, so "${sources[0]}" becomes "${target}" and keeps its own ` +
+        `description and default status` +
+        (rest.length
+          ? `; then ${rest.map((s) => `"${s}"`).join(", ")} merge into it. `
+          : `. `) +
+        liveLobbyWarning(sources.length);
+  }
+
   const renamePack = async (packName: string, newName: string) => {
     const target = newName.trim();
     if (!target || target === packName) return false;
 
     const targetExists = packExists(target);
 
-    const confirmed = await confirm({
-      title: targetExists ? "Merge Pack" : "Rename Pack",
-      message: targetExists
-        ? `Rename "${packName}" onto "${target}"? "${target}" already exists, so this merges ` +
-          `"${packName}" into it — "${target}" keeps its own description and default status ` +
-          `and "${packName}"'s are discarded. ${liveLobbyWarning(1)}`
-        : `Rename "${packName}" to "${target}"? ${liveLobbyWarning(1)}`,
-      confirmButtonText: targetExists ? "Merge Pack" : "Rename Pack",
-      confirmButtonColor: "primary",
-    });
-    if (!confirmed) return false;
-
+    // No confirm() here: the rename dialog IS the confirmation — the admin
+    // typed a name and pressed its action button. Opening useConfirm's global
+    // modal on top of an already-open one stacked two backdrop blurs and hid
+    // the dialog underneath. The consequences are stated inside that dialog
+    // instead, via renameSummary().
     bulkActionLoading.value = true;
     try {
       const { aux } = await $activityFetch<MoveResponse>("/api/admin/cards/move", {
@@ -520,26 +545,10 @@ export function useAdminCardMutations({
     // server-side and keeps its auxiliary rows; only the rest are merged. Say
     // so, or the "the target's settings win" line would be a lie.
     const targetExists = packExists(target);
-    const rest = sources.slice(1);
 
-    const confirmed = await confirm({
-      title: `Merge ${plural(sources.length, "Pack")}`,
-      message: targetExists
-        ? `Merge ${sources.map((s) => `"${s}"`).join(", ")} into "${target}"? ` +
-          `"${target}" keeps its own description and default status — the merged packs' settings are discarded. ` +
-          liveLobbyWarning(sources.length)
-        : `Merge ${sources.map((s) => `"${s}"`).join(", ")} into "${target}"? ` +
-          `"${target}" does not exist yet, so "${sources[0]}" becomes "${target}" and keeps its own ` +
-          `description and default status` +
-          (rest.length
-            ? `; then ${rest.map((s) => `"${s}"`).join(", ")} merge into it. `
-            : `. `) +
-          liveLobbyWarning(sources.length),
-      confirmButtonText: "Merge Packs",
-      confirmButtonColor: "primary",
-    });
-    if (!confirmed) return false;
-
+    // No confirm() here either — see renamePack. mergeSummary() puts the same
+    // explanation inside the merge dialog, where the admin reads it before
+    // pressing the button rather than after.
     bulkActionLoading.value = true;
     // Sources that already completed their move server-side before a later
     // one failed. On a partial failure the mirror and cache need to reflect
@@ -619,5 +628,7 @@ export function useAdminCardMutations({
     moveSelectedCards,
     renamePack,
     mergePacks,
+    renameSummary,
+    mergeSummary,
   };
 }
