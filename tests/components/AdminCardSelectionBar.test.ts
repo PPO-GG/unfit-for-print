@@ -7,7 +7,8 @@ const stubs = {
   UPopover: { template: "<div><slot /><slot name='content' /></div>" },
   AdminPackPicker: {
     props: ["modelValue", "packs", "exclude"],
-    template: "<div class='picker'></div>",
+    emits: ["update:modelValue"],
+    template: `<button class="picker" @click="$emit('update:modelValue', packs[1])">pick</button>`,
   },
 };
 
@@ -29,17 +30,26 @@ describe("AdminCardSelectionBar", () => {
     expect(all.text()).not.toContain("Select all");
   });
 
-  it("emits move with the picked destination", async () => {
+  it("emits deactivate, delete and select-all from their buttons", async () => {
     const wrapper = mountBar();
-    wrapper.vm.target = "Blue";
-    await wrapper.vm.confirmMove();
+    await wrapper.find('[data-testid="deactivate"]').trigger("click");
+    await wrapper.find('[data-testid="delete"]').trigger("click");
+    await wrapper.find('[data-testid="select-all"]').trigger("click");
+    expect(wrapper.emitted("deactivate")).toHaveLength(1);
+    expect(wrapper.emitted("delete")).toHaveLength(1);
+    expect(wrapper.emitted("select-all")).toHaveLength(1);
+  });
+
+  it("moves to the destination chosen through the picker, not an internal setter", async () => {
+    const wrapper = mountBar();
+    await wrapper.find(".picker").trigger("click"); // picker emits packs[1] === "Blue"
+    await wrapper.find('[data-testid="move-confirm"]').trigger("click");
     expect(wrapper.emitted("move")?.at(-1)).toEqual(["Blue"]);
   });
 
-  it("refuses to emit move for a blank destination", async () => {
+  it("does not emit move while the destination is untouched", async () => {
     const wrapper = mountBar();
-    wrapper.vm.target = "   ";
-    await wrapper.vm.confirmMove();
+    await wrapper.find('[data-testid="move-confirm"]').trigger("click");
     expect(wrapper.emitted("move")).toBeUndefined();
   });
 

@@ -9,6 +9,7 @@ const stubs = {
     template: `<input :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
   },
   USelectMenu: {
+    name: "USelectMenu",
     props: ["modelValue", "items"],
     emits: ["update:modelValue"],
     template: `<select @change="$emit('update:modelValue', $event.target.value)"></select>`,
@@ -62,5 +63,11 @@ describe("AdminCardFilterBar", () => {
     const wrapper = mountBar();
     await wrapper.find("input").setValue("safe word");
     expect(wrapper.emitted("update:search")?.at(-1)).toEqual(["safe word"]);
+  });
+
+  it("emits the chosen sort", async () => {
+    const wrapper = mountBar();
+    await wrapper.findComponent({ name: "USelectMenu" }).vm.$emit("update:modelValue", "played-desc");
+    expect(wrapper.emitted("update:sort")?.at(-1)).toEqual(["played-desc"]);
   });
 });

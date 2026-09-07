@@ -57,17 +57,17 @@ defineExpose({ target, confirmMove });
             :exclude="excludePack ? [excludePack] : []"
             label="Destination"
           />
-          <UButton size="xs" color="primary" :disabled="!target.trim()" @click="confirmMove">
+          <UButton size="xs" color="primary" data-testid="move-confirm" :disabled="!target.trim()" @click="confirmMove">
             Move {{ count.toLocaleString() }}
           </UButton>
         </div>
       </template>
     </UPopover>
 
-    <UButton size="xs" color="neutral" variant="ghost" @click="emit('deactivate')">
+    <UButton size="xs" color="neutral" variant="ghost" data-testid="deactivate" @click="emit('deactivate')">
       Deactivate
     </UButton>
-    <UButton size="xs" color="error" variant="ghost" @click="emit('delete')">
+    <UButton size="xs" color="error" variant="ghost" data-testid="delete" @click="emit('delete')">
       Delete
     </UButton>
 
@@ -78,6 +78,7 @@ defineExpose({ target, confirmMove });
       size="xs"
       color="neutral"
       variant="ghost"
+      data-testid="select-all"
       @click="emit('select-all')"
     >
       Select all {{ totalLoaded.toLocaleString() }}
