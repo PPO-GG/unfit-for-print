@@ -10,7 +10,7 @@ vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: fetchMock }));
 import { useAdminCardList } from "~/composables/useAdminCardList";
 
 function seedCards(list: ReturnType<typeof useAdminCardList>, ids: string[]) {
-  list.cards.value = ids.map((id) => ({ id, text: `card ${id}` }));
+  list.cards.value = ids.map((id) => ({ id, text: `card ${id}`, type: "white" }));
   list.visibleCards.value = [...list.cards.value];
 }
 
@@ -68,7 +68,7 @@ describe("useAdminCardList — selection", () => {
 
   it("selects every loaded card, not just the visible page", () => {
     const list = useAdminCardList();
-    list.cards.value = ["a", "b", "c", "d"].map((id) => ({ id, text: id }));
+    list.cards.value = ["a", "b", "c", "d"].map((id) => ({ id, text: id, type: "white" }));
     list.visibleCards.value = list.cards.value.slice(0, 2);
 
     list.selectAllLoaded();

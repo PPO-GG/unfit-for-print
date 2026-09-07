@@ -17,12 +17,15 @@
  */
 import { ref, watch, nextTick } from "vue";
 import { useCardSearch } from "~/composables/useCardSearch";
+import type { AdminCardType, AdminCardFilter } from "~/composables/useCardSearch";
 import type { CardAttachmentConfig } from "~/types/card";
 
 /** A card row as returned by /api/admin/cards/list. */
 export interface AdminCard {
   id: string;
   text: string;
+  /** Which table this row came from. Set by fetchCards, never by the server. */
+  type: AdminCardType;
   pack?: string;
   active?: boolean;
   /** Black cards only. */
@@ -141,11 +144,31 @@ export function useAdminCardList() {
     isPageTransitioning.value = false;
   });
 
+  /** One typed request, with every row tagged as it lands. */
+  async function fetchOneType(
+    type: AdminCardType,
+    pack: string | undefined,
+    pick: number,
+    search: string,
+  ): Promise<AdminCard[]> {
+    const query: Record<string, string> = { type };
+    if (pack) query.pack = pack;
+    if (pick > 0) query.pick = String(pick);
+    if (search) query.search = search;
+
+    const rows = await $activityFetch<Omit<AdminCard, "type">[]>(
+      "/api/admin/cards/list",
+      { query },
+    );
+    return rows.map((r) => ({ ...r, type }));
+  }
+
   // ── Fetching ─────────────────────────────────────────────────────────────
   const fetchCards = async () => {
     const queryType = cardType.value;
     const queryPack = selectedPack.value;
-    const queryPick = cardType.value === "black" ? numPick.value : 0;
+    // pick only narrows black cards, and it is meaningless across a merged list
+    const queryPick = queryType === "black" ? numPick.value : 0;
     const querySearch = searchTerm.value;
 
     const cacheKey = getCacheKey(queryType, queryPack, queryPick, querySearch);
@@ -165,15 +188,15 @@ export function useAdminCardList() {
     }
 
     try {
-      const query: Record<string, string> = { type: queryType };
-      if (queryPack) query.pack = queryPack;
-      if (queryPick > 0) query.pick = String(queryPick);
-      if (querySearch) query.search = querySearch;
-
-      const result = await $activityFetch<AdminCard[]>(
-        "/api/admin/cards/list",
-        { query },
-      );
+      const result =
+        queryType === "all"
+          ? (
+              await Promise.all([
+                fetchOneType("white", queryPack, 0, querySearch),
+                fetchOneType("black", queryPack, 0, querySearch),
+              ])
+            ).flat()
+          : await fetchOneType(queryType, queryPack, queryPick, querySearch);
 
       // Only commit if the query that started this request is still current —
       // otherwise a slow response would clobber a newer, narrower result.
