@@ -15,7 +15,23 @@
 
       <div class="lobby-ticket-sep lss-sep" />
 
-      <div class="lss-packs-label">Active Packs</div>
+      <div class="lss-packs-label">
+        Active Packs
+        <button
+          v-if="isHost"
+          class="lss-shuffle-link"
+          :disabled="shuffling"
+          :title="t('game.settings.shuffle_packs_hint')"
+          @click="$emit('shuffle')"
+        >
+          <UIcon
+            name="i-solar-shuffle-bold-duotone"
+            class="lss-shuffle-icon"
+            :class="{ 'lss-shuffle-icon--busy': shuffling }"
+          />
+          {{ t("game.settings.shuffle_packs") }}
+        </button>
+      </div>
       <div class="lss-packs-list">
         <span v-for="pack in settings.cardPacks" :key="pack" class="lobby-pack-chip lobby-pack-chip--on lss-pack-chip">{{ pack }}</span>
         <span v-if="settings.cardPacks.length === 0" class="lss-no-packs">None selected</span>
@@ -28,9 +44,14 @@
 <script lang="ts" setup>
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 
-const props = defineProps<{ settings: LobbySettings | null }>();
-defineEmits<{ (e: "edit"): void }>();
+const props = defineProps<{
+  settings: LobbySettings | null;
+  isHost?: boolean;
+  shuffling?: boolean;
+}>();
+defineEmits<{ (e: "edit"): void; (e: "shuffle"): void }>();
 
+const { t } = useI18n();
 const requirePassword = computed(() => !!props.settings?.hasPassword);
 </script>
 
@@ -100,6 +121,49 @@ const requirePassword = computed(() => !!props.settings?.hasPassword);
   letter-spacing: 0.1em;
   color: var(--lb-ink-muted);
   margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lss-shuffle-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--lb-accent);
+  cursor: pointer;
+}
+.lss-shuffle-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.lss-shuffle-link:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.lss-shuffle-icon {
+  width: 12px;
+  height: 12px;
+}
+.lss-shuffle-icon--busy {
+  animation: lss-shuffle-spin 0.8s linear infinite;
+}
+@keyframes lss-shuffle-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lss-shuffle-icon--busy {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 .lss-packs-list {
   display: flex;

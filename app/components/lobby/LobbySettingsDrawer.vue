@@ -176,6 +176,20 @@
               <div class="lsd-field">
                 <div class="lsd-field-label">
                   Card Packs
+                  <button
+                    v-if="isHost"
+                    class="lsd-shuffle-btn"
+                    :disabled="shufflePending || loadingPacks"
+                    :title="t('game.settings.shuffle_packs_hint')"
+                    @click="shufflePacks"
+                  >
+                    <UIcon
+                      name="i-solar-shuffle-bold-duotone"
+                      class="lsd-shuffle-icon"
+                      :class="{ 'lsd-shuffle-icon--busy': shufflePending }"
+                    />
+                    {{ t("game.settings.shuffle_packs") }}
+                  </button>
                   <span class="lsd-field-hint">{{ activePacksStatLabel }}</span>
                 </div>
                 <div v-if="loadingPacks" class="lsd-packs-loading">
@@ -216,6 +230,7 @@
 
 <script lang="ts" setup>
 import { useLobby } from "~/composables/useLobby";
+import { useShufflePacks } from "~/composables/useShufflePacks";
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 
 const props = defineProps<{
@@ -367,6 +382,15 @@ function togglePack(pack: string) {
     ? current.filter((p) => p !== pack)
     : [...current, pack];
   mutations.updateSettings({ cardPacks: next });
+}
+
+// The roll itself lives in useShufflePacks so the lobby-room summary can fire
+// the same action; the chips below re-render from `props.settings` once the
+// Y.Doc write comes back.
+const { shuffle, pending: shufflePending } = useShufflePacks();
+function shufflePacks() {
+  if (!props.isHost) return;
+  return shuffle(activePacks.value);
 }
 
 let cancelled = false;
@@ -546,6 +570,59 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.lsd-shuffle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--lb-line-strong);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--lb-ink-dim);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.lsd-shuffle-btn:hover:not(:disabled) {
+  color: var(--lb-accent);
+  border-color: var(--lb-accent);
+  background: color-mix(in srgb, var(--lb-accent) 12%, transparent);
+}
+
+.lsd-shuffle-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lsd-shuffle-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.lsd-shuffle-icon--busy {
+  animation: lsd-shuffle-spin 0.8s linear infinite;
+}
+
+@keyframes lsd-shuffle-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lsd-shuffle-icon--busy {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 
 .lsd-field-hint {

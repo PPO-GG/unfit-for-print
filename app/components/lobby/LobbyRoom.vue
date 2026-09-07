@@ -39,7 +39,10 @@
           />
           <LobbySettingsSummary
             :settings="reactive.settings.value"
+            :is-host="isHost"
+            :shuffling="shufflePending"
             @edit="settingsOpen = true"
+            @shuffle="shufflePacks"
           />
         </aside>
       </div>
@@ -100,6 +103,14 @@ const { addBot } = useBots(
 
 const settingsOpen = ref(false);
 const isStarting = ref(false);
+
+// Same action the settings drawer exposes, surfaced here so the host can
+// re-roll the packs without opening settings.
+const { shuffle, pending: shufflePending } = useShufflePacks();
+function shufflePacks() {
+  if (!isHost.value) return;
+  return shuffle(reactive.settings.value?.cardPacks ?? []);
+}
 
 const myId = computed(() => userStore.user?.id ?? null);
 

@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildPackGallery,
+  pickRandomPacks,
   filterAndSortPacks,
   pageForIndex,
   sortPackGallery,
@@ -285,5 +286,186 @@ describe("pageForIndex", () => {
 
   it("treats a negative index as the first card", () => {
     expect(pageForIndex(-5, 24)).toEqual({ page: 1, offset: 0 });
+  });
+});
+
+// ─── pickRandomPacks ────────────────────────────────────────────────
+//
+// Backs the host's "Shuffle packs" button. The contract that matters is not
+// "returns random packs" but "returns a selection the game can actually
+// start with": server/api/game/start.post.ts throws a 500 when the chosen
+// packs yield no black cards, so a shuffle that lands in the card budget but
+// picks only white-only packs is a bug, not a quirk.
+
+/** Deterministic stand-in for Math.random: cycles a fixed sequence. */
+function seededRng(values: number[]): () => number {
+  let i = 0;
+  return () => values[i++ % values.length]!;
+}
+
+function packTile(
+  pack: string,
+  white: number,
+  black: number,
+  isDefault = false,
+): PackTile {
+  return { pack, white, black, total: white + black, isDefault };
+}
+
+/** 12 packs of 250 cards each — 3000 total, so a 1000–2000 budget has slack. */
+function library(): PackTile[] {
+  return Array.from({ length: 12 }, (_, i) =>
+    packTile(`Pack ${i + 1}`, 200, 50),
+  );
+}
+
+function totalFor(tiles: PackTile[], picked: string[]): number {
+  const chosen = new Set(picked);
+  return tiles
+    .filter((t) => chosen.has(t.pack))
+    .reduce((sum, t) => sum + t.total, 0);
+}
+
+function blackFor(tiles: PackTile[], picked: string[]): number {
+  const chosen = new Set(picked);
+  return tiles
+    .filter((t) => chosen.has(t.pack))
+    .reduce((sum, t) => sum + t.black, 0);
+}
+
+describe("pickRandomPacks", () => {
+  it("lands the combined card count inside the requested budget", () => {
+    const tiles = library();
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0.1, 0.7, 0.3]) });
+    const total = totalFor(tiles, picked);
+
+    expect(total).toBeGreaterThanOrEqual(1000);
+    expect(total).toBeLessThanOrEqual(2000);
+  });
+
+  it("stays in budget across many different rolls", () => {
+    const tiles = library();
+    for (let seed = 0; seed < 50; seed++) {
+      const rng = seededRng([
+        (seed * 0.017) % 1,
+        (seed * 0.041 + 0.3) % 1,
+        (seed * 0.093 + 0.6) % 1,
+      ]);
+      const total = totalFor(tiles, pickRandomPacks(tiles, { rng }));
+      expect(total).toBeGreaterThanOrEqual(1000);
+      expect(total).toBeLessThanOrEqual(2000);
+    }
+  });
+
+  it("never returns a selection without black cards", () => {
+    // Every white-only pack is big enough to fill the budget on its own, so a
+    // picker that only counts totals would happily return an unplayable deck.
+    const tiles = [
+      packTile("Whites A", 900, 0),
+      packTile("Whites B", 900, 0),
+      packTile("Whites C", 900, 0),
+      packTile("Blacks", 0, 120),
+    ];
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0.1, 0.2, 0.3]) });
+
+    expect(blackFor(tiles, picked)).toBeGreaterThan(0);
+  });
+
+  it("tops up until the black-card floor is met", () => {
+    const tiles = [
+      packTile("Mostly white", 1100, 5),
+      ...Array.from({ length: 6 }, (_, i) => packTile(`Black ${i}`, 0, 20)),
+    ];
+    const picked = pickRandomPacks(tiles, {
+      minBlack: 40,
+      rng: seededRng([0, 0, 0]),
+    });
+
+    expect(blackFor(tiles, picked)).toBeGreaterThanOrEqual(40);
+  });
+
+  it("returns every pack when the whole library is under the minimum", () => {
+    const tiles = [packTile("Small", 200, 40), packTile("Tiny", 60, 10)];
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0.5]) });
+
+    expect(picked.sort()).toEqual(["Small", "Tiny"]);
+  });
+
+  it("accepts a single oversized pack rather than returning nothing", () => {
+    // One pack blows past the ceiling on its own; skipping it would leave an
+    // empty selection, which is worse than an over-budget one.
+    const tiles = [packTile("Monster", 4000, 800)];
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0.5]) });
+
+    expect(picked).toEqual(["Monster"]);
+  });
+
+  it("skips a pack that would push the selection past the ceiling", () => {
+    const tiles = [
+      packTile("Big", 1400, 400),
+      packTile("Huge", 1800, 400),
+      packTile("Filler", 40, 10),
+    ];
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0, 0, 0]) });
+
+    expect(totalFor(tiles, picked)).toBeLessThanOrEqual(2000);
+  });
+
+  it("ignores packs that have no active cards", () => {
+    const tiles = [...library(), packTile("Empty", 0, 0)];
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0.4, 0.8, 0.2]) });
+
+    expect(picked).not.toContain("Empty");
+  });
+
+  it("re-rolls when the first result matches the current selection", () => {
+    // Clicking Shuffle and seeing the same packs reads as a broken button.
+    const tiles = library();
+    const first = pickRandomPacks(tiles, { rng: seededRng([0.1, 0.7, 0.3]) });
+    const second = pickRandomPacks(tiles, {
+      rng: seededRng([0.1, 0.7, 0.3]),
+      exclude: first,
+    });
+
+    expect(new Set(second)).not.toEqual(new Set(first));
+  });
+
+  it("returns an empty selection when there are no packs at all", () => {
+    expect(pickRandomPacks([], { rng: seededRng([0.5]) })).toEqual([]);
+  });
+});
+
+describe("pickRandomPacks — variety floor", () => {
+  it("keeps adding packs when one big pack already clears the card floor", () => {
+    // CAH Base Set is ~1400 cards on its own. Without a pack floor the greedy
+    // loop stops the moment it lands first, and "Shuffle" hands the host back
+    // a single pack — the opposite of changing things up.
+    const tiles = [
+      packTile("Base Set", 1200, 220),
+      ...Array.from({ length: 10 }, (_, i) => packTile(`Small ${i}`, 24, 6)),
+    ];
+    // 0.999 makes Fisher-Yates a no-op, so Base Set stays first and lands in
+    // the selection before anything else has a chance to.
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0.999]) });
+
+    expect(picked.length).toBeGreaterThanOrEqual(3);
+    expect(totalFor(tiles, picked)).toBeLessThanOrEqual(2000);
+  });
+
+  it("honours a custom pack floor", () => {
+    const tiles = library();
+    const picked = pickRandomPacks(tiles, {
+      minPacks: 6,
+      rng: seededRng([0.2, 0.6, 0.9]),
+    });
+
+    expect(picked.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("cannot invent packs to satisfy the floor", () => {
+    const tiles = [packTile("Only", 800, 200)];
+    const picked = pickRandomPacks(tiles, { rng: seededRng([0.5]) });
+
+    expect(picked).toEqual(["Only"]);
   });
 });
