@@ -11,13 +11,11 @@ import { useNotifications } from "~/composables/useNotifications";
 import type { CardPackMeta } from "~/types/cardPack";
 
 const props = defineProps<{
-  open: boolean;
   pack: string;
   meta: CardPackMeta | null;
 }>();
 
 const emit = defineEmits<{
-  "update:open": [boolean];
   saved: [CardPackMeta];
 }>();
 
@@ -52,12 +50,11 @@ function seed() {
     : blank();
 }
 seed();
-// Also on `open` flipping true: a cancelled edit is discarded, not resumed.
+// Also on `pack` changing: switching packs discards whatever was mid-edit
+// rather than resuming it against the newly selected pack.
 watch(
-  () => [props.open, props.pack, props.meta],
-  ([open]) => {
-    if (open) seed();
-  },
+  () => [props.pack, props.meta],
+  () => seed(),
 );
 
 const orNull = (v: string) => (v.trim() ? v.trim() : null);
@@ -79,7 +76,6 @@ async function save() {
       },
     });
     emit("saved", row);
-    emit("update:open", false);
   } catch {
     notify({
       title: "Save Failed",
@@ -95,51 +91,38 @@ defineExpose({ form, save });
 </script>
 
 <template>
-  <UModal
-    :open="open"
-    :title="`Pack details — ${pack}`"
-    @update:open="emit('update:open', $event)"
-  >
-    <template #body>
-      <div class="flex flex-col gap-4">
-        <UFormField label="Display name">
-          <UInput v-model="form.displayName" class="w-full" placeholder="Shown instead of the raw pack name" />
-        </UFormField>
+  <div class="flex flex-col gap-4">
+    <UFormField label="Display name">
+      <UInput v-model="form.displayName" class="w-full" placeholder="Shown instead of the raw pack name" />
+    </UFormField>
 
-        <UFormField label="Description">
-          <UTextarea v-model="form.description" class="w-full" :rows="3" placeholder="What is in this pack?" />
-        </UFormField>
+    <UFormField label="Description">
+      <UTextarea v-model="form.description" class="w-full" :rows="3" placeholder="What is in this pack?" />
+    </UFormField>
 
-        <div class="grid grid-cols-2 gap-3">
-          <UFormField label="Icon">
-            <UInput v-model="form.icon" class="w-full" placeholder="🎴" />
-          </UFormField>
-          <UFormField label="Accent colour">
-            <UInput v-model="form.color" class="w-full" placeholder="#3b82f6" />
-          </UFormField>
-        </div>
+    <div class="grid grid-cols-2 gap-3">
+      <UFormField label="Icon">
+        <UInput v-model="form.icon" class="w-full" placeholder="🎴" />
+      </UFormField>
+      <UFormField label="Accent colour">
+        <UInput v-model="form.color" class="w-full" placeholder="#3b82f6" />
+      </UFormField>
+    </div>
 
-        <UFormField label="Sort order">
-          <UInput v-model="form.sortOrder" type="number" class="w-full" />
-        </UFormField>
+    <UFormField label="Sort order">
+      <UInput v-model="form.sortOrder" type="number" class="w-full" />
+    </UFormField>
 
-        <div class="flex items-center justify-between">
-          <USwitch v-model="form.official" label="Official pack" />
-        </div>
+    <div class="flex items-center justify-between">
+      <USwitch v-model="form.official" label="Official pack" />
+    </div>
 
-        <div class="flex items-center justify-between">
-          <USwitch v-model="form.nsfw" label="NSFW" />
-        </div>
-      </div>
-    </template>
+    <div class="flex items-center justify-between">
+      <USwitch v-model="form.nsfw" label="NSFW" />
+    </div>
 
-    <template #footer>
-      <div class="flex justify-end gap-2 w-full">
-        <UButton color="neutral" variant="ghost" @click="emit('update:open', false)">
-          Cancel
-        </UButton>
-        <UButton color="primary" :loading="saving" @click="save">Save details</UButton>
-      </div>
-    </template>
-  </UModal>
+    <div class="flex justify-end">
+      <UButton color="primary" :loading="saving" @click="save">Save details</UButton>
+    </div>
+  </div>
 </template>

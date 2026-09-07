@@ -11,12 +11,14 @@
  */
 import { computed } from "vue";
 import type { AdminCard } from "~/composables/useAdminCardList";
+import type { CardPackMeta } from "~/types/cardPack";
 
 const props = defineProps<{
   card?: AdminCard | null;
   selectedCount: number;
   packs: string[];
   packName?: string;
+  packMeta?: CardPackMeta | null;
 }>();
 
 const emit = defineEmits<{
@@ -24,6 +26,7 @@ const emit = defineEmits<{
   move: [string];
   "toggle-active": [];
   delete: [];
+  "pack-saved": [CardPackMeta];
 }>();
 
 const state = computed<"pack" | "card" | "bulk">(() => {
@@ -57,11 +60,7 @@ const state = computed<"pack" | "card" | "bulk">(() => {
 
     <div v-else data-testid="state-pack" class="flex flex-col gap-2">
       <template v-if="packName">
-        <p class="text-[10px] uppercase tracking-wider text-slate-500">Pack</p>
-        <p class="text-sm font-semibold text-slate-100">{{ packName }}</p>
-        <p class="text-xs text-slate-400">
-          Pack details are edited here — coming with the Packs screen.
-        </p>
+        <AdminPackForm :pack="packName" :meta="packMeta ?? null" @saved="emit('pack-saved', $event)" />
       </template>
       <p v-else class="text-xs text-slate-400">Select a card to inspect it.</p>
     </div>

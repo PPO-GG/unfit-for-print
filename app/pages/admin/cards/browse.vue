@@ -21,7 +21,7 @@ const route = useRoute();
 const router = useRouter();
 
 const packs = useAdminPackStats();
-const { packStats, sortedPacks, packMeta, loadPacks, loadDefaultPacks, loadPackMeta } = packs;
+const { packStats, sortedPacks, packMeta, loadPacks, loadDefaultPacks, loadPackMeta, applyPackMeta } = packs;
 
 const list = useAdminCardList();
 const {
@@ -263,10 +263,12 @@ onMounted(async () => {
         :selected-count="selectedCardIds.length"
         :packs="allPackNames"
         :pack-name="selectedPack"
+        :pack-meta="selectedPack ? (packMeta[selectedPack] ?? null) : null"
         @save="onSaveCard"
         @move="onInspectorMove"
         @toggle-active="inspected && toggleCardActive(inspected)"
         @delete="onDeleteCard"
+        @pack-saved="applyPackMeta"
       />
     </div>
   </div>
