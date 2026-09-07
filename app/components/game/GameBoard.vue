@@ -753,18 +753,26 @@ function handleMobileContinue() {
 
 .deck-zone--black {
   left: 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.6rem;
 }
 
-/* Matches the prompt card's footprint so the pair reads as one unit. The deck
-   is rendered at scale 75, hence the explicit width rather than 100%: the
-   BlackCardDeck wrapper is `width: fit-content` and would not constrain it. */
+/* Anchored below the prompt card and deliberately OUT of the flow.
+   `.deck-zone` is centred with `top: 50%; transform: translateY(-50%)`, so a
+   button that contributes height makes the card jump up when it mounts and
+   drop back when it unmounts — which is exactly what a once-per-round control
+   does. Absolute positioning keeps the card still.
+
+   `left: 0; right: 0` spans the zone, whose width is the card's, so the label
+   can wrap instead of growing past the card and off the left edge. The extra
+   offset past 100% clears the stacked deck layers, which sit ~10px below the
+   top card without adding to its height. */
 .deck-skip-btn {
+  position: absolute;
+  top: calc(100% + 2rem);
+  left: 0;
+  right: 0;
   justify-content: center;
-  max-width: 12rem;
+  white-space: normal;
+  line-height: 1.2;
 }
 
 .deck-zone--white {

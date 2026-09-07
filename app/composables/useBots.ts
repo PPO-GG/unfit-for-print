@@ -35,6 +35,11 @@ interface PendingTimer {
 }
 let pendingBotTimers: PendingTimer[] = [];
 
+/** The prompt the pending submit timers were armed against. Module-level like
+ *  the two above, so multiple useBots instances agree on when the prompt has
+ *  actually changed rather than each clearing the others' timers. */
+let lastScheduledPromptSerial: number | null = null;
+
 function clearPendingBotTimers() {
   for (const item of pendingBotTimers) {
     clearTimeout(item.timer);
@@ -48,6 +53,7 @@ function clearPendingBotTimers() {
 function clearAllBotActions() {
   clearPendingBotTimers();
   botActionsInFlight.clear();
+  lastScheduledPromptSerial = null;
 }
 
 export function useBots(
@@ -305,8 +311,25 @@ export function useBots(
       const BASE_DELAY_MS = state.round > 1 ? 2500 : 0;
       let staggerIndex = 0;
 
+      // A judge skipping the prompt keeps the round, the judge and the phase,
+      // and only bumps `promptSerial` — so none of the guards below notice it
+      // and the branch that clears pending timers (phase left "submitting")
+      // never runs. Anything still counting down was armed against the card
+      // the judge just rejected, and would drop onto the table the moment they
+      // skipped. Cancel those, then let the loop re-arm against the new prompt.
+      const promptSerial = state.promptSerial ?? 0;
+      if (
+        lastScheduledPromptSerial !== null &&
+        promptSerial !== lastScheduledPromptSerial
+      ) {
+        clearPendingBotTimers();
+      }
+      lastScheduledPromptSerial = promptSerial;
+
       for (const bot of botPlayers.value) {
-        const actionKey = `play-${bot.userId}-${state.round}`;
+        // Keyed by prompt as well as round: on the same round a skip must not
+        // look like an action that has already been taken.
+        const actionKey = `play-${bot.userId}-${state.round}-${promptSerial}`;
         if (botActionsInFlight.has(actionKey)) continue;
         if (state.submissions?.[bot.userId]) continue; // Already submitted
         if (state.judgeId === bot.userId) continue; // Judge doesn't play
