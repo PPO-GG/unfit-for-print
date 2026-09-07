@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import { useCardSearch } from "~/composables/useCardSearch";
 import { useAdminPackStats } from "~/composables/useAdminPackStats";
@@ -22,8 +22,11 @@ const {
   sortedPacks,
   defaultPacks,
   selectedPacks,
+  packMeta,
   loadPacks,
   loadDefaultPacks,
+  loadPackMeta,
+  applyPackMeta,
   toggleDefaultPack,
   togglePackSelection,
   clearPackSelection,
@@ -41,6 +44,12 @@ const {
   numPick,
   currentPage,
   pageSize,
+  selectedCardIds,
+  isCardSelected,
+  toggleCardSelected,
+  selectCardRangeTo,
+  selectAllLoaded,
+  clearCardSelection,
   fetchCards,
 } = list;
 
@@ -56,6 +65,9 @@ const {
   deletePackType,
   bulkTogglePacks,
   bulkDeletePacks,
+  moveSelectedCards,
+  renamePack,
+  mergePacks,
 } = useAdminCardMutations({ list, packs });
 
 // ── Sidebar UI state ──────────────────────────────────────────────────────────
@@ -123,6 +135,83 @@ const handleAddCard = async (payload: Record<string, unknown>) => {
   if (await createCard(payload)) showAddModal.value = false;
 };
 
+// ── Pack reorganisation dialogs ──────────────────────────────────────────────
+const showMoveModal = ref(false);
+const moveTarget = ref("");
+
+const showRenameModal = ref(false);
+const renameSource = ref("");
+const renameTarget = ref("");
+
+const showMergeModal = ref(false);
+const mergeTarget = ref("");
+
+const showDetailsModal = ref(false);
+const detailsPack = ref("");
+
+const allPackNames = computed(() => Object.keys(packStats.value).sort());
+
+const openMoveModal = () => {
+  moveTarget.value = "";
+  showMoveModal.value = true;
+};
+
+const confirmMove = async () => {
+  if (await moveSelectedCards(moveTarget.value)) showMoveModal.value = false;
+};
+
+const openRenameModal = (packName: string) => {
+  renameSource.value = packName;
+  renameTarget.value = packName;
+  showRenameModal.value = true;
+};
+
+const confirmRename = async () => {
+  if (await renamePack(renameSource.value, renameTarget.value)) {
+    showRenameModal.value = false;
+  }
+};
+
+const openMergeModal = (packName?: string) => {
+  // Merging from a pack's own kebab menu ticks it as the single source.
+  if (packName && !selectedPacks.value.includes(packName)) {
+    togglePackSelection(packName);
+  }
+  mergeTarget.value = "";
+  showMergeModal.value = true;
+};
+
+const confirmMerge = async () => {
+  if (await mergePacks([...selectedPacks.value], mergeTarget.value)) {
+    showMergeModal.value = false;
+  }
+};
+
+const openDetailsModal = (packName: string) => {
+  detailsPack.value = packName;
+  showDetailsModal.value = true;
+};
+
+const packMenuItems = (packName: string) => [
+  [
+    {
+      label: "Rename pack…",
+      icon: "i-solar-pen-new-square-line-duotone",
+      onSelect: () => openRenameModal(packName),
+    },
+    {
+      label: "Merge into…",
+      icon: "i-solar-arrow-right-down-line-duotone",
+      onSelect: () => openMergeModal(packName),
+    },
+    {
+      label: "Edit details…",
+      icon: "i-solar-settings-line-duotone",
+      onSelect: () => openDetailsModal(packName),
+    },
+  ],
+];
+
 // ── Watchers ──────────────────────────────────────────────────────────────────
 // Single unified watcher — batches simultaneous type+pack changes into one fetch
 watch([cardType, selectedPack], () => {
@@ -141,7 +230,7 @@ watchDebounced(
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([loadPacks(), loadDefaultPacks()]);
+  await Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]);
   if (selectedPack.value || searchTerm.value) await fetchCards();
 });
 </script>
@@ -356,6 +445,16 @@ onMounted(async () => {
             </UButton>
             <UButton
               size="xs"
+              color="primary"
+              variant="soft"
+              icon="i-solar-arrow-right-down-line-duotone"
+              :loading="bulkActionLoading"
+              @click="openMergeModal()"
+            >
+              Merge…
+            </UButton>
+            <UButton
+              size="xs"
               color="neutral"
               variant="ghost"
               @click="clearPackSelection"
@@ -407,6 +506,13 @@ onMounted(async () => {
                   class="flex-1 flex items-center gap-2 min-w-0 text-left"
                   @click="selectPack(pack.name)"
                 >
+                  <!-- Pack icon, when its metadata sets one -->
+                  <span
+                    v-if="packMeta[pack.name]?.icon"
+                    class="text-xs flex-shrink-0"
+                    >{{ packMeta[pack.name]?.icon }}</span
+                  >
+
                   <!-- Two status dots: black + white -->
                   <span class="flex gap-0.5 flex-shrink-0">
                     <span
@@ -452,6 +558,17 @@ onMounted(async () => {
                     @click.stop="toggleDefaultPack(pack.name)"
                   />
                 </UTooltip>
+
+                <!-- Pack actions -->
+                <UDropdownMenu :items="packMenuItems(pack.name)">
+                  <UButton
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    icon="i-solar-menu-dots-bold"
+                    @click.stop
+                  />
+                </UDropdownMenu>
 
                 <!-- Combined activate/deactivate/delete (both card types at once) -->
                 <div
@@ -686,6 +803,43 @@ onMounted(async () => {
 
           <!-- Card grid -->
           <template v-else>
+            <!-- Selection action bar -->
+            <div
+              v-if="selectedCardIds.length"
+              class="flex items-center gap-2 flex-wrap mb-3 p-2 rounded-lg bg-slate-800/80 border border-slate-700/60"
+            >
+              <span class="text-xs text-slate-300 px-1">
+                {{ selectedCardIds.length }} selected
+              </span>
+              <UButton
+                size="xs"
+                color="primary"
+                variant="soft"
+                icon="i-solar-folder-with-files-line-duotone"
+                :loading="bulkActionLoading"
+                @click="openMoveModal"
+              >
+                Move to pack…
+              </UButton>
+              <UButton
+                v-if="selectedCardIds.length < cards.length"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                @click="selectAllLoaded"
+              >
+                Select all {{ cards.length.toLocaleString() }}
+              </UButton>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                @click="clearCardSelection"
+              >
+                Clear
+              </UButton>
+            </div>
+
             <div
               class="grid gap-3 transition-opacity duration-150"
               :class="
@@ -700,7 +854,7 @@ onMounted(async () => {
               <AdminCardPreview
                 v-for="card in visibleCards"
                 :key="card.id"
-                v-memo="[card.id, card.active, card.text, card.pick, card.imageKey, card.attachment?.offsetX, card.attachment?.offsetY, card.attachment?.scale]"
+                v-memo="[card.id, card.active, card.text, card.pick, card.imageKey, card.attachment?.offsetX, card.attachment?.offsetY, card.attachment?.scale, selectedCardIds.length, isCardSelected(card.id)]"
                 :text="card.text"
                 :pack="card.pack"
                 :active="card.active"
@@ -710,6 +864,16 @@ onMounted(async () => {
                 :attachment="card.attachment"
               >
                 <template #actions>
+                  <!-- Selection checkbox -->
+                  <UCheckbox
+                    :model-value="isCardSelected(card.id)"
+                    size="sm"
+                    @click.stop="
+                      $event.shiftKey
+                        ? selectCardRangeTo(card.id)
+                        : toggleCardSelected(card.id)
+                    "
+                  />
                   <!-- Active toggle -->
                   <UTooltip :text="card.active ? 'Deactivate' : 'Activate'">
                     <UButton
@@ -784,6 +948,112 @@ onMounted(async () => {
       v-model="showAddModal"
       :available-packs="Object.keys(packStats)"
       @add="handleAddCard"
+    />
+
+    <!-- ── Move Cards Modal ────────────────────────────────────────────────── -->
+    <UModal v-model:open="showMoveModal" title="Move cards to a pack">
+      <template #body>
+        <AdminPackPicker
+          v-model="moveTarget"
+          :packs="allPackNames"
+          :exclude="selectedPack ? [selectedPack] : []"
+          :label="`Move ${selectedCardIds.length} card${selectedCardIds.length === 1 ? '' : 's'} to`"
+        />
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="ghost" @click="showMoveModal = false">
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            :disabled="!moveTarget.trim()"
+            :loading="bulkActionLoading"
+            @click="confirmMove"
+          >
+            Move cards
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ── Rename Pack Modal ───────────────────────────────────────────────── -->
+    <UModal v-model:open="showRenameModal" :title="`Rename ${renameSource}`">
+      <template #body>
+        <AdminPackPicker
+          v-model="renameTarget"
+          :packs="allPackNames"
+          :exclude="[renameSource]"
+          label="New name"
+          placeholder="Type a new name, or pick a pack to merge into"
+        />
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="showRenameModal = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            :disabled="!renameTarget.trim() || renameTarget === renameSource"
+            :loading="bulkActionLoading"
+            @click="confirmRename"
+          >
+            Rename
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ── Merge Packs Modal ───────────────────────────────────────────────── -->
+    <UModal v-model:open="showMergeModal" title="Merge packs">
+      <template #body>
+        <div class="flex flex-col gap-3">
+          <p class="text-xs text-slate-400">
+            Merging
+            <span class="text-slate-200">{{ selectedPacks.join(", ") }}</span>
+            into a destination. The destination keeps its own details and
+            default status.
+          </p>
+          <AdminPackPicker
+            v-model="mergeTarget"
+            :packs="allPackNames"
+            :exclude="selectedPacks"
+            label="Merge into"
+          />
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="showMergeModal = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            :disabled="!mergeTarget.trim() || !selectedPacks.length"
+            :loading="bulkActionLoading"
+            @click="confirmMerge"
+          >
+            Merge packs
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- ── Pack Details Modal ──────────────────────────────────────────────── -->
+    <AdminPackDetailsModal
+      v-model:open="showDetailsModal"
+      :pack="detailsPack"
+      :meta="packMeta[detailsPack] ?? null"
+      @saved="applyPackMeta"
     />
   </div>
 </template>

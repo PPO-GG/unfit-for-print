@@ -15,6 +15,7 @@
  */
 import { ref, computed } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
+import type { CardPackMeta } from "~/types/cardPack";
 
 export interface AdminPackTypeStat {
   total: number;
@@ -43,6 +44,9 @@ export function useAdminPackStats() {
   const defaultPacks = ref<string[]>([]);
   /** Packs ticked for a bulk action. */
   const selectedPacks = ref<string[]>([]);
+
+  /** Per-pack metadata rows, keyed by pack name. Packs with no row are absent. */
+  const packMeta = ref<Record<string, CardPackMeta>>({});
 
   const sortedPacks = computed(() => {
     const packs = Object.values(packStats.value).sort((a, b) =>
@@ -105,6 +109,22 @@ export function useAdminPackStats() {
       console.error("Failed to load default packs:", err);
     }
   };
+
+  const loadPackMeta = async () => {
+    try {
+      const { packs } = await $activityFetch<{ packs: CardPackMeta[] }>(
+        "/api/admin/cards/pack-meta",
+      );
+      packMeta.value = Object.fromEntries(packs.map((p) => [p.pack, p]));
+    } catch (err) {
+      console.error("Failed to load pack metadata:", err);
+    }
+  };
+
+  /** Replace one pack's metadata after the details modal saves. */
+  function applyPackMeta(row: CardPackMeta) {
+    packMeta.value = { ...packMeta.value, [row.pack]: row };
+  }
 
   const toggleDefaultPack = async (packName: string) => {
     const isDefault = defaultPacks.value.includes(packName);
@@ -257,6 +277,15 @@ export function useAdminPackStats() {
       target.white.active += stat.white.active;
     }
 
+    const meta = packMeta.value[oldName];
+    if (meta && !packMeta.value[newName]) {
+      packMeta.value = {
+        ...packMeta.value,
+        [newName]: { ...meta, pack: newName },
+      };
+    }
+    delete packMeta.value[oldName];
+
     forgetPack(oldName);
 
     if (wasDefault && !defaultPacks.value.includes(newName)) {
@@ -282,6 +311,7 @@ export function useAdminPackStats() {
         target.white.total += stat.white.total;
         target.white.active += stat.white.active;
       }
+      delete packMeta.value[name];
       forgetPack(name);
     }
   }
@@ -305,8 +335,11 @@ export function useAdminPackStats() {
     sortedPacks,
     defaultPacks,
     selectedPacks,
+    packMeta,
     loadPacks,
     loadDefaultPacks,
+    loadPackMeta,
+    applyPackMeta,
     toggleDefaultPack,
     togglePackSelection,
     clearPackSelection,
