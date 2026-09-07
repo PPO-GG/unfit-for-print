@@ -20,12 +20,14 @@
             @click="defaultOnly = false"
           >
             {{ t("labs.filter_all_packs") }}
+            <span v-if="!packsLoading">{{ searchedPacks.length }}</span>
           </button>
           <button
             :class="{ active: defaultOnly }"
             @click="defaultOnly = true"
           >
             {{ t("labs.filter_default_rotation") }}
+            <span v-if="!packsLoading">{{ defaultRotationPacks.length }}</span>
           </button>
         </div>
         <ClientOnly>
@@ -103,12 +105,14 @@
             @click="setType('white')"
           >
             {{ t("labs.filter_answers") }}
+            <span v-if="selectedTile">{{ selectedTile.white }}</span>
           </button>
           <button
             :class="{ active: type === 'black' }"
             @click="setType('black')"
           >
             {{ t("labs.filter_prompts") }}
+            <span v-if="selectedTile">{{ selectedTile.black }}</span>
           </button>
         </div>
         <ClientOnly>
@@ -217,12 +221,23 @@ const packSortOptions = computed(() => [
   { label: t("labs.sort_alpha"), value: "name" },
 ]);
 
-const visiblePacks = computed(() =>
+// Both gallery filter buttons carry a count of what clicking them would show,
+// so the search runs once *without* the rotation filter and the toggle is
+// applied on top. Filtering preserves order, so the sort still holds.
+const searchedPacks = computed(() =>
   filterAndSortPacks(packTiles.value, {
     search: packSearch.value,
-    defaultOnly: defaultOnly.value,
+    defaultOnly: false,
     sort: packSort.value,
   }),
+);
+
+const defaultRotationPacks = computed(() =>
+  searchedPacks.value.filter((tile) => tile.isDefault),
+);
+
+const visiblePacks = computed(() =>
+  defaultOnly.value ? defaultRotationPacks.value : searchedPacks.value,
 );
 
 // Counts the packs actually on screen, so a filtered gallery does not keep
@@ -269,6 +284,15 @@ function stepLightbox(delta: number) {
   const next = pageForIndex(lightboxGlobalIndex.value, perPage);
   if (next.page !== page.value) page.value = next.page;
 }
+
+// Answers/Prompts counts for the open pack come from its gallery tile, not from
+// /api/cards/browse, which only reports a total for the type currently
+// selected — showing the other tab's count would cost a second request per
+// keystroke. So these are whole-pack totals and deliberately ignore `search`;
+// the heading's `cardNoun` is the search-aware number.
+const selectedTile = computed(() =>
+  packTiles.value.find((tile) => tile.pack === selectedPack.value) ?? null,
+);
 
 const cardNoun = computed(() =>
   t(

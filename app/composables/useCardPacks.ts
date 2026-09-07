@@ -1,16 +1,21 @@
 /**
  * Shared, load-once roster of the card packs a player can browse.
  *
- * Two consumers on the Labs page need this at the same time: the hero's
- * "cards in the deck" stat (which must be right before anyone opens the Card
- * Packs tab) and the browser's pack gallery. Both call `load()`; the in-flight
- * promise below collapses that into a single pair of requests.
+ * Two consumers on the Labs page need this at the same time: the hero stats
+ * (Labs-pack card count, enabled pack count — both must be right before anyone
+ * opens the Card Packs tab) and the browser's pack gallery. Both call `load()`;
+ * the in-flight promise below collapses that into a single pair of requests.
  *
  * Counts are *active* cards only, matching `/api/cards/browse`, so a pack tile
  * never advertises more cards than the browser will actually list.
  */
 
-import { buildPackGallery, type PackStat, type PackTile } from "~/utils/cardPacks";
+import {
+  buildPackGallery,
+  countLabsCards,
+  type PackStat,
+  type PackTile,
+} from "~/utils/cardPacks";
 
 let inFlight: Promise<void> | null = null;
 
@@ -22,6 +27,12 @@ export function useCardPacks() {
   const totalCards = computed(() =>
     tiles.value.reduce((sum, tile) => sum + tile.total, 0),
   );
+
+  // Enabled packs only: `fetchRoster` asks for `activeOnly`, and
+  // `buildPackGallery` drops anything left with no active cards.
+  const packCount = computed(() => tiles.value.length);
+
+  const labsCards = computed(() => countLabsCards(tiles.value));
 
   // Same fetcher resolution as useCardTexts: prefer $activityFetch so the
   // Discord Activity's auth headers ride along, fall back to $fetch outside a
@@ -78,5 +89,5 @@ export function useCardPacks() {
     inFlight = null;
   }
 
-  return { tiles, totalCards, loading, loaded, load, reset };
+  return { tiles, totalCards, packCount, labsCards, loading, loaded, load, reset };
 }

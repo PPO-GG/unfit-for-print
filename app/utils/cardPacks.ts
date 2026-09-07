@@ -251,3 +251,23 @@ export function pickRandomPacks(
 
   return picked;
 }
+
+/**
+ * Packs that carry Labs output. Submissions adopted through
+ * `/api/submissions/adopt` land in "Unfit Labs"; a prefix match is used rather
+ * than an exact one so future volumes ("Unfit Labs Vol. 2") roll into the same
+ * count without another deploy.
+ */
+export const LABS_PACK_PREFIX = "unfit labs";
+
+export function isLabsPack(pack: string): boolean {
+  return pack.trim().toLowerCase().startsWith(LABS_PACK_PREFIX);
+}
+
+/** Active cards across every Labs pack. 0 when no Labs pack exists yet. */
+export function countLabsCards(tiles: PackTile[]): number {
+  return tiles.reduce(
+    (sum, tile) => (isLabsPack(tile.pack) ? sum + tile.total : sum),
+    0,
+  );
+}

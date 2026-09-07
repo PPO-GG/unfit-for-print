@@ -45,7 +45,7 @@
           <div class="labs-stat labs-stat--wide">
             <span>{{ t("labs.stat_cards") }}</span
             ><strong class="labs-stat--lime-lg">{{
-              packsLoading ? "—" : totalCards.toLocaleString()
+              packsLoading ? "—" : labsCards.toLocaleString()
             }}</strong>
           </div>
         </div>
@@ -59,7 +59,10 @@
             type="button"
             @click="activeTab = 'submissions'"
           >
-            <Icon name="solar:test-tube-bold-duotone" /> {{ t("labs.tab_submissions") }}
+            <Icon
+              class="labs-tab__icon"
+              name="solar:test-tube-bold-duotone"
+            /> {{ t("labs.tab_submissions") }}
             <span>{{ submissions.length }}</span>
           </button>
           <button
@@ -68,8 +71,11 @@
             type="button"
             @click="activeTab = 'packs'"
           >
-            <Icon name="solar:cardholder-bold-duotone" /> {{ t("labs.tab_packs") }}
-            <span v-if="!packsLoading">{{ totalCards }}</span>
+            <Icon
+              class="labs-tab__icon"
+              name="solar:cardholder-bold-duotone"
+            /> {{ t("labs.tab_packs") }}
+            <span v-if="!packsLoading">{{ packCount }}</span>
           </button>
         </div>
 
@@ -92,18 +98,21 @@
               @click="filters.cardType = 'all'"
             >
               {{ t("labs.filter_all") }}
+              <span>{{ typeCounts.all }}</span>
             </button>
             <button
               :class="{ active: filters.cardType === 'white' }"
               @click="filters.cardType = 'white'"
             >
               {{ t("labs.filter_answers") }}
+              <span>{{ typeCounts.white }}</span>
             </button>
             <button
               :class="{ active: filters.cardType === 'black' }"
               @click="filters.cardType = 'black'"
             >
               {{ t("labs.filter_prompts") }}
+              <span>{{ typeCounts.black }}</span>
             </button>
           </div>
           <ClientOnly
@@ -179,7 +188,12 @@ const submitCardOpen = ref(false);
 const activeTab = ref<"submissions" | "packs">("submissions");
 // Loaded up front so the hero's card count is right before anyone opens the
 // Card Packs tab; CardPackBrowser shares this same roster.
-const { totalCards, loading: packsLoading, load: loadCardPacks } = useCardPacks();
+const {
+  labsCards,
+  packCount,
+  loading: packsLoading,
+  load: loadCardPacks,
+} = useCardPacks();
 const userStore = useUserStore();
 const isLoggedIn = computed(() => isAuthenticatedUser(userStore.user));
 const isAdmin = useIsAdmin();
@@ -217,9 +231,25 @@ const sortLabel = computed(
       .find((option) => option.value === filters.value.sortBy)
       ?.label.toLowerCase() || t("labs.sort_newest").toLowerCase(),
 );
-const filteredSubmissions = computed(() => {
+// The card-type buttons each carry a count of what selecting them would show,
+// so the search runs on its own first and the type filter is applied on top.
+const searchedSubmissions = computed(() => {
   const search = filters.value.search.trim().toLowerCase();
+  if (!search) return submissions.value;
+  return submissions.value.filter(
+    (submission) =>
+      submission.text.toLowerCase().includes(search) ||
+      submission.submitterName.toLowerCase().includes(search),
+  );
+});
 
+const typeCounts = computed(() => ({
+  all: searchedSubmissions.value.length,
+  white: searchedSubmissions.value.filter((s) => s.cardType === "white").length,
+  black: searchedSubmissions.value.filter((s) => s.cardType === "black").length,
+}));
+
+const filteredSubmissions = computed(() => {
   const getSortValue = (item: any, sortBy: string): number => {
     switch (sortBy) {
       case "upvotes":
@@ -232,14 +262,11 @@ const filteredSubmissions = computed(() => {
     }
   };
 
-  return [...submissions.value]
+  return [...searchedSubmissions.value]
     .filter(
       (submission) =>
-        (filters.value.cardType === "all" ||
-          submission.cardType === filters.value.cardType) &&
-        (!search ||
-          submission.text.toLowerCase().includes(search) ||
-          submission.submitterName.toLowerCase().includes(search)),
+        filters.value.cardType === "all" ||
+        submission.cardType === filters.value.cardType,
     )
     .sort((a, b) => {
       const valueA = getSortValue(a, filters.value.sortBy);
@@ -642,6 +669,12 @@ onMounted(() => {
     color 0.18s ease,
     border-color 0.18s ease;
 }
+.labs-tab__icon {
+  flex: 0 0 1.35rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 1.35rem;
+}
 .labs-tab:hover {
   color: #d7dcec;
 }
@@ -707,6 +740,22 @@ onMounted(() => {
   background: #a9ed87;
   color: #09220e;
   font-weight: 800;
+}
+/* Count badge inside a filter button. Styled here rather than in
+   CardPackBrowser because .labs-filter-group itself lives in this unscoped
+   block and both consumers render the same markup. */
+.labs-filter-group button span {
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  padding: 0.05rem 0.32rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #b6bed8;
+  font-size: 0.58rem;
+  font-variant-numeric: tabular-nums;
+}
+.labs-filter-group button.active span {
+  background: rgba(9, 34, 14, 0.16);
+  color: #09220e;
 }
 .labs-search {
   min-width: 220px;

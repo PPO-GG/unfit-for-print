@@ -8,6 +8,8 @@ import {
   buildPackGallery,
   pickRandomPacks,
   filterAndSortPacks,
+  countLabsCards,
+  isLabsPack,
   pageForIndex,
   sortPackGallery,
   stepCardIndex,
@@ -467,5 +469,26 @@ describe("pickRandomPacks — variety floor", () => {
     const picked = pickRandomPacks(tiles, { rng: seededRng([0.5]) });
 
     expect(picked).toEqual(["Only"]);
+  });
+});
+
+describe("countLabsCards", () => {
+  it("counts only Labs packs, including future volumes", () => {
+    const tiles = [
+      tile("CAH Base Set", 1400),
+      tile("Unfit Labs", 42),
+      tile("Unfit Labs Vol. 2", 8),
+    ];
+
+    expect(countLabsCards(tiles)).toBe(50);
+  });
+
+  it("is 0 before any Labs pack exists", () => {
+    expect(countLabsCards([tile("CAH Base Set", 1400)])).toBe(0);
+  });
+
+  it("does not match a pack that merely mentions labs", () => {
+    expect(isLabsPack("Mad Science Labs")).toBe(false);
+    expect(isLabsPack("  unfit labs  ")).toBe(true);
   });
 });
