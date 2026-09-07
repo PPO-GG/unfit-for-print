@@ -426,6 +426,18 @@ function handleSkipPrompt() {
   }
 }
 
+// The skip button sits under the prompt card, but GameTable owns the pile and
+// has to fly the submitted cards home BEFORE the engine clears `submissions`
+// and unmounts them. So route the click through GameTable, which does that and
+// emits `skip-prompt` straight back to handleSkipPrompt above. If the table
+// isn't mounted there is no pile to animate, so calling the engine is correct.
+const gameTableRef = ref<{ skipPrompt: () => void } | null>(null);
+
+function requestSkipPrompt() {
+  if (gameTableRef.value) gameTableRef.value.skipPrompt();
+  else handleSkipPrompt();
+}
+
 // Reveal a card — direct Y.Doc mutation
 function revealCard(playerId: string) {
   if (revealedCards.value[playerId]) return;
@@ -582,6 +594,26 @@ function handleMobileContinue() {
         <!-- Card Decks — black left, white right -->
         <div class="deck-zone deck-zone--black">
           <BlackCardDeck :black-card="blackCard ?? undefined" :scale="75" />
+          <!-- Under the prompt rather than in the bottom judge banner: the
+               judge is reading the card when they decide it is a dud, and
+               that is where they look for the way out of it. -->
+          <UButton
+            v-if="blackCard && isJudge && isParticipant && canSkipPrompt"
+            class="deck-skip-btn"
+            size="sm"
+            color="warning"
+            variant="soft"
+            icon="i-mdi-debug-step-over"
+            block
+            :disabled="state?.blackSkipUsed"
+            @click="requestSkipPrompt"
+          >
+            {{
+              state?.blackSkipUsed
+                ? t("game.skip_prompt_used")
+                : t("game.skip_prompt")
+            }}
+          </UButton>
         </div>
         <div class="deck-zone deck-zone--white">
           <WhiteCardDeck
@@ -594,6 +626,7 @@ function handleMobileContinue() {
 
         <!-- Unified Game Table (submission + judging + winner celebration) -->
         <GameTable
+          ref="gameTableRef"
           v-if="isSubmitting || isJudging || isRoundEnd || isComplete"
           :is-judge="isJudge"
           :submissions="submissions"
@@ -607,7 +640,6 @@ function handleMobileContinue() {
           :phase="activePhase"
           :prompt-serial="state?.promptSerial"
           :black-skip-used="state?.blackSkipUsed"
-          :can-skip-prompt="canSkipPrompt"
           :revealed-cards="revealedCards"
           :effective-round-winner="effectiveRoundWinner"
           :confirmed-round-winner="confirmedRoundWinner"
@@ -721,6 +753,18 @@ function handleMobileContinue() {
 
 .deck-zone--black {
   left: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+/* Matches the prompt card's footprint so the pair reads as one unit. The deck
+   is rendered at scale 75, hence the explicit width rather than 100%: the
+   BlackCardDeck wrapper is `width: fit-content` and would not constrain it. */
+.deck-skip-btn {
+  justify-content: center;
+  max-width: 12rem;
 }
 
 .deck-zone--white {

@@ -45,7 +45,9 @@ const playSfx = vi.fn();
 (globalThis as any).useSfx = () => ({ playSfx });
 
 const nextRound = vi.fn(() => ({ success: true }));
+const skipBlackCard = vi.fn(() => ({ success: true }));
 const engineMock = {
+  skipBlackCard,
   selectWinner: vi.fn(),
   nextRound,
   revealCard: vi.fn(),
@@ -56,9 +58,21 @@ const engineMock = {
 };
 
 // Minimal controllable Y.Doc-backed game state stand-in.
-const gameState = ref<{ phase: string; roundWinner: string | null; round: number }>(
-  { phase: "judging", roundWinner: null, round: 1 },
-);
+type TestGameState = {
+  phase: string;
+  roundWinner: string | null;
+  round: number;
+  blackCard?: { id: string; text: string; pick: number } | null;
+  blackSkipUsed?: boolean;
+};
+const gameState = ref<TestGameState>({
+  phase: "judging",
+  roundWinner: null,
+  round: 1,
+});
+
+// Controllable so the judge-only skip control can be exercised.
+const isJudgeRef = ref(false);
 
 vi.mock("~/composables/useLobby", () => ({
   useLobby: () => ({
@@ -70,7 +84,7 @@ vi.mock("~/composables/useLobby", () => ({
       isJudging: computed(() => gameState.value.phase === "judging"),
       isRoundEnd: computed(() => gameState.value.phase === "roundEnd"),
       isComplete: computed(() => gameState.value.phase === "complete"),
-      isJudge: computed(() => false),
+      isJudge: computed(() => isJudgeRef.value),
       isHost: computed(() => true),
       myHand: computed(() => []),
       mySubmission: computed(() => null),
@@ -116,6 +130,7 @@ describe("GameBoard.vue — skip-judge soft lock (issue #99)", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     gameState.value = { phase: "judging", roundWinner: null, round: 1 };
+    isJudgeRef.value = false;
   });
 
   afterEach(() => {
@@ -157,5 +172,98 @@ describe("GameBoard.vue — skip-judge soft lock (issue #99)", () => {
     await vi.advanceTimersByTimeAsync(5000); // auto-advance delay
 
     expect(nextRound).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The judge's skip control used to live in GameTable's bottom banner, where it
+// was both easy to miss and — because that banner is a `pointer-events: none`
+// overlay — impossible to click. It now sits under the prompt card in
+// GameBoard. These pin the two things that move can quietly break: whether it
+// renders at all, and whether the click still goes through GameTable so the
+// submitted cards fly home before the engine unmounts them.
+describe("GameBoard.vue — skip-prompt control", () => {
+  let wrapper: ReturnType<typeof mount> | null = null;
+  const tableSkipPrompt = vi.fn();
+
+  const stubs = {
+    ...GLOBAL_STUBS,
+    GameTable: {
+      template: "<div />",
+      setup(_: unknown, { expose }: { expose: (e: unknown) => void }) {
+        expose({ skipPrompt: tableSkipPrompt });
+        return {};
+      },
+    },
+    UButton: {
+      props: ["disabled"],
+      // Must be declared: without it Vue also binds the parent's @click as a
+      // fallthrough attribute on the root <button>, firing the handler twice.
+      emits: ["click"],
+      template: `<button class="ubtn" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
+    },
+  };
+
+  const mountBoard = () =>
+    mount(GameBoard, {
+      props: { lobby: { $id: "lobby1", code: "ABCD" } as any, players: [] },
+      global: { stubs },
+    });
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    (useUserStore() as any).user = { $id: "judge-1" };
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    isJudgeRef.value = true;
+    gameState.value = {
+      phase: "submitting",
+      roundWinner: null,
+      round: 1,
+      blackCard: { id: "b-1", text: "A prompt", pick: 1 },
+      blackSkipUsed: false,
+    };
+  });
+
+  afterEach(() => {
+    wrapper?.unmount();
+    wrapper = null;
+    vi.useRealTimers();
+  });
+
+  it("shows the skip button beside the prompt while the judge is waiting", () => {
+    wrapper = mountBoard();
+    expect(wrapper.find(".deck-skip-btn").exists()).toBe(true);
+  });
+
+  it("hides it from everyone but the judge", () => {
+    isJudgeRef.value = false;
+    wrapper = mountBoard();
+    expect(wrapper.find(".deck-skip-btn").exists()).toBe(false);
+  });
+
+  it("hides it once the round has moved past submitting", () => {
+    gameState.value = { ...gameState.value, phase: "judging" };
+    wrapper = mountBoard();
+    expect(wrapper.find(".deck-skip-btn").exists()).toBe(false);
+  });
+
+  it("routes the click through GameTable so the pile flies home first", async () => {
+    wrapper = mountBoard();
+    await wrapper.find(".deck-skip-btn").trigger("click");
+
+    expect(tableSkipPrompt).toHaveBeenCalledTimes(1);
+    // GameTable emits skip-prompt back after animating; calling the engine
+    // straight from here would clear `submissions` and unmount the cards
+    // before their positions could be measured.
+    expect(skipBlackCard).not.toHaveBeenCalled();
+  });
+
+  it("disables itself and says so once the skip is spent", () => {
+    gameState.value = { ...gameState.value, blackSkipUsed: true };
+    wrapper = mountBoard();
+
+    const btn = wrapper.find(".deck-skip-btn");
+    expect(btn.attributes("disabled")).toBeDefined();
+    expect(btn.text()).toBe("game.skip_prompt_used");
   });
 });

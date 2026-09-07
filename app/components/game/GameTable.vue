@@ -37,15 +37,6 @@ const props = withDefaults(
     promptSerial?: number;
     /** Whether the judge has already spent their one skip this round. */
     blackSkipUsed?: boolean;
-    /**
-     * Whether the engine would actually accept a skip right now. `phase` above
-     * is the *display* phase: GameBoard maps the brief `submitting-complete`
-     * window onto "submitting" so the pile→grid FLIP can capture positions.
-     * The engine checks the raw phase, so gating the button on `isSubmitting`
-     * alone let the judge click during that window — the pile flew home and
-     * then the engine refused with "Not in submitting phase".
-     */
-    canSkipPrompt?: boolean;
     revealedCards: Record<string, boolean>;
     effectiveRoundWinner?: string | null;
     confirmedRoundWinner?: string | null;
@@ -69,7 +60,6 @@ const props = withDefaults(
     judgeId: null,
     readingAloud: false,
     cardTexts: () => ({}),
-    canSkipPrompt: false,
   },
 );
 
@@ -193,6 +183,13 @@ function onSkipPrompt() {
   flyPileCardsHome(Object.keys(props.submissions));
   emit("skip-prompt");
 }
+
+// The skip control itself lives next to the prompt card in GameBoard, where
+// the judge is already looking. The ordering above still has to happen here,
+// though — the pile is this component's, and only it can measure the cards
+// before they unmount — so GameBoard drives the skip through this method
+// rather than calling the engine directly.
+defineExpose({ skipPrompt: onSkipPrompt });
 
 onMounted(() => {
   // Existing submissions (hot reload, late join, refresh) must appear in the
@@ -640,18 +637,6 @@ function handleSelectWinner(playerId: string) {
         <span class="judge-hand-subtitle">{{
           t("game.waiting_for_submissions")
         }}</span>
-        <UButton
-          v-if="canSkipPrompt"
-          size="xs"
-          color="warning"
-          variant="soft"
-          icon="i-mdi-debug-step-over"
-          :disabled="blackSkipUsed || !canSkipPrompt"
-          :title="blackSkipUsed ? t('game.skip_prompt_used') : t('game.skip_prompt')"
-          @click="onSkipPrompt"
-        >
-          {{ t("game.skip_prompt") }}
-        </UButton>
       </div>
     </Transition>
 
@@ -1317,6 +1302,9 @@ function handleSelectWinner(playerId: string) {
     rgba(15, 23, 42, 0.6) 70%,
     transparent 100%
   );
+  /* A full-width fixed overlay across the bottom of the table: it must not
+     swallow clicks meant for the cards underneath. Anything interactive added
+     here has to set pointer-events: auto on itself. */
   pointer-events: none;
 }
 
