@@ -71,10 +71,12 @@ export const useLobby = () => {
       // reactive.hands is Record<PlayerId, CardId[]> (useLobbyReactive's
       // parseHands) — reduce to id -> length so no card ids ever leave the
       // client. Structural fields only, same as everything else here.
+      // A malformed hand must not strip all context from the report: guard
+      // against null (from JSON.parse) so one bad hand does not orphan the log.
       const handSizes = Object.fromEntries(
         Object.entries(reactive.hands.value ?? {}).map(([playerId, hand]) => [
           playerId,
-          hand.length,
+          Array.isArray(hand) ? hand.length : 0,
         ]),
       );
 

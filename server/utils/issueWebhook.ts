@@ -55,9 +55,10 @@ export function buildIssueWebhookBody(
   const lobbyCode = result.lobbyCode ? stripMarkdown(result.lobbyCode) : "";
   const lobby = lobbyCode ? ` · lobby \`${lobbyCode}\`` : "";
   const title = stripMarkdown(result.title);
+  const appVersion = stripMarkdown(result.appVersion);
   return {
     content:
-      `**${label}** · \`${result.kind}\`${lobby} · v${result.appVersion}\n` +
+      `**${label}** · \`${result.kind}\`${lobby} · v${appVersion}\n` +
       `> ${title}\n` +
       `${baseUrl}/admin/issues/${result.groupId}`,
   };

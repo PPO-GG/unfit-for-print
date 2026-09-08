@@ -54,12 +54,13 @@ describe("buildIssueWebhookBody", () => {
     expect(body.content.toLowerCase()).toContain("regress");
   });
 
-  it("strips markdown from attacker-supplied title and lobby code", () => {
+  it("strips markdown from attacker-supplied title, lobby code, and version", () => {
     const body = buildIssueWebhookBody(
       {
         ...result,
         title: "[Open in admin](https://evil.example)",
         lobbyCode: "`\nAB2C",
+        appVersion: "1\n[a](https://ev.co)",
       },
       "https://unfit.cards",
     );
