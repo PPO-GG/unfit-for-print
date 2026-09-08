@@ -63,8 +63,8 @@ export const useLobby = () => {
   // SSR (this route isn't ssr:false), where module scope is shared across
   // concurrent requests on the same Node worker. Registering unconditionally
   // would leak one visitor's lobby context into another visitor's report, so
-  // both the register and the matching clear (in leaveLobby, below) are
-  // client-only.
+  // the register below is client-only. The matching clear now lives in
+  // useLobbyDoc's disconnect(), which every teardown path funnels through.
   const { registerContextProvider } = useIssueReporter();
   if (import.meta.client) {
     registerContextProvider(() => ({

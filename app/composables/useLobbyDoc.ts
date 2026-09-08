@@ -43,7 +43,7 @@ export interface LobbyDocResult {
   connect: (lobbyCode: string, token?: string) => Promise<void>;
 
   /** Disconnect and destroy the provider + doc */
-  disconnect: () => void;
+  disconnect: (options?: { clearIssueContext?: boolean }) => void;
 
   /** Yjs Awareness instance for presence (userId, name, avatar, isReady, etc.) */
   awareness: ShallowRef<any | null>;
@@ -155,8 +155,11 @@ export function useLobbyDoc(): LobbyDocResult {
   // ── Connect ────────────────────────────────────────────────────────────
 
   const connect = async (code: string, token?: string): Promise<void> => {
-    // Tear down any existing connection first
-    disconnect();
+    // Tear down any existing connection first. This is a reset, not a
+    // teardown — the caller still holds the lobby — so the issue-reporter's
+    // context provider must survive it. See disconnect()'s clearIssueContext
+    // doc comment below.
+    disconnect({ clearIssueContext: false });
 
     const documentName = `lobby-${code}`;
     const ydoc = new Y.Doc();
@@ -303,7 +306,29 @@ export function useLobbyDoc(): LobbyDocResult {
 
   // ── Disconnect ─────────────────────────────────────────────────────────
 
-  const disconnect = () => {
+  /**
+   * `clearIssueContext: false` is for connect()'s own reset call. That path
+   * is tearing down a stale connection while the caller still holds this
+   * lobby, so the issue-reporter's context provider must survive it —
+   * useLobby registers it once and nothing re-registers it, so clearing it
+   * there would silently null out game context for the rest of the session.
+   * Every genuine teardown uses the default and does clear it.
+   */
+  const disconnect = (options: { clearIssueContext?: boolean } = {}) => {
+    const { clearIssueContext = true } = options;
+
+    // Cleared here (rather than in useLobby.leaveLobby) because this is the
+    // one function every genuine teardown path funnels through — the
+    // explicit Leave control, [code].vue's onBeforeUnmount, and the
+    // beforeunload handler. A provider left pointing at a torn-down doc does
+    // not throw (the reporter swallows that), it goes stale — and then
+    // attaches the lobby you just left to an error raised somewhere else
+    // entirely. Cleared before the destroy calls below so an unrelated throw
+    // during teardown can't skip it.
+    if (clearIssueContext) {
+      useIssueReporter().registerContextProvider(null);
+    }
+
     // Remove beforeunload listener to avoid double-teardown
     if (typeof window !== "undefined" && _state.beforeUnloadHandler) {
       window.removeEventListener("beforeunload", _state.beforeUnloadHandler);
@@ -336,14 +361,6 @@ export function useLobbyDoc(): LobbyDocResult {
     synced.value = false;
     connected.value = false;
     lobbyCode.value = null;
-
-    // Cleared here rather than in useLobby.leaveLobby because this is the one
-    // function every teardown path funnels through — the explicit Leave
-    // control, [code].vue's onBeforeUnmount, and the beforeunload handler.
-    // A provider left pointing at a torn-down doc does not throw (the reporter
-    // swallows that), it goes stale — and then attaches the lobby you just
-    // left to an error raised somewhere else entirely.
-    useIssueReporter().registerContextProvider(null);
   };
 
   return {
