@@ -81,6 +81,24 @@ describe("recordIssue", () => {
     expect(quiet.shouldNotify).toBe(false);
   });
 
+  it("notifies once when two reports race on the same resolved group", async () => {
+    await recordIssue(issue(), { userId: null });
+    await db
+      .update(issueGroups)
+      .set({ status: "resolved" })
+      .where(eq(issueGroups.fingerprint, "f".repeat(64)));
+
+    // Both start before either commits — without the FOR UPDATE read, both
+    // see 'resolved' and both claim the regression.
+    const [a, b] = await Promise.all([
+      recordIssue(issue(), { userId: null }),
+      recordIssue(issue(), { userId: null }),
+    ]);
+
+    expect([a.shouldNotify, b.shouldNotify].filter(Boolean)).toHaveLength(1);
+    expect([a.isRegression, b.isRegression].filter(Boolean)).toHaveLength(1);
+  });
+
   it("never notifies for a muted group and leaves it muted", async () => {
     await recordIssue(issue(), { userId: null });
     await db
@@ -95,22 +113,26 @@ describe("recordIssue", () => {
     expect(group!.status).toBe("muted");
   });
 
-  it("keeps counting but stops inserting rows past the event cap", async () => {
-    // Pre-set the counter rather than inserting 500 rows, so the test stays
-    // fast while exercising the same branch.
+  it("inserts rows up to exactly the cap and stops after it", async () => {
+    // Pre-set the counter to just below the cap rather than inserting 498
+    // rows, so the test stays fast while still crossing the boundary
+    // through recordIssue itself — the earlier version jumped straight to
+    // 501 and so passed under an off-by-one in either direction.
     await recordIssue(issue(), { userId: null });
     await db
       .update(issueGroups)
-      .set({ eventCount: 500 })
+      .set({ eventCount: 498 })
       .where(eq(issueGroups.fingerprint, "f".repeat(64)));
 
-    await recordIssue(issue(), { userId: null });
+    await recordIssue(issue(), { userId: null }); // 499 — inserts
+    await recordIssue(issue(), { userId: null }); // 500 — inserts, the cap
+    expect(await db.select().from(issueEvents)).toHaveLength(3);
+
+    await recordIssue(issue(), { userId: null }); // 501 — counted, not stored
+    expect(await db.select().from(issueEvents)).toHaveLength(3);
 
     const [group] = await db.select().from(issueGroups);
     expect(group!.eventCount).toBe(501);
-
-    const events = await db.select().from(issueEvents);
-    expect(events).toHaveLength(1); // only the first one, cap held
   });
 
   it("stores the structural context and no other keys", async () => {

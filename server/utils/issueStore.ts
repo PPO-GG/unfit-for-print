@@ -23,14 +23,18 @@ export async function recordIssue(
   const now = new Date();
 
   return db.transaction(async (tx) => {
-    // Read the prior status before the upsert. The upsert alone cannot tell
-    // us what the status *was*, and inferring it from timestamps is a
-    // millisecond-collision bug waiting to happen.
+    // FOR UPDATE, not a plain read: two concurrent reports of the same
+    // resolved group would otherwise both see 'resolved' before either
+    // commits, both set wasResolved, and both fire a regression alert. The
+    // lock serializes them so the second sees 'open' and stays quiet. On a
+    // brand-new fingerprint there is no row to lock, and that path is
+    // already race-safe via the eventCount === 1 test below.
     const [prior] = await tx
       .select({ status: issueGroups.status })
       .from(issueGroups)
       .where(eq(issueGroups.fingerprint, input.fingerprint))
-      .limit(1);
+      .limit(1)
+      .for("update");
 
     const wasResolved = prior?.status === "resolved";
     const isMuted = prior?.status === "muted";
