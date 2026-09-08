@@ -71,4 +71,19 @@ describe("pruneIssues", () => {
     await pruneIssues();
     expect(await db.select().from(issueGroups)).toHaveLength(1);
   });
+
+  it("keeps a muted group no matter how old", async () => {
+    // Deleting a muted group would let its problem come back as a brand-new
+    // group and alert again — the exact outcome muting exists to prevent.
+    await db.insert(issueGroups).values({
+      fingerprint: "e".repeat(64),
+      kind: "client-error",
+      title: "old but muted",
+      status: "muted",
+      lastSeen: daysAgo(400),
+    });
+
+    await pruneIssues();
+    expect(await db.select().from(issueGroups)).toHaveLength(1);
+  });
 });
