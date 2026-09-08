@@ -4,7 +4,11 @@ import type { IssueContext, IssueKind } from "~/types/issue";
 const UUID_RE =
   /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const LOBBY_DOC_RE = /lobby-[A-Z0-9]+/gi;
-const QUOTED_RE = /"[^"]*"|'[^']*'/g;
+// The single-quote arm requires non-word characters on the outside of both
+// quotes. Without that guard, "hasn't picked, player's hand" reads the two
+// contraction apostrophes as one quoted pair and swallows everything between
+// them — turning two unrelated messages into the same normalized string.
+const QUOTED_RE = /"[^"]*"|(?<![A-Za-z0-9])'[^']*'(?![A-Za-z0-9])/g;
 const NUMBER_RE = /\b\d+(\.\d+)?\b/g;
 
 /**

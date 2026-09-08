@@ -49,6 +49,26 @@ describe("normalizeMessage", () => {
     expect(out).toContain("text");
     expect(out).not.toContain("<code>");
   });
+
+  // Regression: the apostrophes in "hasn't" and "player's" used to be read as
+  // one quoted pair, swallowing everything between them.
+  it("does not treat contraction apostrophes as quote delimiters", () => {
+    const out = normalizeMessage(
+      "Judge hasn't picked a winner, player's hand is empty",
+    );
+    expect(out).toContain("picked a winner");
+    expect(out).not.toContain("<str>");
+  });
+
+  it("still collapses a genuine single-quoted token", () => {
+    expect(
+      normalizeMessage("Cannot read properties of undefined (reading 'id')"),
+    ).toBe(
+      normalizeMessage(
+        "Cannot read properties of undefined (reading 'phase')",
+      ),
+    );
+  });
 });
 
 describe("computeFingerprint", () => {
