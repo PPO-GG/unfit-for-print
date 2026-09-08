@@ -8,6 +8,7 @@ import { useLobbyReactive } from "~/composables/useLobbyReactive";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import { useCardTexts } from "~/composables/useCardTexts";
 import { useCards } from "~/composables/useCards";
+import { useIssueReporter } from "~/composables/useIssueReporter";
 import { collectVisibleCardIds, withResolvedBlackText } from "~/utils/cardTexts";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
@@ -50,6 +51,35 @@ export const useLobby = () => {
   // Compatibility shim: `players` ref that mirrors the Y.Doc reactive player list.
   // Consumers that read `useLobby().players` continue to work without changes.
   const players = computed<Player[]>(() => reactive.playerList.value);
+
+  // ── Error-report context provider ───────────────────────────────────────
+  // Attaches live game state to any error captured while this lobby is up.
+  // Without it a report reads "Cannot read properties of undefined" with no
+  // indication of what the table looked like; with it the round is
+  // reconstructable. Structural fields only — never card text, never chat.
+  //
+  // `useIssueReporter`'s provider slot is module-scope state, not per-call —
+  // fine for a client tab, but this composable's body can also run during
+  // SSR (this route isn't ssr:false), where module scope is shared across
+  // concurrent requests on the same Node worker. Registering unconditionally
+  // would leak one visitor's lobby context into another visitor's report, so
+  // both the register and the matching clear (in leaveLobby, below) are
+  // client-only.
+  const { registerContextProvider } = useIssueReporter();
+  if (import.meta.client) {
+    registerContextProvider(() => ({
+      lobbyCode: lobbyDoc.lobbyCode.value ?? undefined,
+      phase: reactive.gameState.value?.phase,
+      round: reactive.gameState.value?.round,
+      judgeId: reactive.gameState.value?.judgeId ?? undefined,
+      activePlayerCount: reactive.playerList.value?.length,
+      submissionCount: Object.keys(
+        reactive.gameState.value?.submissions ?? {},
+      ).length,
+      whiteDeckCount: reactive.cards.value?.whiteDeck?.length,
+      blackDeckCount: reactive.cards.value?.blackDeck?.length,
+    }));
+  }
 
   // ── Appwrite Registry (discovery only) ────────────────────────────────
 
@@ -411,6 +441,9 @@ export const useLobby = () => {
     if (remainingHumans.length === 0) {
       // Disconnect Y.Doc — Teleportal will GC the doc
       lobbyDoc.disconnect();
+      // A stale provider would keep reading a torn-down doc after this and
+      // silently lose context on every subsequent report from this tab.
+      if (import.meta.client) registerContextProvider(null);
       return;
     }
 
@@ -439,6 +472,9 @@ export const useLobby = () => {
     // before we tear down the connection.
     await new Promise((resolve) => setTimeout(resolve, 100));
     lobbyDoc.disconnect();
+    // A stale provider would keep reading a torn-down doc after this and
+    // silently lose context on every subsequent report from this tab.
+    if (import.meta.client) registerContextProvider(null);
   };
 
   // ── Start Game ────────────────────────────────────────────────────────
