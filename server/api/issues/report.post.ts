@@ -14,10 +14,21 @@ import { requireAuth } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event);
+
+  // Refuse on the declared size BEFORE readBody parses anything. This is the
+  // check that actually keeps a multi-megabyte body out of the JSON parser.
+  const declaredBytes = Number(getRequestHeader(event, "content-length") ?? 0);
+  if (declaredBytes > BODY_MAX_BYTES) {
+    throw createError({ statusCode: 413, statusMessage: "Report too large" });
+  }
+
   const raw = await readBody(event);
 
-  // Size first: refuse a huge body before spending anything else on it.
-  if (JSON.stringify(raw ?? null).length > BODY_MAX_BYTES) {
+  // A client can understate or omit Content-Length, so the parsed body is
+  // measured too. Buffer.byteLength rather than String.length, because the
+  // cap is named in bytes and .length counts UTF-16 code units — emoji and
+  // non-Latin text would otherwise slip through at roughly double the cap.
+  if (Buffer.byteLength(JSON.stringify(raw ?? null), "utf8") > BODY_MAX_BYTES) {
     throw createError({ statusCode: 413, statusMessage: "Report too large" });
   }
 

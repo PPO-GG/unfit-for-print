@@ -18,6 +18,7 @@ beforeEach(async () => {
   // setup.ts stubs defineEventHandler and createError; these are the extra
   // Nitro globals this route reaches for.
   globalThis.getRequestIP = () => "203.0.113.5";
+  globalThis.getRequestHeader = () => undefined;
   globalThis.setResponseHeader = () => {};
   globalThis.setResponseStatus = () => {};
   globalThis.useRuntimeConfig = () => ({
@@ -78,6 +79,41 @@ describe("POST /api/issues/report", () => {
       kind: "client-error",
       message: "boom",
       appVersion: "3.19.0",
+    });
+
+    await handler(mockEvent());
+    await handler(mockEvent());
+    await expect(handler(mockEvent())).rejects.toMatchObject({
+      statusCode: 429,
+    });
+  });
+
+  it("rejects an oversized declared body without parsing it", async () => {
+    globalThis.getRequestHeader = () => String(8192 + 1);
+    // If the route reaches the parser at all, this throws something other
+    // than a 413 and the assertion below fails — which is the point.
+    globalThis.readBody = async () => {
+      throw new Error("readBody must not run once Content-Length exceeds the cap");
+    };
+
+    await expect(handler(mockEvent())).rejects.toMatchObject({
+      statusCode: 413,
+    });
+  });
+
+  it("throttles per lobby code once that bucket is exhausted", async () => {
+    // ipRateLimit 0 disables the per-IP bucket, isolating the per-lobby one.
+    globalThis.useRuntimeConfig = () => ({
+      issueWebhookUrl: "",
+      issueRateLimitIp: 0,
+      issueRateLimitLobby: 2,
+      public: { baseUrl: "http://localhost:3000" },
+    });
+    globalThis.readBody = async () => ({
+      kind: "client-error",
+      message: "boom",
+      appVersion: "3.19.0",
+      lobbyCode: "AB2C",
     });
 
     await handler(mockEvent());
