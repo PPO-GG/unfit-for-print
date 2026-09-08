@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { issueEvents, issueGroups } from "~/server/db/schema";
 import listHandler from "~/server/api/admin/issues/index.get";
+import detailHandler from "~/server/api/admin/issues/[id].get";
 import statusHandler from "~/server/api/admin/issues/status.post";
 
 // requireAdmin queries a real admin user; these tests are about the routes'
@@ -22,6 +23,7 @@ beforeEach(async () => {
   await db.delete(issueEvents);
   await db.delete(issueGroups);
   globalThis.getQuery = () => ({});
+  globalThis.getRouterParam = () => undefined;
 });
 
 async function seed() {
@@ -73,6 +75,78 @@ describe("GET /api/admin/issues", () => {
     globalThis.getQuery = () => ({ status: "resolved" });
     const result = await listHandler(mockEvent());
     expect(result.groups).toHaveLength(1);
+  });
+
+  it("clamps a negative limit instead of dropping the LIMIT clause", async () => {
+    await seed();
+    globalThis.getQuery = () => ({ limit: "-5" });
+
+    const result = await listHandler(mockEvent());
+
+    // The bug this guards: a negative limit made drizzle emit no LIMIT at
+    // all, returning every row rather than a bounded page.
+    expect(result.groups).toHaveLength(1);
+  });
+
+  it("rejects a status outside the allowlist", async () => {
+    await seed();
+    globalThis.getQuery = () => ({ status: "Resolved" });
+    await expect(listHandler(mockEvent())).rejects.toMatchObject({
+      statusCode: 400,
+    });
+  });
+
+  it("applies the kind and status filters together", async () => {
+    await seed();
+    globalThis.getQuery = () => ({ kind: "player-report", status: "open" });
+
+    const result = await listHandler(mockEvent());
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].title).toBe("newer report");
+  });
+});
+
+describe("GET /api/admin/issues/:id", () => {
+  it("returns the group with its most recent events, newest first", async () => {
+    const [group] = await seed();
+    await db.insert(issueEvents).values([
+      {
+        groupId: group!.id,
+        message: "older",
+        appVersion: "1.0.0",
+        createdAt: new Date("2026-09-01T00:00:00Z"),
+      },
+      {
+        groupId: group!.id,
+        message: "newer",
+        appVersion: "1.0.0",
+        createdAt: new Date("2026-09-07T00:00:00Z"),
+      },
+    ]);
+    globalThis.getRouterParam = () => group!.id;
+
+    const result = await detailHandler(mockEvent());
+
+    expect(result.group.id).toBe(group!.id);
+    expect(result.events.map((e: any) => e.message)).toEqual([
+      "newer",
+      "older",
+    ]);
+  });
+
+  it("404s for an id that does not exist", async () => {
+    globalThis.getRouterParam = () => "00000000-0000-0000-0000-000000000000";
+    await expect(detailHandler(mockEvent())).rejects.toMatchObject({
+      statusCode: 404,
+    });
+  });
+
+  it("400s when no id is supplied", async () => {
+    globalThis.getRouterParam = () => undefined;
+    await expect(detailHandler(mockEvent())).rejects.toMatchObject({
+      statusCode: 400,
+    });
   });
 });
 
