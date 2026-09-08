@@ -439,11 +439,10 @@ export const useLobby = () => {
 
     // If no human players remain, tear down
     if (remainingHumans.length === 0) {
-      // Disconnect Y.Doc — Teleportal will GC the doc
+      // Disconnect Y.Doc — Teleportal will GC the doc. disconnect() itself
+      // clears the context provider, since it's the function every teardown
+      // path (including this one) funnels through.
       lobbyDoc.disconnect();
-      // A stale provider would keep reading a torn-down doc after this and
-      // silently lose context on every subsequent report from this tab.
-      if (import.meta.client) registerContextProvider(null);
       return;
     }
 
@@ -471,10 +470,8 @@ export const useLobby = () => {
     // Small delay ensures the Y.Doc mutations are flushed to the server
     // before we tear down the connection.
     await new Promise((resolve) => setTimeout(resolve, 100));
+    // disconnect() clears the context provider itself — see useLobbyDoc.ts.
     lobbyDoc.disconnect();
-    // A stale provider would keep reading a torn-down doc after this and
-    // silently lose context on every subsequent report from this tab.
-    if (import.meta.client) registerContextProvider(null);
   };
 
   // ── Start Game ────────────────────────────────────────────────────────

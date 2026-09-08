@@ -336,6 +336,14 @@ export function useLobbyDoc(): LobbyDocResult {
     synced.value = false;
     connected.value = false;
     lobbyCode.value = null;
+
+    // Cleared here rather than in useLobby.leaveLobby because this is the one
+    // function every teardown path funnels through — the explicit Leave
+    // control, [code].vue's onBeforeUnmount, and the beforeunload handler.
+    // A provider left pointing at a torn-down doc does not throw (the reporter
+    // swallows that), it goes stale — and then attaches the lobby you just
+    // left to an error raised somewhere else entirely.
+    useIssueReporter().registerContextProvider(null);
   };
 
   return {
