@@ -73,4 +73,20 @@ describe("useIssueReporter", () => {
     });
     expect(() => report({ kind: "client-error", message: "boom" })).not.toThrow();
   });
+
+  // This branch shipped, and then fixed across two rounds, a regression
+  // where useLobbyDoc's internal disconnect() wiped the provider
+  // permanently on every connect() cycle. Nothing asserted the reporter's
+  // half of that contract, so pin it down here.
+  it("registerContextProvider(null) clears the provider so a later report carries no ambient context", () => {
+    const { report, registerContextProvider } = useIssueReporter();
+    registerContextProvider(() => ({ phase: "judging", lobbyCode: "AB2C" }));
+    registerContextProvider(null);
+
+    report({ kind: "client-error", message: "boom" });
+
+    const [, options] = (globalThis.$fetch as any).mock.calls[0];
+    expect(options.body.lobbyCode).toBeUndefined();
+    expect(options.body.context).toEqual({});
+  });
 });

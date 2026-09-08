@@ -67,18 +67,32 @@ export const useLobby = () => {
   // useLobbyDoc's disconnect(), which every teardown path funnels through.
   const { registerContextProvider } = useIssueReporter();
   if (import.meta.client) {
-    registerContextProvider(() => ({
-      lobbyCode: lobbyDoc.lobbyCode.value ?? undefined,
-      phase: reactive.gameState.value?.phase,
-      round: reactive.gameState.value?.round,
-      judgeId: reactive.gameState.value?.judgeId ?? undefined,
-      activePlayerCount: reactive.playerList.value?.length,
-      submissionCount: Object.keys(
-        reactive.gameState.value?.submissions ?? {},
-      ).length,
-      whiteDeckCount: reactive.cards.value?.whiteDeck?.length,
-      blackDeckCount: reactive.cards.value?.blackDeck?.length,
-    }));
+    registerContextProvider(() => {
+      // reactive.hands is Record<PlayerId, CardId[]> (useLobbyReactive's
+      // parseHands) — reduce to id -> length so no card ids ever leave the
+      // client. Structural fields only, same as everything else here.
+      const handSizes = Object.fromEntries(
+        Object.entries(reactive.hands.value ?? {}).map(([playerId, hand]) => [
+          playerId,
+          hand.length,
+        ]),
+      );
+
+      return {
+        lobbyCode: lobbyDoc.lobbyCode.value ?? undefined,
+        phase: reactive.gameState.value?.phase,
+        round: reactive.gameState.value?.round,
+        judgeId: reactive.gameState.value?.judgeId ?? undefined,
+        activePlayerCount: reactive.playerList.value?.length,
+        submissionCount: Object.keys(
+          reactive.gameState.value?.submissions ?? {},
+        ).length,
+        handSizes: Object.keys(handSizes).length > 0 ? handSizes : undefined,
+        whiteDeckCount: reactive.cards.value?.whiteDeck?.length,
+        blackDeckCount: reactive.cards.value?.blackDeck?.length,
+        isHost: reactive.isHost.value,
+      };
+    });
   }
 
   // ── Appwrite Registry (discovery only) ────────────────────────────────
