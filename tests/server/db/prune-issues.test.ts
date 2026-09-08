@@ -1,0 +1,74 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { useDb } from "~/server/db/client";
+import { issueEvents, issueGroups } from "~/server/db/schema";
+import { pruneIssues } from "~/server/utils/pruneIssues";
+
+const db = useDb();
+
+const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+
+beforeEach(async () => {
+  await db.delete(issueEvents);
+  await db.delete(issueGroups);
+});
+
+describe("pruneIssues", () => {
+  it("deletes events older than 30 days and keeps newer ones", async () => {
+    const [group] = await db
+      .insert(issueGroups)
+      .values({ fingerprint: "a".repeat(64), kind: "client-error", title: "x" })
+      .returning();
+
+    await db.insert(issueEvents).values([
+      { groupId: group!.id, message: "old", appVersion: "1.0.0", createdAt: daysAgo(31) },
+      { groupId: group!.id, message: "recent", appVersion: "1.0.0", createdAt: daysAgo(2) },
+    ]);
+
+    const result = await pruneIssues();
+    expect(result.eventsDeleted).toBe(1);
+
+    const remaining = await db.select().from(issueEvents);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.message).toBe("recent");
+  });
+
+  it("deletes resolved groups untouched for 90 days", async () => {
+    await db.insert(issueGroups).values({
+      fingerprint: "b".repeat(64),
+      kind: "client-error",
+      title: "stale resolved",
+      status: "resolved",
+      lastSeen: daysAgo(91),
+    });
+
+    const result = await pruneIssues();
+    expect(result.groupsDeleted).toBe(1);
+    expect(await db.select().from(issueGroups)).toHaveLength(0);
+  });
+
+  it("keeps an open group no matter how old", async () => {
+    await db.insert(issueGroups).values({
+      fingerprint: "c".repeat(64),
+      kind: "client-error",
+      title: "old but open",
+      status: "open",
+      lastSeen: daysAgo(400),
+    });
+
+    await pruneIssues();
+    expect(await db.select().from(issueGroups)).toHaveLength(1);
+  });
+
+  it("keeps a resolved group that recurred recently", async () => {
+    await db.insert(issueGroups).values({
+      fingerprint: "d".repeat(64),
+      kind: "client-error",
+      title: "recently resolved",
+      status: "resolved",
+      lastSeen: daysAgo(5),
+    });
+
+    await pruneIssues();
+    expect(await db.select().from(issueGroups)).toHaveLength(1);
+  });
+});
