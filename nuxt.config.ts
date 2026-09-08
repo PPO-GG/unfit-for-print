@@ -156,6 +156,16 @@ export default defineNuxtConfig({
     // and every caller collapses into one bucket.
     guestRateLimit: Number(process.env.NUXT_GUEST_RATE_LIMIT ?? 20),
 
+    // Private Discord channel that receives one alert per new issue group
+    // (and per regression). Unset disables alerting entirely; the admin page
+    // still works.
+    issueWebhookUrl: process.env.NUXT_ISSUE_WEBHOOK_URL || "",
+
+    // Issue ingest throttles. 0 disables, matching guestRateLimit's escape
+    // hatch for deployments behind a proxy that hides client IPs.
+    issueRateLimitIp: Number(process.env.NUXT_ISSUE_RATE_LIMIT_IP ?? 30),
+    issueRateLimitLobby: Number(process.env.NUXT_ISSUE_RATE_LIMIT_LOBBY ?? 60),
+
     // nuxt-auth-utils session cookie config. Without maxAge, h3 issues the
     // session cookie with no Expires/Max-Age, making it a browser-session
     // cookie that's wiped on browser close instead of persisting.
