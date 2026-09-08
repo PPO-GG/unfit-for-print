@@ -53,6 +53,20 @@ describe("buildIssueWebhookBody", () => {
     const body = buildIssueWebhookBody({ ...result, isRegression: true }, "https://unfit.cards");
     expect(body.content.toLowerCase()).toContain("regress");
   });
+
+  it("strips markdown from attacker-supplied title and lobby code", () => {
+    const body = buildIssueWebhookBody(
+      {
+        ...result,
+        title: "[Open in admin](https://evil.example)",
+        lobbyCode: "`\nAB2C",
+      },
+      "https://unfit.cards",
+    );
+    expect(body.content).not.toContain("](");
+    expect(body.content).not.toContain("`\n");
+    expect(body.content).toContain("https://unfit.cards/admin/issues/");
+  });
 });
 
 describe("__shouldSendWebhook", () => {
@@ -149,5 +163,23 @@ describe("notifyIssue", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     const [, options] = spy.mock.calls[0];
     expect(options.body.allowed_mentions).toEqual({ parse: [] });
+  });
+
+  it("posts a standalone suppression notice on the first suppressed event of the window, then stays quiet", async () => {
+    // @ts-ignore
+    globalThis.useRuntimeConfig = () => configured;
+    const spy = vi.fn().mockResolvedValue(null);
+    // @ts-ignore
+    globalThis.$fetch = spy;
+
+    // Exhaust the per-window cap so the next notifyIssue call is refused.
+    for (let i = 0; i < 5; i++) __shouldSendWebhook();
+
+    await notifyIssue(result);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][1].body.content.toLowerCase()).toContain("suppress");
+
+    await notifyIssue(result);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

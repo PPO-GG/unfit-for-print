@@ -3,7 +3,6 @@ import {
   APP_VERSION_MAX,
   ISSUE_CONTEXT_KEYS,
   ISSUE_KINDS,
-  LOBBY_CODE_MAX,
   MESSAGE_MAX,
   PLATFORM_MAX,
   ROUTE_MAX,
@@ -51,20 +50,35 @@ const isShortString = (v: unknown): boolean =>
 const isFiniteNumber = (v: unknown): boolean =>
   typeof v === "number" && Number.isFinite(v);
 
+/** Player id → hand size. Guards keys as well as values — a value-only guard
+ *  leaves the key wide open, and an attacker can smuggle an arbitrarily
+ *  large string (a chat transcript, say) through a map key just as easily as
+ *  through a value. `handSizes` is not populated by any client today, so
+ *  without this an unauthenticated caller was the only thing that could ever
+ *  reach here. */
 const isHandSizes = (v: unknown): boolean =>
   !!v &&
   typeof v === "object" &&
   !Array.isArray(v) &&
   Object.keys(v as object).length <= 32 &&
-  Object.values(v as Record<string, unknown>).every(isFiniteNumber);
+  Object.entries(v as Record<string, unknown>).every(
+    ([key, size]) => isShortString(key) && isFiniteNumber(size),
+  );
 
 /**
  * Per-key value guards. The key allowlist governs which fields may exist;
  * this governs what they may hold. Both halves are needed — an
  * unauthenticated caller can put a chat transcript under `phase` just as
  * easily as under a key nobody allowed.
+ *
+ * Typed off ISSUE_CONTEXT_KEYS rather than a bare `Record<string, ...>` so
+ * that adding a key to the allowlist without adding its guard here is a
+ * compile error, not a silent fail-closed drop discovered later.
  */
-const CONTEXT_VALUE_GUARDS: Record<string, (v: unknown) => boolean> = {
+const CONTEXT_VALUE_GUARDS: Record<
+  (typeof ISSUE_CONTEXT_KEYS)[number],
+  (v: unknown) => boolean
+> = {
   phase: isShortString,
   round: isFiniteNumber,
   judgeId: isShortString,
@@ -77,6 +91,21 @@ const CONTEXT_VALUE_GUARDS: Record<string, (v: unknown) => boolean> = {
   ruleId: isShortString,
   category: isShortString,
 };
+
+/** Real lobby codes are exactly 4 characters from the alphabet `randomCode()`
+ *  in `server/api/lobby/create.post.ts` draws from (no I/O/0/1, to avoid
+ *  visual ambiguity). `lobbyCode` keys an in-memory rate-limit bucket in the
+ *  ingest route and populates `issue_events_lobby_code_idx`, so an attacker
+ *  who could set it to arbitrary text could mint unbounded distinct bucket
+ *  keys and index entries. A malformed code is dropped, not rejected — the
+ *  report describes a real bug either way. */
+const LOBBY_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{4}$/;
+
+function normalizeLobbyCode(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const upper = value.trim().toUpperCase();
+  return LOBBY_CODE_PATTERN.test(upper) ? upper : null;
+}
 
 /** Rebuilds the context from an explicit key list rather than deleting
  *  unknown keys, so a key nobody anticipated cannot reach the column. */
@@ -119,7 +148,7 @@ export function normalizeIssuePayload(raw: unknown): NormalizeResult {
       message,
       title: message.slice(0, TITLE_MAX),
       stack,
-      lobbyCode: clamp(body.lobbyCode, LOBBY_CODE_MAX),
+      lobbyCode: normalizeLobbyCode(body.lobbyCode),
       route: clamp(body.route, ROUTE_MAX),
       platform: clamp(body.platform, PLATFORM_MAX),
       appVersion: clamp(body.appVersion, APP_VERSION_MAX) ?? "unknown",

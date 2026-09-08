@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { useDb } from "../db/client";
 import { issueEvents, issueGroups } from "../db/schema";
 import type { IssueKind } from "~/types/issue";
@@ -69,7 +69,18 @@ export async function recordIssue(
     const isNew = row.eventCount === 1;
     const isRegression = !isNew && wasResolved;
 
-    if (row.eventCount <= EVENT_CAP_PER_GROUP) {
+    // eventCount is a lifetime total and never decreases, so it cannot gate
+    // storage: a group that once crossed the cap would stop recording
+    // forever, and the retention sweeper would later leave it a counter with
+    // no evidence attached. Count the rows that actually exist instead.
+    // The (group_id, created_at) index makes this cheap, and the cap bounds
+    // it at 500 rows.
+    const [stored] = await tx
+      .select({ n: count() })
+      .from(issueEvents)
+      .where(eq(issueEvents.groupId, row.id));
+
+    if ((stored?.n ?? 0) < EVENT_CAP_PER_GROUP) {
       await tx.insert(issueEvents).values({
         groupId: row.id,
         message: input.message,

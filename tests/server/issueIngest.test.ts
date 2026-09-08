@@ -106,6 +106,25 @@ describe("normalizeIssuePayload", () => {
     if (result.ok) expect(result.value.context).toBeNull();
   });
 
+  it("drops a handSizes map whose keys are not short strings", () => {
+    const result = normalizeIssuePayload({
+      ...valid,
+      context: { handSizes: { ["chat: ".repeat(200)]: 7 } },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.context).toBeNull();
+  });
+
+  it("keeps a well-formed lobby code and drops a malformed one", () => {
+    const good = normalizeIssuePayload({ ...valid, lobbyCode: "AB2C" });
+    expect(good.ok).toBe(true);
+    if (good.ok) expect(good.value.lobbyCode).toBe("AB2C");
+
+    const bad = normalizeIssuePayload({ ...valid, lobbyCode: "../../etc/passwd" });
+    expect(bad.ok).toBe(true);
+    if (bad.ok) expect(bad.value.lobbyCode).toBeNull();
+  });
+
   it("keeps a well-formed structural context intact", () => {
     const context = {
       phase: "judging",

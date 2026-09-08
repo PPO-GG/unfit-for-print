@@ -35,16 +35,30 @@ export function __resetWebhookSuppression(): void {
   suppressedSinceLastSend = 0;
 }
 
+/**
+ * Strips Discord markdown from attacker-supplied text. The ingest route is
+ * unauthenticated, so `title` is arbitrary text posted into the operator's
+ * private alert channel one line above a real admin link. allowed_mentions
+ * stops pings; it does not stop `[click me](https://evil.example)`, nor a
+ * backtick that closes the code span this is interpolated into. Nothing
+ * legitimate in these alerts needs markdown.
+ */
+function stripMarkdown(value: string): string {
+  return value.replace(/[`*_~|\\[\]()<>]/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function buildIssueWebhookBody(
   result: RecordIssueResult,
   baseUrl: string,
 ): { content: string } {
   const label = result.isRegression ? "REGRESSION" : "New issue";
-  const lobby = result.lobbyCode ? ` · lobby \`${result.lobbyCode}\`` : "";
+  const lobbyCode = result.lobbyCode ? stripMarkdown(result.lobbyCode) : "";
+  const lobby = lobbyCode ? ` · lobby \`${lobbyCode}\`` : "";
+  const title = stripMarkdown(result.title);
   return {
     content:
       `**${label}** · \`${result.kind}\`${lobby} · v${result.appVersion}\n` +
-      `> ${result.title}\n` +
+      `> ${title}\n` +
       `${baseUrl}/admin/issues/${result.groupId}`,
   };
 }
@@ -67,7 +81,28 @@ export async function notifyIssue(result: RecordIssueResult): Promise<void> {
     if (!url) return;
 
     const gate = __shouldSendWebhook();
-    if (!gate.send) return;
+
+    if (!gate.send) {
+      // __shouldSendWebhook is synchronous, so suppressedCount === 1 here
+      // means exactly "the first refusal since the last successful send" —
+      // there is no window for a concurrent call to land in between. Post
+      // one standalone notice now instead of staying silent for the rest of
+      // the window: a storm that never produces another *allowed* send
+      // (the cap holds for the full 10 minutes, say) would otherwise never
+      // tell the operator anything happened until some unrelated later
+      // issue carries a stale cross-window count.
+      if (gate.suppressedCount === 1) {
+        await $fetch(url, {
+          method: "POST",
+          body: {
+            content:
+              "_New issue alerts are being rate-limited. Further new issues in this window are suppressed; the next alert that gets through will report how many were held back._",
+            allowed_mentions: { parse: [] },
+          },
+        });
+      }
+      return;
+    }
 
     const body = buildIssueWebhookBody(result, config.public.baseUrl);
     const content =

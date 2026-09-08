@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { issueEvents, issueGroups } from "~/server/db/schema";
 import { recordIssue } from "~/server/utils/issueStore";
+import { pruneIssues } from "~/server/utils/pruneIssues";
 import type { NormalizedIssue } from "~/server/utils/issueIngest";
 
 const db = useDb();
@@ -114,25 +115,36 @@ describe("recordIssue", () => {
   });
 
   it("inserts rows up to exactly the cap and stops after it", async () => {
-    // Pre-set the counter to just below the cap rather than inserting 498
-    // rows, so the test stays fast while still crossing the boundary
-    // through recordIssue itself — the earlier version jumped straight to
-    // 501 and so passed under an off-by-one in either direction.
+    // Drive real stored rows to the cap. EVENT_CAP_PER_GROUP is 500, so this
+    // inserts 500 and then proves the 501st is counted but not stored.
+    for (let i = 0; i < 500; i++) {
+      await recordIssue(issue(), { userId: null });
+    }
+    expect(await db.select().from(issueEvents)).toHaveLength(500);
+
     await recordIssue(issue(), { userId: null });
-    await db
-      .update(issueGroups)
-      .set({ eventCount: 498 })
-      .where(eq(issueGroups.fingerprint, "f".repeat(64)));
 
-    await recordIssue(issue(), { userId: null }); // 499 — inserts
-    await recordIssue(issue(), { userId: null }); // 500 — inserts, the cap
-    expect(await db.select().from(issueEvents)).toHaveLength(3);
-
-    await recordIssue(issue(), { userId: null }); // 501 — counted, not stored
-    expect(await db.select().from(issueEvents)).toHaveLength(3);
-
+    expect(await db.select().from(issueEvents)).toHaveLength(500);
     const [group] = await db.select().from(issueGroups);
     expect(group!.eventCount).toBe(501);
+  });
+
+  it("resumes storing events after old ones are pruned", async () => {
+    for (let i = 0; i < 500; i++) {
+      await recordIssue(issue(), { userId: null });
+    }
+    // Age every stored event out of the 30-day retention window.
+    await db.update(issueEvents).set({
+      createdAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+    });
+    await pruneIssues();
+    expect(await db.select().from(issueEvents)).toHaveLength(0);
+
+    await recordIssue(issue(), { userId: null });
+
+    // Before this fix the group was blinded permanently by its lifetime
+    // counter and this would still be 0.
+    expect(await db.select().from(issueEvents)).toHaveLength(1);
   });
 
   it("stores the structural context and no other keys", async () => {

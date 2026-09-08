@@ -86,4 +86,46 @@ describe("pruneIssues", () => {
     await pruneIssues();
     expect(await db.select().from(issueGroups)).toHaveLength(1);
   });
+
+  it("deletes an evidence-free single-occurrence open group", async () => {
+    await db.insert(issueGroups).values({
+      fingerprint: "f".repeat(64),
+      kind: "player-report",
+      title: "one-off, evidence long gone",
+      status: "open",
+      eventCount: 1,
+      lastSeen: daysAgo(31),
+    });
+
+    await pruneIssues();
+    expect(await db.select().from(issueGroups)).toHaveLength(0);
+  });
+
+  it("keeps an old single-occurrence group that is muted", async () => {
+    await db.insert(issueGroups).values({
+      fingerprint: "0".repeat(64),
+      kind: "player-report",
+      title: "muted one-off",
+      status: "muted",
+      eventCount: 1,
+      lastSeen: daysAgo(31),
+    });
+
+    await pruneIssues();
+    expect(await db.select().from(issueGroups)).toHaveLength(1);
+  });
+
+  it("keeps an old group that recurred more than once", async () => {
+    await db.insert(issueGroups).values({
+      fingerprint: "1".repeat(64),
+      kind: "client-error",
+      title: "recurring and still open",
+      status: "open",
+      eventCount: 12,
+      lastSeen: daysAgo(400),
+    });
+
+    await pruneIssues();
+    expect(await db.select().from(issueGroups)).toHaveLength(1);
+  });
 });
