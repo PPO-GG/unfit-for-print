@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   numeric,
@@ -9,6 +10,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { IssueContext } from "~/types/issue";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -192,4 +194,75 @@ export const userDecorations = pgTable(
     source: text("source").notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.decorationId] })],
+);
+
+// Issue tracking. Two tables rather than one so "alert me once per distinct
+// problem" is a property of a row rather than a query: the webhook fires on
+// group creation, and the admin page lists ~12 problems instead of 4,000
+// events.
+export const issueGroups = pgTable(
+  "issue_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fingerprint: text("fingerprint").notNull().unique(),
+    kind: text("kind", {
+      enum: [
+        "client-error",
+        "api-error",
+        "player-report",
+        "anomaly",
+        "server-error",
+      ],
+    }).notNull(),
+    title: text("title").notNull(),
+    status: text("status", { enum: ["open", "resolved", "muted"] })
+      .notNull()
+      .default("open"),
+    eventCount: integer("event_count").notNull().default(0),
+    firstSeen: timestamp("first_seen", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeen: timestamp("last_seen", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** Written once at group creation, never updated — it answers "which
+     *  release introduced this". */
+    firstAppVersion: text("first_app_version"),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+  },
+  (table) => [index("issue_groups_last_seen_idx").on(table.lastSeen.desc())],
+);
+
+export const issueEvents = pgTable(
+  "issue_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => issueGroups.id, { onDelete: "cascade" }),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    // Plain text, NOT a reference to lobbies.id. The sweeper prunes lobbies;
+    // an issue must outlive the lobby it happened in, and a cascade delete
+    // would erase the evidence.
+    lobbyCode: text("lobby_code"),
+    // Bare uuid with no .references(), unlike reports.reportedBy. Ingest is
+    // unauthenticated, so an FK turns a stale id into a 500 on the one
+    // endpoint that must never fail loudly.
+    userId: uuid("user_id"),
+    appVersion: text("app_version").notNull(),
+    platform: text("platform"),
+    route: text("route"),
+    context: jsonb("context").$type<IssueContext | null>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("issue_events_group_created_idx").on(
+      table.groupId,
+      table.createdAt.desc(),
+    ),
+    index("issue_events_lobby_code_idx").on(table.lobbyCode),
+  ],
 );
