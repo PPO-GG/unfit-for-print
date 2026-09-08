@@ -163,6 +163,35 @@ const isAdmin = useIsAdmin();
           Monitoring & Users
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Issues -->
+          <NuxtLink to="/admin/issues" class="group block">
+            <UCard
+              class="h-fit border border-transparent group-hover:border-amber-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(245,158,11,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-amber-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-600/30 transition-colors"
+                >
+                  <UIcon
+                    name="i-solar-bug-bold-duotone"
+                    class="text-2xl text-amber-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-amber-300 transition-colors"
+                  >
+                    Issues
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    Client errors, player reports, and detected game-state
+                    anomalies, grouped by cause
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </NuxtLink>
+
           <!-- Lobby Monitor -->
           <NuxtLink to="/admin/lobbies" class="group block">
             <UCard
