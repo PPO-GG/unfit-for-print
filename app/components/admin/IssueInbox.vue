@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useNotifications } from "~/composables/useNotifications";
+
 interface IssueGroup {
   id: string;
   fingerprint: string;
@@ -11,6 +13,8 @@ interface IssueGroup {
   firstAppVersion: string | null;
   notifiedAt: string | null;
 }
+
+const { notify } = useNotifications();
 
 const kind = ref<string>("");
 const status = ref<string>("open");
@@ -39,11 +43,20 @@ const statusOptions = [
 ];
 
 async function setStatus(id: string, next: string) {
-  await $fetch("/api/admin/issues/status", {
-    method: "POST",
-    body: { id, status: next },
-  });
-  await refresh();
+  // An unhandled rejection here would be caught by this branch's own client
+  // capture plugin and filed as a brand-new issue group — a status-update
+  // failure feeding back into the very inbox reporting it.
+  try {
+    await $fetch("/api/admin/issues/status", {
+      method: "POST",
+      body: { id, status: next },
+    });
+    await refresh();
+  } catch (err: any) {
+    const msg = err?.data?.statusMessage || err?.data?.message || err?.message || "Could not update issue status";
+    console.error("[IssueInbox] setStatus failed:", msg, err);
+    notify({ title: "Update Failed", description: msg, color: "error" });
+  }
 }
 </script>
 
@@ -93,6 +106,15 @@ async function setStatus(id: string, next: string) {
           </p>
         </div>
         <div class="flex gap-2 flex-shrink-0">
+          <UButton
+            v-if="group.status !== 'open'"
+            size="xs"
+            variant="subtle"
+            color="primary"
+            @click="setStatus(group.id, 'open')"
+          >
+            Reopen
+          </UButton>
           <UButton
             v-if="group.status !== 'resolved'"
             size="xs"
