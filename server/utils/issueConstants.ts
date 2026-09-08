@@ -6,6 +6,9 @@ export const MESSAGE_MAX = 500;
 export const STACK_MAX = 4000;
 export const TITLE_MAX = 120;
 export const ROUTE_MAX = 200;
+export const LOBBY_CODE_MAX = 16;
+export const PLATFORM_MAX = 32;
+export const APP_VERSION_MAX = 32;
 
 /** Rejected above this, before the body is parsed. */
 export const BODY_MAX_BYTES = 8192;

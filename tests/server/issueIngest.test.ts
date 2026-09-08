@@ -78,4 +78,46 @@ describe("normalizeIssuePayload", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.appVersion).toBe("unknown");
   });
+
+  it("drops a permitted key whose value is a nested object", () => {
+    const result = normalizeIssuePayload({
+      ...valid,
+      context: { phase: { note: "an entire chat transcript" } },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.context).toBeNull();
+  });
+
+  it("drops a permitted key whose string value is oversized", () => {
+    const result = normalizeIssuePayload({
+      ...valid,
+      context: { phase: "x".repeat(500), round: 3 },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.context).toEqual({ round: 3 });
+  });
+
+  it("drops a handSizes map carrying non-numeric values", () => {
+    const result = normalizeIssuePayload({
+      ...valid,
+      context: { handSizes: { alice: "a whole sentence" } },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.context).toBeNull();
+  });
+
+  it("keeps a well-formed structural context intact", () => {
+    const context = {
+      phase: "judging",
+      round: 4,
+      judgeId: "3f2a1b4c-5d6e-7f80-9a1b-2c3d4e5f6071",
+      activePlayerCount: 5,
+      submissionCount: 4,
+      handSizes: { alice: 7, bob: 6 },
+      isHost: true,
+    };
+    const result = normalizeIssuePayload({ ...valid, context });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.context).toEqual(context);
+  });
 });
