@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetRateLimits } from "~/server/utils/rateLimit";
 import {
   buildIssueWebhookBody,
+  notifyIssue,
   __resetWebhookSuppression,
   __shouldSendWebhook,
 } from "~/server/utils/issueWebhook";
@@ -77,5 +78,76 @@ describe("__shouldSendWebhook", () => {
     for (let i = 0; i < 6; i++) __shouldSendWebhook();
     vi.advanceTimersByTime(10 * 60 * 1000 + 1000);
     expect(__shouldSendWebhook().send).toBe(true);
+  });
+});
+
+describe("notifyIssue", () => {
+  const configured = {
+    issueWebhookUrl: "https://discord.example/webhook",
+    public: { baseUrl: "https://unfit.cards" },
+  };
+
+  afterEach(() => {
+    // These tests stub Nitro globals directly on globalThis; other test
+    // files in the same worker must not inherit them.
+    // @ts-ignore
+    delete globalThis.useRuntimeConfig;
+    // @ts-ignore
+    delete globalThis.$fetch;
+  });
+
+  it("never throws when the transport rejects", async () => {
+    // @ts-ignore — Nitro globals are provided by the runtime in production
+    globalThis.useRuntimeConfig = () => configured;
+    // @ts-ignore
+    globalThis.$fetch = vi.fn().mockRejectedValue(new Error("discord down"));
+
+    await expect(notifyIssue(result)).resolves.toBeUndefined();
+  });
+
+  it("never throws when the transport throws synchronously", async () => {
+    // @ts-ignore
+    globalThis.useRuntimeConfig = () => configured;
+    // @ts-ignore
+    globalThis.$fetch = vi.fn(() => {
+      throw new Error("boom");
+    });
+
+    await expect(notifyIssue(result)).resolves.toBeUndefined();
+  });
+
+  it("never throws when config access itself fails", async () => {
+    // @ts-ignore
+    globalThis.useRuntimeConfig = () => {
+      throw new Error("no config in this context");
+    };
+
+    await expect(notifyIssue(result)).resolves.toBeUndefined();
+  });
+
+  it("sends nothing when the group should not notify", async () => {
+    // @ts-ignore
+    globalThis.useRuntimeConfig = () => configured;
+    const spy = vi.fn().mockResolvedValue(null);
+    // @ts-ignore
+    globalThis.$fetch = spy;
+
+    await notifyIssue({ ...result, shouldNotify: false });
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("suppresses mention parsing in what it posts", async () => {
+    // @ts-ignore
+    globalThis.useRuntimeConfig = () => configured;
+    const spy = vi.fn().mockResolvedValue(null);
+    // @ts-ignore
+    globalThis.$fetch = spy;
+
+    await notifyIssue({ ...result, title: "@everyone the game is broken" });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [, options] = spy.mock.calls[0];
+    expect(options.body.allowed_mentions).toEqual({ parse: [] });
   });
 });
