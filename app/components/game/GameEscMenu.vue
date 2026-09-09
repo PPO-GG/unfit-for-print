@@ -2,8 +2,10 @@
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 import { useUserPrefsStore } from "~/stores/userPrefsStore";
 import { useMusicPlayer } from "~/composables/useMusicPlayer";
+import { useReportProblem } from "~/composables/useReportProblem";
 
 const { t } = useI18n();
+const { open: openReport } = useReportProblem();
 const prefs = useUserPrefsStore();
 const music = useMusicPlayer();
 
@@ -121,6 +123,20 @@ watch(
                     ? t("game.link_copied", "Link Copied!")
                     : t("game.copy_invite", "Copy Invite Link")
                 }}</span>
+              </button>
+
+              <!-- Directly above Leave on purpose. A player who thinks the
+                   round is stuck is already reaching for this menu to quit,
+                   and that is the report we most want to catch. -->
+              <button
+                class="esc-menu-item"
+                @click="
+                  openReport();
+                  emit('close');
+                "
+              >
+                <UIcon name="i-solar-bug-bold-duotone" />
+                <span>{{ t("report.title", "Report a Problem") }}</span>
               </button>
 
               <button

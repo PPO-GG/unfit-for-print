@@ -314,5 +314,22 @@
   "profile.settings_music_error": "Couldn't load music",
   "profile.settings_music_error_desc": "The background music player failed to load. It may be blocked by an ad blocker or browser extension.",
   "tagline": "A PARTY GAME FOR HIDEOUS PEOPLE",
-  "try_me": "Try Me!"
+  "try_me": "Try Me!",
+  "nav": {
+    "report": "Report"
+  },
+  "report": {
+    "title": "Report a Problem",
+    "blurb": "Tell us what went wrong. We attach what the game was doing automatically, so you don't have to describe it.",
+    "placeholder": "What happened?",
+    "cancel": "Cancel",
+    "submit": "Send Report",
+    "sent_title": "Report sent",
+    "sent_body": "Thanks — we'll take a look.",
+    "cat_stuck": "The game is stuck",
+    "cat_visual": "Something looks wrong",
+    "cat_audio": "Sound or voice problem",
+    "cat_cards": "A card is broken",
+    "cat_other": "Something else"
+  }
 }

@@ -8,6 +8,9 @@
       </template>
     </ClientOnly>
     <ConfirmDialog />
+    <!-- Mounted once here, like ConfirmDialog, because it is opened from two
+         unrelated trees: the app header and the in-game ESC menu. -->
+    <ReportProblemModal />
     <SettingsSlideover
       v-if="!isGameRoute"
       v-model:open="uiStore.showSettings"

@@ -332,6 +332,18 @@
         >Changelog</NuxtLink
       >
 
+      <!-- A button, not a link: it opens the report modal mounted globally in
+           app.vue. It sits here rather than among the New Game / Join Game
+           tiles because a bug reporter should be findable, not loud — and
+           here it is reachable by guests, who hit the most bugs. -->
+      <button
+        type="button"
+        class="hover:text-slate-300 transition-colors cursor-pointer"
+        @click="openReport()"
+      >
+        {{ t("report.title", "Report a Problem") }}
+      </button>
+
       <NuxtLink
         to="/legal/termsofservice"
         class="hover:text-slate-300 transition-colors"
@@ -366,6 +378,7 @@ import { SFX } from "~/config/sfx.config";
 import { useLobbyActions } from "~/composables/useLobbyActions";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useNotifications } from "~/composables/useNotifications";
+import { useReportProblem } from "~/composables/useReportProblem";
 import { useIsAdmin } from "~/composables/useAdminCheck";
 import { useUiStore } from "~/stores/uiStore";
 
@@ -374,6 +387,7 @@ const userPrefs = useUserPrefsStore();
 const userStore = useUserStore();
 const uiStore = useUiStore();
 const { notify } = useNotifications();
+const { open: openReport } = useReportProblem();
 const { isDiscordActivity } = useDiscordSDK();
 const isAdmin = useIsAdmin();
 const router = useRouter();
