@@ -50,6 +50,8 @@ If it needs recreating: `docker run -d --name unfit-postgres-test -p 5433:5432 -
 
 Known-failing suites as of 2026-09-05, unrelated to card handling: `lobby-detail-admin`, `lobby-prune`, `lobby-registry` (DB), plus `UserHand`, three mobile suites, `useVoicePreview`, `AvatarDecoration`, `userPrefsStore`, `BlackCard`. Compare against that baseline rather than expecting green.
 
+**Windows-only, added 2026-09-09 with the Vitest 4.1.11 security bump (GHSA-82fw-gwwq-j7x9):** `WhiteCard` and `AdminCardPreview` fail suite collection on Windows with `TypeError: The argument 'filename' must be a file URL object, ...`. Root cause is upstream, not app code — confirmed via `@vue/compiler-sfc`'s own `compileTemplate()` that neither component's plain `<img src="/img/...">` markup ever gets turned into an import, and via Vite's debug log that Vite itself resolves the asset fine; the crash is Vitest 4's new `vm.runInContext`-based module evaluator mishandling a non-drive-letter `file://` URL when it tries to load that resolved asset as a module. Matches a Vitest PR closed without merging (vitest-dev/vitest#9310, "Use `meta.url` as the argument to `createRequire()`... can cause bugs on Windows"). Does not reproduce on Linux (a non-drive-letter `file://` URL is valid POSIX) and does not affect this project's CI, which only runs `commitlint`/`release-please` on `ubuntu-latest` — no test-running CI step exists at all currently. Does not affect the built app (`pnpm build` is clean). If you're on Windows, expect these two on top of the baseline above.
+
 The same setup file stubs Nitro/H3 globals (`defineEventHandler`, `createError`, …) so server route modules can be imported directly in unit tests without a running server.
 
 ## Architecture

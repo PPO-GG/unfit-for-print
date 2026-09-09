@@ -29,7 +29,11 @@ describe("useMusicPlayer", () => {
   });
 
   it("creates exactly one YT.Player even when play() is called twice concurrently", async () => {
-    const playerConstructor = vi.fn().mockImplementation((_id: string, config: any) => {
+    // A `function` expression, not an arrow function: the app calls this via
+    // `new YT.Player(...)`, and arrow functions were never legally
+    // constructible with `new` — Vitest 4's rewritten spying implementation
+    // now enforces that correctly (3.x silently let it slide).
+    const playerConstructor = vi.fn().mockImplementation(function (_id: string, config: any) {
       const instance = { playVideo: vi.fn(), pauseVideo: vi.fn(), setVolume: vi.fn() };
       queueMicrotask(() => config.events.onReady());
       return instance;
@@ -51,7 +55,9 @@ describe("useMusicPlayer", () => {
   it("applies a volume set before the player exists once it becomes ready", async () => {
     const instance = { playVideo: vi.fn(), pauseVideo: vi.fn(), setVolume: vi.fn() };
     (window as any).YT = {
-      Player: vi.fn().mockImplementation((_id: string, config: any) => {
+      // Constructor mock: must be a `function`, not an arrow — see the note
+      // on the first test above.
+      Player: vi.fn().mockImplementation(function (_id: string, config: any) {
         queueMicrotask(() => config.events.onReady());
         return instance;
       }),
@@ -72,7 +78,9 @@ describe("useMusicPlayer", () => {
     let callCount = 0;
     const instance = { playVideo: vi.fn(), pauseVideo: vi.fn(), setVolume: vi.fn() };
     (window as any).YT = {
-      Player: vi.fn().mockImplementation((_id: string, config: any) => {
+      // Constructor mock: must be a `function`, not an arrow — see the note
+      // on the first test above.
+      Player: vi.fn().mockImplementation(function (_id: string, config: any) {
         callCount += 1;
         if (callCount === 1) {
           throw new Error("boom");
@@ -102,7 +110,12 @@ describe("useMusicPlayer", () => {
 
     try {
       (window as any).YT = {
-        Player: vi.fn().mockImplementation(() => {
+        // Constructor mock: must be a `function`, not an arrow — see the
+        // note on the first test above. Without this fix the assertion
+        // below happened to pass anyway, but for the wrong reason: it was
+        // catching Vitest's "not a constructor" TypeError, not this mock's
+        // intended "boom".
+        Player: vi.fn().mockImplementation(function () {
           throw new Error("boom");
         }),
         PlayerState: { PLAYING: 1, PAUSED: 2 },
@@ -164,7 +177,9 @@ describe("useMusicPlayer", () => {
     // Simulate the retry's script finishing its load successfully.
     const instance = { playVideo: vi.fn(), pauseVideo: vi.fn(), setVolume: vi.fn() };
     (window as any).YT = {
-      Player: vi.fn().mockImplementation((_id: string, config: any) => {
+      // Constructor mock: must be a `function`, not an arrow — see the note
+      // on the first test above.
+      Player: vi.fn().mockImplementation(function (_id: string, config: any) {
         queueMicrotask(() => config.events.onReady());
         return instance;
       }),
