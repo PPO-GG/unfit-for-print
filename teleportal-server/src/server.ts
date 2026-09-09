@@ -16,6 +16,7 @@ import * as Y from "yjs";
 import { createServer } from "http";
 import crossws from "crossws/adapters/node";
 import { config } from "dotenv";
+import { reportTeleportalError } from "./issueReporter.js";
 
 config();
 
@@ -35,10 +36,15 @@ const ALLOWED_ORIGINS = new Set([
 process.on("uncaughtException", (error) => {
   console.error("[Lobby] UNCAUGHT EXCEPTION:", error.message);
   console.error("[Lobby] Stack:", error.stack);
+  reportTeleportalError(error.message, error.stack);
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error("[Lobby] UNHANDLED REJECTION:", reason);
+  reportTeleportalError(
+    reason instanceof Error ? reason.message : String(reason),
+    reason instanceof Error ? reason.stack : undefined,
+  );
 });
 
 // ─── Session Tracking ───────────────────────────────────────────────────────
