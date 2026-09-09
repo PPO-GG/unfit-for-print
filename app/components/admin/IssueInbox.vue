@@ -16,18 +16,33 @@ interface IssueGroup {
 
 const { notify } = useNotifications();
 
-const kind = ref<string>("");
+/**
+ * Reka UI — the Select primitive under Nuxt UI v4 — throws outright on an
+ * item whose value is the empty string, because it reserves "" for clearing
+ * the selection. So "All" carries a sentinel instead.
+ *
+ * The sentinel must never reach the API: /api/admin/issues validates `kind`
+ * and `status` against allowlists and 400s on anything outside them. Mapping
+ * it to undefined makes useFetch omit the parameter entirely, which is what
+ * the route reads as "no filter".
+ */
+const ALL = "all";
+
+const kind = ref<string>(ALL);
 const status = ref<string>("open");
+
+const query = computed(() => ({
+  kind: kind.value === ALL ? undefined : kind.value,
+  status: status.value === ALL ? undefined : status.value,
+}));
 
 const { data, refresh, pending } = await useFetch<{ groups: IssueGroup[] }>(
   "/api/admin/issues",
-  {
-    query: { kind, status },
-  },
+  { query },
 );
 
 const kindOptions = [
-  { label: "All kinds", value: "" },
+  { label: "All kinds", value: ALL },
   { label: "Client error", value: "client-error" },
   { label: "API error", value: "api-error" },
   { label: "Player report", value: "player-report" },
@@ -39,7 +54,7 @@ const statusOptions = [
   { label: "Open", value: "open" },
   { label: "Resolved", value: "resolved" },
   { label: "Muted", value: "muted" },
-  { label: "All", value: "" },
+  { label: "All", value: ALL },
 ];
 
 async function setStatus(id: string, next: string) {
