@@ -85,7 +85,12 @@ export const useLobby = () => {
         phase: reactive.gameState.value?.phase,
         round: reactive.gameState.value?.round,
         judgeId: reactive.gameState.value?.judgeId ?? undefined,
-        activePlayerCount: reactive.playerList.value?.length,
+        // playerList includes spectators; the engine counts only
+        // non-spectators as players, so this matches that definition rather
+        // than reporting a roster size nothing else agrees with.
+        activePlayerCount: (reactive.playerList.value ?? []).filter(
+          (p) => p.playerType !== "spectator",
+        ).length,
         submissionCount: Object.keys(
           reactive.gameState.value?.submissions ?? {},
         ).length,

@@ -28,6 +28,34 @@ export const ISSUE_KINDS = [
   "server-error",
 ] as const;
 
+/**
+ * `anomaly` fingerprints derive from ruleId + phase, and both arrive from the
+ * unauthenticated ingest route — so without an allowlist every request could
+ * mint a brand-new group that nothing ever removes, on a database with no
+ * backups. Pinning both to known sets caps anomaly groups at
+ * WATCHDOG_RULE_IDS × GAME_PHASES for all time, which closes the vector
+ * rather than merely slowing it.
+ *
+ * These must stay in step with WATCHDOG_RULES in app/utils/watchdogRules.ts
+ * and the phase union in app/types/game.d.ts. A test pins them together.
+ */
+export const ANOMALY_RULE_IDS = [
+  "judging-empty",
+  "settle-stalled",
+  "judge-missing",
+  "too-few-players",
+  "hand-underfilled",
+] as const;
+
+export const GAME_PHASES = [
+  "waiting",
+  "submitting",
+  "submitting-complete",
+  "judging",
+  "roundEnd",
+  "complete",
+] as const;
+
 /** The only keys copied out of a submitted context. */
 export const ISSUE_CONTEXT_KEYS = [
   "phase",

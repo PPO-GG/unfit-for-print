@@ -1,6 +1,8 @@
 import type { IssueContext, IssueKind } from "~/types/issue";
 import {
+  ANOMALY_RULE_IDS,
   APP_VERSION_MAX,
+  GAME_PHASES,
   ISSUE_CONTEXT_KEYS,
   ISSUE_KINDS,
   MESSAGE_MAX,
@@ -139,6 +141,20 @@ export function normalizeIssuePayload(raw: unknown): NormalizeResult {
   if (!message) return { ok: false, reason: "message is required" };
 
   const context = pickContext(body.context);
+
+  // An anomaly's fingerprint is ruleId + phase, so an unbounded pair means an
+  // unbounded number of permanent group rows. Both halves have to be known
+  // values or the report is refused outright — the watchdog only ever sends
+  // ids from WATCHDOG_RULES, so nothing legitimate is turned away.
+  if (kind === "anomaly") {
+    if (!ANOMALY_RULE_IDS.includes(context?.ruleId as never)) {
+      return { ok: false, reason: "unknown anomaly ruleId" };
+    }
+    if (!GAME_PHASES.includes(context?.phase as never)) {
+      return { ok: false, reason: "unknown anomaly phase" };
+    }
+  }
+
   const stack = clamp(body.stack, STACK_MAX);
 
   return {

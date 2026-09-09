@@ -3,6 +3,7 @@ import { onMounted, onBeforeUnmount, ref, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "~/stores/userStore";
 import { useLobby } from "~/composables/useLobby";
+import { useGameWatchdog } from "~/composables/useGameWatchdog";
 import { useNotifications } from "~/composables/useNotifications";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
@@ -52,6 +53,11 @@ const {
   mutations,
 } = useLobby();
 const { initializeGamePageSession } = useJoinLobby();
+
+// Host-only watchdog for rounds that wedge without throwing. It observes and
+// reports; it changes no game state, so it belongs here rather than in the
+// engine.
+useGameWatchdog(reactive);
 
 // ─── Discord Activity ─────────────────────────────────────────────────────
 const { isDiscordActivity } = useDiscordSDK();

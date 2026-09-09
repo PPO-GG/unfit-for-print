@@ -6,7 +6,12 @@
 
 import { describe, expect, it } from "vitest";
 import { normalizeIssuePayload } from "~/server/utils/issueIngest";
-import { MESSAGE_MAX, STACK_MAX } from "~/server/utils/issueConstants";
+import {
+  ANOMALY_RULE_IDS,
+  MESSAGE_MAX,
+  STACK_MAX,
+} from "~/server/utils/issueConstants";
+import { WATCHDOG_RULE_IDS } from "~/utils/watchdogRules";
 
 const valid = {
   kind: "client-error",
@@ -138,5 +143,63 @@ describe("normalizeIssuePayload", () => {
     const result = normalizeIssuePayload({ ...valid, context });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.context).toEqual(context);
+  });
+});
+
+describe("anomaly validation", () => {
+  const anomaly = {
+    kind: "anomaly",
+    message: "Phase stuck at submitting-complete",
+    appVersion: "3.19.0",
+  };
+
+  it("accepts a known ruleId and phase", () => {
+    const result = normalizeIssuePayload({
+      ...anomaly,
+      context: { ruleId: "settle-stalled", phase: "submitting-complete" },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  // Both halves feed the fingerprint, so an unbounded pair means unbounded
+  // permanent group rows on a database with no backups.
+  it("rejects an unknown ruleId", () => {
+    const result = normalizeIssuePayload({
+      ...anomaly,
+      context: { ruleId: "made-up-rule", phase: "judging" },
+    });
+    expect(result).toMatchObject({ ok: false });
+  });
+
+  it("rejects an unknown phase", () => {
+    const result = normalizeIssuePayload({
+      ...anomaly,
+      context: { ruleId: "settle-stalled", phase: "not-a-phase" },
+    });
+    expect(result).toMatchObject({ ok: false });
+  });
+
+  it("rejects an anomaly with no context at all", () => {
+    const result = normalizeIssuePayload(anomaly);
+    expect(result).toMatchObject({ ok: false });
+  });
+
+  it("leaves other kinds unaffected by the allowlist", () => {
+    const result = normalizeIssuePayload({
+      kind: "client-error",
+      message: "boom",
+      appVersion: "3.19.0",
+      context: { ruleId: "anything", phase: "whatever" },
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("watchdog rule ids match the server allowlist", () => {
+  // The client decides what to send and the server decides what to accept.
+  // If these drift, the watchdog silently starts getting 400s in production
+  // and the anomalies it exists to surface never arrive.
+  it("has exactly the same set on both sides", () => {
+    expect([...ANOMALY_RULE_IDS].sort()).toEqual([...WATCHDOG_RULE_IDS].sort());
   });
 });
