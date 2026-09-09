@@ -1,0 +1,1 @@
+ALTER TABLE "card_packs" ADD COLUMN "series" text;

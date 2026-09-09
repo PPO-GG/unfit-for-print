@@ -133,6 +133,29 @@ describe("AdminPackTile — lobby-card treatment", () => {
     expect(wrapper.find('[data-testid="pack-name"]').text()).toBe("The Hot One");
   });
 
+  it("prefers an explicit meta.series over the derived prefix", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: {
+        pack: { ...pack, name: "Cards Against Humanity: Blue Box Expansion" },
+        meta: { pack: "x", series: "CAH" },
+        seriesPrefix: prefix,
+      },
+    });
+    expect(wrapper.find('[data-testid="pack-series"]').text()).toBe("CAH");
+  });
+
+  it("still shows an explicit meta.series alongside a custom display name", () => {
+    const wrapper = mount(AdminPackTile, {
+      props: {
+        pack: { ...pack, name: "Cards Against Humanity: Hot Box" },
+        meta: { pack: "x", displayName: "The Hot One", series: "CAH" },
+        seriesPrefix: prefix,
+      },
+    });
+    expect(wrapper.find('[data-testid="pack-series"]').text()).toBe("CAH");
+    expect(wrapper.find('[data-testid="pack-name"]').text()).toBe("The Hot One");
+  });
+
   it("derives a stable accent colour when the pack has none", () => {
     const mountFor = (name: string) =>
       mount(AdminPackTile, { props: { pack: { ...pack, name } } });
