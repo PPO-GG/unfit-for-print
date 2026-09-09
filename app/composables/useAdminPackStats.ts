@@ -126,6 +126,33 @@ export function useAdminPackStats() {
     packMeta.value = { ...packMeta.value, [row.pack]: row };
   }
 
+  /**
+   * Set the same series/brand across many packs in one request — the bulk
+   * counterpart to editing `series` through the per-pack AdminPackForm.
+   * Scoped to `series` alone; see pack-meta-bulk.post.ts for why.
+   */
+  const bulkSetSeries = async (packNames: string[], series: string) => {
+    if (!packNames.length) return false;
+    try {
+      const { packs: rows } = await $activityFetch<{ packs: CardPackMeta[] }>(
+        "/api/admin/cards/pack-meta-bulk",
+        { method: "POST", body: { packs: packNames, series } },
+      );
+      packMeta.value = {
+        ...packMeta.value,
+        ...Object.fromEntries(rows.map((row) => [row.pack, row])),
+      };
+      return true;
+    } catch {
+      notify({
+        title: "Update Failed",
+        description: "Could not set the series for the selected packs.",
+        color: "error",
+      });
+      return false;
+    }
+  };
+
   const toggleDefaultPack = async (packName: string) => {
     const isDefault = defaultPacks.value.includes(packName);
     try {
@@ -342,6 +369,7 @@ export function useAdminPackStats() {
     loadDefaultPacks,
     loadPackMeta,
     applyPackMeta,
+    bulkSetSeries,
     toggleDefaultPack,
     togglePackSelection,
     clearPackSelection,

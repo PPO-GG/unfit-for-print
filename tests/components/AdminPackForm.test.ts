@@ -44,6 +44,7 @@ describe("AdminPackForm", () => {
       description: "",
       icon: "",
       color: "",
+      series: "",
       sortOrder: 0,
       official: false,
       nsfw: false,
@@ -57,11 +58,13 @@ describe("AdminPackForm", () => {
       description: "the original",
       icon: "🎴",
       color: "#f00",
+      series: "Cards Against Humanity",
       sortOrder: 3,
       official: true,
       nsfw: false,
     });
     expect(wrapper.vm.form.displayName).toBe("Base Set");
+    expect(wrapper.vm.form.series).toBe("Cards Against Humanity");
     expect(wrapper.vm.form.sortOrder).toBe(3);
     expect(wrapper.vm.form.official).toBe(true);
   });
@@ -82,11 +85,26 @@ describe("AdminPackForm", () => {
         description: "a blurb",
         icon: null,
         color: null,
+        series: null,
         sortOrder: 0,
         official: false,
         nsfw: false,
       },
     });
+  });
+
+  it("sends the series field, trimmed", async () => {
+    fetchMock.mockResolvedValue({ pack: "Base", series: "Cards Against Humanity" });
+    const wrapper = mountForm(null);
+    wrapper.vm.form.series = "  Cards Against Humanity  ";
+
+    await wrapper.vm.save();
+    await flushPromises();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/admin/cards/pack-meta",
+      expect.objectContaining({ body: expect.objectContaining({ series: "Cards Against Humanity" }) }),
+    );
   });
 
   it("emits the saved row on success", async () => {

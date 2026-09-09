@@ -36,8 +36,12 @@ const split = computed(() =>
 // An explicit display name is a deliberate override and wins outright; the
 // derived split only exists because none is set yet.
 const title = computed(() => props.meta?.displayName || split.value.label);
-const series = computed(() =>
-  props.meta?.displayName ? "" : split.value.series,
+// An explicit series/brand (meta.series) always wins, even alongside a
+// custom display name — the two are orthogonal (a pack can be renamed AND
+// still belong to a brand). Only the *derived* guess gets suppressed by a
+// display name, since a custom name presumably already reads fine on its own.
+const series = computed(
+  () => props.meta?.series || (props.meta?.displayName ? "" : split.value.series),
 );
 const accent = computed(() => props.meta?.color || packAccent(props.pack.name));
 

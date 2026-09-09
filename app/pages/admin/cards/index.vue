@@ -6,7 +6,7 @@
  * Pack selection exists on this screen only — the browser never selects
  * packs, which is what removed the two-selection-systems confusion.
  */
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { useAdminPackStats, type AdminPackStat } from "~/composables/useAdminPackStats";
 import { useAdminCardList } from "~/composables/useAdminCardList";
 import { useAdminCardMutations } from "~/composables/useAdminCardMutations";
@@ -21,7 +21,7 @@ const packs = useAdminPackStats();
 const {
   packStats, sortedPacks, packMeta, defaultPacks, selectedPacks, packSearchTerm,
   loadPacks, loadDefaultPacks, loadPackMeta,
-  togglePackSelection, clearPackSelection, toggleDefaultPack,
+  togglePackSelection, clearPackSelection, toggleDefaultPack, bulkSetSeries,
 } = packs;
 
 const list = useAdminCardList();
@@ -36,6 +36,8 @@ const { confirm } = useConfirm();
 const showAdd = ref(false);
 const mergeTarget = ref("");
 const mergeOpen = ref(false);
+const seriesInput = ref("");
+const seriesOpen = ref(false);
 
 const allPackNames = computed(() => Object.keys(packStats.value).sort());
 
@@ -173,6 +175,22 @@ const confirmMerge = async () => {
   }
 };
 
+// Prefills with the derived series guess (colon stripped) the first time the
+// popover opens for an empty field — the common case is turning that guess
+// into real, editable data, not typing a brand name from scratch.
+watch(seriesOpen, (open) => {
+  if (open && !seriesInput.value.trim()) {
+    seriesInput.value = seriesPrefix.value.replace(/[:\s]+$/, "");
+  }
+});
+
+const confirmSetSeries = async () => {
+  if (await bulkSetSeries([...selectedPacks.value], seriesInput.value)) {
+    seriesInput.value = "";
+    seriesOpen.value = false;
+  }
+};
+
 // A card added to a brand-new pack has no tile yet — reload the pack stats
 // so it appears, rather than requiring a manual refresh.
 const onAddCard = async (payload: Record<string, unknown>) => {
@@ -237,6 +255,26 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
             </p>
             <UButton size="xs" color="primary" :disabled="!mergeTarget.trim()" @click="confirmMerge">
               Merge
+            </UButton>
+          </div>
+        </template>
+      </UPopover>
+      <UPopover v-model:open="seriesOpen">
+        <UButton size="xs" variant="soft">
+          Set series…
+        </UButton>
+        <template #content>
+          <div class="p-3 w-64 flex flex-col gap-2">
+            <UFormField label="Series / brand">
+              <UInput
+                v-model="seriesInput"
+                class="w-full"
+                placeholder="e.g. Cards Against Humanity"
+                data-testid="bulk-series-input"
+              />
+            </UFormField>
+            <UButton size="xs" color="primary" @click="confirmSetSeries">
+              Set for {{ selectedPacks.length }} pack{{ selectedPacks.length === 1 ? "" : "s" }}
             </UButton>
           </div>
         </template>

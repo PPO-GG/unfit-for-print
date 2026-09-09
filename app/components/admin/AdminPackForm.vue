@@ -29,6 +29,7 @@ const blank = () => ({
   description: "",
   icon: "",
   color: "",
+  series: "",
   sortOrder: 0,
   official: false,
   nsfw: false,
@@ -43,6 +44,7 @@ function seed() {
         description: props.meta.description ?? "",
         icon: props.meta.icon ?? "",
         color: props.meta.color ?? "",
+        series: props.meta.series ?? "",
         sortOrder: props.meta.sortOrder ?? 0,
         official: props.meta.official ?? false,
         nsfw: props.meta.nsfw ?? false,
@@ -70,6 +72,7 @@ async function save() {
         description: orNull(form.value.description),
         icon: orNull(form.value.icon),
         color: orNull(form.value.color),
+        series: orNull(form.value.series),
         sortOrder: Number(form.value.sortOrder) || 0,
         official: form.value.official,
         nsfw: form.value.nsfw,
@@ -94,6 +97,10 @@ defineExpose({ form, save });
   <div class="flex flex-col gap-4">
     <UFormField label="Display name">
       <UInput v-model="form.displayName" class="w-full" placeholder="Shown instead of the raw pack name" />
+    </UFormField>
+
+    <UFormField label="Series / brand">
+      <UInput v-model="form.series" class="w-full" placeholder="e.g. Cards Against Humanity" />
     </UFormField>
 
     <UFormField label="Description">

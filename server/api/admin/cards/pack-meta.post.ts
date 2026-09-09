@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
     description?: string | null;
     icon?: string | null;
     color?: string | null;
+    series?: string | null;
     sortOrder?: number;
     official?: boolean;
     nsfw?: boolean;
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
   const pack = body.pack.trim();
 
   const updates: Record<string, unknown> = {};
-  for (const key of ["displayName", "description", "icon", "color"] as const) {
+  for (const key of ["displayName", "description", "icon", "color", "series"] as const) {
     if (key in body) updates[key] = body[key] ?? null;
   }
   if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;

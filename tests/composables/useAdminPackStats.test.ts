@@ -77,6 +77,46 @@ describe("useAdminPackStats — loading", () => {
   });
 });
 
+describe("useAdminPackStats — bulkSetSeries", () => {
+  it("merges the returned rows into packMeta", async () => {
+    fetchMock.mockResolvedValue({
+      packs: [
+        { pack: "Base", series: "Cards Against Humanity" },
+        { pack: "Blue", series: "Cards Against Humanity" },
+      ],
+    });
+
+    const packs = useAdminPackStats();
+    const ok = await packs.bulkSetSeries(["Base", "Blue"], "Cards Against Humanity");
+
+    expect(ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/cards/pack-meta-bulk", {
+      method: "POST",
+      body: { packs: ["Base", "Blue"], series: "Cards Against Humanity" },
+    });
+    expect(packs.packMeta.value.Base?.series).toBe("Cards Against Humanity");
+    expect(packs.packMeta.value.Blue?.series).toBe("Cards Against Humanity");
+  });
+
+  it("does nothing and does not fetch when no packs are given", async () => {
+    const packs = useAdminPackStats();
+    const ok = await packs.bulkSetSeries([], "X");
+
+    expect(ok).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns false and leaves packMeta untouched when the request fails", async () => {
+    fetchMock.mockRejectedValue(new Error("boom"));
+
+    const packs = useAdminPackStats();
+    const ok = await packs.bulkSetSeries(["Base"], "X");
+
+    expect(ok).toBe(false);
+    expect(packs.packMeta.value.Base).toBeUndefined();
+  });
+});
+
 describe("useAdminPackStats — sortedPacks", () => {
   it("sorts alphabetically and filters by the search term", () => {
     const packs = useAdminPackStats();
