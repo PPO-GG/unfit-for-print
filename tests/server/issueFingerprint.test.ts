@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeFingerprint,
   normalizeMessage,
+  normalizeRoute,
 } from "~/server/utils/issueFingerprint";
 
 describe("normalizeMessage", () => {
@@ -71,6 +72,46 @@ describe("normalizeMessage", () => {
   });
 });
 
+describe("normalizeRoute", () => {
+  // Message normalization deliberately leaves bare lobby codes alone (HTTP,
+  // TEXT are real English words). That caution doesn't apply to URL path
+  // segments — a segment that IS a lobby code should collapse regardless,
+  // since the whole point is grouping repeat failures of one dynamic route.
+  it("collapses a bare lobby-code segment", () => {
+    expect(normalizeRoute("/api/lobby/AB2C/leave")).toBe(
+      normalizeRoute("/api/lobby/XY9Z/leave"),
+    );
+  });
+
+  it("collapses a UUID segment", () => {
+    expect(
+      normalizeRoute("/api/players/3f2a1b4c-5d6e-7f80-9a1b-2c3d4e5f6071"),
+    ).toBe(
+      normalizeRoute("/api/players/9b1c2d3e-4f50-6a7b-8c9d-0e1f2a3b4c5d"),
+    );
+  });
+
+  it("collapses a purely numeric segment", () => {
+    expect(normalizeRoute("/api/rounds/7")).toBe(normalizeRoute("/api/rounds/42"));
+  });
+
+  it("collapses a long opaque token segment", () => {
+    expect(normalizeRoute("/api/cards/images/abcdefghijklmnopqrstuvwxyz1234")).toBe(
+      normalizeRoute("/api/cards/images/zyxwvutsrqponmlkjihgfedcba4321"),
+    );
+  });
+
+  it("leaves ordinary static path words untouched", () => {
+    expect(normalizeRoute("/api/lobby/create")).toBe("/api/lobby/create");
+  });
+
+  it("is stable regardless of a trailing slash", () => {
+    expect(normalizeRoute("/api/lobby/create/")).toBe(
+      normalizeRoute("/api/lobby/create"),
+    );
+  });
+});
+
 describe("computeFingerprint", () => {
   it("is stable for the same normalized message and frame", () => {
     const one = computeFingerprint({
@@ -102,5 +143,47 @@ describe("computeFingerprint", () => {
   it("gives every player report its own group", () => {
     const input = { kind: "player-report" as const, message: "it froze" };
     expect(computeFingerprint(input)).not.toBe(computeFingerprint(input));
+  });
+
+  describe("api-error", () => {
+    const base = {
+      kind: "api-error" as const,
+      route: "/api/lobby/AB2C/leave",
+      context: { method: "POST", statusCode: 500 },
+    };
+
+    it("fingerprints on method + route pattern + status, ignoring the message", () => {
+      expect(computeFingerprint({ ...base, message: "DB connection reset" })).toBe(
+        computeFingerprint({ ...base, message: "constraint violation" }),
+      );
+    });
+
+    it("groups the same dynamic route across different lobby codes", () => {
+      const other = { ...base, route: "/api/lobby/XY9Z/leave" };
+      expect(computeFingerprint({ ...base, message: "a" })).toBe(
+        computeFingerprint({ ...other, message: "b" }),
+      );
+    });
+
+    it("separates a different status on the same route", () => {
+      const other = { ...base, context: { ...base.context, statusCode: 503 } };
+      expect(computeFingerprint(base)).not.toBe(computeFingerprint(other));
+    });
+
+    it("separates a different method on the same route", () => {
+      const other = { ...base, context: { ...base.context, method: "GET" } };
+      expect(computeFingerprint(base)).not.toBe(computeFingerprint(other));
+    });
+
+    it("separates a genuinely different route", () => {
+      const other = { ...base, route: "/api/cards/random" };
+      expect(computeFingerprint(base)).not.toBe(computeFingerprint(other));
+    });
+
+    it("does not throw when route, method, or statusCode is missing", () => {
+      expect(() =>
+        computeFingerprint({ kind: "api-error", message: "boom" }),
+      ).not.toThrow();
+    });
   });
 });

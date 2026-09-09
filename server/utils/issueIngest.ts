@@ -52,6 +52,9 @@ const isShortString = (v: unknown): boolean =>
 const isFiniteNumber = (v: unknown): boolean =>
   typeof v === "number" && Number.isFinite(v);
 
+const isHttpStatusCode = (v: unknown): boolean =>
+  isFiniteNumber(v) && (v as number) >= 100 && (v as number) <= 599;
+
 /** Player id → hand size. Guards keys as well as values — a value-only guard
  *  leaves the key wide open, and an attacker can smuggle an arbitrarily
  *  large string (a chat transcript, say) through a map key just as easily as
@@ -92,6 +95,8 @@ const CONTEXT_VALUE_GUARDS: Record<
   isHost: (v) => typeof v === "boolean",
   ruleId: isShortString,
   category: isShortString,
+  method: isShortString,
+  statusCode: isHttpStatusCode,
 };
 
 /** Real lobby codes are exactly 4 characters from the alphabet `randomCode()`
@@ -156,6 +161,7 @@ export function normalizeIssuePayload(raw: unknown): NormalizeResult {
   }
 
   const stack = clamp(body.stack, STACK_MAX);
+  const route = clamp(body.route, ROUTE_MAX);
 
   return {
     ok: true,
@@ -165,7 +171,7 @@ export function normalizeIssuePayload(raw: unknown): NormalizeResult {
       title: message.slice(0, TITLE_MAX),
       stack,
       lobbyCode: normalizeLobbyCode(body.lobbyCode),
-      route: clamp(body.route, ROUTE_MAX),
+      route,
       platform: clamp(body.platform, PLATFORM_MAX),
       appVersion: clamp(body.appVersion, APP_VERSION_MAX) ?? "unknown",
       context,
@@ -174,6 +180,7 @@ export function normalizeIssuePayload(raw: unknown): NormalizeResult {
         message,
         stack: stack ?? undefined,
         context: context ?? undefined,
+        route: route ?? undefined,
       }),
     },
   };

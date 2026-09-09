@@ -69,4 +69,6 @@ export const ISSUE_CONTEXT_KEYS = [
   "isHost",
   "ruleId",
   "category",
+  "method",
+  "statusCode",
 ] as const;

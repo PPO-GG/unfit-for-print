@@ -27,6 +27,10 @@ export interface IssueContext {
   ruleId?: string;
   /** player-report only */
   category?: string;
+  /** api-error only — the HTTP method of the request that errored */
+  method?: string;
+  /** api-error only — the response status code, e.g. 500 */
+  statusCode?: number;
 }
 
 export interface IssueReportInput {

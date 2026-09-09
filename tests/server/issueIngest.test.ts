@@ -144,6 +144,31 @@ describe("normalizeIssuePayload", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.context).toEqual(context);
   });
+
+  it("keeps a well-formed api-error context intact", () => {
+    const context = { method: "POST", statusCode: 500 };
+    const result = normalizeIssuePayload({
+      kind: "api-error",
+      message: "DB connection reset",
+      appVersion: "3.19.0",
+      route: "/api/lobby/AB2C/leave",
+      context,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.context).toEqual(context);
+      expect(result.value.route).toBe("/api/lobby/AB2C/leave");
+    }
+  });
+
+  it("drops a statusCode outside the valid HTTP range", () => {
+    const result = normalizeIssuePayload({
+      ...valid,
+      context: { statusCode: 99999 },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.context).toBeNull();
+  });
 });
 
 describe("anomaly validation", () => {
