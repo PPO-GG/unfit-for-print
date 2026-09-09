@@ -1,7 +1,12 @@
 <script setup lang="ts">
 /**
  * The Packs index. Organising, importing and (later) the pack builder live
- * here; browsing cards lives at /admin/cards/browse.
+ * here. Browsing a pack's cards used to navigate to the separate
+ * /admin/cards/browse page; now it expands inline as `AdminCardBrowserPanel`,
+ * toggled by `?pack=` on this same route, so switching between the grid and
+ * a pack's cards is a query change rather than a page load and both views
+ * share one set of pack/card composable instances instead of loading pack
+ * stats twice.
  *
  * Pack selection exists on this screen only — the browser never selects
  * packs, which is what removed the two-selection-systems confusion.
@@ -15,7 +20,11 @@ import { commonPackPrefix } from "~/utils/packName";
 
 definePageMeta({ middleware: "admin" });
 
+const route = useRoute();
 const router = useRouter();
+
+/** Set from `?pack=`; when present the browser panel replaces the grid. */
+const browsingPack = computed(() => (route.query.pack as string) || null);
 
 const packs = useAdminPackStats();
 const {
@@ -136,8 +145,18 @@ const orderedPacks = computed(() => {
   return rows;
 });
 
-const openPack = (name: string) =>
-  router.push({ path: "/admin/cards/browse", query: { pack: name } });
+// Same route, query-only — AdminCardBrowserPanel reads `pack`/`type`/`q`/
+// `sort` off this same query, so this is a fresh browsing session for `name`.
+const openPack = (name: string) => router.push({ query: { pack: name } });
+
+// Cross-pack "Check duplicates" hands the current selection to the scanner
+// as a comma-separated scope rather than building a second duplicate-finding
+// UI inline — see server/utils and app/pages/admin/cards/duplicates.vue.
+const checkDuplicatesForSelected = () =>
+  router.push({
+    path: "/admin/cards/duplicates",
+    query: { packs: selectedPacks.value.join(",") },
+  });
 
 /**
  * Renaming a pack onto a name that already exists is a *merge* server-side:
@@ -187,7 +206,14 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
 
 <template>
   <div class="h-[100dvh] min-w-[1100px] flex flex-col overflow-hidden">
-    <header class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700/60 bg-slate-900/70">
+    <AdminCardBrowserPanel
+      v-if="browsingPack"
+      :packs="packs"
+      :list="list"
+      :mutations="mutations"
+    />
+    <div v-else class="contents">
+    <header class="flex items-center gap-2 pl-24 pr-4 py-2.5 border-b border-slate-700/60 bg-slate-900/70">
       <NuxtLink to="/admin" class="text-xs text-slate-400 hover:text-white">Admin</NuxtLink>
       <span class="text-slate-600 text-xs">/</span>
       <span class="text-xs text-white font-medium">Packs</span>
@@ -246,6 +272,7 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
       </UButton>
       <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="bulkTogglePacks(true)">Activate</UButton>
       <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="bulkTogglePacks(false)">Deactivate</UButton>
+      <UButton size="xs" variant="ghost" @click="checkDuplicatesForSelected">Check duplicates</UButton>
       <UButton size="xs" color="error" variant="ghost" :loading="bulkActionLoading" @click="bulkDeletePacks">Delete</UButton>
       <span class="flex-1" />
       <UButton size="xs" variant="ghost" @click="clearPackSelection">Clear</UButton>
@@ -281,7 +308,7 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
       <p v-if="!orderedPacks.length" class="text-xs text-slate-500">
         No packs match this filter.
       </p>
-      <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))">
+      <div class="grid gap-5" style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))">
         <AdminPackTile
           v-for="pack in orderedPacks"
           :key="pack.name"
@@ -295,6 +322,7 @@ onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
           @rename="onRename(pack.name, $event)"
         />
       </div>
+    </div>
     </div>
 
     <AdminCardManagerAddModal

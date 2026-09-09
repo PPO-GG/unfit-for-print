@@ -44,12 +44,14 @@ const accent = computed(() => props.meta?.color || packAccent(props.pack.name));
 const allInactive = computed(
   () => props.pack.black.active + props.pack.white.active === 0,
 );
-const inactiveCount = computed(
-  () =>
-    props.pack.black.total +
-    props.pack.white.total -
-    (props.pack.black.active + props.pack.white.active),
-);
+
+/** "500" when every card of this type is active, "487/500" when some aren't. */
+function countLabel(stat: { total: number; active: number }): string {
+  if (stat.active >= stat.total) return stat.total.toLocaleString();
+  return `${stat.active.toLocaleString()}/${stat.total.toLocaleString()}`;
+}
+const blackLabel = computed(() => countLabel(props.pack.black));
+const whiteLabel = computed(() => countLabel(props.pack.white));
 
 const editing = ref(false);
 const draft = ref("");
@@ -96,7 +98,7 @@ function commitRename() {
     <button
       type="button"
       data-testid="pack-select"
-      class="absolute top-3 right-3 z-10 w-4 h-4 rounded border"
+      class="absolute top-3 right-3 z-20 w-4 h-4 rounded border"
       :class="selected ? 'bg-primary-600 border-primary-400' : 'border-slate-500 bg-slate-900/80'"
       :aria-pressed="selected"
       aria-label="Select pack"
@@ -144,14 +146,10 @@ function commitRename() {
       </div>
 
       <p class="pack-card__counts">
-        <span class="text-slate-200 font-semibold">{{ pack.black.total.toLocaleString() }}</span>
+        <span :class="pack.black.active < pack.black.total ? 'text-amber-300/90' : 'text-slate-200'" class="font-semibold">{{ blackLabel }}</span>
         black ·
-        <span class="text-slate-200 font-semibold">{{ pack.white.total.toLocaleString() }}</span>
+        <span :class="pack.white.active < pack.white.total ? 'text-amber-300/90' : 'text-slate-200'" class="font-semibold">{{ whiteLabel }}</span>
         white
-        <template v-if="inactiveCount > 0 && !allInactive">
-          ·
-          <span class="text-amber-300/90">{{ inactiveCount.toLocaleString() }} inactive</span>
-        </template>
       </p>
 
       <div class="flex flex-wrap gap-1">
@@ -180,7 +178,7 @@ function commitRename() {
 .pack-card {
   position: relative;
   display: flex;
-  min-height: 190px;
+  min-height: 230px;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -223,8 +221,8 @@ function commitRename() {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem 1rem 0.875rem;
+  gap: 0.625rem;
+  padding: 1.125rem 1.125rem 1rem;
 }
 
 .pack-card__series {
@@ -237,7 +235,7 @@ function commitRename() {
 }
 
 .pack-card__title {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.25;
   color: #f1f5f9;
@@ -252,7 +250,7 @@ function commitRename() {
 }
 
 .pack-card__desc {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: #94a3b8;
   display: -webkit-box;
@@ -263,13 +261,13 @@ function commitRename() {
 }
 
 .pack-card__counts {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   color: #94a3b8;
 }
 
 .pack-card__badge {
-  font-size: 0.5625rem;
-  padding: 0.125rem 0.375rem;
+  font-size: 0.625rem;
+  padding: 0.1875rem 0.5rem;
   border-radius: 9999px;
 }
 </style>

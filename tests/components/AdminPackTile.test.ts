@@ -84,10 +84,17 @@ describe("AdminPackTile", () => {
 
   it("keeps the checkbox and name above the open overlay", () => {
     const wrapper = mountTile();
-    for (const id of ["pack-select", "pack-name"]) {
-      expect(wrapper.find(`[data-testid="${id}"]`).classes()).toContain("z-10");
-    }
+    expect(wrapper.find('[data-testid="pack-name"]').classes()).toContain("z-10");
     expect(wrapper.find('[data-testid="pack-open"]').classes()).toContain("z-0");
+  });
+
+  it("keeps the checkbox above the title's own box, not just the overlay", () => {
+    // The checkbox and the title used to share z-10: same stacking level, but
+    // the title's block-level box (including its reserved padding-right
+    // gutter) paints after it in DOM order and wins the tie, swallowing most
+    // of the checkbox's real hit area. z-20 settles that outright.
+    const wrapper = mountTile();
+    expect(wrapper.find('[data-testid="pack-select"]').classes()).toContain("z-20");
   });
 });
 
@@ -152,7 +159,7 @@ describe("AdminPackTile — lobby-card treatment", () => {
     expect(wrapper.text()).toContain("The original 500.");
   });
 
-  it("reports inactive cards when a pack is partly switched off", () => {
+  it("shows active/total per type when a pack is partly switched off", () => {
     const wrapper = mount(AdminPackTile, {
       props: {
         pack: {
@@ -162,10 +169,11 @@ describe("AdminPackTile — lobby-card treatment", () => {
         },
       },
     });
-    expect(wrapper.text()).toContain("12 inactive");
+    expect(wrapper.text()).toContain("500");
+    expect(wrapper.text()).toContain("723/735");
   });
 
-  it("says nothing about inactive cards when the whole pack is live", () => {
+  it("shows a plain total per type when the whole pack is live", () => {
     const wrapper = mount(AdminPackTile, {
       props: {
         pack: {
@@ -176,5 +184,6 @@ describe("AdminPackTile — lobby-card treatment", () => {
       },
     });
     expect(wrapper.text()).not.toContain("inactive");
+    expect(wrapper.text()).not.toContain("/735");
   });
 });
