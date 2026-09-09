@@ -104,7 +104,10 @@
       "minimatch@>=9 <10": ">=9.0.7 <10",
       "minimatch@>=10": ">=10.2.3",
       "rollup": ">=4.59.0",
-      "esbuild": ">=0.28.1"
+      "esbuild": ">=0.28.1",
+      "qs": ">=6.16.0",
+      "@tiptap/core": ">=3.30.5",
+      "@tiptap/pm": ">=3.30.5"
     }
   },
   "devDependencies": {
