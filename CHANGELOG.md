@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.20.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.20.0...v3.20.1) (2026-09-10)
+
+
+### 🐛 Bug Fixes
+
+* **lobby:** Create new lobbies as private by default ([82aa2cb](https://github.com/PPO-GG/unfit-for-print/commit/82aa2cb35ad78c2174c3ba2e6d78548e2c617cd8))
+
 ## [3.20.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.19.0...v3.20.0) (2026-09-10)
 
 
