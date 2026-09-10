@@ -30,10 +30,15 @@ const copied = ref(false);
 const showResetConfirm = ref(false);
 
 function copyInviteLink() {
+  if (!navigator.clipboard) return;
   const url = `${window.location.origin}/game/${props.lobbyCode}`;
-  navigator.clipboard.writeText(url);
-  copied.value = true;
-  setTimeout(() => (copied.value = false), 2000);
+  navigator.clipboard
+    .writeText(url)
+    .then(() => {
+      copied.value = true;
+      setTimeout(() => (copied.value = false), 2000);
+    })
+    .catch((err) => console.error("Failed to copy invite link:", err));
 }
 
 function goBack() {

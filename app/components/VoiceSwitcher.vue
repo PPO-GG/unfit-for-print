@@ -215,7 +215,7 @@ const items = computed<VoiceDropdownMenuItem[]>(() => {
 });
 
 onMounted(() => {
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && typeof speechSynthesis !== "undefined") {
     if (speechSynthesis.onvoiceschanged !== undefined) {
       speechSynthesis.onvoiceschanged = loadVoices;
     }

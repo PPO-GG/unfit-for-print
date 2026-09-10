@@ -573,7 +573,14 @@ const startGameWrapper = async () => {
 };
 
 function copyLobbyLink() {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !navigator.clipboard) {
+    notify({
+      title: t("lobby.error_code_copied"),
+      color: "error",
+      icon: "i-mdi-alert-circle",
+    });
+    return;
+  }
   navigator.clipboard
     .writeText(config.public.baseUrl + "/game/" + lobby.value?.code)
     .then(() => {

@@ -14,7 +14,7 @@ export function useBrowserSpeech() {
   const userPrefs = useUserPrefsStore();
   const isSpeaking = ref(false);
 
-  if (!import.meta.client) {
+  if (!import.meta.client || typeof speechSynthesis === "undefined") {
     const speak = () => {};
     const stop = () => {};
     const getVoices = () => [] as SpeechSynthesisVoice[];
