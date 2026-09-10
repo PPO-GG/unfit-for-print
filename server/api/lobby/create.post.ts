@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
       discordInstanceId: body.discordInstanceId,
       discordChannelId: body.discordChannelId,
       vcOnly: body.vcOnly ?? false,
-      isPrivate: body.isPrivate ?? false,
+      isPrivate: body.isPrivate ?? true,
     })
     .returning();
 

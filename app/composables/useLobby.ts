@@ -216,7 +216,7 @@ export const useLobby = () => {
         cardsPerPlayer: 10,
         maxPick: 3,
         cardPacks,
-        isPrivate: isPrivate || false,
+        isPrivate: isPrivate ?? true,
         lobbyName: displayName,
         roundEndCountdownDuration: 5,
         hasPassword: !!_password,
