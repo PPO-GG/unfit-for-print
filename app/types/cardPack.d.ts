@@ -8,4 +8,6 @@ export interface CardPackMeta {
   sortOrder: number;
   official: boolean;
   nsfw: boolean;
+  /** The brand/series this pack belongs to, e.g. "Cards Against Humanity". */
+  series: string | null;
 }

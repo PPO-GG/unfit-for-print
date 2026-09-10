@@ -19,6 +19,27 @@ definePageMeta({ middleware: "admin" });
 const { $activityFetch } = useNuxtApp();
 const { notify } = useNotifications();
 const { cardType } = useCardSearch();
+const route = useRoute();
+const router = useRouter();
+
+/**
+ * Cross-pack "Check duplicates" from the Packs screen's bulk-action bar lands
+ * here with `?packs=a,b,c`. Scoping happens client-side against the already-
+ * fetched `allCards`, not as a server query param — the list route has no
+ * multi-pack filter today, and a comma-joined set of arbitrary pack names is
+ * cheap to match against a few hundred loaded rows.
+ */
+const packScope = computed<string[] | null>(() => {
+  const raw = route.query.packs;
+  if (!raw) return null;
+  const names = (Array.isArray(raw) ? raw.join(",") : String(raw))
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return names.length ? names : null;
+});
+const clearPackScope = () =>
+  router.replace({ query: { ...route.query, packs: undefined } });
 
 /**
  * This page is black-or-white only: every request it makes resolves a single
@@ -170,7 +191,9 @@ const loadCards = async () => {
       }),
       $activityFetch<{ packs: string[] }>("/api/admin/cards/default-packs"),
     ]);
-    allCards.value = cards;
+    allCards.value = packScope.value
+      ? cards.filter((c: any) => c.pack && packScope.value!.includes(c.pack))
+      : cards;
     defaultPacks.value = packs.packs ?? [];
   } catch (err) {
     console.error("Failed to load cards:", err);
@@ -297,6 +320,16 @@ watch([cardType, includeDisabled], () => {
   loadCards();
 });
 
+// "Clear scope" only changes the URL — reload so allCards actually widens
+// back out, rather than leaving the pack-filtered set in place until the
+// admin notices and hits Reload themselves.
+watch(packScope, () => {
+  duplicateClusters.value = [];
+  resolvedKeys.value = new Set();
+  currentIndex.value = 0;
+  loadCards();
+});
+
 onMounted(() => loadCards());
 </script>
 
@@ -321,6 +354,18 @@ onMounted(() => loadCards());
         <p class="text-slate-400 mt-1">
           Group near-duplicate cards and disable the copies you don't want
         </p>
+        <div v-if="packScope" class="flex items-center gap-2 mt-2">
+          <UBadge color="primary" variant="soft" data-testid="pack-scope-badge">
+            Scoped to {{ packScope.length }} pack{{ packScope.length === 1 ? "" : "s" }}
+          </UBadge>
+          <button
+            type="button"
+            class="text-xs text-slate-400 hover:text-white"
+            @click="clearPackScope"
+          >
+            Clear scope
+          </button>
+        </div>
       </div>
       <UButton
         to="/admin/cards"

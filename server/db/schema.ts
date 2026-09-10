@@ -131,6 +131,14 @@ export const cardPacks = pgTable("card_packs", {
   sortOrder: integer("sort_order").notNull().default(0),
   official: boolean("official").notNull().default(false),
   nsfw: boolean("nsfw").notNull().default(false),
+  /**
+   * The brand/series a pack belongs to (e.g. "Cards Against Humanity",
+   * "Unfit for Print") — editable, and distinct from `displayName`. Most
+   * packs never got a row here, so the admin UI still falls back to
+   * `commonPackPrefix`/`splitPackName`'s guess from the raw pack name when
+   * this is null; an explicit value always wins over that guess.
+   */
+  series: text("series"),
 });
 
 export const submissions = pgTable("submissions", {

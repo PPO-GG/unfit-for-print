@@ -88,6 +88,60 @@ describe("POST /api/admin/cards/pack-meta", () => {
     expect(row.description).toBeNull();
     expect(row.sortOrder).toBe(0);
   });
+
+  it("sets the series field without touching other columns", async () => {
+    await db.insert(cardPacks).values({ pack: "Base", description: "keep" });
+
+    const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+    const row = await handler(mockEvent({ pack: "Base", series: "Cards Against Humanity" }));
+
+    expect(row.series).toBe("Cards Against Humanity");
+    expect(row.description).toBe("keep");
+  });
+});
+
+describe("POST /api/admin/cards/pack-meta-bulk", () => {
+  it("upserts series across packs that have no metadata row yet", async () => {
+    const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
+    const result = await handler(
+      mockEvent({ packs: ["A", "B"], series: "Cards Against Humanity" }),
+    );
+
+    expect(result.packs.map((p: { pack: string }) => p.pack).sort()).toEqual(["A", "B"]);
+    expect(result.packs.every((p: { series: string }) => p.series === "Cards Against Humanity")).toBe(true);
+  });
+
+  it("updates series on an existing row without clobbering other fields", async () => {
+    await db.insert(cardPacks).values({ pack: "Base", description: "keep", icon: "🎴" });
+
+    const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
+    const [row] = (await handler(mockEvent({ packs: ["Base"], series: "Unfit for Print" }))).packs;
+
+    expect(row.series).toBe("Unfit for Print");
+    expect(row.description).toBe("keep");
+    expect(row.icon).toBe("🎴");
+  });
+
+  it("de-duplicates repeated pack names", async () => {
+    const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
+    const result = await handler(mockEvent({ packs: ["A", "A"], series: "X" }));
+
+    expect(result.packs).toHaveLength(1);
+  });
+
+  it("rejects an empty pack list", async () => {
+    const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
+    await expect(handler(mockEvent({ packs: [], series: "X" }))).rejects.toThrow(/packs/i);
+  });
+
+  it("clears series when given an empty string", async () => {
+    await db.insert(cardPacks).values({ pack: "Base", series: "Old Brand" });
+
+    const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
+    const [row] = (await handler(mockEvent({ packs: ["Base"], series: "" }))).packs;
+
+    expect(row.series).toBeNull();
+  });
 });
 
 describe("POST /api/admin/cards/delete-pack — metadata cleanup", () => {

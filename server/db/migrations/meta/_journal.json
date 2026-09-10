@@ -64,6 +64,13 @@
       "when": 1788891797999,
       "tag": "0008_flaky_iceman",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788987749300,
+      "tag": "0009_slimy_shocker",
+      "breakpoints": true
     }
   ]
 }

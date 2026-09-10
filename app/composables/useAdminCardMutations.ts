@@ -827,3 +827,5 @@ export function useAdminCardMutations({
     mergeSummary,
   };
 }
+
+export type AdminCardMutations = ReturnType<typeof useAdminCardMutations>;

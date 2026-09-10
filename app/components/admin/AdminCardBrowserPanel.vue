@@ -1,40 +1,46 @@
 <script setup lang="ts">
 /**
- * The card browser: rail | grid | inspector, locked to the viewport.
+ * The card browser: rail | filter bar | grid | inspector, embedded inline in
+ * the Packs screen instead of a separate route. Clicking a pack tile used to
+ * navigate to `/admin/cards/browse`, a full page swap that reloaded pack
+ * stats and lost the grid's scroll/filter state; now `AdminCardIndex` just
+ * toggles this panel in based on `route.query.pack`, so it's an in-place
+ * swap on the same route and the two views share one set of composable
+ * instances (passed down as props) instead of fetching everything twice.
  *
- * The route is the source of truth for pack/type/search/sort so the back
- * button and deep links work. `min-w-[1100px]` is the whole responsive story —
- * this is a desktop-only surface by decision.
+ * The route stays the source of truth for pack/type/search/sort within this
+ * panel — see `readRoute`/`pushQuery` — so the back button and deep links
+ * still work exactly as they did as a standalone page.
  */
 import { computed, ref, watch, onMounted } from "vue";
 import { watchDebounced, useMagicKeys, useElementSize } from "@vueuse/core";
 import { gridGeometry } from "~/utils/gridGeometry";
-import { useAdminPackStats } from "~/composables/useAdminPackStats";
-import { useAdminCardList, type AdminCardSort } from "~/composables/useAdminCardList";
-import { useAdminCardMutations } from "~/composables/useAdminCardMutations";
+import type { AdminPackStats } from "~/composables/useAdminPackStats";
+import type { AdminCardList, AdminCardSort, AdminCard } from "~/composables/useAdminCardList";
+import type { AdminCardMutations } from "~/composables/useAdminCardMutations";
 import { useCardSearch, type AdminCardFilter } from "~/composables/useCardSearch";
-import type { AdminCard } from "~/composables/useAdminCardList";
 
-definePageMeta({ middleware: "admin" });
+const props = defineProps<{
+  packs: AdminPackStats;
+  list: AdminCardList;
+  mutations: AdminCardMutations;
+}>();
 
 const route = useRoute();
 const router = useRouter();
 
-const packs = useAdminPackStats();
-const { packStats, sortedPacks, packMeta, loadPacks, loadDefaultPacks, loadPackMeta, applyPackMeta } = packs;
+const { packStats, sortedPacks, packMeta, applyPackMeta } = props.packs;
 
-const list = useAdminCardList();
 const {
   cards, sortedCards, loadingCards, sort,
   selectedCardIds, isCardSelected, toggleCardSelected, selectCardRangeTo,
   selectAllOf, clearCardSelection, fetchCards,
-} = list;
+} = props.list;
 
-const mutations = useAdminCardMutations({ list, packs });
 const {
   bulkActionLoading, moveSelectedCards, toggleCardActive, deleteCard, saveCardEdit, moveCard,
   deactivateSelectedCards, deleteSelectedCards,
-} = mutations;
+} = props.mutations;
 
 const { searchTerm, cardType, selectedPack } = useCardSearch();
 
@@ -44,14 +50,14 @@ type BrowseFilter = AdminCardFilter | "inactive";
 const BROWSE_FILTERS: BrowseFilter[] = ["all", "white", "black", "inactive"];
 
 /**
- * The chip is **local page state, not `useCardSearch.cardType`**.
+ * The chip is **local panel state, not `useCardSearch.cardType`**.
  *
  * Two reasons, and both are bugs this replaced. Writing "all" into that
- * module-level singleton leaked out of this page: /admin/cards/duplicates
- * reads the same ref and sends it as `type` to routes that resolve one table
- * and 400 on "all", so any visit here left that page broken. And driving the
- * *fetch* from the chip meant Black loaded only the black table, so the bar
- * read "White 0" — while the spec's chips are "filters over one loaded result
+ * module-level singleton leaked out: /admin/cards/duplicates reads the same
+ * ref and sends it as `type` to routes that resolve one table and 400 on
+ * "all", so any visit there left that page broken. And driving the *fetch*
+ * from the chip meant Black loaded only the black table, so the bar read
+ * "White 0" — while the spec's chips are "filters over one loaded result
  * set, so switching between them costs nothing".
  *
  * So: the browser always fetches both tables, and the chip only narrows what
@@ -78,14 +84,7 @@ function readSort(raw: unknown): AdminCardSort {
   return SORTS.includes(raw as AdminCardSort) ? (raw as AdminCardSort) : "pack";
 }
 
-const BROWSE_PATH = "/admin/cards/browse";
-
 function readRoute() {
-  // Nuxt updates `route` before the outgoing page unmounts, so navigating away
-  // to /admin/cards fires this watcher with an empty query — which used to
-  // reset pack/type/search to their widest values and fetch every card in
-  // every pack on the way out the door.
-  if (!route.path.startsWith(BROWSE_PATH)) return;
   const q = route.query;
   selectedPack.value = (q.pack as string) || undefined;
   const t = (q.type as string) || "all";
@@ -263,90 +262,87 @@ watch(typeFilter, clearCardSelection);
 // ever reaches the route/searchTerm/fetch chain above.
 watchDebounced(searchInput, () => pushQuery({}), { debounce: 400, maxWait: 900 });
 
-onMounted(async () => {
-  await Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]);
-  await fetchCards();
-});
+// Pack stats/meta are already loaded by the parent (AdminCardIndex loads them
+// before this panel can ever appear) — this only needs its own card fetch.
+onMounted(() => fetchCards());
 </script>
 
 <template>
-  <div class="h-[100dvh] min-w-[1100px] flex flex-col overflow-hidden">
-    <header
-      class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700/60 bg-slate-900/70"
-    >
-      <NuxtLink to="/admin" class="text-xs text-slate-400 hover:text-white">Admin</NuxtLink>
+  <header
+    class="flex items-center gap-2 pl-24 pr-4 py-2.5 border-b border-slate-700/60 bg-slate-900/70"
+  >
+    <NuxtLink to="/admin" class="text-xs text-slate-400 hover:text-white">Admin</NuxtLink>
+    <span class="text-slate-600 text-xs">/</span>
+    <NuxtLink to="/admin/cards" class="text-xs text-slate-400 hover:text-white">Packs</NuxtLink>
+    <template v-if="selectedPack">
       <span class="text-slate-600 text-xs">/</span>
-      <NuxtLink to="/admin/cards" class="text-xs text-slate-400 hover:text-white">Packs</NuxtLink>
-      <template v-if="selectedPack">
-        <span class="text-slate-600 text-xs">/</span>
-        <span class="text-xs text-white font-medium">{{ selectedPack }}</span>
-      </template>
-      <span class="flex-1" />
-      <UButton to="/admin/cards/upload" size="xs" variant="soft">Upload</UButton>
-      <UButton to="/admin/cards/duplicates" size="xs" variant="soft">Duplicates</UButton>
-    </header>
+      <span class="text-xs text-white font-medium">{{ selectedPack }}</span>
+    </template>
+    <span class="flex-1" />
+    <UButton to="/admin/cards/upload" size="xs" variant="soft">Upload</UButton>
+    <UButton to="/admin/cards/duplicates" size="xs" variant="soft">Duplicates</UButton>
+  </header>
 
-    <div class="flex-1 flex min-h-0">
-      <AdminCardRail
-        class="w-56 shrink-0"
-        :packs="sortedPacks"
-        :current="selectedPack"
-        @select="onPack"
+  <div class="flex-1 flex min-h-0">
+    <AdminCardRail
+      class="w-56 shrink-0"
+      :packs="sortedPacks"
+      :current="selectedPack"
+      @select="onPack"
+    />
+
+    <section class="flex-1 flex flex-col min-w-0">
+      <AdminCardFilterBar
+        :filter="typeFilter"
+        :search="searchInput"
+        :sort="sort"
+        :counts="counts"
+        @update:filter="onFilter"
+        @update:search="searchInput = $event"
+        @update:sort="onSort"
       />
 
-      <section class="flex-1 flex flex-col min-w-0">
-        <AdminCardFilterBar
-          :filter="typeFilter"
-          :search="searchInput"
-          :sort="sort"
-          :counts="counts"
-          @update:filter="onFilter"
-          @update:search="searchInput = $event"
-          @update:sort="onSort"
+      <div ref="gridWrap" class="flex-1 min-h-0 p-3">
+        <p v-if="loadingCards" class="text-xs text-slate-500">Loading…</p>
+        <AdminCardGrid
+          v-else
+          :cards="visible"
+          :selected-ids="selectedCardIds"
+          :inspected-id="inspectedId"
+          :pack-colors="packColors"
+          @select="onSelect"
+          @inspect="onInspect"
         />
+      </div>
 
-        <div ref="gridWrap" class="flex-1 min-h-0 p-3">
-          <p v-if="loadingCards" class="text-xs text-slate-500">Loading…</p>
-          <AdminCardGrid
-            v-else
-            :cards="visible"
-            :selected-ids="selectedCardIds"
-            :inspected-id="inspectedId"
-            :pack-colors="packColors"
-            @select="onSelect"
-            @inspect="onInspect"
-          />
-        </div>
-
-        <AdminCardSelectionBar
-          v-if="selectedCardIds.length"
-          :count="selectedCardIds.length"
-          :total-loaded="visible.length"
-          :packs="allPackNames"
-          :exclude-pack="selectedPack"
-          :loading="bulkActionLoading"
-          @move="onMove"
-          @deactivate="onDeactivateSelected"
-          @delete="onDeleteSelected"
-          @select-all="onSelectAll"
-          @clear="clearCardSelection"
-        />
-      </section>
-
-      <AdminCardInspector
-        class="w-80 shrink-0"
-        :card="inspected"
-        :selected-count="selectedCardIds.length"
+      <AdminCardSelectionBar
+        v-if="selectedCardIds.length"
+        :count="selectedCardIds.length"
+        :total-loaded="visible.length"
         :packs="allPackNames"
-        :pack-name="selectedPack"
-        :pack-meta="selectedPack ? (packMeta[selectedPack] ?? null) : null"
-        :pack-cards="cards"
-        @save="onSaveCard"
-        @move="onInspectorMove"
-        @toggle-active="inspected && toggleCardActive(inspected)"
-        @delete="onDeleteCard"
-        @pack-saved="applyPackMeta"
+        :exclude-pack="selectedPack"
+        :loading="bulkActionLoading"
+        @move="onMove"
+        @deactivate="onDeactivateSelected"
+        @delete="onDeleteSelected"
+        @select-all="onSelectAll"
+        @clear="clearCardSelection"
       />
-    </div>
+    </section>
+
+    <AdminCardInspector
+      class="w-80 shrink-0"
+      :card="inspected"
+      :selected-count="selectedCardIds.length"
+      :packs="allPackNames"
+      :pack-name="selectedPack"
+      :pack-meta="selectedPack ? (packMeta[selectedPack] ?? null) : null"
+      :pack-cards="cards"
+      @save="onSaveCard"
+      @move="onInspectorMove"
+      @toggle-active="inspected && toggleCardActive(inspected)"
+      @delete="onDeleteCard"
+      @pack-saved="applyPackMeta"
+    />
   </div>
 </template>
