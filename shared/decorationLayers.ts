@@ -110,6 +110,13 @@ export const RANGES = {
 const IMAGE_FORMATS: AssetFormat[] = ["png", "webp", "gif", "svg"];
 const LOTTIE_FORMATS: AssetFormat[] = ["lottie", "dotlottie"];
 
+/** Which uploaded formats a layer type can hold. */
+export function assetFormatsFor(type: LayerType): AssetFormat[] {
+  if (type === "lottie") return [...LOTTIE_FORMATS];
+  if (type === "image" || type === "particles") return [...IMAGE_FORMATS];
+  return [];
+}
+
 export const DEFAULT_TRANSFORM: Transform = { x: 0, y: -0.5, scale: 0.6, rotation: 0 };
 
 export function newLayerId(): string {
