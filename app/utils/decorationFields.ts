@@ -90,3 +90,17 @@ export const LAYER_ICONS: Record<LayerType, string> = {
   image: "i-lucide-image",
   lottie: "i-lucide-film",
 };
+
+/** Percent fields are stored 0–1 and shown 0–100. */
+export function toDisplay(field: FieldDef, value: number): number {
+  return field.kind === "range" && field.percent ? Math.round(value * 1000) / 10 : value;
+}
+
+export function fromDisplay(field: FieldDef, value: number): number {
+  return field.kind === "range" && field.percent ? Math.round(value * 10) / 1000 : value;
+}
+
+/** <input type="color"> only speaks #rrggbb; keep the alpha the value already had. */
+export function mergeRgb(current: string, picked: string): string {
+  return current.length === 9 ? `${picked}${current.slice(7)}` : picked;
+}

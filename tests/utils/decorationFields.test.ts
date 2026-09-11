@@ -24,3 +24,21 @@ describe("inspector field schema", () => {
     expect(assetField.when?.({ ...createLayer("particles"), shape: "image" } as never)).toBe(true);
   });
 });
+
+import { toDisplay, fromDisplay, mergeRgb } from "~/utils/decorationFields";
+
+describe("display helpers", () => {
+  const pct = FIELDS.glow.find((f) => f.key === "spread")!;
+  const secs = FIELDS.glow.find((f) => f.key === "duration")!;
+
+  it("shows percent fields ×100 and round-trips", () => {
+    expect(toDisplay(pct, 0.12)).toBe(12);
+    expect(fromDisplay(pct, 12)).toBe(0.12);
+    expect(toDisplay(secs, 4)).toBe(4);
+  });
+
+  it("keeps an existing alpha byte when a native picker returns #rrggbb", () => {
+    expect(mergeRgb("#f59e0b33", "#112233")).toBe("#11223333");
+    expect(mergeRgb("#f59e0b", "#112233")).toBe("#112233");
+  });
+});
