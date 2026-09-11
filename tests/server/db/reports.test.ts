@@ -104,6 +104,45 @@ describe("reports", () => {
     expect(result.card.active).toBe(false);
   });
 
+  it("index includes a black card's pick", async () => {
+    const [card] = await db.insert(blackCards).values({ text: "___ and ___.", pick: 2 }).returning();
+    await db.insert(reports).values({
+      cardId: card.id,
+      cardType: "black",
+      reason: "test",
+      reportedBy: currentUserId,
+    });
+
+    const handler = (await import("~/server/api/admin/reports/index")).default;
+    const result = await handler({} as any);
+    expect(result.reports[0].cardPick).toBe(2);
+  });
+
+  it("card-action sets a black card's pick", async () => {
+    const [card] = await db.insert(blackCards).values({ text: "___ and ___.", pick: 1 }).returning();
+    const handler = (await import("~/server/api/admin/reports/card-action.post")).default;
+    const result = await handler(
+      mockEvent({ action: "pick", cardId: card.id, cardType: "black", pick: 2 }),
+    );
+    expect(result.card.pick).toBe(2);
+  });
+
+  it("card-action refuses to set pick on a white card", async () => {
+    const [card] = await db.insert(whiteCards).values({ text: "x" }).returning();
+    const handler = (await import("~/server/api/admin/reports/card-action.post")).default;
+    await expect(
+      handler(mockEvent({ action: "pick", cardId: card.id, cardType: "white", pick: 2 })),
+    ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("black") });
+  });
+
+  it("card-action refuses a pick outside 1-3", async () => {
+    const [card] = await db.insert(blackCards).values({ text: "x", pick: 1 }).returning();
+    const handler = (await import("~/server/api/admin/reports/card-action.post")).default;
+    await expect(
+      handler(mockEvent({ action: "pick", cardId: card.id, cardType: "black", pick: 4 })),
+    ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("1 to 3") });
+  });
+
   it("card-action deletes a card", async () => {
     const [card] = await db.insert(whiteCards).values({ text: "gone" }).returning();
     const handler = (await import("~/server/api/admin/reports/card-action.post")).default;

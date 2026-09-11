@@ -25,10 +25,11 @@ export default defineEventHandler(async (event) => {
             cardText: card.text,
             cardPack: card.pack ?? null,
             cardActive: card.active,
+            cardPick: "pick" in card ? card.pick : null,
           };
         }
       }
-      return { ...report, cardText: null, cardPack: null, cardActive: null };
+      return { ...report, cardText: null, cardPack: null, cardActive: null, cardPick: null };
     }),
   );
 

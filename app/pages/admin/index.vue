@@ -27,7 +27,7 @@ const isAdmin = useIsAdmin();
         >
           Card Management
         </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <!-- Card Browser -->
           <NuxtLink to="/admin/cards" class="group block">
             <UCard
@@ -109,6 +109,35 @@ const isAdmin = useIsAdmin();
                   <p class="text-slate-400 text-sm leading-relaxed">
                     Scan for near-duplicate cards with configurable similarity
                     threshold and resolve them one-by-one
+                  </p>
+                </div>
+              </div>
+            </UCard>
+          </NuxtLink>
+
+          <!-- Pick Mismatches -->
+          <NuxtLink to="/admin/cards/picks" class="group block">
+            <UCard
+              class="h-full border border-transparent group-hover:border-rose-500/40 transition-all group-hover:shadow-[0_0_24px_rgba(244,63,94,0.15)]"
+            >
+              <div class="flex items-start gap-4 p-1">
+                <div
+                  class="w-12 h-12 rounded-xl bg-rose-600/20 flex items-center justify-center flex-shrink-0 group-hover:bg-rose-600/30 transition-colors"
+                >
+                  <UIcon
+                    name="i-solar-hashtag-square-bold-duotone"
+                    class="text-2xl text-rose-400"
+                  />
+                </div>
+                <div>
+                  <h3
+                    class="font-bold text-lg mb-1 group-hover:text-rose-300 transition-colors"
+                  >
+                    Pick Mismatches
+                  </h3>
+                  <p class="text-slate-400 text-sm leading-relaxed">
+                    Find black cards whose blanks don't match their pick count
+                    and fix them in bulk
                   </p>
                 </div>
               </div>

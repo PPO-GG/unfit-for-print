@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useNotifications } from "~/composables/useNotifications";
+import { countBlanks, MAX_PICK, suggestedPick } from "~/utils/pickMismatch";
 
 const { notify } = useNotifications();
 const { $activityFetch } = useNuxtApp();
@@ -15,6 +16,7 @@ const editText = ref("");
 const savingEdit = ref(false);
 const togglingId = ref<string | null>(null);
 const deletingCardId = ref<string | null>(null);
+const settingPickId = ref<string | null>(null);
 
 // Fetch reports from the API
 const fetchReports = async () => {
@@ -85,6 +87,46 @@ const saveEdit = async (report: any) => {
     });
   } finally {
     savingEdit.value = false;
+  }
+};
+
+/** The pick a black card's blanks imply, when it disagrees with the stored one. */
+const pickFix = (report: any): number | null => {
+  if (report.cardType !== "black" || report.cardPick == null) return null;
+  const suggested = suggestedPick(report.cardText);
+  return suggested !== null && suggested !== report.cardPick ? suggested : null;
+};
+
+const setPick = async (report: any, pick: number) => {
+  settingPickId.value = report.id;
+  try {
+    await $activityFetch("/api/admin/reports/card-action", {
+      method: "POST",
+      body: {
+        action: "pick",
+        cardId: report.cardId,
+        cardType: report.cardType,
+        pick,
+      },
+    });
+    // Several reports can point at one card; keep every row showing the new pick.
+    for (const r of reports.value) {
+      if (r.cardId === report.cardId) r.cardPick = pick;
+    }
+    notify({
+      title: "Pick Updated",
+      description: `Card is now pick ${pick}.`,
+      color: "success",
+    });
+  } catch (error) {
+    console.error("Error setting pick:", error);
+    notify({
+      title: "Error",
+      description: "Failed to change the pick",
+      color: "error",
+    });
+  } finally {
+    settingPickId.value = null;
   }
 };
 
@@ -210,6 +252,12 @@ const reasonMeta = (reason: string) => {
       icon: "i-solar-text-bold-duotone",
       color: "text-amber-400",
       label: "Spelling",
+    };
+  if (lower.includes("pick"))
+    return {
+      icon: "i-solar-hashtag-square-bold-duotone",
+      color: "text-rose-400",
+      label: "Pick",
     };
   if (lower.includes("duplicate"))
     return {
@@ -369,6 +417,14 @@ onMounted(fetchReports);
                 {{ report.cardType }}
               </UBadge>
               <UBadge
+                v-if="report.cardType === 'black' && report.cardPick != null"
+                :color="pickFix(report) ? 'warning' : 'neutral'"
+                variant="subtle"
+                size="xs"
+              >
+                pick {{ report.cardPick }}
+              </UBadge>
+              <UBadge
                 v-if="report.cardPack"
                 color="info"
                 variant="subtle"
@@ -455,6 +511,55 @@ onMounted(fetchReports);
                 class="rounded-lg p-4 text-sm bg-red-950/30 border border-red-900/30 text-red-300 italic"
               >
                 This card has already been deleted.
+              </div>
+
+              <!-- Pick count (black cards only) -->
+              <div
+                v-if="
+                  report.cardType === 'black' &&
+                  report.cardText &&
+                  report.cardPick != null
+                "
+                class="space-y-2"
+              >
+                <div
+                  v-if="pickFix(report)"
+                  class="flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-xs bg-amber-500/10 border border-amber-500/25 text-amber-200"
+                >
+                  <UIcon
+                    name="i-solar-danger-triangle-bold-duotone"
+                    class="text-base shrink-0"
+                  />
+                  <span class="flex-1">
+                    Text has {{ countBlanks(report.cardText) }} blanks, but the
+                    card is pick {{ report.cardPick }}.
+                  </span>
+                  <UButton
+                    size="xs"
+                    color="warning"
+                    :loading="settingPickId === report.id"
+                    @click.stop="setPick(report, pickFix(report)!)"
+                  >
+                    Set to {{ pickFix(report) }}
+                  </UButton>
+                </div>
+                <div class="flex items-center gap-3 text-xs">
+                  <span class="text-gray-500">Pick</span>
+                  <UFieldGroup size="xs">
+                    <UButton
+                      v-for="p in MAX_PICK"
+                      :key="p"
+                      color="neutral"
+                      :variant="p === report.cardPick ? 'solid' : 'outline'"
+                      :aria-label="`Set pick to ${p}`"
+                      :aria-pressed="p === report.cardPick"
+                      :disabled="settingPickId === report.id"
+                      @click.stop="p !== report.cardPick && setPick(report, p)"
+                    >
+                      {{ p }}
+                    </UButton>
+                  </UFieldGroup>
+                </div>
               </div>
 
               <!-- Report metadata -->

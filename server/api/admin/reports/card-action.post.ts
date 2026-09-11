@@ -1,9 +1,10 @@
 // server/api/admin/reports/card-action.post.ts
-// Inline card actions from the report viewer: edit text, toggle active, delete card
+// Inline card actions from the report viewer: edit text, set pick, toggle active, delete card
 
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { cardTable } from "~~/server/utils/cardTable";
+import { blackCards } from "~~/server/db/schema";
+import { assertValidPick, cardTable } from "~~/server/utils/cardTable";
 import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
@@ -46,6 +47,22 @@ export default defineEventHandler(async (event) => {
         .update(table)
         .set({ active: !card.active })
         .where(eq(table.id, cardId))
+        .returning();
+      return { success: true, card: updated };
+    }
+
+    case "pick": {
+      if (cardType !== "black") {
+        throw createError({
+          statusCode: 400,
+          statusMessage: "pick can only be set on black cards",
+        });
+      }
+      assertValidPick(body.pick);
+      const [updated] = await db
+        .update(blackCards)
+        .set({ pick: body.pick })
+        .where(eq(blackCards.id, cardId))
         .returning();
       return { success: true, card: updated };
     }

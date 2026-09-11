@@ -20,7 +20,7 @@ const errorMessage = ref("");
 const successMessage = ref("");
 
 // Define the radio group options as simple strings
-const items = ref<ReportReason[]>([
+const reasons: ReportReason[] = [
   {
     label: "Spelling",
     description: "Incorrect spelling or grammar",
@@ -37,11 +37,20 @@ const items = ref<ReportReason[]>([
     id: "Inappropriate",
   },
   {
+    label: "Wrong pick count",
+    description: "Pick count doesn't match the blanks",
+    id: "Pick",
+  },
+  {
     label: "Other",
     description: "Other reason (please specify)",
     id: "Other",
   },
-]);
+];
+// White cards have no pick, so the pick reason is black-only.
+const items = computed(() =>
+  props.cardType === "black" ? reasons : reasons.filter((r) => r.id !== "Pick"),
+);
 const selectedReason = ref<string>("Spelling");
 const { $activityFetch } = useNuxtApp();
 
