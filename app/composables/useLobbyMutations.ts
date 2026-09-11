@@ -16,6 +16,7 @@ import {
   splitArrayChunks,
   splitRecordChunks,
 } from "~/utils/chunkedDocValue";
+import { uuid } from "~/utils/uuid";
 import type { PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 
@@ -345,6 +346,10 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       gs.set("revealedCards", "{}");
       gs.set("readAloudText", "");
       gs.set("gameEndTime", null);
+      // Keys the stat_rounds ledger that makes record-round idempotent.
+      // `round` restarts at 1 every game, so the lobby alone cannot tell this
+      // game's round 1 from the last one's. Fresh per game, rematches included.
+      gs.set("gameId", uuid());
       // Seed the per-prompt keys so round 1 is a normal round like any other.
       // `promptSerial` must be a RAW number (like `round`); without it the
       // GameTable watchers both decline on the first write — `isNewPrompt`

@@ -256,3 +256,15 @@ describe("useYjsGameEngine round stats reporting", () => {
     warn.mockRestore();
   });
 });
+
+describe("useYjsGameEngine.resetGame", () => {
+  it("clears the gameId so the next game cannot inherit it", () => {
+    const stub = makeStubDoc();
+    seedJudging(stub, { judgeId: "judge-1", submissions: { "p-2": ["w1"] } });
+    stub.getGameState().set("gameId", "11111111-1111-4111-8111-111111111111");
+
+    useYjsGameEngine(stub).resetGame();
+
+    expect(stub.getGameState().get("gameId")).toBeNull();
+  });
+});

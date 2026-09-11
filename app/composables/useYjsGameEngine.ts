@@ -979,6 +979,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("readAloudText", "");
       gs.set("gameEndTime", null);
       gs.set("returnedToLobby", "{}");
+      gs.set("gameId", null);
 
       getMeta().set("status", "waiting");
 

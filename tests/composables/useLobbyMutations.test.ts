@@ -188,4 +188,27 @@ describe("useLobbyMutations.startGame card payload", () => {
     // stored and retrieved as the string "false", not the boolean false
     expect(gs.get("blackSkipUsed")).toBe("false");
   });
+
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  // Keys the stat_rounds ledger server-side: `round` restarts at 1 every
+  // game, so without a per-game id two games' round 1 would collide.
+  it("stamps the game with a uuid gameId", () => {
+    const stub = makeStubDoc();
+    useLobbyMutations(stub).startGame(basePayload as any);
+
+    expect(stub.getGameState().get("gameId")).toMatch(UUID_V4);
+  });
+
+  it("gives a rematch a fresh gameId", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+
+    mutations.startGame(basePayload as any);
+    const first = stub.getGameState().get("gameId");
+    mutations.startGame(basePayload as any);
+
+    expect(stub.getGameState().get("gameId")).not.toBe(first);
+  });
 });
