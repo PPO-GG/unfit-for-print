@@ -40,4 +40,19 @@ describe("AdminCardRail", () => {
   it("links back to the packs index", () => {
     expect(mountRail().text()).toMatch(/all packs/i);
   });
+
+  it("shows a custom display name instead of the raw pack key", () => {
+    const wrapper = mountRail({
+      packMeta: { Base: { pack: "Base", displayName: "Base Set" } },
+    });
+    const label = wrapper.find('[data-testid="pack-Base"] span');
+    expect(label.text()).toBe("Base Set");
+    // The raw key is still available on hover, since it's the real identifier.
+    expect(label.attributes("title")).toBe("Base");
+  });
+
+  it("falls back to the raw pack key when no display name is set", () => {
+    const wrapper = mountRail({ packMeta: { Base: { pack: "Base" } } });
+    expect(wrapper.find('[data-testid="pack-Base"]').text()).toContain("Base");
+  });
 });

@@ -20,6 +20,8 @@ const props = defineProps<{
   packName?: string;
   packMeta?: CardPackMeta | null;
   packCards?: AdminCard[];
+  /** Shared series prefix across the loaded packs, from `commonPackPrefix`. */
+  seriesPrefix?: string;
 }>();
 
 const emit = defineEmits<{
@@ -62,7 +64,12 @@ const state = computed<"pack" | "card" | "bulk">(() => {
 
     <div v-else data-testid="state-pack" class="flex flex-col gap-2">
       <template v-if="packName">
-        <AdminPackForm :pack="packName" :meta="packMeta ?? null" @saved="emit('pack-saved', $event)" />
+        <AdminPackForm
+          :pack="packName"
+          :meta="packMeta ?? null"
+          :series-prefix="seriesPrefix"
+          @saved="emit('pack-saved', $event)"
+        />
       </template>
       <p v-else class="text-xs text-slate-400">Select a card to inspect it.</p>
     </div>

@@ -6,12 +6,21 @@
  * fifteen controls per row, which is what made it unusable.
  */
 import type { AdminPackStat } from "~/composables/useAdminPackStats";
+import type { CardPackMeta } from "~/types/cardPack";
 
-defineProps<{ packs: AdminPackStat[]; current?: string }>();
+const props = defineProps<{
+  packs: AdminPackStat[];
+  current?: string;
+  /** Keyed by pack name, so a custom display name shows here too — this used
+   * to always show the raw pack key, so renaming a pack in AdminPackForm
+   * looked like it had no effect as long as you were browsing it. */
+  packMeta?: Record<string, CardPackMeta>;
+}>();
 const emit = defineEmits<{ select: [string] }>();
 
 const total = (p: AdminPackStat) => p.black.total + p.white.total;
 const isDark = (p: AdminPackStat) => p.black.active + p.white.active === 0;
+const label = (p: AdminPackStat) => props.packMeta?.[p.name]?.displayName || p.name;
 </script>
 
 <template>
@@ -38,7 +47,7 @@ const isDark = (p: AdminPackStat) => p.black.active + p.white.active === 0;
       ]"
       @click="emit('select', pack.name)"
     >
-      <span class="flex-1 truncate">{{ pack.name }}</span>
+      <span class="flex-1 truncate" :title="pack.name">{{ label(pack) }}</span>
       <span class="text-slate-500">{{ total(pack).toLocaleString() }}</span>
     </button>
   </nav>

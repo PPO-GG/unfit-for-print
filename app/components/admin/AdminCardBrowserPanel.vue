@@ -15,6 +15,7 @@
 import { computed, ref, watch, onMounted } from "vue";
 import { watchDebounced, useMagicKeys, useElementSize } from "@vueuse/core";
 import { gridGeometry } from "~/utils/gridGeometry";
+import { commonPackPrefix } from "~/utils/packName";
 import type { AdminPackStats } from "~/composables/useAdminPackStats";
 import type { AdminCardList, AdminCardSort, AdminCard } from "~/composables/useAdminCardList";
 import type { AdminCardMutations } from "~/composables/useAdminCardMutations";
@@ -131,6 +132,10 @@ const visible = computed(() => {
 });
 
 const allPackNames = computed(() => Object.keys(packStats.value).sort());
+// Same derivation as the Packs grid, off the same loaded roster — so the
+// per-pack form's autofill (AdminPackForm) suggests the same series a tile
+// on the grid would show.
+const seriesPrefix = computed(() => commonPackPrefix(Object.keys(packStats.value)));
 
 const inspectedId = ref<string | null>(null);
 const inspected = computed<AdminCard | null>(
@@ -287,6 +292,7 @@ onMounted(() => fetchCards());
     <AdminCardRail
       class="w-56 shrink-0"
       :packs="sortedPacks"
+      :pack-meta="packMeta"
       :current="selectedPack"
       @select="onPack"
     />
@@ -337,6 +343,7 @@ onMounted(() => fetchCards());
       :packs="allPackNames"
       :pack-name="selectedPack"
       :pack-meta="selectedPack ? (packMeta[selectedPack] ?? null) : null"
+      :series-prefix="seriesPrefix"
       :pack-cards="cards"
       @save="onSaveCard"
       @move="onInspectorMove"

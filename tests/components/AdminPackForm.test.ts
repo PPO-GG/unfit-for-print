@@ -25,9 +25,9 @@ const stubs = {
   UButton: { template: "<button><slot /></button>" },
 };
 
-function mountForm(meta: Record<string, unknown> | null = null) {
+function mountForm(meta: Record<string, unknown> | null = null, extra: Record<string, unknown> = {}) {
   return mount(AdminPackForm, {
-    props: { pack: "Base", meta: meta as never },
+    props: { pack: "Base", meta: meta as never, ...extra },
     global: { stubs },
   });
 }
@@ -91,6 +91,40 @@ describe("AdminPackForm", () => {
         nsfw: false,
       },
     });
+  });
+
+  it("autofills display name and series from the derived split when the pack has no metadata", () => {
+    const wrapper = mount(AdminPackForm, {
+      props: {
+        pack: "Cards Against Humanity: Blue Box Expansion",
+        meta: null,
+        seriesPrefix: "Cards Against Humanity:",
+      },
+      global: { stubs },
+    });
+    expect(wrapper.vm.form.displayName).toBe("Blue Box Expansion");
+    expect(wrapper.vm.form.series).toBe("Cards Against Humanity");
+  });
+
+  it("does not autofill a display name when the pack name never splits", () => {
+    // No seriesPrefix at all — splitPackName has nothing to derive, so
+    // suggesting the raw pack name back as a "display name" would be a no-op.
+    const wrapper = mountForm(null);
+    expect(wrapper.vm.form.displayName).toBe("");
+    expect(wrapper.vm.form.series).toBe("");
+  });
+
+  it("prefers an explicit metadata value over the derived autofill", () => {
+    const wrapper = mount(AdminPackForm, {
+      props: {
+        pack: "Cards Against Humanity: Blue Box Expansion",
+        meta: { pack: "x", displayName: "The Blue One", series: "CAH" },
+        seriesPrefix: "Cards Against Humanity:",
+      },
+      global: { stubs },
+    });
+    expect(wrapper.vm.form.displayName).toBe("The Blue One");
+    expect(wrapper.vm.form.series).toBe("CAH");
   });
 
   it("sends the series field, trimmed", async () => {

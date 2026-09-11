@@ -5,14 +5,23 @@
  *
  * Empty strings are sent as null so clearing a field actually clears it,
  * rather than storing "" and having every reader test for both.
+ *
+ * Display name and series start pre-filled from the same derived guess
+ * AdminPackTile shows (`splitPackName`/`seriesPrefix`) whenever the row has
+ * no explicit value of its own, so opening the form for one of the ~106
+ * "Cards Against Humanity: …" packs is a one-click Save to turn the guess
+ * into real, editable data instead of retyping it.
  */
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
+import { splitPackName } from "~/utils/packName";
 import type { CardPackMeta } from "~/types/cardPack";
 
 const props = defineProps<{
   pack: string;
   meta: CardPackMeta | null;
+  /** Shared series prefix across the loaded packs, from `commonPackPrefix`. */
+  seriesPrefix?: string;
 }>();
 
 const emit = defineEmits<{
@@ -37,19 +46,29 @@ const blank = () => ({
 
 const form = ref(blank());
 
+const derived = computed(() => splitPackName(props.pack, props.seriesPrefix ?? ""));
+// splitPackName falls back to the whole raw name as `label` when nothing
+// splits off — suggesting that back as a "display name" would just echo the
+// pack key, so there's only a real suggestion once a series actually split.
+const suggestedName = computed(() => (derived.value.series ? derived.value.label : ""));
+// The derived series carries the trailing separator (": ") that makes sense
+// concatenated in a tile's headline, not as a value someone actually saves —
+// same stripping the bulk "Set series…" popover does before prefilling.
+const suggestedSeries = computed(() => derived.value.series.replace(/[:\s]+$/, ""));
+
 function seed() {
   form.value = props.meta
     ? {
-        displayName: props.meta.displayName ?? "",
+        displayName: props.meta.displayName ?? suggestedName.value,
         description: props.meta.description ?? "",
         icon: props.meta.icon ?? "",
         color: props.meta.color ?? "",
-        series: props.meta.series ?? "",
+        series: props.meta.series ?? suggestedSeries.value,
         sortOrder: props.meta.sortOrder ?? 0,
         official: props.meta.official ?? false,
         nsfw: props.meta.nsfw ?? false,
       }
-    : blank();
+    : { ...blank(), displayName: suggestedName.value, series: suggestedSeries.value };
 }
 seed();
 // Also on `pack` changing: switching packs discards whatever was mid-edit
