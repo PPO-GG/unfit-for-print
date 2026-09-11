@@ -54,4 +54,26 @@ describe("AdminDecoStage", () => {
     await stageEl.trigger("pointermove", { clientX: 260, clientY: 100, pointerId: 1 });
     expect(w.emitted("update")?.at(-1)).toEqual(["hat", { transform: { x: 0, y: -0.5, scale: 0.5, rotation: 90 } }]);
   });
+
+  it("a drag that ends off the box does not reselect, and the next click does", async () => {
+    const w = mountStage("hat");
+    const stageEl = w.find('[data-testid="stage"]');
+    await w.find('[data-testid="handle-box"]').trigger("pointerdown", { clientX: 200, clientY: 100, pointerId: 1 });
+    await stageEl.trigger("pointermove", { clientX: 360, clientY: 360, pointerId: 1 });
+    await stageEl.trigger("pointerup", { pointerId: 1 });
+    await stageEl.trigger("click", { clientX: 210, clientY: 90 });
+    expect(w.emitted("select")).toBeUndefined();
+    await stageEl.trigger("click", { clientX: 210, clientY: 90 });
+    expect(w.emitted("select")?.at(-1)).toEqual(["hat"]);
+  });
+
+  it("a click after a cancelled drag still selects", async () => {
+    const w = mountStage("hat");
+    const stageEl = w.find('[data-testid="stage"]');
+    await w.find('[data-testid="handle-box"]').trigger("pointerdown", { clientX: 200, clientY: 100, pointerId: 1 });
+    await stageEl.trigger("pointermove", { clientX: 240, clientY: 100, pointerId: 1 });
+    await stageEl.trigger("pointercancel", { pointerId: 1 });
+    await stageEl.trigger("click", { clientX: 210, clientY: 90 });
+    expect(w.emitted("select")?.at(-1)).toEqual(["hat"]);
+  });
 });

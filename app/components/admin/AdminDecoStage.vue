@@ -79,6 +79,11 @@ function onUp() {
   drag = null;
 }
 
+function onCancel() {
+  drag = null;
+  moved = false;
+}
+
 function onStageClick(e: MouseEvent) {
   // A drag that ends off the box still fires a click on the stage; that
   // must not reselect whatever is underneath.
@@ -100,7 +105,7 @@ function onStageClick(e: MouseEvent) {
     @click="onStageClick"
     @pointermove="onMove"
     @pointerup="onUp"
-    @pointercancel="onUp"
+    @pointercancel="onCancel"
   >
     <DecorationStack :layers="stack">
       <AdminDecoSampleAvatar :size="STAGE_PX" :sample="sample" />
