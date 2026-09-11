@@ -204,6 +204,43 @@ export const userDecorations = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.decorationId] })],
 );
 
+/**
+ * Per-player gameplay counters, Discord users only. Written by
+ * /api/game/record-round, read by /api/stats/me. A row is created on a user's
+ * first counted round; win rate is derived on read, never stored.
+ */
+export const userStats = pgTable("user_stats", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  gamesPlayed: integer("games_played").notNull().default(0),
+  gamesWon: integer("games_won").notNull().default(0),
+  roundsPlayed: integer("rounds_played").notNull().default(0),
+  roundsWon: integer("rounds_won").notNull().default(0),
+  roundsJudged: integer("rounds_judged").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Dedupe ledger for record-round: one row per counted round. `round` restarts
+ * at 1 every game, so the key is the per-game uuid the host stamps into the
+ * Y.Doc at startGame. No FK to lobbies — the sweeper prunes lobbies, and a
+ * random game id is already globally unique.
+ */
+export const statRounds = pgTable(
+  "stat_rounds",
+  {
+    gameId: uuid("game_id").notNull(),
+    round: integer("round").notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.gameId, table.round] })],
+);
+
 // Issue tracking. Two tables rather than one so "alert me once per distinct
 // problem" is a property of a row rather than a query: the webhook fires on
 // group creation, and the admin page lists ~12 problems instead of 4,000
