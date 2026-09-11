@@ -159,6 +159,16 @@
   "notification.logout_failed": "Falha ao sair",
   "notification.redirecting": "Redirecionando para seu jogo ativo",
   "profile.your_profile": "Seu perfil",
+  "profile.stats_title": "Suas estatísticas",
+  "profile.stats_games_won": "Partidas vencidas",
+  "profile.stats_games_played": "Partidas jogadas",
+  "profile.stats_rounds_won": "Rodadas vencidas",
+  "profile.stats_win_rate": "Taxa de vitória por rodada",
+  "profile.stats_rounds_judged": "Rodadas como juiz",
+  "profile.stats_empty_hint": "Nada ainda — suas estatísticas começam a contar a partir da sua próxima partida.",
+  "profile.stats_load_error": "Não foi possível carregar suas estatísticas agora.",
+  "profile.stats_guest_prompt": "Entre com o Discord para acompanhar suas estatísticas.",
+  "profile.stats_guest_cta": "Entrar com o Discord",
   "tagline": "UM JOGO DE FESTA PARA PESSOAS HORRÍVEIS",
   "try_me": "Experimente!"
 }

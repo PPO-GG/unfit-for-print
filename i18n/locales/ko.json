@@ -159,6 +159,16 @@
   "notification.logout_failed": "로그아웃에 실패했습니다",
   "notification.redirecting": "활성 게임으로 리디렉션 중",
   "profile.your_profile": "귀하의 프로필",
+  "profile.stats_title": "귀하의 통계",
+  "profile.stats_games_won": "승리한 게임",
+  "profile.stats_games_played": "플레이한 게임",
+  "profile.stats_rounds_won": "승리한 라운드",
+  "profile.stats_win_rate": "라운드 승률",
+  "profile.stats_rounds_judged": "심사한 라운드",
+  "profile.stats_empty_hint": "아직 기록이 없습니다. 다음 게임부터 통계가 집계됩니다.",
+  "profile.stats_load_error": "통계를 불러오지 못했습니다.",
+  "profile.stats_guest_prompt": "Discord로 로그인하면 통계를 기록할 수 있습니다.",
+  "profile.stats_guest_cta": "Discord로 로그인",
   "tagline": "흉측한 사람들을 위한 파티 게임",
   "try_me": "나를 시도해 보세요!"
 }

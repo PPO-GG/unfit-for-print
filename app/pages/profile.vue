@@ -5,6 +5,15 @@ definePageMeta({
 
 const { t } = useI18n();
 const userStore = useUserStore();
+const { showIfAuthenticated } = useUserAccess();
+const {
+  stats,
+  loading: statsLoading,
+  error: statsError,
+  winRate,
+  isEmpty: statsEmpty,
+  fetchStats,
+} = usePlayerStats();
 const {
   allDecorations,
   activeDecorationId,
@@ -19,6 +28,8 @@ const hydrated = ref(false);
 onMounted(() => {
   hydrated.value = true;
   fetchAll();
+  // Guests are never tracked; the route would only 403 them.
+  if (showIfAuthenticated.value) fetchStats();
 });
 
 const ownedDecorations = computed(() =>
@@ -31,6 +42,20 @@ const lockedDecorations = computed(() =>
 const activeCatalogEntry = computed(
   () => allDecorations.value.find((d) => d.active)?.catalogEntry ?? null,
 );
+
+const statTiles = computed(() => {
+  const s = stats.value;
+  return [
+    { key: "games_won", value: s?.gamesWon ?? 0 },
+    { key: "games_played", value: s?.gamesPlayed ?? 0 },
+    { key: "rounds_won", value: s?.roundsWon ?? 0 },
+    {
+      key: "win_rate",
+      value: winRate.value === null ? "—" : `${winRate.value}%`,
+    },
+    { key: "rounds_judged", value: s?.roundsJudged ?? 0 },
+  ];
+});
 
 const handleDecorationClick = async (
   decorationId: string,
@@ -92,6 +117,63 @@ const avatarUrl = computed(() => {
           <USkeleton class="h-5 w-20" />
         </div>
       </template>
+    </div>
+
+    <!-- Stats -->
+    <div v-if="hydrated" class="w-full">
+      <h2 class="text-xl font-semibold mb-4">
+        {{ t("profile.stats_title") }}
+      </h2>
+
+      <template v-if="showIfAuthenticated">
+        <div
+          v-if="statsLoading"
+          class="grid grid-cols-2 sm:grid-cols-5 gap-4"
+        >
+          <USkeleton v-for="n in 5" :key="n" class="h-24 rounded-xl" />
+        </div>
+
+        <p v-else-if="statsError" class="text-center py-4 text-slate-400">
+          {{ t("profile.stats_load_error") }}
+        </p>
+
+        <template v-else>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div
+              v-for="tile in statTiles"
+              :key="tile.key"
+              class="flex flex-col items-center justify-center gap-1 p-4 rounded-xl border-2 border-slate-700 bg-slate-800/50 backdrop-blur-xs"
+            >
+              <span class="text-3xl font-bold text-amber-400 tabular-nums">
+                {{ tile.value }}
+              </span>
+              <span class="text-sm text-slate-300 text-center">
+                {{ t(`profile.stats_${tile.key}`) }}
+              </span>
+            </div>
+          </div>
+          <p
+            v-if="statsEmpty"
+            class="mt-3 text-center text-sm text-slate-400"
+          >
+            {{ t("profile.stats_empty_hint") }}
+          </p>
+        </template>
+      </template>
+
+      <div
+        v-else
+        class="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-700 bg-slate-800/50 backdrop-blur-xs text-center"
+      >
+        <p class="text-slate-300">{{ t("profile.stats_guest_prompt") }}</p>
+        <UButton
+          icon="i-ic-baseline-discord"
+          size="lg"
+          @click="userStore.loginWithDiscord()"
+        >
+          {{ t("profile.stats_guest_cta") }}
+        </UButton>
+      </div>
     </div>
 
     <!-- Owned Decorations -->

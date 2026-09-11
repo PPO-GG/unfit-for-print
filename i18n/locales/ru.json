@@ -159,6 +159,16 @@
   "notification.logout_failed": "Выход не удался",
   "notification.redirecting": "Перенаправление на вашу активную игру",
   "profile.your_profile": "Ваш профиль",
+  "profile.stats_title": "Ваша статистика",
+  "profile.stats_games_won": "Выиграно игр",
+  "profile.stats_games_played": "Сыграно игр",
+  "profile.stats_rounds_won": "Выиграно раундов",
+  "profile.stats_win_rate": "Процент побед в раундах",
+  "profile.stats_rounds_judged": "Раундов в роли судьи",
+  "profile.stats_empty_hint": "Пока пусто — статистика начнёт считаться с вашей следующей игры.",
+  "profile.stats_load_error": "Не удалось загрузить статистику.",
+  "profile.stats_guest_prompt": "Войдите через Discord, чтобы отслеживать статистику.",
+  "profile.stats_guest_cta": "Войти через Discord",
   "tagline": "ИГРА ДЛЯ ВЕЧЕРИНКИ ДЛЯ УЖАСНЫХ ЛЮДЕЙ",
   "try_me": "Попробуй меня!"
 }

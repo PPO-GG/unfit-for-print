@@ -159,6 +159,16 @@
   "notification.logout_failed": "Échec de la déconnexion",
   "notification.redirecting": "Redirection vers votre jeu actif",
   "profile.your_profile": "Votre profil",
+  "profile.stats_title": "Vos statistiques",
+  "profile.stats_games_won": "Parties gagnées",
+  "profile.stats_games_played": "Parties jouées",
+  "profile.stats_rounds_won": "Manches gagnées",
+  "profile.stats_win_rate": "Taux de victoire par manche",
+  "profile.stats_rounds_judged": "Manches arbitrées",
+  "profile.stats_empty_hint": "Rien pour l'instant — vos statistiques commencent à compter dès votre prochaine partie.",
+  "profile.stats_load_error": "Impossible de charger vos statistiques pour le moment.",
+  "profile.stats_guest_prompt": "Connectez-vous avec Discord pour suivre vos statistiques.",
+  "profile.stats_guest_cta": "Se connecter avec Discord",
   "tagline": "UN JEU DE FÊTE POUR LES GENS HIDEUX",
   "try_me": "Essayez-moi !"
 }

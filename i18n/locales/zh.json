@@ -159,6 +159,16 @@
   "notification.logout_failed": "注销失败",
   "notification.redirecting": "重定向至您正在进行的游戏",
   "profile.your_profile": "您的个人资料",
+  "profile.stats_title": "您的统计",
+  "profile.stats_games_won": "获胜局数",
+  "profile.stats_games_played": "游戏局数",
+  "profile.stats_rounds_won": "获胜回合",
+  "profile.stats_win_rate": "回合胜率",
+  "profile.stats_rounds_judged": "担任裁判的回合",
+  "profile.stats_empty_hint": "暂无记录——统计将从您的下一局游戏开始计算。",
+  "profile.stats_load_error": "暂时无法加载您的统计。",
+  "profile.stats_guest_prompt": "使用 Discord 登录以记录您的统计。",
+  "profile.stats_guest_cta": "使用 Discord 登录",
   "tagline": "丑陋之人的派对游戏",
   "try_me": "试试我！"
 }

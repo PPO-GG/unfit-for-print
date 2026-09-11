@@ -159,6 +159,16 @@
   "notification.logout_failed": "Abmeldung fehlgeschlagen",
   "notification.redirecting": "Weiterleitung zu Ihrem aktiven Spiel",
   "profile.your_profile": "Ihr Profil",
+  "profile.stats_title": "Ihre Statistiken",
+  "profile.stats_games_won": "Gewonnene Spiele",
+  "profile.stats_games_played": "Gespielte Spiele",
+  "profile.stats_rounds_won": "Gewonnene Runden",
+  "profile.stats_win_rate": "Rundensiegquote",
+  "profile.stats_rounds_judged": "Runden als Richter",
+  "profile.stats_empty_hint": "Noch nichts – Ihre Statistiken werden ab Ihrem nächsten Spiel gezählt.",
+  "profile.stats_load_error": "Ihre Statistiken konnten gerade nicht geladen werden.",
+  "profile.stats_guest_prompt": "Melden Sie sich mit Discord an, um Ihre Statistiken zu verfolgen.",
+  "profile.stats_guest_cta": "Mit Discord anmelden",
   "tagline": "EIN PARTYSPIEL FÜR HEXENHAFTE LEUTE",
   "try_me": "Probieren Sie mich aus!"
 }

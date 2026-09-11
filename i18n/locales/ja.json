@@ -159,6 +159,16 @@
   "notification.logout_failed": "ログアウトに失敗しました",
   "notification.redirecting": "アクティブなゲームにリダイレクトしています",
   "profile.your_profile": "あなたのプロフィール",
+  "profile.stats_title": "あなたの統計",
+  "profile.stats_games_won": "勝利したゲーム",
+  "profile.stats_games_played": "プレイしたゲーム",
+  "profile.stats_rounds_won": "勝利したラウンド",
+  "profile.stats_win_rate": "ラウンド勝率",
+  "profile.stats_rounds_judged": "審査したラウンド",
+  "profile.stats_empty_hint": "まだ記録はありません。次のゲームから統計が記録されます。",
+  "profile.stats_load_error": "統計を読み込めませんでした。",
+  "profile.stats_guest_prompt": "Discordでサインインすると統計が記録されます。",
+  "profile.stats_guest_cta": "Discordでサインイン",
   "tagline": "醜い人々のためのパーティーゲーム",
   "try_me": "試してみて！"
 }

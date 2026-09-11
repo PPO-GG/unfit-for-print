@@ -159,6 +159,16 @@
   "notification.logout_failed": "Error al cerrar sesión",
   "notification.redirecting": "Redireccionando a tu juego activo",
   "profile.your_profile": "Tu perfil",
+  "profile.stats_title": "Tus estadísticas",
+  "profile.stats_games_won": "Partidas ganadas",
+  "profile.stats_games_played": "Partidas jugadas",
+  "profile.stats_rounds_won": "Rondas ganadas",
+  "profile.stats_win_rate": "Porcentaje de rondas ganadas",
+  "profile.stats_rounds_judged": "Rondas como juez",
+  "profile.stats_empty_hint": "Aún nada: tus estadísticas empiezan a contar desde tu próxima partida.",
+  "profile.stats_load_error": "No se pudieron cargar tus estadísticas en este momento.",
+  "profile.stats_guest_prompt": "Inicia sesión con Discord para registrar tus estadísticas.",
+  "profile.stats_guest_cta": "Iniciar sesión con Discord",
   "tagline": "UN JUEGO DE FIESTA PARA GENTE HORRIBLE",
   "try_me": "¡Pruébame!"
 }
