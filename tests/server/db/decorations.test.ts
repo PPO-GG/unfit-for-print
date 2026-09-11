@@ -21,11 +21,19 @@ vi.mock("~/server/utils/r2", () => ({
   getR2Bucket: () => "decoration-images",
 }));
 
-function mockEvent(body?: unknown, params: Record<string, string> = {}) {
+function mockEvent(
+  body?: unknown,
+  params: Record<string, string> = {},
+  query: Record<string, string> = {},
+) {
   globalThis.readBody = async () => body;
   globalThis.getRouterParam = (_e: unknown, name: string) => params[name];
+  globalThis.getQuery = () => query;
   return {} as any;
 }
+
+const deletedKeys = () =>
+  r2Send.mock.calls.map(([cmd]) => cmd.input?.Key).filter(Boolean);
 
 beforeEach(async () => {
   r2Send.mockReset();
@@ -149,70 +157,88 @@ describe("decorations", () => {
     expect(list.find((d) => d.decorationId === "draft")?.layers).toEqual({ v: 1, layers: [] });
   });
 
-  it("admin create persists attachment config and catalog returns it", async () => {
-    const attachment = {
-      anchor: "top-center",
-      offsetX: 0.25,
-      offsetY: -0.1,
-      scale: 0.8,
-      speed: 1,
-      rotation: 15,
-      zLayer: "above",
-      clipped: false,
-    };
-
-    const createHandler = (await import("~/server/api/admin/decorations/index.post")).default;
-    const created = await createHandler(
-      mockEvent({
-        decorationId: "top-hat",
-        name: "Top Hat",
-        type: "attachment",
-        rarity: "common",
-        enabled: true,
-        imageFileId: "hat-image-key",
-        imageFormat: "png",
-        attachment: JSON.stringify(attachment),
-      }),
-    );
-    expect(created.$id).toBe("top-hat");
-
-    const catalogHandler = (await import("~/server/api/decorations/catalog.get")).default;
-    const catalog = await catalogHandler({} as any);
-    const entry = catalog.find((d) => d.decorationId === "top-hat");
-    expect(entry?.attachment).toEqual(attachment);
+  it("create slugifies the name, avoids collisions, and starts hidden", async () => {
+    const create = (await import("~/server/api/admin/decorations/index.post")).default;
+    const a = await create(mockEvent({ name: "Gold Ring!" }));
+    const b = await create(mockEvent({ name: "Gold Ring" }));
+    expect(a.$id).toBe("gold-ring");
+    expect(b.$id).toBe("gold-ring-2");
+    const [row] = await db.select().from(decorations).where(eq(decorations.id, "gold-ring"));
+    expect(row.enabled).toBe(false);
+    expect(row.type).toBe("layered");
   });
 
-  it("admin update persists a changed attachment config", async () => {
+  it("create builds the chosen starter, or copies another decoration's stack", async () => {
+    const create = (await import("~/server/api/admin/decorations/index.post")).default;
+    await create(mockEvent({ name: "Sparkly", starter: "sparkles" }));
+    const [sparkly] = await db.select().from(decorations).where(eq(decorations.id, "sparkly"));
+    expect(sparkly.layers?.layers.map((l) => l.type)).toEqual(["particles"]);
+
+    await create(mockEvent({ name: "Sparkly Two", copyFrom: "sparkly" }));
+    const [copy] = await db.select().from(decorations).where(eq(decorations.id, "sparkly-two"));
+    expect(copy.layers).toEqual(sparkly.layers);
+
+    await expect(create(mockEvent({ name: "X", copyFrom: "missing" }))).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("update normalises layers and deletes only assets nobody references any more", async () => {
+    const img = (key: string) => ({ type: "image", id: key, asset: { key, format: "png" } });
+    await db.insert(decorations).values([
+      { id: "a", name: "A", description: "", type: "layered", rarity: "common",
+        layers: { v: 1, layers: [img("deco-1-a.png"), img("deco-2-shared.png")] } as never },
+      { id: "b", name: "B", description: "", type: "layered", rarity: "common",
+        layers: { v: 1, layers: [img("deco-2-shared.png")] } as never },
+    ]);
+    const put = (await import("~/server/api/admin/decorations/[id].put")).default;
+    const result = await put(mockEvent({ layers: { v: 1, layers: [{ type: "glow", id: "g", spread: 5 }] } }, { id: "a" }));
+
+    expect(result.layers.layers[0]).toMatchObject({ type: "glow", spread: 0.6 });
+    expect(deletedKeys()).toEqual(["deco-1-a.png"]);
+    expect(result.deletedAssets).toEqual(["deco-1-a.png"]);
+  });
+
+  it("update of a legacy row deletes the image it replaced", async () => {
     await db.insert(decorations).values({
-      id: "top-hat",
-      name: "Top Hat",
-      description: "",
-      type: "attachment",
-      rarity: "common",
-      enabled: true,
-      freeForAll: false,
-      imageKey: "hat-image-key",
-      imageFormat: "png",
+      id: "old", name: "Old", description: "", type: "attachment", rarity: "common",
+      imageKey: "legacy-hat.png", imageFormat: "png",
     });
+    const put = (await import("~/server/api/admin/decorations/[id].put")).default;
+    await put(mockEvent({
+      layers: { v: 1, layers: [{ type: "image", id: "i", asset: { key: "deco-9-new.png", format: "png" } }] },
+    }, { id: "old" }));
+    expect(deletedKeys()).toEqual(["legacy-hat.png"]);
+  });
 
-    const updated = {
-      anchor: "center",
-      offsetX: -0.5,
-      offsetY: 0.5,
-      scale: 1.2,
-      speed: 1,
-      rotation: -30,
-      zLayer: "below",
-      clipped: true,
-    };
+  it("update rejects an empty body and an unknown id", async () => {
+    const put = (await import("~/server/api/admin/decorations/[id].put")).default;
+    await expect(put(mockEvent({}, { id: "nope" }))).rejects.toMatchObject({ statusCode: 404 });
+    await db.insert(decorations).values({ id: "x", name: "X", description: "", type: "layered", rarity: "common" });
+    await expect(put(mockEvent({ bogus: 1 }, { id: "x" }))).rejects.toMatchObject({ statusCode: 400 });
+  });
 
-    const putHandler = (await import("~/server/api/admin/decorations/[id].put")).default;
-    await putHandler(mockEvent({ attachment: JSON.stringify(updated) }, { id: "top-hat" }));
+  it("delete refuses with 409 while anyone owns the decoration", async () => {
+    await db.insert(decorations).values({ id: "owned", name: "Owned", description: "", type: "layered", rarity: "rare" });
+    await db.insert(userDecorations).values({ userId: currentUserId, decorationId: "owned", source: "purchase" });
+    const del = (await import("~/server/api/admin/decorations/[id].delete")).default;
+    await expect(del(mockEvent(undefined, { id: "owned" }))).rejects.toMatchObject({ statusCode: 409 });
+    expect(await db.select().from(decorations).where(eq(decorations.id, "owned"))).toHaveLength(1);
+  });
 
-    const adminListHandler = (await import("~/server/api/admin/decorations/list.get")).default;
-    const list = await adminListHandler({} as any);
-    const entry = list.find((d) => d.decorationId === "top-hat");
-    expect(entry?.attachment).toEqual(updated);
+  it("force delete unequips it, drops ownership, and deletes its assets", async () => {
+    await db.insert(decorations).values({
+      id: "doomed", name: "Doomed", description: "", type: "layered", rarity: "rare",
+      layers: { v: 1, layers: [{ type: "image", id: "i", asset: { key: "deco-3-doomed.png", format: "png" } }] } as never,
+    });
+    await db.insert(userDecorations).values({ userId: currentUserId, decorationId: "doomed", source: "purchase" });
+    await db.update(users).set({ activeDecoration: "doomed" }).where(eq(users.id, currentUserId));
+
+    const del = (await import("~/server/api/admin/decorations/[id].delete")).default;
+    const result = await del(mockEvent(undefined, { id: "doomed" }, { force: "1" }));
+
+    expect(result.deletedAssets).toEqual(["deco-3-doomed.png"]);
+    const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
+    expect(user.activeDecoration).toBeNull();
+    expect(await db.select().from(userDecorations).where(eq(userDecorations.decorationId, "doomed"))).toHaveLength(0);
   });
 
   it("catalog omits disabled decorations and defaults missing fields", async () => {
