@@ -59,6 +59,53 @@ describe("stack ops", () => {
     const reorder = moveLayer(base(), "b1", "behind", 0);
     expect(ids(sideLists(reorder).behind)).toEqual(["b1", "b2"]);
   });
+
+  it("moveLayer with an unknown id returns the same stack", () => {
+    const input = base();
+    expect(moveLayer(input, "nope", "front", 0)).toBe(input);
+  });
+
+  it("moveLayer into an empty side", () => {
+    const stack = normalizeLayers({
+      v: 1,
+      layers: [
+        { type: "ring", id: "b1", side: "behind" },
+        { type: "glow", id: "b2", side: "behind" },
+      ],
+    });
+    const result = moveLayer(stack, "b1", "front", 0);
+    expect(ids(sideLists(result).front)).toEqual(["b1"]);
+    expect(ids(sideLists(result).behind)).toEqual(["b2"]);
+  });
+
+  it("moveLayer clamps an out-of-range topIndex to the bottom of the side", () => {
+    const result = moveLayer(base(), "f1", "behind", 99);
+    expect(ids(sideLists(result).behind)).toEqual(["b2", "b1", "f1"]);
+  });
+
+  it("duplicateLayer refuses at the cap and for an unknown id", () => {
+    let full = base();
+    while (full.layers.length < MAX_LAYERS) full = addLayer(full, "glow").stack;
+    expect(duplicateLayer(full, full.layers[0]!.id).id).toBeNull();
+    expect(duplicateLayer(full, full.layers[0]!.id).stack).toBe(full);
+    expect(duplicateLayer(base(), "nope").id).toBeNull();
+  });
+
+  it("duplicateLayer deep-copies nested objects", () => {
+    const stack = normalizeLayers({
+      v: 1,
+      layers: [
+        { type: "ring", id: "r", fill: { kind: "conic", stops: ["#000", "#fff"], angle: 0 } },
+      ],
+    });
+    const dup = duplicateLayer(stack, "r");
+    const copy = dup.stack.layers.find((l) => l.id === dup.id);
+    const source = stack.layers[0];
+    if (copy && "fill" in copy && source && "fill" in source) {
+      expect(copy.fill).toEqual(source.fill);
+      expect(copy.fill).not.toBe(source.fill);
+    }
+  });
 });
 
 describe("buildSavePayload", () => {

@@ -51,4 +51,14 @@ describe("stage maths", () => {
     expect(hitTest(stack, { x: 60, y: 60 }, c, 100)).toBe("behind");
     expect(hitTest(stack, { x: 0, y: 0 }, c, 100)).toBeNull();
   });
+
+  it("hitTest skips hidden layers", () => {
+    const stack = normalizeLayers({
+      v: 1,
+      layers: [
+        { type: "image", id: "h", visible: false, side: "front", transform: { x: 0, y: 0, scale: 1, rotation: 0 } },
+      ],
+    });
+    expect(hitTest(stack, { x: 100, y: 100 }, { x: 100, y: 100 }, 100)).toBeNull();
+  });
 });
