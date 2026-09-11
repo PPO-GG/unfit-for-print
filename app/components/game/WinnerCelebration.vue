@@ -1,7 +1,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { gsap } from "gsap";
-import confetti from "canvas-confetti";
 import type { Player } from "~/types/player";
 import type { CardTexts } from "~/types/gamecards";
 
@@ -51,45 +50,11 @@ const isWinnerSelf = computed(() => {
   return winner === props.myId;
 });
 
-// ── Confetti burst ──────────────────────────────────────────────
-function fireConfetti() {
-  const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
-  const duration = 2500;
-  const end = Date.now() + duration;
-
-  const frame = () => {
-    confetti({
-      particleCount: 3,
-      angle: 60,
-      spread: 55,
-      origin: { x: 0, y: 0.6 },
-      colors,
-    });
-    confetti({
-      particleCount: 3,
-      angle: 120,
-      spread: 55,
-      origin: { x: 1, y: 0.6 },
-      colors,
-    });
-    if (Date.now() < end) requestAnimationFrame(frame);
-  };
-  frame();
-
-  // Big center burst
-  setTimeout(() => {
-    confetti({
-      particleCount: 80,
-      spread: 100,
-      origin: { x: 0.5, y: 0.4 },
-      colors,
-      startVelocity: 35,
-      gravity: 0.8,
-    });
-  }, 300);
-}
-
 // ── GSAP Timeline Entrance ──────────────────────────────────────
+// Confetti itself is fired by useWinnerTableCelebration (GameTable.vue), which
+// watches the same `winnerSelected` transition. Firing it here too used to
+// double up two continuous side-cannon rAF loops at once, which visibly
+// janked the mouse — this component only handles the overlay's entrance now.
 watch(
   () => props.winnerSelected,
   (selected) => {
@@ -97,8 +62,6 @@ watch(
 
     // Allow one tick for the DOM to render
     nextTick(() => {
-      fireConfetti();
-
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
       // Overlay backdrop fade
@@ -296,8 +259,10 @@ watch(
   gap: 0.75rem;
 }
 
-/* Scale down white cards in the winner overlay so multiple cards fit side by side */
-.winner-answers :deep(.card-scaler) {
+/* Scale down all cards in the winner overlay so multiple white cards fit side
+   by side. Applied to the whole display (not just .winner-answers) so the
+   black card matches the white cards instead of appearing larger. */
+.winner-cards-display :deep(.card-scaler) {
   width: clamp(7rem, 10vw, 12rem);
 }
 

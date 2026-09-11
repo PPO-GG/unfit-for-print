@@ -59,7 +59,6 @@ export function useWinnerTableCelebration(
 
   // ── Deferred-work tracking so nothing outlives the component ─────
   const timers = new Set<ReturnType<typeof setTimeout>>();
-  let rafId: number | null = null;
 
   function later(fn: () => void, ms: number) {
     const id = setTimeout(() => {
@@ -70,29 +69,30 @@ export function useWinnerTableCelebration(
   }
 
   // ── Confetti ────────────────────────────────────────────────────
+  // A single burst per side rather than a per-frame rAF spray — the old loop
+  // called confetti() every animation frame for 3s, which visibly janked the
+  // mouse while it ran.
   function fireConfetti() {
-    // Multiple bursts for a big celebration
-    const end = Date.now() + 3000;
-
-    const frame = () => {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.7 },
-        colors: CONFETTI_COLORS,
-      });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.7 },
-        colors: CONFETTI_COLORS,
-      });
-
-      rafId = Date.now() < end ? requestAnimationFrame(frame) : null;
-    };
-    frame();
+    confetti({
+      particleCount: 50,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0, y: 0.7 },
+      colors: CONFETTI_COLORS,
+      startVelocity: 40,
+      gravity: 0.9,
+      ticks: 150,
+    });
+    confetti({
+      particleCount: 50,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1, y: 0.7 },
+      colors: CONFETTI_COLORS,
+      startVelocity: 40,
+      gravity: 0.9,
+      ticks: 150,
+    });
 
     // Big center burst
     later(() => {
@@ -302,8 +302,6 @@ export function useWinnerTableCelebration(
   }
 
   onBeforeUnmount(() => {
-    if (rafId !== null) cancelAnimationFrame(rafId);
-    rafId = null;
     for (const id of timers) clearTimeout(id);
     timers.clear();
   });
