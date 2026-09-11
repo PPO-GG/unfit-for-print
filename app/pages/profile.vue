@@ -137,7 +137,7 @@ const avatarUrl = computed(() => {
           {{ t("profile.stats_load_error") }}
         </p>
 
-        <template v-else>
+        <template v-else-if="stats">
           <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div
               v-for="tile in statTiles"

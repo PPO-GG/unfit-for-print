@@ -1216,6 +1216,14 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         // skip for the round.
         gs.set("promptSerial", state.promptSerial + 1);
         gs.set("blackSkipUsed", JSON.stringify(false));
+        if (state.phase === "roundEnd") {
+          // Round `state.round` was already reported (selectWinner fires the
+          // report on entering roundEnd), so this fresh prompt has to be the
+          // next round or its own report would be deduped by the ledger and
+          // dropped entirely. submitting/judging haven't been reported yet,
+          // so they must stay on the same round number.
+          gs.set("round", state.round + 1);
+        }
         gs.set("phase", "submitting");
         return;
       }

@@ -398,6 +398,52 @@ describe("useYjsGameEngine round stats reporting", () => {
   });
 });
 
+describe("useYjsGameEngine.handlePlayerLeave judge-left round accounting", () => {
+  it("a judge leaving during roundEnd moves the next prompt to the next round", async () => {
+    const { calls } = stubFetch();
+    const stub = makeStubDoc();
+    seedJudging(stub, {
+      judgeId: "judge-1",
+      submissions: { "p-2": ["w1"], "p-3": ["w3"] },
+    });
+    // seedJudging only seeds the judge + submitters. handlePlayerLeave's
+    // "too few players" guard reverts to `waiting` below 3 remaining, so add
+    // an extra player to keep 3 (p-2, p-3, p-4) once the judge leaves.
+    stub.getPlayers().set(
+      "p-4",
+      JSON.stringify({ userId: "p-4", name: "p-4", playerType: "player" }),
+    );
+
+    const engine = useYjsGameEngine(stub);
+    engine.selectWinner("p-3");
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+
+    engine.handlePlayerLeave("judge-1");
+
+    const gs = stub.getGameState();
+    expect(gs.get("round")).toBe(2);
+    expect(gs.get("phase")).toBe("submitting");
+  });
+
+  it("a judge leaving mid-round keeps the round number", () => {
+    const stub = makeStubDoc();
+    seedJudging(stub, {
+      judgeId: "judge-1",
+      submissions: { "p-2": ["w1"], "p-3": ["w3"] },
+    });
+    stub.getPlayers().set(
+      "p-4",
+      JSON.stringify({ userId: "p-4", name: "p-4", playerType: "player" }),
+    );
+
+    const engine = useYjsGameEngine(stub);
+    engine.handlePlayerLeave("judge-1");
+
+    const gs = stub.getGameState();
+    expect(gs.get("round")).toBe(1);
+  });
+});
+
 describe("useYjsGameEngine.resetGame", () => {
   it("clears the gameId so the next game cannot inherit it", () => {
     const stub = makeStubDoc();
