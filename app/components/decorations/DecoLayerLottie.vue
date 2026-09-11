@@ -16,6 +16,7 @@ const size = computed(() => Math.max(1, Math.round(avatarPx.value * props.layer.
 
 let player: DotLottie | null = null;
 let io: IntersectionObserver | null = null;
+let seen = false;
 
 function start() {
   if (!canvasEl.value || !src.value || player) return;
@@ -37,10 +38,14 @@ function stop() {
 
 onMounted(() => {
   // Defer the WASM boot until visible; most decorated avatars start off-screen.
-  if (typeof IntersectionObserver === "undefined") return start();
+  if (typeof IntersectionObserver === "undefined") {
+    seen = true;
+    return start();
+  }
   io = new IntersectionObserver(
     (entries) => {
       if (entries[0]?.isIntersecting) {
+        seen = true;
         start();
         io?.disconnect();
         io = null;
@@ -58,8 +63,14 @@ onUnmounted(() => {
 
 watch(src, async () => {
   stop();
-  await nextTick(); // the canvas is v-if'd on src
-  start();
+  if (seen) {
+    await nextTick(); // the canvas is v-if'd on src
+    start();
+  } else {
+    // Canvas is v-if'd on src, so we need to re-observe after nextTick
+    await nextTick();
+    if (io && canvasEl.value) io.observe(canvasEl.value);
+  }
 });
 watch(() => props.layer.speed, (s) => player?.setSpeed(s));
 </script>

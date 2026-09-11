@@ -52,4 +52,35 @@ describe("DecoLayerLottie", () => {
     expect(wrapper.find("canvas").exists()).toBe(false);
     expect(created).toHaveLength(0);
   });
+
+  it("re-initialises when the asset changes", async () => {
+    const wrapper = mount(DecoLayerLottie, {
+      props: { layer: layer({ asset: { key: "deco-1-anim.json", format: "lottie" } }) },
+    });
+    await flushPromises();
+    expect(created).toHaveLength(1);
+    await wrapper.setProps({ layer: layer({ asset: { key: "deco-2-other.json", format: "lottie" } }) });
+    await flushPromises();
+    expect(destroyed).toHaveBeenCalled();
+    expect(created).toHaveLength(2);
+    expect(created[1]).toMatchObject({ src: "/api/decorations/images/deco-2-other.json" });
+  });
+
+  it("does not boot a hidden player when the asset changes", async () => {
+    vi.stubGlobal("IntersectionObserver", class {
+      observe() {}
+      disconnect() {}
+    });
+    try {
+      const wrapper = mount(DecoLayerLottie, {
+        props: { layer: layer({ asset: { key: "deco-1-anim.json", format: "lottie" } }) },
+      });
+      await flushPromises();
+      await wrapper.setProps({ layer: layer({ asset: { key: "deco-2-other.json", format: "lottie" } }) });
+      await flushPromises();
+      expect(created).toHaveLength(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
