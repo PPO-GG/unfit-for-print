@@ -5,6 +5,7 @@ import { decorations } from "~~/server/db/schema";
 import { useR2, getR2Bucket } from "~~/server/utils/r2";
 import { resolveLayers } from "#shared/decorationLegacy";
 import { collectAssetKeys } from "#shared/decorationAssets";
+import type { DecorationCatalogEntry } from "~/types/decoration";
 
 type DecorationRow = typeof decorations.$inferSelect;
 
@@ -13,7 +14,7 @@ type DecorationRow = typeof decorations.$inferSelect;
  * release so a tab open across the deploy still renders; `layers` is always
  * the resolved stack, so new clients never see the legacy format.
  */
-export function toCatalogEntry(row: DecorationRow) {
+export function toCatalogEntry(row: DecorationRow): DecorationCatalogEntry {
   return {
     $id: row.id,
     decorationId: row.id,

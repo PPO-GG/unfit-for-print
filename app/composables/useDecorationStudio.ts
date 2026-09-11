@@ -89,11 +89,16 @@ export function useDecorationStudio(id: string) {
       stack.value = normalizeLayers(found.layers);
       selectedId.value = stack.value.layers.at(-1)?.id ?? null;
       markClean();
-      await loadOwners();
     } catch (err: any) {
       error.value = err?.data?.statusMessage || err?.message || "Failed to load decoration";
     } finally {
       loading.value = false;
+    }
+    if (error.value) return;
+    try {
+      await loadOwners();
+    } catch {
+      owners.value = [];
     }
   }
 

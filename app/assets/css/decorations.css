@@ -45,4 +45,13 @@
 /* Freeze in place rather than disappear: the still frame is still the look. */
 @media (prefers-reduced-motion: reduce) {
   [class*="deco-anim-"] { animation-play-state: paused !important; }
+  /* twinkle/rise/fall are opacity:0 at their cycle boundaries, so a paused
+     frame near that boundary would freeze a particle invisible instead of
+     visible. Disable the animation outright and force a visible resting
+     state for these instead of merely pausing them. */
+  .deco-anim-twinkle, .deco-anim-rise, .deco-anim-fall {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

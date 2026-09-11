@@ -46,6 +46,18 @@ describe("useDecorationStudio", () => {
     expect(s.dirty.value).toBe(false);
   });
 
+  it("keeps the studio usable when the owners fetch fails", async () => {
+    fetchMock.mockImplementation(async (url: string, opts?: any) => {
+      if (url === "/api/admin/decorations/halo/owners") throw new Error("owners endpoint down");
+      return route(url, opts);
+    });
+    const s = await loaded();
+    expect(s.error.value).toBeNull();
+    expect(s.listing.value.name).toBe("Halo");
+    expect(s.stack.value.layers.map((l) => l.id)).toEqual(["r"]);
+    expect(s.owners.value).toEqual([]);
+  });
+
   it("reports an unknown id instead of throwing", async () => {
     const s = useDecorationStudio("missing");
     await s.load();
