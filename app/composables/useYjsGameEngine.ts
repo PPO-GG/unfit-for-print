@@ -260,44 +260,75 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       .playerType === "bot";
 
   /**
-   * Records one finished round's card statistics in Postgres.
+   * Records one finished round's statistics in Postgres: card counters, and —
+   * for docs stamped with a gameId — per-player counters.
    *
    * `white_cards.times_played` / `times_won` and `black_cards.times_played`
    * have existed since the initial migration with nothing to write them — the
    * game runs client-side in the Y.Doc, so no server route ever knew a round
-   * had ended. The judge reports it: exactly one actor per round, so clients
-   * cannot double-count each other.
+   * had ended. One actor reports each round (see the call site), and the
+   * server's (gameId, round) ledger absorbs any double-fire.
    *
-   * Bot activity is excluded, because the point of these numbers is which
-   * cards *humans* play and pick. A bot's submission is dropped, a bot winner
-   * earns no `times_won`, and a bot-judged round is never reported at all —
-   * `useBots` drives `selectWinner` from the host's client, so the judge check
-   * at the call site already suppresses it.
+   * Bots are never credited. A bot's submission is dropped from the played
+   * and submitter lists, a bot winner is sent as `winnerId: null` with no
+   * `wonWhiteIds`, and a bot-judged round is flagged `botJudged` so the server
+   * credits no judge and leaves card counters to human picks. A bot-judged
+   * round in a doc without a gameId would change nothing, so it is not sent.
    *
    * Fire-and-forget: the round is decided and must not block on this.
    */
-  const reportRoundStats = async (
-    submissions: Record<string, CardId[]>,
-    winnerId: PlayerId,
-    blackCardId: string | null,
-  ): Promise<void> => {
+  const reportRoundStats = async (report: {
+    submissions: Record<string, CardId[]>;
+    winnerId: PlayerId;
+    blackCardId: string | null;
+    gameId: string | null;
+    round: number;
+    botJudged: boolean;
+    gameOver: boolean;
+    participantIds: PlayerId[];
+  }): Promise<void> => {
     try {
+      if (report.botJudged && !report.gameId) return;
+
       const playedWhiteIds: CardId[] = [];
-      for (const [pid, cardIds] of Object.entries(submissions)) {
+      const submitterIds: PlayerId[] = [];
+      for (const [pid, cardIds] of Object.entries(report.submissions)) {
         if (isBot(pid)) continue;
+        submitterIds.push(pid);
         playedWhiteIds.push(...cardIds);
       }
-      // An all-bot round carries no signal worth a round trip.
-      if (playedWhiteIds.length === 0) return;
+      // An all-bot round carries no signal worth a round trip — unless it
+      // ends the game, where every human participant is still owed a game.
+      if (submitterIds.length === 0 && !report.gameOver) return;
 
-      const wonWhiteIds = isBot(winnerId) ? [] : (submissions[winnerId] ?? []);
+      const winnerIsBot = isBot(report.winnerId);
+      const wonWhiteIds = winnerIsBot
+        ? []
+        : (report.submissions[report.winnerId] ?? []);
 
       const lobbyId = await resolveLobbyId();
       if (!lobbyId) return;
 
       await $activityFetch("/api/game/record-round", {
         method: "POST",
-        body: { lobbyId, blackCardId, playedWhiteIds, wonWhiteIds },
+        body: {
+          lobbyId,
+          blackCardId: report.blackCardId,
+          playedWhiteIds,
+          wonWhiteIds,
+          botJudged: report.botJudged,
+          // Docs started before gameId existed get card stats only.
+          ...(report.gameId
+            ? {
+                gameId: report.gameId,
+                round: report.round,
+                submitterIds,
+                winnerId: winnerIsBot ? null : report.winnerId,
+                gameOver: report.gameOver,
+                participantIds: report.participantIds,
+              }
+            : {}),
+        },
       });
     } catch (err) {
       console.warn("[GameEngine] Failed to record round stats:", err);
@@ -612,15 +643,24 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       }
     });
 
-    // One reporter per round, and it is the judge — anyone may technically
-    // call selectWinner, so this is what keeps two clients from both counting
-    // the same round.
-    if (myId() === state.judgeId) {
-      void reportRoundStats(
-        state.submissions,
+    // One reporter per round: the judge — or, when a bot judges, the host,
+    // whose client is the one useBots drives selectWinner from. Anyone may
+    // technically call selectWinner, so this keeps two clients from both
+    // reporting the same round.
+    const botJudged = !!state.judgeId && isBot(state.judgeId);
+    const isHostUser = getMeta().get("hostUserId") === myId();
+    if (myId() === state.judgeId || (botJudged && isHostUser)) {
+      const gameOver = finalPhase === "complete";
+      void reportRoundStats({
+        submissions: state.submissions,
         winnerId,
-        state.blackCard?.id || null,
-      );
+        blackCardId: state.blackCard?.id || null,
+        gameId: (getGameState().get("gameId") as string | null) ?? null,
+        round: state.round,
+        botJudged,
+        gameOver,
+        participantIds: gameOver ? Object.keys(state.scores) : [],
+      });
     }
 
     return { success: true, phase: finalPhase };
