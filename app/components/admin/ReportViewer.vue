@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { useConfirm } from "~/composables/useConfirm";
 import { useNotifications } from "~/composables/useNotifications";
 import { countBlanks, MAX_PICK, suggestedPick } from "~/utils/pickMismatch";
 
 const { notify } = useNotifications();
+const { confirm } = useConfirm();
 const { $activityFetch } = useNuxtApp();
 
 const reports = ref<any[]>([]);
@@ -162,6 +164,13 @@ const toggleCardActive = async (report: any) => {
 };
 
 const deleteCard = async (report: any) => {
+  const ok = await confirm({
+    title: "Delete Card",
+    message: `Permanently delete this ${report.cardType} card?\n\n"${report.cardText}"\n\nThis cannot be undone. Deactivate it instead to take it out of rotation reversibly.`,
+    confirmButtonText: "Delete Card",
+    confirmButtonColor: "error",
+  });
+  if (!ok) return;
   deletingCardId.value = report.id;
   try {
     await $activityFetch("/api/admin/reports/card-action", {
@@ -222,6 +231,14 @@ const dismissReport = async (reportId: string) => {
 
 const dismissAll = async () => {
   if (!reports.value.length) return;
+  const count = reports.value.length;
+  const ok = await confirm({
+    title: "Dismiss All Reports",
+    message: `Dismiss all ${count} reports?\n\nDismissed reports are deleted and cannot be restored. The reported cards are not changed.`,
+    confirmButtonText: `Dismiss ${count}`,
+    confirmButtonColor: "error",
+  });
+  if (!ok) return;
   const ids = [...reports.value.map((r) => r.id)];
   for (const id of ids) {
     await dismissReport(id);
