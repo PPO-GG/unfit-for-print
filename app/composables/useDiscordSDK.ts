@@ -12,6 +12,7 @@ export interface DiscordParticipant {
 let sdkInstance: any = null;
 let cachedAuthResult: {
   discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
+  activeDecoration: string | null;
 } | null = null;
 
 const isDiscordActivity = ref(false);
@@ -69,6 +70,7 @@ export function useDiscordSDK() {
 
   async function authenticate(): Promise<{
     discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
+    activeDecoration: string | null;
   }> {
     // If already authenticated, return cached result
     if (isAuthenticated.value && cachedAuthResult) {
@@ -121,6 +123,7 @@ export function useDiscordSDK() {
 
     cachedAuthResult = {
       discordUser: authData.discordUser,
+      activeDecoration: authData.activeDecoration ?? null,
     };
 
     return cachedAuthResult;

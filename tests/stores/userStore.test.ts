@@ -29,4 +29,18 @@ describe("userStore Activity identity", () => {
       activeDecoration: null,
     });
   });
+
+  it("keeps the equipped decoration the Activity login reported", () => {
+    const userStore = useUserStore();
+
+    userStore.setActivityUser({
+      id: "6ac4a08e-0000-4000-8000-000000000002",
+      name: "DecoratedPlayer",
+      avatarUrl: null,
+      discordUserId: "discord-user-2",
+      activeDecoration: "founder-ring",
+    });
+
+    expect(userStore.user?.activeDecoration).toBe("founder-ring");
+  });
 });

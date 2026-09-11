@@ -20,6 +20,7 @@ export const useUserStore = defineStore("user", {
       name: string;
       avatarUrl: string | null;
       discordUserId: string;
+      activeDecoration?: string | null;
     }) {
       this.user = {
         id: activityUser.id,
@@ -28,7 +29,7 @@ export const useUserStore = defineStore("user", {
         discordUserId: activityUser.discordUserId,
         isGuest: false,
         isAdmin: false,
-        activeDecoration: null,
+        activeDecoration: activityUser.activeDecoration ?? null,
       };
       this.isLoggedIn = true;
       this.isActivitySession = true;

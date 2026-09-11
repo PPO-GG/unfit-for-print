@@ -222,6 +222,7 @@ async function launch() {
         name: authData.discordUser.username,
         avatarUrl: authData.discordUser.avatarUrl,
         discordUserId: authData.discordUser.id,
+        activeDecoration: authData.activeDecoration,
       });
     } catch (authErr: any) {
       // Distinguish consent-denied from backend errors

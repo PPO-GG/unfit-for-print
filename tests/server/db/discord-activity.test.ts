@@ -24,6 +24,7 @@ type ActivityHandler = (event: { body?: unknown }) => Promise<{
   token: string;
   accessToken: string;
   discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
+  activeDecoration: string | null;
 }>;
 
 let handler: ActivityHandler;
@@ -117,6 +118,7 @@ describe("discord-activity route", () => {
         avatar: "avatar-hash",
         avatarUrl: "https://cdn.discordapp.com/avatars/activity-user-1/avatar-hash.png?size=128",
       },
+      activeDecoration: null,
     });
 
     const [created] = await db
@@ -159,6 +161,22 @@ describe("discord-activity route", () => {
       avatarUrl: null,
       isGuest: false,
     });
+  });
+
+  // The Activity has no session cookie to read a profile back from, so this
+  // response is the only place a relaunch learns what the user has equipped.
+  it("returns the returning user's equipped decoration", async () => {
+    await db.insert(users).values({
+      discordUserId: "activity-user-3",
+      name: "Decorated",
+      isGuest: false,
+      activeDecoration: "founder-ring",
+    });
+    mockDiscordIdentity({ id: "activity-user-3", username: "Decorated" });
+
+    const result = await handler({ body: { code: "authorization-code" } });
+
+    expect(result.activeDecoration).toBe("founder-ring");
   });
 
   it("returns a 400 error when the Activity authorization code is missing", async () => {

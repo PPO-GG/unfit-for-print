@@ -54,13 +54,16 @@ export default defineEventHandler(async (event) => {
       target: users.discordUserId,
       set: { name: discordUsername, avatarUrl, isGuest: false },
     })
-    .returning({ id: users.id });
+    .returning({ id: users.id, activeDecoration: users.activeDecoration });
 
-  const token = signActivityToken(user.id);
+  const token = signActivityToken(user!.id);
 
+  // The Activity has no session cookie to read the profile back from later, so
+  // anything saved on the row has to come back here or it resets every launch.
   return {
     token,
     accessToken,
     discordUser: { id: discordUserId, username: discordUsername, avatar: discordAvatar, avatarUrl },
+    activeDecoration: user!.activeDecoration,
   };
 });
