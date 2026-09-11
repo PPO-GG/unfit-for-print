@@ -1,0 +1,48 @@
+/*
+ * Shared decoration keyframes. Every layer animates through these classes and
+ * the --deco-dur / --deco-dir / --deco-delay custom properties, so dozens of
+ * decorated avatars at a game table cost zero per-frame JS.
+ */
+@keyframes deco-spin { to { transform: rotate(360deg); } }
+@keyframes deco-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes deco-breathe {
+  0%, 100% { transform: scale(0.94); }
+  50% { transform: scale(1.06); }
+}
+@keyframes deco-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.6) rotate(0deg); }
+  20% { opacity: 1; transform: scale(1) rotate(30deg); }
+  50% { opacity: 0.9; transform: scale(1.1) rotate(60deg); }
+  80% { opacity: 1; transform: scale(0.9) rotate(90deg); }
+}
+@keyframes deco-rise {
+  from { transform: translateY(var(--deco-travel, 50px)); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  to { transform: translateY(calc(var(--deco-travel, 50px) * -1)); opacity: 0; }
+}
+@keyframes deco-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6%); }
+}
+@keyframes deco-sway {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+
+.deco-anim-spin { animation: deco-spin var(--deco-dur, 6s) linear infinite; animation-direction: var(--deco-dir, normal); }
+.deco-anim-pulse { animation: deco-pulse var(--deco-dur, 4s) ease-in-out infinite; }
+.deco-anim-breathe { animation: deco-breathe var(--deco-dur, 4s) ease-in-out infinite; }
+.deco-anim-twinkle { animation: deco-twinkle var(--deco-dur, 2s) ease-in-out infinite; animation-delay: var(--deco-delay, 0s); }
+.deco-anim-rise { animation: deco-rise var(--deco-dur, 3s) linear infinite; animation-delay: var(--deco-delay, 0s); }
+.deco-anim-fall { animation: deco-rise var(--deco-dur, 3s) linear infinite reverse; animation-delay: var(--deco-delay, 0s); }
+.deco-anim-bob { animation: deco-bob var(--deco-dur, 3s) ease-in-out infinite; }
+.deco-anim-sway { animation: deco-sway var(--deco-dur, 3s) ease-in-out infinite; }
+
+/* Freeze in place rather than disappear: the still frame is still the look. */
+@media (prefers-reduced-motion: reduce) {
+  [class*="deco-anim-"] { animation-play-state: paused !important; }
+}
