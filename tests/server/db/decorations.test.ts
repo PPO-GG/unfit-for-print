@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq, and } from "drizzle-orm";
+import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { useDb } from "~/server/db/client";
 import { users, decorations, userDecorations, players } from "~/server/db/schema";
 
@@ -271,5 +272,45 @@ describe("decorations", () => {
     expect(result[0].category).toBe("custom");
     expect(result[0].imageFileId).toBeNull();
     expect(result[0].discordSkuId).toBeNull();
+  });
+
+  it("owners lists who holds a decoration, newest first", async () => {
+    await db.insert(decorations).values({ id: "crown", name: "Crown", description: "", type: "layered", rarity: "epic" });
+    const [other] = await db.insert(users).values({ name: "Zed" }).returning();
+    await db.insert(userDecorations).values([
+      { userId: currentUserId, decorationId: "crown", source: "admin_grant", acquiredAt: new Date("2026-01-01") },
+      { userId: other.id, decorationId: "crown", source: "purchase", acquiredAt: new Date("2026-02-01") },
+    ]);
+    const handler = (await import("~/server/api/admin/decorations/[id]/owners.get")).default;
+    const owners = await handler(mockEvent(undefined, { id: "crown" }));
+    expect(owners.map((o) => [o.name, o.source])).toEqual([["Zed", "purchase"], ["U", "admin_grant"]]);
+  });
+
+  it("prune deletes only old, unreferenced deco- objects", async () => {
+    const old = new Date(Date.now() - 48 * 3600 * 1000);
+    await db.insert(decorations).values({
+      id: "keep", name: "Keep", description: "", type: "layered", rarity: "common",
+      layers: { v: 1, layers: [{ type: "image", id: "i", asset: { key: "deco-used.png", format: "png" } }] } as never,
+    });
+    r2Send.mockImplementation(async (cmd) =>
+      cmd instanceof ListObjectsV2Command
+        ? {
+            IsTruncated: false,
+            Contents: [
+              { Key: "deco-old-orphan.png", LastModified: old },
+              { Key: "deco-fresh-orphan.png", LastModified: new Date() },
+              { Key: "deco-used.png", LastModified: old },
+            ],
+          }
+        : {},
+    );
+    const handler = (await import("~/server/api/admin/decorations/assets/prune.post")).default;
+    const result = await handler(mockEvent());
+
+    expect(result).toEqual({ scanned: 3, deleted: 1 });
+    const list = r2Send.mock.calls.find(([c]) => c instanceof ListObjectsV2Command)?.[0];
+    expect(list.input.Prefix).toBe("deco-");
+    // deletedKeys() skips the list call (it has no Key), leaving only deletes.
+    expect(deletedKeys()).toEqual(["deco-old-orphan.png"]);
   });
 });

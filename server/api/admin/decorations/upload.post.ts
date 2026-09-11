@@ -1,9 +1,12 @@
 import type { ImageFormat } from "~/types/decoration";
+import { buildAssetKey } from "#shared/decorationAssets";
 
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = [
   "image/png",
   "image/webp",
+  "image/svg+xml",
+  "image/gif",
   "application/json",
   "application/zip",
   "application/x-zip-compressed",
@@ -16,6 +19,8 @@ export function detectImageFormat(
 ): ImageFormat | null {
   if (mimeType === "image/png") return "png";
   if (mimeType === "image/webp") return "webp";
+  if (mimeType === "image/svg+xml") return "svg";
+  if (mimeType === "image/gif") return "gif";
   if (mimeType === "application/json") return "lottie";
   if (
     (mimeType === "application/zip" ||
@@ -52,6 +57,19 @@ export function isValidDotLottie(buffer: Buffer): boolean {
     buffer[2] === 0x03 &&
     buffer[3] === 0x04
   );
+}
+
+/**
+ * Served as <img>, an SVG can't run script, and the image route adds a
+ * sandbox CSP for direct navigation. Rejecting <script> up front is belt and
+ * braces, and makes a mistaken upload fail loudly instead of silently.
+ */
+export function isValidSvg(buffer: Buffer): boolean {
+  const text = buffer.toString("utf-8").trim();
+  if (!text.startsWith("<")) return false;
+  const head = text.slice(0, 4096);
+  if (!/<svg[\s>/]/i.test(head)) return false;
+  return !/<script/i.test(text);
 }
 
 export default defineEventHandler(async (event) => {
@@ -109,9 +127,15 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  if (imageFormat === "svg" && !isValidSvg(file.data)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid SVG: must be SVG markup and must not contain <script>.",
+    });
+  }
+
   const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-  const fileId = crypto.randomUUID();
-  const key = `${fileId}-${file.filename}`;
+  const key = buildAssetKey(crypto.randomUUID(), file.filename);
 
   await useR2().send(
     new PutObjectCommand({

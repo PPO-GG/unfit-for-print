@@ -68,7 +68,7 @@ describe("decoration image delivery", () => {
         type: "image/webp",
       },
     ]);
-    getRouterParam.mockReturnValue("uploaded-object-crown.webp");
+    getRouterParam.mockReturnValue("deco-uploaded-object-crown.webp");
     r2Send.mockResolvedValue({});
     sendStream.mockReturnValue("streamed");
 
@@ -95,7 +95,7 @@ describe("decoration image delivery", () => {
 
   it("uploads the validated image to the configured bucket and returns its object key", async () => {
     await expect(uploadHandler(event)).resolves.toEqual({
-      fileId: "uploaded-object-crown.webp",
+      fileId: "deco-uploaded-object-crown.webp",
       name: "crown.webp",
       size: 2,
       mimeType: "image/webp",
@@ -107,7 +107,7 @@ describe("decoration image delivery", () => {
     expect(command).toBeInstanceOf(PutObjectCommand);
     expect(command.input).toEqual({
       Bucket: "decoration-images",
-      Key: "uploaded-object-crown.webp",
+      Key: "deco-uploaded-object-crown.webp",
       Body: imageData,
       ContentType: "image/webp",
     });
@@ -130,7 +130,7 @@ describe("decoration image delivery", () => {
     expect(command).toBeInstanceOf(DeleteObjectCommand);
     expect(command.input).toEqual({
       Bucket: "decoration-images",
-      Key: "uploaded-object-crown.webp",
+      Key: "deco-uploaded-object-crown.webp",
     });
   });
 
@@ -139,6 +139,12 @@ describe("decoration image delivery", () => {
 
     await expect(deleteHandler(event)).rejects.toThrow("Forbidden");
 
+    expect(r2Send).not.toHaveBeenCalled();
+  });
+
+  it("refuses to discard a key the studio didn't upload", async () => {
+    getRouterParam.mockReturnValue("legacy-crown.webp");
+    await expect(deleteHandler(event)).rejects.toThrow(/studio uploads/);
     expect(r2Send).not.toHaveBeenCalled();
   });
 
@@ -152,13 +158,19 @@ describe("decoration image delivery", () => {
     expect(command).toBeInstanceOf(GetObjectCommand);
     expect(command.input).toEqual({
       Bucket: "decoration-images",
-      Key: "uploaded-object-crown.webp",
+      Key: "deco-uploaded-object-crown.webp",
     });
     expect(setResponseHeader).toHaveBeenCalledWith(
       event,
       "content-type",
       "image/webp",
     );
+    expect(setResponseHeader).toHaveBeenCalledWith(
+      event,
+      "content-security-policy",
+      "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+    );
+    expect(setResponseHeader).toHaveBeenCalledWith(event, "x-content-type-options", "nosniff");
     expect(sendStream).toHaveBeenCalledWith(event, body);
   });
 

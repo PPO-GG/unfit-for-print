@@ -3,6 +3,7 @@ import {
   detectImageFormat,
   isValidLottieJson,
   isValidDotLottie,
+  isValidSvg,
 } from "~/server/api/admin/decorations/upload.post";
 
 describe("detectImageFormat", () => {
@@ -94,5 +95,20 @@ describe("isValidDotLottie", () => {
 
   it("rejects buffer too short", () => {
     expect(isValidDotLottie(Buffer.from([0x50, 0x4b]))).toBe(false);
+  });
+});
+
+describe("svg and gif uploads", () => {
+  it("detects SVG and GIF", () => {
+    expect(detectImageFormat("image/svg+xml", "ring.svg")).toBe("svg");
+    expect(detectImageFormat("image/gif", "blink.gif")).toBe("gif");
+  });
+
+  it("accepts real SVG markup and rejects anything scripted or non-SVG", () => {
+    expect(isValidSvg(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'))).toBe(true);
+    expect(isValidSvg(Buffer.from('<?xml version="1.0"?>\n<svg viewBox="0 0 1 1"/>'))).toBe(true);
+    expect(isValidSvg(Buffer.from("<html><body/></html>"))).toBe(false);
+    expect(isValidSvg(Buffer.from("<svg><script>alert(1)</script></svg>"))).toBe(false);
+    expect(isValidSvg(Buffer.from("not markup"))).toBe(false);
   });
 });

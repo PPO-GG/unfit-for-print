@@ -1,12 +1,5 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
-
-// Decoration image keys are `${uuid}-${originalFilename}` (see
-// server/api/admin/decorations/upload.post.ts) and the original filename is
-// not sanitized on upload, so it may contain spaces, unicode, parentheses,
-// etc. We only reject control characters, path traversal sequences, and a
-// leading slash — not a strict allowlist that would break legitimate
-// legacy/unicode filenames.
-const UNSAFE_KEY_PATTERN = /[\x00-\x1f\x7f]/;
+import { isSafeAssetKey } from "#shared/decorationAssets";
 
 export default defineEventHandler(async (event) => {
   const key = getRouterParam(event, "key");
@@ -14,11 +7,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "key is required" });
   }
 
-  if (
-    UNSAFE_KEY_PATTERN.test(key) ||
-    key.includes("..") ||
-    key.startsWith("/")
-  ) {
+  if (!isSafeAssetKey(key)) {
     throw createError({ statusCode: 400, statusMessage: "Invalid key" });
   }
 
@@ -41,6 +30,14 @@ export default defineEventHandler(async (event) => {
   if (object.ContentType) {
     setResponseHeader(event, "content-type", object.ContentType);
   }
+  // SVG decorations are admin-uploaded. Inside <img> they can't script, and
+  // this makes opening the URL directly just as inert.
+  setResponseHeader(
+    event,
+    "content-security-policy",
+    "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+  );
+  setResponseHeader(event, "x-content-type-options", "nosniff");
   // Decoration image keys are content-addressed (uuid-prefixed) and never
   // reused, so they're safe to cache immutably.
   setResponseHeader(
