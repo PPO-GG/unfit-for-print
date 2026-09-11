@@ -78,6 +78,13 @@
       "when": 1789125884963,
       "tag": "0010_secret_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789158225060,
+      "tag": "0011_typical_emma_frost",
+      "breakpoints": true
     }
   ]
 }

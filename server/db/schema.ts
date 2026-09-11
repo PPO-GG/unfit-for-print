@@ -11,6 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { IssueContext } from "~/types/issue";
+import type { DecorationLayers } from "#shared/decorationLayers";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -185,6 +186,12 @@ export const decorations = pgTable("decorations", {
   imageKey: text("image_key"),
   imageFormat: text("image_format"),
   attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
+  /**
+   * The layer stack (see shared/decorationLayers.ts). Null on rows saved
+   * before the studio; reads fall back to converting `attachment`/`imageKey`
+   * via resolveLayers, so the legacy columns stay untouched.
+   */
+  layers: jsonb("layers").$type<DecorationLayers | null>(),
 });
 
 export const userDecorations = pgTable(
