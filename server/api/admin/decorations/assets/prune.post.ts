@@ -29,8 +29,12 @@ export default defineEventHandler(async (event) => {
       scanned++;
       if (!obj.Key || referenced.has(obj.Key)) continue;
       if (!obj.LastModified || obj.LastModified.getTime() > cutoff) continue;
-      await useR2().send(new DeleteObjectCommand({ Bucket: bucket, Key: obj.Key }));
-      deleted++;
+      try {
+        await useR2().send(new DeleteObjectCommand({ Bucket: bucket, Key: obj.Key }));
+        deleted++;
+      } catch (err) {
+        console.error("[decorations] prune failed to delete", obj.Key, err);
+      }
     }
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (token);

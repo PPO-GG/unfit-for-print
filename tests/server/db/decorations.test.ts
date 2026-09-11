@@ -313,4 +313,51 @@ describe("decorations", () => {
     // deletedKeys() skips the list call (it has no Key), leaving only deletes.
     expect(deletedKeys()).toEqual(["deco-old-orphan.png"]);
   });
+
+  it("prune follows continuation tokens across pages", async () => {
+    const old = new Date(Date.now() - 48 * 3600 * 1000);
+    let call = 0;
+    r2Send.mockImplementation(async (cmd) => {
+      if (!(cmd instanceof ListObjectsV2Command)) return {};
+      call++;
+      if (call === 1) {
+        return {
+          IsTruncated: true,
+          NextContinuationToken: "t2",
+          Contents: [{ Key: "deco-a.png", LastModified: old }],
+        };
+      }
+      return { IsTruncated: false, Contents: [{ Key: "deco-b.png", LastModified: old }] };
+    });
+    const handler = (await import("~/server/api/admin/decorations/assets/prune.post")).default;
+    const result = await handler(mockEvent());
+
+    expect(result).toEqual({ scanned: 2, deleted: 2 });
+    const listCalls = r2Send.mock.calls.filter(([c]) => c instanceof ListObjectsV2Command);
+    expect(listCalls[1][0].input.ContinuationToken).toBe("t2");
+    expect(deletedKeys()).toEqual(["deco-a.png", "deco-b.png"]);
+  });
+
+  it("prune keeps going when one delete fails", async () => {
+    const old = new Date(Date.now() - 48 * 3600 * 1000);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    r2Send.mockImplementation(async (cmd) => {
+      if (cmd instanceof ListObjectsV2Command) {
+        return {
+          IsTruncated: false,
+          Contents: [
+            { Key: "deco-fails.png", LastModified: old },
+            { Key: "deco-ok.png", LastModified: old },
+          ],
+        };
+      }
+      if (cmd.input?.Key === "deco-fails.png") throw new Error("transient R2 error");
+      return {};
+    });
+    const handler = (await import("~/server/api/admin/decorations/assets/prune.post")).default;
+
+    await expect(handler(mockEvent())).resolves.toEqual({ scanned: 2, deleted: 1 });
+
+    errorSpy.mockRestore();
+  });
 });
