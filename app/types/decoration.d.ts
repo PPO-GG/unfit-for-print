@@ -1,10 +1,4 @@
-import type { Component } from "vue";
 import type { AssetFormat, DecorationLayers } from "#shared/decorationLayers";
-
-/** Code registry — maps decoration ID to its Vue component */
-export interface DecorationRegistryEntry {
-  component: () => Promise<{ default: Component }>;
-}
 
 /** Positioning config for image-overlay decorations (hats, glasses, etc.) */
 export interface AttachmentConfig {
