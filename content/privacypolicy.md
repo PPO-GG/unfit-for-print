@@ -1,5 +1,5 @@
 # Privacy Policy
-_Last Updated: August 30th 2026_
+_Last Updated: September 11th 2026_
 
 This Privacy Policy explains how Unfit Games, LLC collects, uses, and protects your information when you play **Unfit for Print**. By using our game, you agree to the terms outlined below.
 
@@ -19,7 +19,7 @@ When you play Unfit for Print anonymously, we collect the following temporary in
 * **Temporary session ID:** A unique identifier for your current game session.
 * **Gameplay data:** Your nickname, chat messages, and actions within the game.
 
-All anonymous data is automatically deleted when your game lobby ends or expires.
+All anonymous data is automatically deleted when your game lobby ends or expires. Anonymous play is never counted toward player stats.
 
 ### Logged-In Users (Discord Login)
 
@@ -30,6 +30,7 @@ If you choose to log in using your Discord account, we store the following infor
 * **Unique User ID (UUID)**
 * **Date joined**
 * **Session expiration timestamp**
+* **Gameplay stats:** Counts of the games and rounds you've played, won, and judged. Only you can see them.
 
 **We do not access your Discord friend list, private messages, or Discord servers.**
 ---    
@@ -54,10 +55,11 @@ We retain your data only for as long as necessary to fulfill the purposes for wh
 | Chat messages       | Deleted when the lobby ends              |    
 | Lobby settings      | Deleted when the session expires         |    
 | Discord login info  | Stored until you log out or manually delete your account |    
+| Gameplay stats      | Stored until you delete your account     |    
 ---    
 ## Analytics
 
-We do not currently use any analytics or tracking tools. You will not encounter a cookie banner, and you will not be tracked across the web.
+We do not currently use any analytics or tracking tools. You will not encounter a cookie banner, and you will not be tracked across the web. The gameplay stats described above are shown only to you and are never shared.
     
 ---    
 ## Chat and Game Data
