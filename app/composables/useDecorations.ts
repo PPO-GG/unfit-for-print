@@ -1,4 +1,3 @@
-import { decorationRegistry } from "~/utils/decorations";
 import type { DecorationCatalogEntry } from "~/types/decoration";
 
 interface OwnedDecoration {
@@ -74,7 +73,6 @@ export function useDecorations() {
     catalog.value.map((entry) => ({
       ...entry,
       id: entry.decorationId,
-      component: decorationRegistry[entry.decorationId]?.component ?? null,
       owned: entry.freeForAll || isOwned(entry.decorationId),
       active: activeDecorationId.value === entry.decorationId,
       /** Full catalog entry for AvatarDecoration's attachment routing */
