@@ -51,4 +51,47 @@ describe("DecorationStack", () => {
     expect(layer.classes()).toContain("deco-stack__layer--clip");
     expect(layer.attributes("style")).toContain("opacity: 0.5");
   });
+
+  it("renders particleCount particles for the measured size (48px default in jsdom)", () => {
+    const wrapper = mount(DecorationStack, {
+      props: { layers: stack([{ type: "particles", id: "p", count: 9, motion: "orbit" }]) },
+      slots: avatar,
+    });
+    expect(wrapper.findAll(".deco-particles__p")).toHaveLength(6);
+    expect(wrapper.find(".deco-particles").classes()).toContain("deco-anim-spin");
+  });
+
+  it("uses rise animation on each particle and no container spin for rising particles", () => {
+    const wrapper = mount(DecorationStack, {
+      props: { layers: stack([{ type: "particles", id: "p", motion: "rise" }]) },
+      slots: avatar,
+    });
+    expect(wrapper.find(".deco-particles").classes()).not.toContain("deco-anim-spin");
+    expect(wrapper.find(".deco-particles__inner").classes()).toContain("deco-anim-rise");
+  });
+
+  it("renders image particles from the decoration image proxy", () => {
+    const wrapper = mount(DecorationStack, {
+      props: {
+        layers: stack([{ type: "particles", id: "p", shape: "image", asset: { key: "deco-1-star.svg", format: "svg" } }]),
+      },
+      slots: avatar,
+    });
+    expect(wrapper.find(".deco-particles__p img").attributes("src")).toBe("/api/decorations/images/deco-1-star.svg");
+  });
+
+  it("renders an image layer only once it has an asset", () => {
+    const withAsset = mount(DecorationStack, {
+      props: {
+        layers: stack([{ type: "image", id: "i", idle: "bob", asset: { key: "deco-1-hat.png", format: "png" } }]),
+      },
+      slots: avatar,
+    });
+    const img = withAsset.find("img.deco-image");
+    expect(img.attributes("src")).toBe("/api/decorations/images/deco-1-hat.png");
+    expect(img.classes()).toContain("deco-anim-bob");
+
+    const empty = mount(DecorationStack, { props: { layers: stack([{ type: "image", id: "i" }]) }, slots: avatar });
+    expect(empty.find("img.deco-image").exists()).toBe(false);
+  });
 });
