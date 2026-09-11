@@ -34,14 +34,19 @@
         explicitly required for functionality. Session data is ephemeral and
         only maintained for the duration of your active session.
       </p>
+      <p class="text-gray-300">
+        If you sign in with Discord, we keep simple game counts tied to your
+        account: games and rounds played, won, and judged. Only you can see
+        them. Guest play isn't recorded.
+      </p>
     </section>
 
     <section class="space-y-4">
       <h2 class="text-2xl font-bold text-white">Analytics & Tracking</h2>
       <p class="text-gray-300">
         We do not use third-party analytics tools, advertising trackers, or
-        behavioral monitoring technologies. Your activity on our site remains
-        private and untracked.
+        behavioral monitoring technologies. We don't track your activity beyond
+        the game counts described above, and they're never shared.
       </p>
     </section>
 
