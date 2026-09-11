@@ -15,9 +15,13 @@ import {
 const db = useDb();
 
 let mockSessionUserId: string | null = null;
+// Profile fields the cookie snapshotted at login, which can go stale.
+let mockSessionFields: Record<string, unknown> = {};
 let sessionCleared = false;
 vi.stubGlobal("getUserSession", async () => ({
-  user: mockSessionUserId ? { id: mockSessionUserId } : undefined,
+  user: mockSessionUserId
+    ? { ...mockSessionFields, id: mockSessionUserId }
+    : undefined,
 }));
 vi.stubGlobal("clearUserSession", async () => {
   sessionCleared = true;
@@ -30,6 +34,7 @@ function mockEvent() {
 
 beforeEach(async () => {
   mockSessionUserId = null;
+  mockSessionFields = {};
   sessionCleared = false;
   await db.execute(sql`
     TRUNCATE TABLE
@@ -188,5 +193,23 @@ describe("a session that outlived its user", () => {
 
     expect(res.user?.id).toBe(user.id);
     expect(sessionCleared).toBe(false);
+  });
+});
+
+// The cookie is written once at login, but equipping a decoration only updates
+// the users row. Returning the cookie's copy undid the equip on every reload.
+describe("GET /api/auth/session profile fields", () => {
+  it("returns the live activeDecoration, not the one snapshotted at login", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ name: "Equipper", activeDecoration: "founder-ring" })
+      .returning();
+    mockSessionUserId = user.id;
+    mockSessionFields = { name: "Equipper", activeDecoration: null };
+
+    const handler = (await import("~/server/api/auth/session.get")).default;
+    const res: any = await handler(mockEvent());
+
+    expect(res.user?.activeDecoration).toBe("founder-ring");
   });
 });

@@ -13,8 +13,20 @@ export default defineEventHandler(async (event) => {
   // deleted account left it permanently convinced it was signed in — every
   // request then failed and nothing ever re-authenticated. Leaving a lobby
   // deletes an ephemeral guest, which is exactly how that happens.
+  //
+  // The profile comes from the row, not the cookie: the cookie is written once
+  // at login, so anything changed since — equipping a decoration, most visibly —
+  // was reverted on the next page load.
   const [row] = await useDb()
-    .select({ id: users.id })
+    .select({
+      id: users.id,
+      discordUserId: users.discordUserId,
+      isGuest: users.isGuest,
+      name: users.name,
+      avatarUrl: users.avatarUrl,
+      activeDecoration: users.activeDecoration,
+      isAdmin: users.isAdmin,
+    })
     .from(users)
     .where(eq(users.id, sessionUser.id!))
     .limit(1);
@@ -24,5 +36,5 @@ export default defineEventHandler(async (event) => {
     return { user: null };
   }
 
-  return { user: sessionUser };
+  return { user: row };
 });
