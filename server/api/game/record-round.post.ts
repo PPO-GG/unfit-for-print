@@ -28,12 +28,20 @@ import {
 } from "~~/server/db/schema";
 import { isCardId, cleanCardIds } from "~~/server/utils/cardIds";
 import { planStatDeltas } from "~~/server/utils/playerStats";
+import { consumeRateLimit } from "~~/server/utils/rateLimit";
 import { requirePlayerInLobby } from "~~/server/utils/session";
 
 /** A round is bounded by players x pick; anything past this is not a real game. */
 const MAX_CARDS_PER_ROUND = 100;
 /** Same bound for the player-id lists; no real lobby comes near it. */
 const MAX_PLAYERS_PER_ROUND = 100;
+/** No real game runs this long; anything past this is a corrupt or forged round. */
+const MAX_ROUND = 1000;
+// A real round takes well over 3s (submit + judge), so 20/min per caller is
+// nowhere close to legitimate play — this stops a scripted loop, it is not a
+// quota on how much anyone can actually play.
+const RECORD_ROUND_LIMIT = 20;
+const RECORD_ROUND_WINDOW_MS = 60_000;
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{
@@ -99,6 +107,22 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // A non-integer / non-positive / missing round still just means
+  // "untracked" (card counters only, no player stats) — only an
+  // implausibly large integer is a genuine error, so it belongs with the
+  // other body validation, before auth.
+  const rawRound = body?.round;
+  if (
+    typeof rawRound === "number" &&
+    Number.isInteger(rawRound) &&
+    rawRound > MAX_ROUND
+  ) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Round out of range (max ${MAX_ROUND})`,
+    });
+  }
+
   // Read into locals first: a type guard on `body?.x` does not narrow a
   // later `body.x` read.
   const rawWinnerId = body?.winnerId;
@@ -114,7 +138,6 @@ export default defineEventHandler(async (event) => {
   const gameOver = body?.gameOver === true;
   const rawGameId = body?.gameId;
   const gameId = isCardId(rawGameId) ? rawGameId : null;
-  const rawRound = body?.round;
   const round =
     typeof rawRound === "number" && Number.isInteger(rawRound) && rawRound > 0
       ? rawRound
@@ -122,6 +145,21 @@ export default defineEventHandler(async (event) => {
   const roundKey = gameId !== null && round !== null ? { gameId, round } : null;
 
   const callerId = await requirePlayerInLobby(event, lobbyId);
+
+  // Placed after auth (needs callerId) and before the transaction, so a
+  // refused caller writes nothing.
+  const rateLimit = consumeRateLimit(`record-round:${callerId}`, {
+    limit: RECORD_ROUND_LIMIT,
+    windowMs: RECORD_ROUND_WINDOW_MS,
+  });
+  if (!rateLimit.allowed) {
+    setResponseHeader(event, "Retry-After", rateLimit.retryAfterSeconds);
+    throw createError({
+      statusCode: 429,
+      statusMessage: "Too many round reports",
+    });
+  }
+
   const db = useDb();
 
   const duplicate = await db.transaction(async (tx) => {
@@ -186,9 +224,16 @@ export default defineEventHandler(async (event) => {
       );
 
       if (deltas.size > 0) {
+        // Sorted so every transaction takes user_stats row locks in the same
+        // order, however Map insertion order happened to land — otherwise
+        // two concurrent rounds crediting the same two users in opposite
+        // orders can deadlock instead of one simply waiting.
+        const rows = [...deltas]
+          .map(([userId, d]) => ({ userId, ...d }))
+          .sort((a, b) => (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0));
         await tx
           .insert(userStats)
-          .values([...deltas].map(([userId, d]) => ({ userId, ...d })))
+          .values(rows)
           .onConflictDoUpdate({
             target: userStats.userId,
             // `excluded` is the row this insert proposed for that user, so

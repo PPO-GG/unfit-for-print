@@ -10,6 +10,7 @@ import {
   statRounds,
   userStats,
 } from "~/server/db/schema";
+import { __resetRateLimits } from "~/server/utils/rateLimit";
 
 const db = useDb();
 let currentUserId: string;
@@ -33,6 +34,8 @@ vi.mock("~/server/utils/session", async (importOriginal) => {
   };
 });
 
+vi.stubGlobal("setResponseHeader", () => {});
+
 function mockEvent(body: unknown) {
   globalThis.readBody = async () => body;
   return {} as any;
@@ -49,6 +52,9 @@ let whiteC: string;
 let black: string;
 
 beforeEach(async () => {
+  // So a rate-limit test cannot leak its bucket state into the next test.
+  __resetRateLimits();
+
   await db.delete(statRounds);
   await db.delete(userStats);
   await db.delete(players);
@@ -516,5 +522,75 @@ describe("POST /api/game/record-round — player stats", () => {
     await (await handler())(mockEvent(roundBody({ round: 1.5 })));
 
     expect(await db.select().from(userStats)).toHaveLength(0);
+  });
+});
+
+describe("POST /api/game/record-round — rate limiting and bounds", () => {
+  let judge: string;
+  let alice: string;
+  let bob: string;
+
+  beforeEach(async () => {
+    judge = await seat("Judge");
+    alice = await seat("Alice");
+    bob = await seat("Bob");
+    currentUserId = judge;
+  });
+
+  const bodyForRound = (round: number) => ({
+    lobbyId,
+    blackCardId: black,
+    playedWhiteIds: [whiteA],
+    wonWhiteIds: [],
+    gameId: GAME,
+    round,
+    submitterIds: [alice, bob],
+    winnerId: bob,
+    botJudged: false,
+    gameOver: false,
+  });
+
+  it("refuses a caller's 21st report within a minute", async () => {
+    const h = await handler();
+
+    for (let round = 1; round <= 20; round++) {
+      const result = await h(mockEvent(bodyForRound(round)));
+      expect(result).toEqual({ success: true });
+    }
+
+    await expect(h(mockEvent(bodyForRound(21)))).rejects.toMatchObject({
+      statusCode: 429,
+    });
+
+    expect(await db.select().from(statRounds)).toHaveLength(20);
+  });
+
+  it("rejects a round beyond the maximum", async () => {
+    await expect(
+      (await handler())(mockEvent(bodyForRound(1001))),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(await db.select().from(statRounds)).toHaveLength(0);
+  });
+
+  it("rejects an implausibly large player list", async () => {
+    const ids = Array.from(
+      { length: 101 },
+      (_, i) => `00000000-0000-0000-0000-${String(i).padStart(12, "0")}`,
+    );
+
+    await expect(
+      (await handler())(
+        mockEvent({
+          lobbyId,
+          blackCardId: black,
+          playedWhiteIds: [whiteA],
+          wonWhiteIds: [],
+          submitterIds: ids,
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 400 });
+
+    expect(await db.select().from(statRounds)).toHaveLength(0);
   });
 });
