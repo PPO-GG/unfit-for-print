@@ -5,7 +5,8 @@ import { decorations } from "~~/server/db/schema";
 import { useR2, getR2Bucket } from "~~/server/utils/r2";
 import { resolveLayers } from "#shared/decorationLegacy";
 import { collectAssetKeys } from "#shared/decorationAssets";
-import type { DecorationCatalogEntry } from "~/types/decoration";
+import type { DecorationCatalogEntry, DecorationType, AttachmentConfig } from "~/types/decoration";
+import type { AssetFormat } from "#shared/decorationLayers";
 
 type DecorationRow = typeof decorations.$inferSelect;
 
@@ -13,6 +14,13 @@ type DecorationRow = typeof decorations.$inferSelect;
  * The wire shape for every decoration response. Legacy fields stay for one
  * release so a tab open across the deploy still renders; `layers` is always
  * the resolved stack, so new clients never see the legacy format.
+ *
+ * `type`/`image_format` are free-form `text` columns and `attachment` is an
+ * untyped `jsonb` blob — the DB doesn't enforce the narrower literal unions
+ * the wire contract promises. This function is the boundary that asserts
+ * that contract, so the casts below are deliberate, not a shortcut:
+ * `normalizeLayers`/`resolveLayers` already validate the layer data itself,
+ * and the legacy fields are passed through as-is for one release.
  */
 export function toCatalogEntry(row: DecorationRow): DecorationCatalogEntry {
   return {
@@ -20,7 +28,7 @@ export function toCatalogEntry(row: DecorationRow): DecorationCatalogEntry {
     decorationId: row.id,
     name: row.name,
     description: row.description,
-    type: row.type,
+    type: row.type as DecorationType,
     rarity: row.rarity,
     category: row.category || "custom",
     enabled: row.enabled,
@@ -29,8 +37,8 @@ export function toCatalogEntry(row: DecorationRow): DecorationCatalogEntry {
     price: Number(row.price),
     sortOrder: row.sortOrder,
     imageFileId: row.imageKey || null,
-    imageFormat: row.imageFormat || null,
-    attachment: row.attachment ?? null,
+    imageFormat: (row.imageFormat as AssetFormat | null) || null,
+    attachment: (row.attachment as AttachmentConfig | null) ?? null,
     layers: resolveLayers(row),
   };
 }
