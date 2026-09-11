@@ -15,6 +15,12 @@ vi.mock("~/server/utils/session", async (importOriginal) => {
   };
 });
 
+const r2Send = vi.hoisted(() => vi.fn());
+vi.mock("~/server/utils/r2", () => ({
+  useR2: () => ({ send: r2Send }),
+  getR2Bucket: () => "decoration-images",
+}));
+
 function mockEvent(body?: unknown, params: Record<string, string> = {}) {
   globalThis.readBody = async () => body;
   globalThis.getRouterParam = (_e: unknown, name: string) => params[name];
@@ -22,6 +28,8 @@ function mockEvent(body?: unknown, params: Record<string, string> = {}) {
 }
 
 beforeEach(async () => {
+  r2Send.mockReset();
+  r2Send.mockResolvedValue({});
   await db.delete(userDecorations);
   await db.delete(decorations);
   await db.delete(players);
@@ -113,6 +121,32 @@ describe("decorations", () => {
     expect(typeof entry.price).toBe("number");
     expect(entry.category).toBe("custom");
     expect(entry.discordSkuId).toBe("sku_123");
+    expect(entry.layers).toEqual({
+      v: 1,
+      layers: [expect.objectContaining({ type: "image", asset: { key: "cape-image-key", format: "png" } })],
+    });
+  });
+
+  it("catalog returns a saved layer stack, normalised, in preference to legacy fields", async () => {
+    await db.insert(decorations).values({
+      id: "halo", name: "Halo", description: "", type: "layered", rarity: "rare",
+      enabled: true, freeForAll: true, imageKey: "old.png", imageFormat: "png",
+      layers: { v: 1, layers: [{ type: "ring", id: "r", thickness: 99 }] } as never,
+    });
+    const handler = (await import("~/server/api/decorations/catalog.get")).default;
+    const [entry] = await handler({} as any);
+    expect(entry.layers.layers).toHaveLength(1);
+    expect(entry.layers.layers[0]).toMatchObject({ type: "ring", thickness: 0.25 });
+  });
+
+  it("admin list includes layers for hidden decorations too", async () => {
+    await db.insert(decorations).values({
+      id: "draft", name: "Draft", description: "", type: "layered", rarity: "common",
+      enabled: false, freeForAll: false, layers: { v: 1, layers: [] } as never,
+    });
+    const handler = (await import("~/server/api/admin/decorations/list.get")).default;
+    const list = await handler({} as any);
+    expect(list.find((d) => d.decorationId === "draft")?.layers).toEqual({ v: 1, layers: [] });
   });
 
   it("admin create persists attachment config and catalog returns it", async () => {

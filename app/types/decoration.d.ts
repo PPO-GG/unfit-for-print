@@ -1,4 +1,5 @@
 import type { Component } from "vue";
+import type { AssetFormat, DecorationLayers } from "#shared/decorationLayers";
 
 /** Code registry — maps decoration ID to its Vue component */
 export interface DecorationRegistryEntry {
@@ -18,10 +19,10 @@ export interface AttachmentConfig {
 }
 
 /** Format of the uploaded decoration file */
-export type ImageFormat = "png" | "webp" | "lottie" | "dotlottie";
+export type ImageFormat = AssetFormat;
 
 /** Decoration type discriminator */
-export type DecorationType = "effect" | "attachment";
+export type DecorationType = "effect" | "attachment" | "layered";
 
 /** DB catalog — all business metadata from the decorations collection */
 export interface DecorationCatalogEntry {
@@ -40,4 +41,5 @@ export interface DecorationCatalogEntry {
   imageFileId: string | null;
   imageFormat: ImageFormat | null;
   attachment: AttachmentConfig | null;
+  layers: DecorationLayers;
 }
