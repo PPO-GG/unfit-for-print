@@ -20,17 +20,17 @@ const stubs = {
     template: `<input type="range" :min="min" :max="max" :step="step" :value="modelValue" @input="$emit('update:modelValue', Number($event.target.value))" />`,
   },
   UInputNumber: {
-    props: ["modelValue"],
+    props: ["modelValue", "size"],
     emits: ["update:modelValue"],
     template: `<input type="number" :value="modelValue" @change="$emit('update:modelValue', Number($event.target.value))" />`,
   },
   USelect: {
-    props: ["modelValue", "items"],
+    props: ["modelValue", "items", "size"],
     emits: ["update:modelValue"],
     template: `<select :value="modelValue" @change="$emit('update:modelValue', $event.target.value)"><option v-for="i in items" :key="i.value" :value="i.value">{{ i.label }}</option></select>`,
   },
   UInput: {
-    props: ["modelValue"],
+    props: ["modelValue", "size"],
     emits: ["update:modelValue"],
     template: `<input :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
   },

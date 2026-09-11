@@ -52,6 +52,31 @@ describe("AdminDecoLayerList", () => {
     expect(w.emitted("move")?.at(-1)).toEqual(["b2", "front", 1]);
   });
 
+  it("reorders and crosses the avatar by drag-and-drop", async () => {
+    const w = mountList();
+
+    await row(w, "b1").trigger("dragstart");
+    await row(w, "b2").trigger("drop");
+    expect(w.emitted("move")?.at(-1)).toEqual(["b1", "behind", 0]);
+
+    await row(w, "f1").trigger("dragstart");
+    await row(w, "b1").trigger("drop");
+    expect(w.emitted("move")?.at(-1)).toEqual(["f1", "behind", 1]);
+
+    await row(w, "b2").trigger("dragstart");
+    await w.find('[data-testid="layer-avatar-row"]').trigger("drop");
+    expect(w.emitted("move")?.at(-1)).toEqual(["b2", "front", 1]);
+
+    await row(w, "f1").trigger("dragstart");
+    await w.find('[data-testid="layer-avatar-row"]').trigger("drop");
+    expect(w.emitted("move")?.at(-1)).toEqual(["f1", "behind", 0]);
+
+    const moveCount = w.emitted("move")?.length ?? 0;
+    await row(w, "b1").trigger("dragstart");
+    await row(w, "b1").trigger("drop");
+    expect(w.emitted("move")?.length).toBe(moveCount);
+  });
+
   it("adds each layer type", async () => {
     const w = mountList();
     for (const type of ["glow", "ring", "particles", "image", "lottie"]) {
