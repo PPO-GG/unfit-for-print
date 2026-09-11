@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.21.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.20.1...v3.21.0) (2026-09-11)
+
+
+### ✨ Features
+
+* **server:** add GET /api/stats/me for a player's own stats ([60222e5](https://github.com/PPO-GG/unfit-for-print/commit/60222e544ee0d9fae79397af90d48280f77e08e3))
+* **server:** add player stat crediting rules ([4f47b79](https://github.com/PPO-GG/unfit-for-print/commit/4f47b7952a9ab111b1c60000d5e87a1b0d38fdfa))
+* **server:** record per-player round and game stats ([6769b68](https://github.com/PPO-GG/unfit-for-print/commit/6769b68f137f32811ae22686d076bc7c940c33fc))
+* **web:** add confirmation dialogs for deleting cards and dismissing all reports ([bbaa608](https://github.com/PPO-GG/unfit-for-print/commit/bbaa608e71f126879c37cfdfdf5488f6c1cf2661))
+* **web:** edit black card pick counts from reports and scan for mismatches ([df99323](https://github.com/PPO-GG/unfit-for-print/commit/df9932353384a19372be8e84458784a73ae9c6df))
+* **web:** report per-player stats with each round ([45a1900](https://github.com/PPO-GG/unfit-for-print/commit/45a1900286cae8e2a82513a47ab7d46645516773))
+* **web:** show player stats on the profile page ([67fe67c](https://github.com/PPO-GG/unfit-for-print/commit/67fe67cb76c23f1379bfe4559345374b37a98e32))
+* **web:** stamp each game with a gameId ([3e70231](https://github.com/PPO-GG/unfit-for-print/commit/3e70231203788c184f9453381894acb234b0bdfa))
+
+
+### 🐛 Bug Fixes
+
+* **server:** rate-limit and bound record-round reports ([6e645a9](https://github.com/PPO-GG/unfit-for-print/commit/6e645a925ea3a8a9f2c41750ee910d66fd0790ea))
+* **server:** return the live profile from /api/auth/session ([7cd7bd1](https://github.com/PPO-GG/unfit-for-print/commit/7cd7bd1cbc05ff341426dc16443a677aa2f2c9f5))
+* **web:** autofill pack series/display name and fix the browse rail's stale name ([6d6ddf5](https://github.com/PPO-GG/unfit-for-print/commit/6d6ddf5e9b796d3fb08ce9bb3e27d033acbd707b))
+* **web:** count the round after a judge leaves during roundEnd ([4256c05](https://github.com/PPO-GG/unfit-for-print/commit/4256c0524e6c0a5dc4f6ac4201e427d02837df5b))
+* **web:** dedupe round-win confetti and fix card size mismatch ([5cd1bc9](https://github.com/PPO-GG/unfit-for-print/commit/5cd1bc9b036a94a5dfa4f0bf1b37ee259cd89cd7))
+* **web:** guard browser-only APIs missing in Discord Activity webview ([dc43c5b](https://github.com/PPO-GG/unfit-for-print/commit/dc43c5b1ae63f06fc1cf8311a31cddb0a438cfbd))
+* **web:** keep the equipped decoration across Discord Activity launches ([e645616](https://github.com/PPO-GG/unfit-for-print/commit/e6456167b5a74992fde7af2c2a63c7e98bf2c3df))
+
+
+### ♻️ Refactors
+
+* **web:** remove unused PrivacyPolicy component ([71dedf0](https://github.com/PPO-GG/unfit-for-print/commit/71dedf0fc1d0d03c257c6e146abb56e1f7e96ef4))
+
+
+### 📖 Documentation
+
+* overhaul README with new screenshots and local setup guide ([892d6cb](https://github.com/PPO-GG/unfit-for-print/commit/892d6cbcd11db37dce8e8db94ef013a7165fcb70))
+* **web:** disclose player stats in the live privacy policy ([fb7db39](https://github.com/PPO-GG/unfit-for-print/commit/fb7db394ccbcb1a50b1fb44728976d94b1f894e2))
+
 ## [3.20.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.20.0...v3.20.1) (2026-09-10)
 
 
