@@ -293,6 +293,7 @@ onMounted(() => fetchCards());
       class="w-56 shrink-0"
       :packs="sortedPacks"
       :pack-meta="packMeta"
+      :series-prefix="seriesPrefix"
       :current="selectedPack"
       @select="onPack"
     />

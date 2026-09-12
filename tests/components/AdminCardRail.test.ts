@@ -55,4 +55,47 @@ describe("AdminCardRail", () => {
     const wrapper = mountRail({ packMeta: { Base: { pack: "Base" } } });
     expect(wrapper.find('[data-testid="pack-Base"]').text()).toContain("Base");
   });
+
+  it("shows an explicit series above the name", () => {
+    const wrapper = mountRail({
+      packMeta: {
+        Base: {
+          pack: "Base",
+          displayName: "Base Set",
+          series: "Cards Against Humanity",
+        },
+      },
+    });
+    const row = wrapper.find('[data-testid="pack-Base"]');
+    expect(row.text()).toContain("Cards Against Humanity");
+    expect(row.text()).toContain("Base Set");
+  });
+
+  it("derives the series from the shared prefix when none is set", () => {
+    // The rail showed `displayName || pack` for its whole life, so 106 of the
+    // 111 real packs truncated to the same "Cards Against Humanity…" and the
+    // half that identified the pack was what got cut.
+    const wrapper = mountRail({
+      packs: [
+        {
+          name: "Cards Against Humanity: Hot Box",
+          black: { total: 10, active: 10 },
+          white: { total: 20, active: 20 },
+        },
+      ],
+      seriesPrefix: "Cards Against Humanity:",
+    });
+    const row = wrapper.find('[data-testid="pack-Cards Against Humanity: Hot Box"]');
+    // Colon-stripped, and stacked rather than composed inline — at 224px the
+    // composed string truncates almost exactly where the raw key used to.
+    expect(row.text()).toContain("Cards Against Humanity");
+    expect(row.text()).toContain("Hot Box");
+  });
+
+  it("shows no series line for a pack with neither source", () => {
+    const wrapper = mountRail({ seriesPrefix: "Cards Against Humanity:" });
+    expect(wrapper.find('[data-testid="pack-Base"]').text()).not.toContain(
+      "Cards Against Humanity",
+    );
+  });
 });

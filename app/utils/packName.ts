@@ -84,3 +84,62 @@ export function packAccent(name: string): string {
   }
   return `hsl(${Math.abs(hash) % 360} 65% 60%)`;
 }
+
+/** A pack's name as every surface should render it. */
+export interface PackLabel {
+  /** The brand this pack belongs to, separator-stripped. "" when unknown. */
+  series: string;
+  /** The part that identifies this pack within its series. */
+  name: string;
+  /** "Series: Name", or just the name when there is no series. */
+  full: string;
+}
+
+/** Metadata fields `packLabel` reads. A subset of `CardPackMeta`. */
+export interface PackLabelMeta {
+  displayName?: string | null;
+  series?: string | null;
+}
+
+/** Drop the separator a derived series carries in from `splitPackName`. */
+function stripSeparator(value: string): string {
+  return value.replace(/[\s:–—-]+$/, "").trim();
+}
+
+/**
+ * The one rule for rendering a pack's name, shared by the admin pack tile and
+ * card rail, the Labs gallery, and the card-face footer.
+ *
+ * Those four used to each have their own idea of what a pack was called — the
+ * rail showed `displayName || pack`, the Labs gallery the raw key, the tile a
+ * split that *suppressed* the derived series as soon as a display name
+ * existed — so the same pack read three different ways on three screens.
+ *
+ * Series and name are orthogonal here, which is the deliberate reversal of
+ * that suppression: renaming a pack does not move it out of its brand, so a
+ * custom display name no longer hides the series above it.
+ *
+ * `seriesPrefix` comes from `commonPackPrefix` over the whole loaded roster.
+ * Pass "" where there is no roster to derive one from — a single card's
+ * footer knows only its own pack string, so there `meta` is the only possible
+ * source of a series.
+ */
+export function packLabel(
+  pack: string,
+  meta?: PackLabelMeta | null,
+  seriesPrefix = "",
+): PackLabel {
+  const derived = splitPackName(pack, seriesPrefix);
+
+  // Blank strings, not just nulls: pack-meta stores "" for some cleared
+  // inputs, and a blank display name must not blank out the headline.
+  const series = stripSeparator(meta?.series?.trim() || derived.series);
+  const name = meta?.displayName?.trim() || derived.label;
+
+  // An admin who types the full name into Display Name should not get
+  // "Cards Against Humanity: Cards Against Humanity: Hot Box".
+  if (!series || name === series || name.startsWith(`${series}:`)) {
+    return { series, name, full: name };
+  }
+  return { series, name, full: `${series}: ${name}` };
+}

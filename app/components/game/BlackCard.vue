@@ -58,7 +58,7 @@
                 draggable="false"
               />
               <div class="card-footer">
-                <span class="card-footer-pack">{{ cardPack || "" }}</span>
+                <span class="card-footer-pack">{{ packFooter }}</span>
                 <span v-if="computedNumPick" class="card-footer-pick border-2 rounded-sm p-1 absolute right-0 bottom-0 opacity-50"
                   >{{ computedNumPick }}</span
                 >
@@ -156,6 +156,7 @@ import { SFX } from "~/config/sfx.config";
 import type { CardAttachmentConfig } from "~/types/card";
 import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
 import { getCardImageUrl } from "~/utils/cardImage";
+import { packLabel } from "~/utils/packName";
 
 // Define emits to fix the warning about extraneous non-emits event listeners
 defineEmits(["click"]);
@@ -175,6 +176,13 @@ const props = withDefaults(
     cardId?: string;
     text?: string;
     cardPack?: string;
+    /**
+     * `card_packs` labelling for `cardPack`, straight off /api/cards/resolve
+     * or /api/cards/browse. Optional: with neither field the footer renders
+     * the raw pack key, which is what it always showed.
+     */
+    packDisplayName?: string | null;
+    packSeries?: string | null;
     numPick?: number;
     flipped?: boolean;
     threeDeffect?: boolean;
@@ -288,12 +296,38 @@ const imageStyle = computed(() => ({
 }));
 
 const cardPack = ref(props.cardPack || null);
+// Mirrors cardPack: the self-fetch path below can supply these too, for a
+// card rendered from an id alone.
+const packDisplayName = ref(props.packDisplayName ?? null);
+const packSeries = ref(props.packSeries ?? null);
+
+/**
+ * The pack as the footer shows it — "Series: Name" where the metadata knows
+ * both, and the raw key where it knows neither, which is what this line
+ * rendered before card_packs had any rows. Shared with the admin pack tile,
+ * the card rail and the Labs gallery so a pack reads the same way everywhere.
+ */
+const packFooter = computed(() =>
+  cardPack.value
+    ? packLabel(cardPack.value, {
+        displayName: packDisplayName.value,
+        series: packSeries.value,
+      }).full
+    : "",
+);
 
 // Watch for changes to the cardPack prop and update the ref
 watch(
   () => props.cardPack,
   (newCardPack) => {
     cardPack.value = newCardPack || null;
+  },
+);
+watch(
+  () => [props.packDisplayName, props.packSeries],
+  ([name, series]) => {
+    packDisplayName.value = name ?? null;
+    packSeries.value = series ?? null;
   },
 );
 
@@ -516,6 +550,8 @@ onMounted(async () => {
           id: string;
           text: string | null;
           pack: string;
+          packDisplayName: string | null;
+          packSeries: string | null;
           pick?: number;
           imageKey: string | null;
           imageFormat: string | null;
@@ -544,6 +580,8 @@ onMounted(async () => {
         fallbackNumPick.value = doc.pick;
       }
       cardPack.value = doc.pack || null;
+      packDisplayName.value = doc.packDisplayName ?? null;
+      packSeries.value = doc.packSeries ?? null;
     } catch (error) {
       console.error(`Failed to fetch card data for ID ${props.cardId}:`, error);
       // Set sensible defaults on error if needed

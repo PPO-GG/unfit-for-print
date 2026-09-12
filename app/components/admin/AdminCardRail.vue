@@ -7,6 +7,7 @@
  */
 import type { AdminPackStat } from "~/composables/useAdminPackStats";
 import type { CardPackMeta } from "~/types/cardPack";
+import { packLabel } from "~/utils/packName";
 
 const props = defineProps<{
   packs: AdminPackStat[];
@@ -15,12 +16,24 @@ const props = defineProps<{
    * to always show the raw pack key, so renaming a pack in AdminPackForm
    * looked like it had no effect as long as you were browsing it. */
   packMeta?: Record<string, CardPackMeta>;
+  /** Shared series prefix across the loaded packs, from `commonPackPrefix`. */
+  seriesPrefix?: string;
 }>();
 const emit = defineEmits<{ select: [string] }>();
 
 const total = (p: AdminPackStat) => p.black.total + p.white.total;
 const isDark = (p: AdminPackStat) => p.black.active + p.white.active === 0;
-const label = (p: AdminPackStat) => props.packMeta?.[p.name]?.displayName || p.name;
+
+/**
+ * Series and name are stacked rather than rendered as one "Series: Name"
+ * line. In a 224px rail the composed string truncates at almost exactly the
+ * point the raw pack key used to — which was the original complaint, 106 rows
+ * all reading "Cards Against Humanity…". Giving the series its own dim line
+ * leaves the whole width to the half that identifies the pack, and matches
+ * the eyebrow/headline treatment AdminPackTile already uses.
+ */
+const label = (p: AdminPackStat) =>
+  packLabel(p.name, props.packMeta?.[p.name], props.seriesPrefix ?? "");
 </script>
 
 <template>
@@ -47,8 +60,17 @@ const label = (p: AdminPackStat) => props.packMeta?.[p.name]?.displayName || p.n
       ]"
       @click="emit('select', pack.name)"
     >
-      <span class="flex-1 truncate" :title="pack.name">{{ label(pack) }}</span>
-      <span class="text-slate-500">{{ total(pack).toLocaleString() }}</span>
+      <!-- The raw key stays on hover: it is the pack's real id, and the
+           label above it may be nothing like it. -->
+      <span class="flex-1 min-w-0" :title="pack.name">
+        <span
+          v-if="label(pack).series"
+          class="block truncate text-[0.625rem] leading-tight text-slate-500 uppercase tracking-wide"
+          >{{ label(pack).series }}</span
+        >
+        <span class="block truncate">{{ label(pack).name }}</span>
+      </span>
+      <span class="shrink-0 text-slate-500">{{ total(pack).toLocaleString() }}</span>
     </button>
   </nav>
 </template>

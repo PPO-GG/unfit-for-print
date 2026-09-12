@@ -47,6 +47,39 @@ describe("buildPackGallery", () => {
     ]);
   });
 
+  it("carries display name and series onto the tile when metadata exists", () => {
+    // The Labs gallery rendered the raw pack key for its whole life, so the
+    // same pack read "CAH Base Set" there and "Base Pack" in the admin rail.
+    const gallery = buildPackGallery(
+      {
+        white: [{ pack: "CAH Base Set", total: 10, active: 8 }],
+        black: [],
+      },
+      [],
+      [{ pack: "CAH Base Set", displayName: "Base Pack", series: "Cards Against Humanity" }],
+    );
+
+    expect(gallery[0]).toMatchObject({
+      pack: "CAH Base Set",
+      displayName: "Base Pack",
+      series: "Cards Against Humanity",
+    });
+  });
+
+  it("leaves a tile's shape untouched when the pack has no metadata row", () => {
+    // Most packs have no card_packs row at all, and a tile must not sprout
+    // null fields the label helper would then have to special-case.
+    const gallery = buildPackGallery(
+      { white: [{ pack: "Unfit Labs", total: 5, active: 5 }], black: [] },
+      [],
+      [{ pack: "Something Else", displayName: "Nope", series: null }],
+    );
+
+    expect(gallery).toEqual([
+      { pack: "Unfit Labs", white: 5, black: 0, total: 5, isDefault: false },
+    ]);
+  });
+
   it("omits packs whose cards are all deactivated", () => {
     const gallery = buildPackGallery(
       {
@@ -151,6 +184,68 @@ describe("sortPackGallery", () => {
     sortPackGallery(input, "cards-desc");
 
     expect(input.map((t) => t.pack)).toEqual(["Small", "Huge"]);
+  });
+});
+
+describe("filterAndSortPacks with labels", () => {
+  // Search and A-Z both work off what the tile actually shows. Matching only
+  // the raw key meant typing the name printed on the tile found nothing.
+  const gallery = [
+    {
+      pack: "CAH Base Set",
+      white: 1249,
+      black: 261,
+      total: 1510,
+      isDefault: true,
+      displayName: "Base Pack",
+      series: "Cards Against Humanity",
+    },
+    { pack: "Zebra Pack", white: 10, black: 2, total: 12, isDefault: false },
+  ];
+
+  it("finds a pack by the display name shown on its tile", () => {
+    const result = filterAndSortPacks(gallery, {
+      search: "base pack",
+      defaultOnly: false,
+      sort: "cards-desc",
+    });
+
+    expect(result.map((t) => t.pack)).toEqual(["CAH Base Set"]);
+  });
+
+  it("still finds a pack by its raw key", () => {
+    // The key stays searchable: it is what /api/cards/browse takes, and an
+    // admin who knows it should not have to guess the label.
+    const result = filterAndSortPacks(gallery, {
+      search: "cah base",
+      defaultOnly: false,
+      sort: "cards-desc",
+    });
+
+    expect(result.map((t) => t.pack)).toEqual(["CAH Base Set"]);
+  });
+
+  it("sorts A-Z by the label rather than the key", () => {
+    // "Aardvark" sorts first by key and last by label, so this fails if the
+    // sort still reads the key. A pack renamed across a letter boundary would
+    // otherwise land somewhere the reader has no way to predict.
+    const result = filterAndSortPacks(
+      [
+        {
+          pack: "Aardvark",
+          white: 1,
+          black: 0,
+          total: 1,
+          isDefault: false,
+          displayName: "Zulu Pack",
+          series: null,
+        },
+        { pack: "Bison Pack", white: 1, black: 0, total: 1, isDefault: false },
+      ],
+      { search: "", defaultOnly: false, sort: "name" },
+    );
+
+    expect(result.map((t) => t.pack)).toEqual(["Bison Pack", "Aardvark"]);
   });
 });
 

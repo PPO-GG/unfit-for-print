@@ -1,3 +1,5 @@
+import { commonPackPrefix, packLabel } from "~/utils/packName";
+
 /**
  * Rolls the per-type pack stats from `/api/cards/packs` up into the one-tile-
  * per-pack shape the Labs card browser renders.
@@ -20,9 +22,33 @@ export interface PackTile {
   black: number;
   total: number;
   isDefault: boolean;
+  /**
+   * Presentation metadata from `card_packs`, present only for the packs that
+   * actually have a row. Left off entirely rather than set to null so a tile
+   * structurally satisfies `PackLabelMeta` without the label helper having to
+   * special-case the majority of packs that carry no metadata at all.
+   */
+  displayName?: string | null;
+  series?: string | null;
+}
+
+/** The `card_packs` fields `/api/cards/packs` exposes publicly. */
+export interface PackMetaRow {
+  pack: string;
+  displayName: string | null;
+  series: string | null;
 }
 
 export type PackSort = "cards-desc" | "cards-asc" | "name";
+
+/**
+ * What a tile actually reads as on screen, for the controls that have to
+ * agree with it. Searching and sorting the raw key while rendering the label
+ * meant typing the name printed on a tile found nothing.
+ */
+function tileLabel(tile: PackTile, seriesPrefix = ""): string {
+  return packLabel(tile.pack, tile, seriesPrefix).full;
+}
 
 /**
  * Orders gallery tiles for display. Kept separate from `buildPackGallery` so
@@ -33,8 +59,10 @@ export type PackSort = "cards-desc" | "cards-asc" | "name";
 export function sortPackGallery(
   tiles: PackTile[],
   sort: PackSort,
+  seriesPrefix = "",
 ): PackTile[] {
-  const byName = (a: PackTile, b: PackTile) => a.pack.localeCompare(b.pack);
+  const byName = (a: PackTile, b: PackTile) =>
+    tileLabel(a, seriesPrefix).localeCompare(tileLabel(b, seriesPrefix));
 
   return [...tiles].sort((a, b) => {
     if (sort === "name") return byName(a, b);
@@ -78,6 +106,12 @@ export interface PackGalleryView {
   search: string;
   defaultOnly: boolean;
   sort: PackSort;
+  /**
+   * Shared series prefix across the loaded roster, from `commonPackPrefix`.
+   * Only affects which string search and A-Z see; omitting it falls back to
+   * the raw pack key, which is what every tile showed before metadata existed.
+   */
+  seriesPrefix?: string;
 }
 
 /**
@@ -90,27 +124,44 @@ export function filterAndSortPacks(
   view: PackGalleryView,
 ): PackTile[] {
   const term = view.search.trim().toLowerCase();
+  const prefix = view.seriesPrefix ?? "";
+  const matches = (tile: PackTile) =>
+    // Both, not either: the label is what the reader sees, but the raw key is
+    // what /api/cards/browse takes, so someone who knows it keeps their search.
+    tile.pack.toLowerCase().includes(term) ||
+    tileLabel(tile, prefix).toLowerCase().includes(term);
+
   const filtered = tiles.filter(
     (tile) =>
-      (!view.defaultOnly || tile.isDefault) &&
-      (!term || tile.pack.toLowerCase().includes(term)),
+      (!view.defaultOnly || tile.isDefault) && (!term || matches(tile)),
   );
-  return sortPackGallery(filtered, view.sort);
+  return sortPackGallery(filtered, view.sort, prefix);
 }
 
 export function buildPackGallery(
   packs: { white: PackStat[]; black: PackStat[] },
   defaultPacks: string[],
+  meta: PackMetaRow[] = [],
 ): PackTile[] {
   const defaults = new Set(defaultPacks);
+  const byPack = new Map(meta.map((row) => [row.pack, row]));
   const tiles = new Map<string, PackTile>();
 
   const add = (stats: PackStat[], key: "white" | "black") => {
     for (const stat of stats) {
       if (!stat.pack) continue;
+      const row = byPack.get(stat.pack);
       const tile =
         tiles.get(stat.pack) ??
-        { pack: stat.pack, white: 0, black: 0, total: 0, isDefault: defaults.has(stat.pack) };
+        {
+          pack: stat.pack,
+          white: 0,
+          black: 0,
+          total: 0,
+          isDefault: defaults.has(stat.pack),
+          // Spread, so a pack with no row keeps the exact shape it always had.
+          ...(row ? { displayName: row.displayName, series: row.series } : {}),
+        };
       tile[key] += stat.active;
       tile.total += stat.active;
       tiles.set(stat.pack, tile);

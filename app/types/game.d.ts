@@ -12,7 +12,15 @@ export interface GameState {
     | "complete";
   judgeId: PlayerId | null;
   players?: Record<string, string>;
-  blackCard: { id: CardId; text: string; pick: number; pack?: string } | null;
+  blackCard: {
+    id: CardId;
+    text: string;
+    pick: number;
+    pack?: string;
+    /** Pack labelling for the card footer; filled in by withResolvedBlackText. */
+    packDisplayName?: string | null;
+    packSeries?: string | null;
+  } | null;
   submissions: Record<PlayerId, CardId[]>;
   scores: Record<PlayerId, number>;
   round: number;

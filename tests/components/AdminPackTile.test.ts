@@ -108,7 +108,12 @@ describe("AdminPackTile — lobby-card treatment", () => {
         seriesPrefix: prefix,
       },
     });
-    expect(wrapper.find('[data-testid="pack-series"]').text()).toBe(prefix);
+    // Colon-stripped: the eyebrow sits above the name rather than in front
+    // of it, so the separator the prefix carries would just dangle. This is
+    // also the form AdminPackForm stores an explicit series in.
+    expect(wrapper.find('[data-testid="pack-series"]').text()).toBe(
+      "Cards Against Humanity",
+    );
     expect(wrapper.find('[data-testid="pack-name"]').text()).toBe(
       "Blue Box Expansion",
     );

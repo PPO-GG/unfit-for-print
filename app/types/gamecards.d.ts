@@ -12,6 +12,14 @@ import type { CardId } from "./game";
 export interface CardTextEntry {
   text: string;
   pack: string;
+  /**
+   * `card_packs` labelling for `pack`, so the card footer can render it the
+   * way every other surface does. Absent on legacy docs, whose embedded
+   * cardTexts predate these fields — the footer then falls back to the raw
+   * pack key, which is exactly what it used to show.
+   */
+  packDisplayName?: string | null;
+  packSeries?: string | null;
   /** Pick count — only populated for black cards (defaults to 1 when absent) */
   pick?: number;
 }

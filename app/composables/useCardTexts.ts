@@ -26,6 +26,8 @@ interface ResolvedCardRow {
   id: string;
   text: string | null;
   pack: string | null;
+  packDisplayName?: string | null;
+  packSeries?: string | null;
   pick?: number | null;
 }
 
@@ -113,6 +115,8 @@ export function useCardTexts(
           merged[row.id] = {
             text: row.text ?? "",
             pack: row.pack ?? "",
+            packDisplayName: row.packDisplayName ?? null,
+            packSeries: row.packSeries ?? null,
             ...(typeof row.pick === "number" ? { pick: row.pick } : {}),
           };
         }

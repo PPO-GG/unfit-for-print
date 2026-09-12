@@ -16,7 +16,7 @@
 import { computed, ref, nextTick } from "vue";
 import type { AdminPackStat } from "~/composables/useAdminPackStats";
 import type { CardPackMeta } from "~/types/cardPack";
-import { splitPackName, packAccent } from "~/utils/packName";
+import { packLabel, packAccent } from "~/utils/packName";
 
 const props = defineProps<{
   pack: AdminPackStat;
@@ -29,20 +29,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{ open: []; "toggle-select": []; rename: [string] }>();
 
-const split = computed(() =>
-  splitPackName(props.pack.name, props.seriesPrefix ?? ""),
+// `packLabel` is shared with the card rail, the Labs gallery and the card
+// footer, so the same pack reads the same way on all four. The tile keeps its
+// two-line treatment rather than rendering `full`: it has the room, and the
+// eyebrow is what makes a wall of 111 cards scannable.
+const label = computed(() =>
+  packLabel(props.pack.name, props.meta, props.seriesPrefix ?? ""),
 );
-
-// An explicit display name is a deliberate override and wins outright; the
-// derived split only exists because none is set yet.
-const title = computed(() => props.meta?.displayName || split.value.label);
-// An explicit series/brand (meta.series) always wins, even alongside a
-// custom display name — the two are orthogonal (a pack can be renamed AND
-// still belong to a brand). Only the *derived* guess gets suppressed by a
-// display name, since a custom name presumably already reads fine on its own.
-const series = computed(
-  () => props.meta?.series || (props.meta?.displayName ? "" : split.value.series),
-);
+const title = computed(() => label.value.name);
+const series = computed(() => label.value.series);
 const accent = computed(() => props.meta?.color || packAccent(props.pack.name));
 
 const allInactive = computed(

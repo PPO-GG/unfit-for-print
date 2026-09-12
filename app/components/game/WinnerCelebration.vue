@@ -177,6 +177,8 @@ watch(
               :cardId="cardId"
               :text="props.cardTexts?.[cardId]?.text"
               :card-pack="props.cardTexts?.[cardId]?.pack"
+              :pack-display-name="props.cardTexts?.[cardId]?.packDisplayName"
+              :pack-series="props.cardTexts?.[cardId]?.packSeries"
               :is-winner="true"
               :flipped="false"
               back-logo-url="/img/ufp.svg"

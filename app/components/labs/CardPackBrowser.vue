@@ -73,7 +73,10 @@
           <span v-if="tile.isDefault" class="pack-tile__badge"
             >{{ t("labs.in_default_rotation") }}</span
           >
-          <span class="pack-tile__name">{{ tile.pack }}</span>
+          <span v-if="labelFor(tile).series" class="pack-tile__series">{{
+            labelFor(tile).series
+          }}</span>
+          <span class="pack-tile__name">{{ labelFor(tile).name }}</span>
           <span class="pack-tile__counts">
             <span class="pack-tile__count pack-tile__count--white">
               <i /> {{ t("labs.answers_count", tile.white) }}
@@ -93,7 +96,7 @@
           <button class="pack-back" type="button" @click="closePack">
             <Icon name="solar:alt-arrow-left-bold-duotone" /> {{ t("labs.back_to_packs") }}
           </button>
-          <h2>{{ selectedPack }}</h2>
+          <h2>{{ selectedLabel }}</h2>
         </div>
         <p>{{ cardNoun }}</p>
       </div>
@@ -189,7 +192,9 @@ import {
   pageForIndex,
   stepCardIndex,
   type PackSort,
+  type PackTile,
 } from "~/utils/cardPacks";
+import { packLabel } from "~/utils/packName";
 
 const PER_PAGE = 24;
 
@@ -199,9 +204,19 @@ const { t } = useI18n();
 // Shared with the Labs hero's card-count stat — see useCardPacks.
 const {
   tiles: packTiles,
+  seriesPrefix,
   loading: packsLoading,
   load: loadPacks,
 } = useCardPacks();
+
+/**
+ * Shared with the admin pack tile and card rail, so a pack reads the same way
+ * in Labs as it does in the Cards Manager. This gallery rendered the raw
+ * `card_packs` key for its whole life — the only roster it had was
+ * /api/cards/packs, which carried no metadata until now.
+ */
+const labelFor = (tile: PackTile) =>
+  packLabel(tile.pack, tile, seriesPrefix.value);
 const packSearch = ref("");
 const packSort = ref<PackSort>("cards-desc");
 const defaultOnly = ref(false);
@@ -226,6 +241,7 @@ const packSortOptions = computed(() => [
 // applied on top. Filtering preserves order, so the sort still holds.
 const searchedPacks = computed(() =>
   filterAndSortPacks(packTiles.value, {
+    seriesPrefix: seriesPrefix.value,
     search: packSearch.value,
     defaultOnly: false,
     sort: packSort.value,
@@ -292,6 +308,15 @@ function stepLightbox(delta: number) {
 // the heading's `cardNoun` is the search-aware number.
 const selectedTile = computed(() =>
   packTiles.value.find((tile) => tile.pack === selectedPack.value) ?? null,
+);
+
+// The open pack's heading, labelled like its tile was. Falls back to the raw
+// key while the roster is still loading and `selectedTile` is null — a deep
+// link opens a pack before the gallery behind it has arrived.
+const selectedLabel = computed(() =>
+  selectedTile.value
+    ? labelFor(selectedTile.value).full
+    : (selectedPack.value ?? ""),
 );
 
 const cardNoun = computed(() =>
@@ -429,6 +454,14 @@ onMounted(loadPacks);
   color: #a9ed87;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.52rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.pack-tile__series {
+  margin-bottom: -0.5rem;
+  color: #8891b4;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.58rem;
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }

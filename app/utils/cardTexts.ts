@@ -91,6 +91,11 @@ export function withResolvedBlackText<T extends GameState | null | undefined>(
       ...blackCard,
       text: resolved?.text ?? "",
       pack: blackCard.pack ?? resolved?.pack ?? "",
+      // Labelling for the card footer. Only the resolver ever has these — a
+      // legacy doc's embedded blackCard predates card_packs metadata — so
+      // there is no doc-side value to prefer the way `pack` has one.
+      packDisplayName: resolved?.packDisplayName ?? null,
+      packSeries: resolved?.packSeries ?? null,
     },
   };
 }

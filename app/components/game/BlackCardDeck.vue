@@ -71,6 +71,8 @@ watch(
         :num-pick="blackCard.pick"
         :text="blackCard.text"
         :card-pack="blackCard.pack"
+        :pack-display-name="blackCard.packDisplayName"
+        :pack-series="blackCard.packSeries"
         :three-deffect="true"
         :scale="scale"
       />

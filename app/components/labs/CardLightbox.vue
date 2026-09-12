@@ -1,7 +1,7 @@
 <template>
   <UModal
     v-model:open="open"
-    :title="card?.pack || t('labs.card')"
+    :title="packTitle"
     :description="positionLabel"
     :ui="{ content: 'card-lightbox' }"
   >
@@ -33,6 +33,8 @@
               :card-id="card.id"
               :text="card.text ?? ''"
               :card-pack="card.pack ?? ''"
+              :pack-display-name="card.packDisplayName"
+              :pack-series="card.packSeries"
               :num-pick="card.pick ?? 1"
               :image-url="
                 card.imageKey ? getCardImageUrl(card.imageKey) : undefined
@@ -49,6 +51,8 @@
               :card-id="card.id"
               :text="card.text ?? ''"
               :card-pack="card.pack ?? ''"
+              :pack-display-name="card.packDisplayName"
+              :pack-series="card.packSeries"
               :image-url="
                 card.imageKey ? getCardImageUrl(card.imageKey) : undefined
               "
@@ -95,6 +99,7 @@
 // renders whatever card it is handed and asks to move.
 import type { BrowsableCard } from "~/types/cardBrowser";
 import { getCardImageUrl } from "~/utils/cardImage";
+import { packLabel } from "~/utils/packName";
 
 const props = defineProps<{
   /** Null while the page holding the current position is still loading. */
@@ -111,6 +116,19 @@ const emit = defineEmits<{ (e: "step", delta: number): void }>();
 const shell = ref<HTMLElement | null>(null);
 
 const { t } = useI18n();
+
+// The same "Series: Name" the card's own footer shows, so the lightbox header
+// does not contradict the card inside it. No series prefix to derive from
+// here — one card knows only its own pack — so the metadata is the only
+// source, exactly as in the footer.
+const packTitle = computed(() =>
+  props.card?.pack
+    ? packLabel(props.card.pack, {
+        displayName: props.card.packDisplayName,
+        series: props.card.packSeries,
+      }).full
+    : t("labs.card"),
+);
 
 const typeLabel = computed(() =>
   t(props.type === "black" ? "labs.prompt" : "labs.answer"),

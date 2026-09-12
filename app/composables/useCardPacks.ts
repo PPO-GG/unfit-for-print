@@ -13,9 +13,11 @@
 import {
   buildPackGallery,
   countLabsCards,
+  type PackMetaRow,
   type PackStat,
   type PackTile,
 } from "~/utils/cardPacks";
+import { commonPackPrefix } from "~/utils/packName";
 
 let inFlight: Promise<void> | null = null;
 
@@ -33,6 +35,16 @@ export function useCardPacks() {
   const packCount = computed(() => tiles.value.length);
 
   const labsCards = computed(() => countLabsCards(tiles.value));
+
+  /**
+   * The series most of the roster shares, derived the same way the admin
+   * Packs screen derives it. 106 of the 111 real packs begin "Cards Against
+   * Humanity:", so without this every gallery tile leads with the same words
+   * and the half that identifies the pack is what gets cut.
+   */
+  const seriesPrefix = computed(() =>
+    commonPackPrefix(tiles.value.map((tile) => tile.pack)),
+  );
 
   // Same fetcher resolution as useCardTexts: prefer $activityFetch so the
   // Discord Activity's auth headers ride along, fall back to $fetch outside a
@@ -57,12 +69,13 @@ export function useCardPacks() {
       // activeOnly keeps packs an admin has switched off out of the response
       // entirely, rather than shipping their names to the browser for
       // buildPackGallery to drop.
-      fetcher<{ white: PackStat[]; black: PackStat[] }>("/api/cards/packs", {
-        query: { activeOnly: 1 },
-      }),
+      fetcher<{ white: PackStat[]; black: PackStat[]; meta?: PackMetaRow[] }>(
+        "/api/cards/packs",
+        { query: { activeOnly: 1 } },
+      ),
       fetcher<{ packs: string[] }>("/api/cards/default-packs"),
     ]);
-    tiles.value = buildPackGallery(packs, defaults?.packs ?? []);
+    tiles.value = buildPackGallery(packs, defaults?.packs ?? [], packs?.meta ?? []);
     loaded.value = true;
   }
 
@@ -89,5 +102,15 @@ export function useCardPacks() {
     inFlight = null;
   }
 
-  return { tiles, totalCards, packCount, labsCards, loading, loaded, load, reset };
+  return {
+    tiles,
+    totalCards,
+    packCount,
+    labsCards,
+    seriesPrefix,
+    loading,
+    loaded,
+    load,
+    reset,
+  };
 }
