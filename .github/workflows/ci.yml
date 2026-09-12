@@ -1,0 +1,119 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Unfit for Print — CI
+#
+# Runs on every pull request. Nothing here deploys or publishes; that is
+# release-please.yml's job, and it only runs on pushes to main.
+#
+# Three jobs:
+#   Tests     — vitest against a throwaway Postgres service container (gating)
+#   Build     — `nuxt build`, the check that catches what unit tests cannot
+#   Typecheck — advisory only, see the note on that job
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+# A new push to a PR makes the in-flight run pointless — cancel it rather than
+# paying for both.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Tests ───────────────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: unfit
+          POSTGRES_PASSWORD: unfit
+          POSTGRES_DB: unfit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U unfit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # DATABASE_URL is deliberately NOT set for this job. tests/server/db/*
+      # unconditionally delete real tables, and tests/server/setup.ts refuses
+      # to run when TEST_DATABASE_URL equals DATABASE_URL. Leaving the real
+      # one unset means there is nothing here that could point at production
+      # even by accident. The migrate step below scopes DATABASE_URL to
+      # itself, because drizzle-kit only reads that name.
+      TEST_DATABASE_URL: postgres://unfit:unfit@localhost:5432/unfit
+      # Skip the documented baseline of already-failing suites. See the
+      # KNOWN_FAILING ledger in vitest.config.ts.
+      VITEST_SKIP_KNOWN_FAILING: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # No `version:` — pnpm/action-setup reads packageManager from package.json,
+      # and specifying both is an error.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations to the test database
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgres://unfit:unfit@localhost:5432/unfit
+
+      - name: Unit and component tests
+        run: pnpm vitest run --exclude 'tests/server/db/**'
+
+      # Serial: these suites share one database and truncate it between tests.
+      - name: Database tests
+        run: pnpm test:db
+
+  # ── Build ───────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  # ── Typecheck (advisory) ────────────────────────────────────────────────
+  # Non-blocking on purpose: vue-tsc reports ~28 pre-existing errors on main,
+  # so gating on it would fail every pull request regardless of its contents.
+  # It runs so the count is visible and so regressions in touched files are
+  # noticeable. Make it required once the count reaches zero.
+  typecheck:
+    name: Typecheck (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
