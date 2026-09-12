@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.22.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.21.0...v3.22.0) (2026-09-12)
+
+
+### ✨ Features
+
+* **server:** add decoration owners/prune routes, svg+gif uploads, image CSP ([a9a722c](https://github.com/PPO-GG/unfit-for-print/commit/a9a722c418de79480c80d6beada2a69fa20d30eb))
+* **server:** add decorations.layers column with founder-ring preset ([53ec9f4](https://github.com/PPO-GG/unfit-for-print/commit/53ec9f4e5452b695bd85a089397c38f802fc166c))
+* **server:** layer-aware decoration create/update/delete with asset cleanup ([d81f553](https://github.com/PPO-GG/unfit-for-print/commit/d81f553dde0ac8b2c00796a9d77e63229b499619))
+* **server:** return pack display name and series from the public card routes ([45f15ce](https://github.com/PPO-GG/unfit-for-print/commit/45f15cea49426565b1553c8125c585c97b7f4618))
+* **server:** return resolved decoration layers from catalog routes ([fe25adc](https://github.com/PPO-GG/unfit-for-print/commit/fe25adc1d1d0b987c3f25c7f97f1a20c7375e496))
+* **web:** add decoration asset-key and slug helpers ([45fb652](https://github.com/PPO-GG/unfit-for-print/commit/45fb652b08f0a98a6d5d67f6a94856877a1d558b))
+* **web:** add decoration studio layer list and inspector ([388be1e](https://github.com/PPO-GG/unfit-for-print/commit/388be1e4a30e4bb365bc354653e221dfb9967e1d))
+* **web:** add decoration studio stack ops and stage maths ([e09f6d9](https://github.com/PPO-GG/unfit-for-print/commit/e09f6d952654ec5e1061a9e4462f8ea4a44b3c9e))
+* **web:** add decoration studio stage with drag handles and context previews ([b15e77a](https://github.com/PPO-GG/unfit-for-print/commit/b15e77a9e478e57ca288f8cd112c4b1ebff293aa))
+* **web:** add decoration studio state composable and inspector schema ([88adb6b](https://github.com/PPO-GG/unfit-for-print/commit/88adb6b9c6f90097f3164f5a128480ea21b874fb))
+* **web:** add DecorationStack renderer with glow and ring layers ([009dd1c](https://github.com/PPO-GG/unfit-for-print/commit/009dd1c129ac60f5c6ac72402e89ed9e6e6c135d))
+* **web:** add full-page decoration studio with listing, owners and safe delete ([1dc9403](https://github.com/PPO-GG/unfit-for-print/commit/1dc9403b34aaebb3a9388a14d935e714b9dab270))
+* **web:** add legacy decoration conversion and size geometry ([3ad299e](https://github.com/PPO-GG/unfit-for-print/commit/3ad299e99df8eedde08c232cced0ac4b2eec76aa))
+* **web:** add particle, image and Lottie decoration layers ([e565405](https://github.com/PPO-GG/unfit-for-print/commit/e5654052f66ab3b73cb0f64b85b6559741d7e7d8))
+* **web:** add shared decoration layer model and normaliser ([943ae2e](https://github.com/PPO-GG/unfit-for-print/commit/943ae2e602f7b99b9dd6f952cde5144f54914617))
+* **web:** label the landing page's demo cards like every other surface ([da6a1a3](https://github.com/PPO-GG/unfit-for-print/commit/da6a1a385a80cce02a99e867af9cce61762d2c7e))
+* **web:** normalize pack metadata on entry and warn on shouted names ([b530bfb](https://github.com/PPO-GG/unfit-for-print/commit/b530bfb29d2d0cf59d8989d17f741e0c1583df53))
+* **web:** render avatar decorations from layer stacks ([9f8f355](https://github.com/PPO-GG/unfit-for-print/commit/9f8f355e2f732325bd906f3c8c33e44c8158328f))
+* **web:** render packs as "Series: Name" from one shared helper ([7e7d48e](https://github.com/PPO-GG/unfit-for-print/commit/7e7d48e5210264b755a73d954ee147c3e7efae9e))
+* **web:** replace decoration manager with catalog grid and new-decoration flow ([f3c2c67](https://github.com/PPO-GG/unfit-for-print/commit/f3c2c671f02893048e655280101c38899c00a225))
+
+
+### 🐛 Bug Fixes
+
+* **server:** isolate prune delete failures and cover pagination ([96843c0](https://github.com/PPO-GG/unfit-for-print/commit/96843c0c31747426038c3ed3947b466752a3818a))
+* **server:** narrow decoration catalog entry types at the wire boundary ([8756697](https://github.com/PPO-GG/unfit-for-print/commit/8756697307d40624d53413026429d0e081d9a1c8))
+* **web:** isolate owners load, annotate catalog entry type, keep particles visible under reduced motion ([0f45420](https://github.com/PPO-GG/unfit-for-print/commit/0f45420bc84a1ef0ab7778dad7436a67c41076f1))
+* **web:** keep Lottie players deferred until visible across asset swaps ([a04cd51](https://github.com/PPO-GG/unfit-for-print/commit/a04cd51c81084f217e62e56a65216766fcd5ca8d))
+* **web:** reset stage drag state on pointercancel and cover off-box drags ([4efc945](https://github.com/PPO-GG/unfit-for-print/commit/4efc94573d875fc16cf4984ba34cbc59a347ed96))
+
+
+### ♻️ Refactors
+
+* **web:** remove decoration code registry and legacy renderers ([80bc419](https://github.com/PPO-GG/unfit-for-print/commit/80bc4198d430c4ed728b214843856d8c6cded978))
+
 ## [3.21.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.20.1...v3.21.0) (2026-09-11)
 
 
