@@ -15,6 +15,7 @@
 import { ref, computed, watch } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
 import { splitPackName } from "~/utils/packName";
+import { normalizePackText, looksShouted } from "#shared/packMetaText";
 import type { CardPackMeta } from "~/types/cardPack";
 
 const props = defineProps<{
@@ -78,10 +79,28 @@ watch(
   () => seed(),
 );
 
-const orNull = (v: string) => (v.trim() ? v.trim() : null);
+/**
+ * Every text field goes through the shared normalizer — trimmed, internal
+ * whitespace collapsed, blank becomes null — so the row cannot pick up the
+ * defects that are invisible in a UI that uppercases everything in CSS.
+ */
+const orNull = normalizePackText;
+
+// Advisory, not a gate. Casing is the admin's call; this just makes the
+// consequence visible at the point of entry, since every surface that renders
+// these uppercases them anyway and would hide a shouted value.
+const shoutedFields = computed(() =>
+  (["displayName", "series"] as const).filter((key) =>
+    looksShouted(form.value[key]),
+  ),
+);
 
 async function save() {
   saving.value = true;
+  // Write the normalized values back into the form first: saving silently
+  // different text than the box shows is how "I fixed that already" happens.
+  form.value.displayName = orNull(form.value.displayName) ?? "";
+  form.value.series = orNull(form.value.series) ?? "";
   try {
     const row = await $activityFetch<CardPackMeta>("/api/admin/cards/pack-meta", {
       method: "POST",
@@ -121,6 +140,16 @@ defineExpose({ form, save });
     <UFormField label="Series / brand">
       <UInput v-model="form.series" class="w-full" placeholder="e.g. Cards Against Humanity" />
     </UFormField>
+
+    <p
+      v-if="shoutedFields.length"
+      data-testid="pack-shout-hint"
+      class="-mt-2 text-xs text-amber-400/90"
+    >
+      Type {{ shoutedFields.length > 1 ? "these" : "this" }} the way you'd write
+      it in a sentence — every screen uppercases pack names already, and stored
+      caps can't be turned back into title case.
+    </p>
 
     <UFormField label="Description">
       <UTextarea v-model="form.description" class="w-full" :rows="3" placeholder="What is in this pack?" />

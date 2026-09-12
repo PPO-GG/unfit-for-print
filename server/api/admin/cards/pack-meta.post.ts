@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { cardPacks } from "~~/server/db/schema";
 import { requireAdmin } from "~~/server/utils/session";
+import { normalizePackText } from "#shared/packMetaText";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);
@@ -25,11 +26,17 @@ export default defineEventHandler(async (event) => {
   if (typeof body.pack !== "string" || !body.pack.trim()) {
     throw createError({ statusCode: 400, statusMessage: "pack name is required" });
   }
+  // NOT normalized: `pack` is the primary key and the literal value on every
+  // card row, so collapsing whitespace here would silently point the metadata
+  // at a pack that does not exist. Renaming a key is move.post.ts's job.
   const pack = body.pack.trim();
 
   const updates: Record<string, unknown> = {};
+  // The hand-typed fields are normalized at the boundary, so the row is clean
+  // no matter which client wrote it — the admin form applies the same rule,
+  // but it is not the only possible caller.
   for (const key of ["displayName", "description", "icon", "color", "series"] as const) {
-    if (key in body) updates[key] = body[key] ?? null;
+    if (key in body) updates[key] = normalizePackText(body[key]);
   }
   if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;
   if (typeof body.official === "boolean") updates.official = body.official;

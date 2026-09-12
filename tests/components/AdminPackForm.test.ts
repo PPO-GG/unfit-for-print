@@ -177,3 +177,88 @@ describe("AdminPackForm", () => {
     expect(wrapper.emitted("saved")?.at(-1)).toEqual([saved]);
   });
 });
+
+// Pack metadata is rendered by five surfaces that all uppercase in CSS, which
+// hides exactly the defects a hand-typed field picks up. Two real rows carried
+// them: a series typed "Cards against Humanity", and a pack key with a double
+// space the series-prefix derivation could never match.
+describe("AdminPackForm — entry hygiene", () => {
+  it("collapses internal whitespace and trims before sending", async () => {
+    fetchMock.mockResolvedValue({ pack: "Base" });
+    const wrapper = mountForm(null);
+    wrapper.vm.form.displayName = "  Nasty   Bundle  ";
+    wrapper.vm.form.series = "Cards Against  Humanity";
+
+    await wrapper.vm.save();
+    await flushPromises();
+
+    expect(fetchMock.mock.calls[0]![1].body).toMatchObject({
+      displayName: "Nasty Bundle",
+      series: "Cards Against Humanity",
+    });
+  });
+
+  it("writes the normalized value back into the form", async () => {
+    // Saving text that differs from what the box shows is how an admin comes
+    // away believing they already fixed something they did not.
+    fetchMock.mockResolvedValue({ pack: "Base" });
+    const wrapper = mountForm(null);
+    wrapper.vm.form.series = "  Cards Against  Humanity ";
+
+    await wrapper.vm.save();
+    await flushPromises();
+
+    expect(wrapper.vm.form.series).toBe("Cards Against Humanity");
+  });
+
+  it("still sends null for a field that is only whitespace", async () => {
+    // The existing contract: blank clears the column rather than storing "".
+    fetchMock.mockResolvedValue({ pack: "Base" });
+    const wrapper = mountForm(null);
+    wrapper.vm.form.displayName = "   ";
+
+    await wrapper.vm.save();
+    await flushPromises();
+
+    expect(fetchMock.mock.calls[0]![1].body.displayName).toBeNull();
+  });
+
+  it("warns when a name is typed in caps", async () => {
+    const wrapper = mountForm(null);
+    wrapper.vm.form.series = "CARDS AGAINST HUMANITY";
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('[data-testid="pack-shout-hint"]').exists()).toBe(true);
+  });
+
+  it("stays quiet on ordinary title case", async () => {
+    const wrapper = mountForm(null);
+    wrapper.vm.form.series = "Cards Against Humanity";
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('[data-testid="pack-shout-hint"]').exists()).toBe(false);
+  });
+
+  it("stays quiet on a short acronym", async () => {
+    // Warning on "CAH" would train the admin to click past the warning.
+    const wrapper = mountForm(null);
+    wrapper.vm.form.displayName = "CAH";
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.find('[data-testid="pack-shout-hint"]').exists()).toBe(false);
+  });
+
+  it("does not block saving a shouted value", async () => {
+    // Advisory only — casing stays the admin's call.
+    fetchMock.mockResolvedValue({ pack: "Base" });
+    const wrapper = mountForm(null);
+    wrapper.vm.form.series = "CARDS AGAINST HUMANITY";
+
+    await wrapper.vm.save();
+    await flushPromises();
+
+    expect(fetchMock).toHaveBeenCalled();
+    expect(wrapper.emitted("saved")).toBeTruthy();
+  });
+});
+

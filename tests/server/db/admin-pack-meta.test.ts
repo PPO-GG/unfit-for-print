@@ -177,3 +177,68 @@ describe("POST /api/admin/cards/delete-pack — metadata cleanup", () => {
     expect(meta[0].description).toBe("still here");
   });
 });
+
+// Normalization sits on the route, not only the form: the form is not the
+// only possible caller, and a bad value here is permanent in a UI that
+// uppercases everything and so cannot show you what went wrong.
+describe("pack metadata entry hygiene", () => {
+  it("collapses internal whitespace in the hand-typed fields", async () => {
+    const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+    const row = await handler(
+      mockEvent({
+        pack: "Base",
+        displayName: "  Nasty   Bundle ",
+        series: "Cards Against  Humanity",
+      }),
+    );
+
+    expect(row.displayName).toBe("Nasty Bundle");
+    expect(row.series).toBe("Cards Against Humanity");
+  });
+
+  it("stores null for a field that is only whitespace", async () => {
+    const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+    const row = await handler(
+      mockEvent({ pack: "Base", displayName: "   ", series: "	" }),
+    );
+
+    expect(row.displayName).toBeNull();
+    expect(row.series).toBeNull();
+  });
+
+  it("leaves the pack key itself alone", async () => {
+    // The key is the literal value on every card row. Collapsing its
+    // whitespace here would point the metadata at a pack that does not
+    // exist — renaming a key is move.post.ts's job, with its own confirm.
+    const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+    const row = await handler(
+      mockEvent({ pack: "Cards Against Humanity  Nasty Bundle", displayName: "Nasty" }),
+    );
+
+    expect(row.pack).toBe("Cards Against Humanity  Nasty Bundle");
+  });
+
+  it("does not change casing", async () => {
+    // Advisory in the form, never enforced — some pack names are acronyms.
+    const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+    const row = await handler(
+      mockEvent({ pack: "Base", series: "CARDS AGAINST HUMANITY" }),
+    );
+
+    expect(row.series).toBe("CARDS AGAINST HUMANITY");
+  });
+
+  it("normalizes the bulk series too", async () => {
+    // This one writes the field across ~106 rows at once.
+    const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
+    const { packs } = await handler(
+      mockEvent({ packs: ["A", "B"], series: "  Cards Against  Humanity " }),
+    );
+
+    expect(packs.map((p: any) => p.series)).toEqual([
+      "Cards Against Humanity",
+      "Cards Against Humanity",
+    ]);
+  });
+});
+

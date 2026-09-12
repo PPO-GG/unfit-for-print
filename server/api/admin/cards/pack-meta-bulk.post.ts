@@ -7,6 +7,7 @@
 import { useDb } from "~~/server/db/client";
 import { cardPacks } from "~~/server/db/schema";
 import { requireAdmin } from "~~/server/utils/session";
+import { normalizePackText } from "#shared/packMetaText";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);
@@ -23,7 +24,9 @@ export default defineEventHandler(async (event) => {
   if (!packs.length) {
     throw createError({ statusCode: 400, statusMessage: "packs is required" });
   }
-  const series = typeof body.series === "string" ? body.series.trim() || null : null;
+  // Same normalization as the single-pack route — this one writes the field
+  // across ~106 rows at once, so a stray double space here is 106 bad rows.
+  const series = normalizePackText(body.series);
 
   const db = useDb();
   // One statement, not a loop: Postgres applies ON CONFLICT per inserted row,
