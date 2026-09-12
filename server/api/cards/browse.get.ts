@@ -10,7 +10,7 @@
 
 import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { blackCards, whiteCards } from "~~/server/db/schema";
+import { blackCards, cardPacks, whiteCards } from "~~/server/db/schema";
 import { cardTable } from "~~/server/utils/cardTable";
 
 const DEFAULT_PER_PAGE = 24;
@@ -40,6 +40,11 @@ export default defineEventHandler(async (event) => {
     id: table.id,
     text: table.text,
     pack: table.pack,
+    // Same two label columns /api/cards/resolve returns, for the same reason:
+    // the card footer renders its pack and a single card has no roster to
+    // derive a series prefix from. See app/utils/packName.ts.
+    packDisplayName: cardPacks.displayName,
+    packSeries: cardPacks.series,
     imageKey: table.imageKey,
     imageFormat: table.imageFormat,
     attachment: table.attachment,
@@ -50,6 +55,9 @@ export default defineEventHandler(async (event) => {
     db
       .select(columns)
       .from(table)
+      // LEFT, not inner: most packs have no card_packs row, and an inner join
+      // would empty the gallery for all of them.
+      .leftJoin(cardPacks, eq(table.pack, cardPacks.pack))
       .where(where)
       .orderBy(asc(table.text), asc(table.id))
       .limit(perPage)
