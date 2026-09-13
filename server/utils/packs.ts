@@ -132,6 +132,20 @@ export async function mergePacks(db: Db, sourceIds: string[], targetId: string) 
   return { white: white.length, black: black.length };
 }
 
+/** The admin pack-meta row: `pack` is the name under its pre-id key. */
+export const packMetaColumns = {
+  id: cardPacks.id,
+  pack: cardPacks.name,
+  description: cardPacks.description,
+  icon: cardPacks.icon,
+  color: cardPacks.color,
+  sortOrder: cardPacks.sortOrder,
+  official: cardPacks.official,
+  nsfw: cardPacks.nsfw,
+  series: cardPacks.series,
+  isDefault: cardPacks.isDefault,
+};
+
 export async function packCardCounts(db: Db, packId: string) {
   const count = async (table: typeof whiteCards | typeof blackCards) => {
     const [row] = await db

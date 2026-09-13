@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { users, submissions, whiteCards, players } from "~/server/db/schema";
+import { seedPack } from "./helpers/cards";
 
 const db = useDb();
 let currentUserId: string;
@@ -66,6 +67,8 @@ describe("submissions", () => {
     const handler = (await import("~/server/api/submissions/adopt.post")).default;
     const result = await handler(mockEvent({ submissionId: sub.id }));
     expect(result.card.text).toBe("Adopt me");
+    expect(result.card.pack).toBe("Unfit Labs");
+    expect(result.card.packId).toBe(await seedPack("Unfit Labs"));
 
     const remaining = await db.select().from(submissions).where(eq(submissions.id, sub.id));
     expect(remaining).toHaveLength(0);

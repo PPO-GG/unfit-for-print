@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { assertCardHasContent, cardTable } from "~~/server/utils/cardTable";
+import { packNameFor } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
@@ -29,5 +30,7 @@ export default defineEventHandler(async (event) => {
   if (type === "black" && typeof pick === "number") updates.pick = pick;
 
   const [updated] = await db.update(table).set(updates).where(eq(table.id, id)).returning();
-  return updated;
+  // The client merges this row over its copy, so `pack` must be the live name,
+  // not the retired column's stale value.
+  return updated ? { ...updated, pack: await packNameFor(db, updated.packId) } : updated;
 });

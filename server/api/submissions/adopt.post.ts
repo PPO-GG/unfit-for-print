@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { submissions, whiteCards, blackCards } from "~~/server/db/schema";
+import { ensurePackByName } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
@@ -12,11 +13,12 @@ export default defineEventHandler(async (event) => {
   if (!sub) throw createError({ statusCode: 404, statusMessage: "Submission not found" });
 
   const table = sub.cardType === "white" ? whiteCards : blackCards;
-  const values: Record<string, unknown> = { text: sub.text, pack: "Unfit Labs", active: true };
+  const packId = await ensurePackByName(db, "Unfit Labs");
+  const values: Record<string, unknown> = { text: sub.text, packId, active: true };
   if (sub.cardType === "black") values.pick = sub.pick ?? 1;
 
   const [card] = await db.insert(table).values(values as any).returning();
   await db.delete(submissions).where(eq(submissions.id, submissionId));
 
-  return { card };
+  return { card: { ...card, pack: "Unfit Labs" } };
 });

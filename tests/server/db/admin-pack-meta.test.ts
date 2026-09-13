@@ -1,14 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import {
-  whiteCards,
-  blackCards,
-  defaultCardPacks,
-  cardPacks,
-  users,
-} from "~/server/db/schema";
-import { resetCardTables, seedPack } from "./helpers/cards";
+import { whiteCards, blackCards, cardPacks, users } from "~/server/db/schema";
+import { resetCardTables, seedPack, insertCards } from "./helpers/cards";
 
 const db = useDb();
 let adminId: string;
@@ -62,7 +56,7 @@ describe("POST /api/admin/cards/pack-meta", () => {
   });
 
   it("updates an existing row without clobbering untouched fields", async () => {
-    await db.insert(cardPacks).values({ pack: "Base", description: "keep", icon: "🎴" });
+    await seedPack("Base", { description: "keep", icon: "🎴" });
 
     const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
     const row = await handler(mockEvent({ pack: "Base", nsfw: true }));
@@ -87,7 +81,7 @@ describe("POST /api/admin/cards/pack-meta", () => {
   });
 
   it("sets the series field without touching other columns", async () => {
-    await db.insert(cardPacks).values({ pack: "Base", description: "keep" });
+    await seedPack("Base", { description: "keep" });
 
     const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
     const row = await handler(mockEvent({ pack: "Base", series: "Cards Against Humanity" }));
@@ -97,8 +91,27 @@ describe("POST /api/admin/cards/pack-meta", () => {
   });
 });
 
+describe("POST /api/admin/cards/pack-meta — rename", () => {
+  it("renames by id and keeps the id", async () => {
+    const id = await seedPack("Old", { description: "keep" });
+    const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+
+    const row = await handler(mockEvent({ id, name: "New" }));
+
+    expect(row).toMatchObject({ id, pack: "New", description: "keep" });
+  });
+
+  it("409s a rename onto another pack's name", async () => {
+    const id = await seedPack("A");
+    await seedPack("B");
+    const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+
+    await expect(handler(mockEvent({ id, name: "B" }))).rejects.toMatchObject({ statusCode: 409 });
+  });
+});
+
 describe("POST /api/admin/cards/pack-meta-bulk", () => {
-  it("upserts series across packs that have no metadata row yet", async () => {
+  it("creates missing packs by name and sets series", async () => {
     const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
     const result = await handler(
       mockEvent({ packs: ["A", "B"], series: "Cards Against Humanity" }),
@@ -108,8 +121,18 @@ describe("POST /api/admin/cards/pack-meta-bulk", () => {
     expect(result.packs.every((p: { series: string }) => p.series === "Cards Against Humanity")).toBe(true);
   });
 
+  it("accepts a pack id alongside names", async () => {
+    const id = await seedPack("Base");
+
+    const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
+    const result = await handler(mockEvent({ packs: [id], series: "Cards Against Humanity" }));
+
+    expect(result.packs).toHaveLength(1);
+    expect(result.packs[0].pack).toBe("Base");
+  });
+
   it("updates series on an existing row without clobbering other fields", async () => {
-    await db.insert(cardPacks).values({ pack: "Base", description: "keep", icon: "🎴" });
+    await seedPack("Base", { description: "keep", icon: "🎴" });
 
     const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
     const [row] = (await handler(mockEvent({ packs: ["Base"], series: "Unfit for Print" }))).packs;
@@ -132,7 +155,7 @@ describe("POST /api/admin/cards/pack-meta-bulk", () => {
   });
 
   it("clears series when given an empty string", async () => {
-    await db.insert(cardPacks).values({ pack: "Base", series: "Old Brand" });
+    await seedPack("Base", { series: "Old Brand" });
 
     const handler = (await import("~/server/api/admin/cards/pack-meta-bulk.post")).default;
     const [row] = (await handler(mockEvent({ packs: ["Base"], series: "" }))).packs;
@@ -143,8 +166,7 @@ describe("POST /api/admin/cards/pack-meta-bulk", () => {
 
 describe("POST /api/admin/cards/delete-pack — metadata cleanup", () => {
   it("clears the card_packs row when deleting the whole pack", async () => {
-    await db.insert(whiteCards).values({ text: "w", pack: "Doomed" });
-    await db.insert(cardPacks).values({ pack: "Doomed" });
+    await insertCards(whiteCards, { text: "w", pack: "Doomed" });
 
     const handler = (await import("~/server/api/admin/cards/delete-pack.post")).default;
     await handler(mockEvent({ pack: "Doomed", type: "all" }));
@@ -153,8 +175,7 @@ describe("POST /api/admin/cards/delete-pack — metadata cleanup", () => {
   });
 
   it("clears the card_packs row when a single-type delete empties the pack", async () => {
-    await db.insert(whiteCards).values({ text: "w", pack: "WhiteOnly" });
-    await db.insert(cardPacks).values({ pack: "WhiteOnly" });
+    await insertCards(whiteCards, { text: "w", pack: "WhiteOnly" });
 
     const handler = (await import("~/server/api/admin/cards/delete-pack.post")).default;
     await handler(mockEvent({ pack: "WhiteOnly", type: "white" }));
@@ -163,14 +184,14 @@ describe("POST /api/admin/cards/delete-pack — metadata cleanup", () => {
   });
 
   it("keeps the card_packs row when the other card type survives", async () => {
-    await db.insert(whiteCards).values({ text: "w", pack: "Mixed" });
-    await db.insert(blackCards).values({ text: "b", pack: "Mixed" });
-    await db.insert(cardPacks).values({ pack: "Mixed", description: "still here" });
+    await insertCards(whiteCards, { text: "w", pack: "Mixed" });
+    await insertCards(blackCards, { text: "b", pack: "Mixed" });
+    await seedPack("Mixed", { description: "still here" });
 
     const handler = (await import("~/server/api/admin/cards/delete-pack.post")).default;
     await handler(mockEvent({ pack: "Mixed", type: "white" }));
 
-    const meta = await db.select().from(cardPacks).where(eq(cardPacks.pack, "Mixed"));
+    const meta = await db.select().from(cardPacks).where(eq(cardPacks.name, "Mixed"));
     expect(meta[0].description).toBe("still here");
   });
 });
@@ -182,37 +203,28 @@ describe("pack metadata entry hygiene", () => {
   it("collapses internal whitespace in the hand-typed fields", async () => {
     const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
     const row = await handler(
-      mockEvent({
-        pack: "Base",
-        displayName: "  Nasty   Bundle ",
-        series: "Cards Against  Humanity",
-      }),
+      mockEvent({ pack: "Base", series: "Cards Against  Humanity" }),
     );
 
-    expect(row.displayName).toBe("Nasty Bundle");
     expect(row.series).toBe("Cards Against Humanity");
   });
 
   it("stores null for a field that is only whitespace", async () => {
     const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
-    const row = await handler(
-      mockEvent({ pack: "Base", displayName: "   ", series: "	" }),
-    );
+    const row = await handler(mockEvent({ pack: "Base", series: "	" }));
 
-    expect(row.displayName).toBeNull();
     expect(row.series).toBeNull();
   });
 
-  it("leaves the pack key itself alone", async () => {
-    // The key is the literal value on every card row. Collapsing its
-    // whitespace here would point the metadata at a pack that does not
-    // exist — renaming a key is move.post.ts's job, with its own confirm.
+  it("finds an existing pack by its exact name, double spaces included", async () => {
+    const id = await seedPack("Cards Against Humanity  Nasty Bundle");
     const handler = (await import("~/server/api/admin/cards/pack-meta.post")).default;
+
     const row = await handler(
-      mockEvent({ pack: "Cards Against Humanity  Nasty Bundle", displayName: "Nasty" }),
+      mockEvent({ pack: "Cards Against Humanity  Nasty Bundle", description: "x" }),
     );
 
-    expect(row.pack).toBe("Cards Against Humanity  Nasty Bundle");
+    expect(row).toMatchObject({ id, pack: "Cards Against Humanity  Nasty Bundle" });
   });
 
   it("does not change casing", async () => {

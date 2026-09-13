@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useDb } from "~/server/db/client";
-import { whiteCards, defaultCardPacks, users } from "~/server/db/schema";
-import { resetCardTables, insertCards, seedPack, namesForPackIds } from "./helpers/cards";
+import { whiteCards, users } from "~/server/db/schema";
+import { resetCardTables, insertCards, seedPack, namesForPackIds, defaultPackNames } from "./helpers/cards";
 
 const db = useDb();
 let adminId: string;
@@ -106,17 +106,22 @@ describe("POST /api/admin/cards/toggle-default-pack", () => {
     const handler = (await import("~/server/api/admin/cards/toggle-default-pack.post")).default;
     await handler(mockEvent({ pack: "Base", isDefault: true }));
 
-    const rows = await db.select().from(defaultCardPacks);
-    expect(rows.map((r) => r.pack)).toEqual(["Base"]);
+    expect(await defaultPackNames()).toEqual(["Base"]);
   });
 
   it("unmarks a pack as a default", async () => {
-    await db.insert(defaultCardPacks).values({ pack: "Base" });
+    await seedPack("Base", { isDefault: true });
 
     const handler = (await import("~/server/api/admin/cards/toggle-default-pack.post")).default;
     await handler(mockEvent({ pack: "Base", isDefault: false }));
 
-    const rows = await db.select().from(defaultCardPacks);
-    expect(rows).toHaveLength(0);
+    expect(await defaultPackNames()).toEqual([]);
+  });
+
+  it("marks a pack as default by id", async () => {
+    const id = await seedPack("Base");
+    const handler = (await import("~/server/api/admin/cards/toggle-default-pack.post")).default;
+    await handler(mockEvent({ packId: id, isDefault: true }));
+    expect(await defaultPackNames()).toEqual(["Base"]);
   });
 });
