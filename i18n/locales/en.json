@@ -190,6 +190,8 @@
   "labs.no_packs_body": "Nothing matches that search.",
   "labs.no_packs_default_body": "No packs in the default rotation match that search.",
   "labs.in_default_rotation": "In default rotation",
+  "labs.pack_official": "Official",
+  "labs.pack_nsfw": "NSFW",
   "labs.answers_count": "{count} answer | {count} answers",
   "labs.prompts_count": "{count} prompt | {count} prompts",
   "labs.error_packs": "Couldn’t load card packs",
