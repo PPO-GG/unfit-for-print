@@ -1,10 +1,13 @@
+import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { whiteCards, blackCards, defaultCardPacks } from "~~/server/db/schema";
+import { whiteCards, blackCards, cardPacks } from "~~/server/db/schema";
 import { packStats } from "~~/server/utils/packStats";
 
-// Bootstrap fallback used until an admin explicitly configures defaults via
-// the toggle-default-pack endpoint (keeps pre-existing lobby-creation
-// behavior unchanged for fresh installs).
+// Returns pack **ids** — this list is written straight into a new lobby's
+// `settings.cardPacks`, and an id survives the pack being renamed.
+//
+// Bootstrap fallback used until an admin marks defaults (keeps lobby creation
+// working on a fresh install). Matched by name, then handed out as ids.
 const FALLBACK_DEFAULT_PACKS = [
   "CAH Base Set",
   "CAH: Blue Box Expansion",
@@ -15,23 +18,28 @@ const FALLBACK_DEFAULT_PACKS = [
 export default defineEventHandler(async () => {
   const db = useDb();
   const [configured, white, black] = await Promise.all([
-    db.select().from(defaultCardPacks),
+    db.select({ id: cardPacks.id }).from(cardPacks).where(eq(cardPacks.isDefault, true)),
     packStats(whiteCards),
     packStats(blackCards),
   ]);
 
-  const activePacks = new Set(
-    [...white, ...black].filter((p) => p.active > 0).map((p) => p.pack),
-  );
+  const active = [...white, ...black].filter((p) => p.active > 0);
+  const activeIds = new Set(active.map((p) => p.packId));
 
   if (configured.length > 0) {
-    return { packs: configured.map((r) => r.pack).filter((pack) => activePacks.has(pack)) };
+    return { packs: configured.map((r) => r.id).filter((id) => activeIds.has(id)) };
   }
 
-  const fallbackFiltered = FALLBACK_DEFAULT_PACKS.filter((pack) => activePacks.has(pack));
-  if (fallbackFiltered.length > 0) {
-    return { packs: fallbackFiltered };
-  }
+  const idByName = new Map(active.map((p) => [p.pack, p.packId]));
+  const fallback = FALLBACK_DEFAULT_PACKS.map((name) => idByName.get(name)).filter(
+    (id): id is string => Boolean(id),
+  );
+  if (fallback.length > 0) return { packs: fallback };
 
-  return { packs: Array.from(activePacks).sort() };
+  const nameById = new Map(active.map((p) => [p.packId, p.pack]));
+  return {
+    packs: [...nameById.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id]) => id),
+  };
 });

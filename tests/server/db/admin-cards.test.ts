@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { users, whiteCards, blackCards, defaultCardPacks, players } from "~/server/db/schema";
+import { insertCards } from "./helpers/cards";
 
 const db = useDb();
 let adminId: string;
@@ -89,7 +90,7 @@ describe("admin cards CRUD", () => {
   });
 
   it("lists cards filtered by pack and search text", async () => {
-    await db.insert(whiteCards).values([
+    await insertCards(whiteCards, [
       { text: "Apples", pack: "Base" },
       { text: "Oranges", pack: "Base" },
       { text: "Apples again", pack: "Other" },

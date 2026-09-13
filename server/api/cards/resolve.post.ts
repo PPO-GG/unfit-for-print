@@ -11,12 +11,12 @@
 //
 // Missing or invalid IDs are silently omitted from the response.
 //
-// `packDisplayName`/`packSeries` ride along so the card footer can render a
-// pack the way every other surface does (see app/utils/packName.ts). They have
-// to come from here rather than a roster lookup: a single card knows only its
-// own pack string, with no set of sibling packs to derive a series prefix
-// from. The join is LEFT — most packs have no card_packs row at all, and an
-// inner join would empty most players' hands.
+// `pack` (the pack's current name) and `packSeries` ride along so the card
+// footer can render a pack the way every other surface does (see
+// app/utils/packName.ts). They have to come from here rather than a roster
+// lookup: a single card knows only its own pack, with no set of sibling packs
+// to derive a series prefix from. The join is LEFT — most packs have no
+// card_packs row at all, and an inner join would empty most players' hands.
 
 import { eq, inArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
@@ -44,8 +44,8 @@ export default defineEventHandler(async (event) => {
       .select({
         id: blackCards.id,
         text: blackCards.text,
-        pack: blackCards.pack,
-        packDisplayName: cardPacks.displayName,
+        pack: cardPacks.name,
+        packId: blackCards.packId,
         packSeries: cardPacks.series,
         pick: blackCards.pick,
         imageKey: blackCards.imageKey,
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
         attachment: blackCards.attachment,
       })
       .from(blackCards)
-      .leftJoin(cardPacks, eq(blackCards.pack, cardPacks.pack))
+      .leftJoin(cardPacks, eq(blackCards.packId, cardPacks.id))
       .where(inArray(blackCards.id, deduped));
   }
 
@@ -61,14 +61,14 @@ export default defineEventHandler(async (event) => {
     .select({
       id: whiteCards.id,
       text: whiteCards.text,
-      pack: whiteCards.pack,
-      packDisplayName: cardPacks.displayName,
+      pack: cardPacks.name,
+      packId: whiteCards.packId,
       packSeries: cardPacks.series,
       imageKey: whiteCards.imageKey,
       imageFormat: whiteCards.imageFormat,
       attachment: whiteCards.attachment,
     })
     .from(whiteCards)
-    .leftJoin(cardPacks, eq(whiteCards.pack, cardPacks.pack))
+    .leftJoin(cardPacks, eq(whiteCards.packId, cardPacks.id))
     .where(inArray(whiteCards.id, deduped));
 });

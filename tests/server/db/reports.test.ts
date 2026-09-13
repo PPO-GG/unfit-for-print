@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { users, reports, whiteCards, blackCards, lobbies, players } from "~/server/db/schema";
+import { insertCards } from "./helpers/cards";
 
 const db = useDb();
 let currentUserId: string;
@@ -51,10 +52,7 @@ describe("reports", () => {
   });
 
   it("index enriches with card text, correcting cardType if found in the other table", async () => {
-    const [card] = await db
-      .insert(blackCards)
-      .values({ text: "Actually black?", pack: "Base" })
-      .returning();
+    const [card] = await insertCards(blackCards, { text: "Actually black?", pack: "Base" });
     await db.insert(reports).values({
       cardId: card.id,
       cardType: "white", // deliberately wrong, mirrors the historical bug

@@ -8,6 +8,7 @@ import {
   cardPacks,
   users,
 } from "~/server/db/schema";
+import { resetCardTables, seedPack } from "./helpers/cards";
 
 const db = useDb();
 let adminId: string;
@@ -22,10 +23,7 @@ function mockEvent(body: unknown) {
 }
 
 beforeEach(async () => {
-  await db.delete(cardPacks);
-  await db.delete(defaultCardPacks);
-  await db.delete(whiteCards);
-  await db.delete(blackCards);
+  await resetCardTables();
   await db.delete(users);
   const [admin] = await db
     .insert(users)
@@ -36,15 +34,14 @@ beforeEach(async () => {
 
 describe("GET /api/admin/cards/pack-meta", () => {
   it("returns every metadata row", async () => {
-    await db.insert(cardPacks).values([
-      { pack: "Base", description: "the original" },
-      { pack: "Blue", icon: "🟦" },
-    ]);
+    await seedPack("Base", { description: "the original" });
+    await seedPack("Blue", { icon: "🟦" });
 
     const handler = (await import("~/server/api/admin/cards/pack-meta.get")).default;
     const result = await handler({} as any);
 
     expect(result.packs.map((p: { pack: string }) => p.pack).sort()).toEqual(["Base", "Blue"]);
+    expect(result.packs[0]).toHaveProperty("id");
   });
 
   it("returns an empty list when no pack has metadata", async () => {

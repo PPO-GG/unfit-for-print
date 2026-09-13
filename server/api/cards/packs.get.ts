@@ -18,16 +18,12 @@ export default defineEventHandler(async (event) => {
   const [white, black, meta] = await Promise.all([
     packStats(whiteCards),
     packStats(blackCards),
-    // Display name and series ride along so public callers can render a pack
-    // the same way the admin does. The Labs gallery showed raw pack keys for
-    // its whole life because this was the only roster it had, and there is no
-    // unauthenticated counterpart to /api/admin/cards/pack-meta. Scoped to what
-    // a player browsing packs should see — labelling, description, and the
-    // official/nsfw tags; sort order, icon and colour stay admin-only detail.
+    // `pack` is the pack's name under its pre-id key, so consumers that match
+    // meta rows to stats by name keep working; `id` is what new code keys on.
     useDb()
       .select({
-        pack: cardPacks.pack,
-        displayName: cardPacks.displayName,
+        id: cardPacks.id,
+        pack: cardPacks.name,
         series: cardPacks.series,
         description: cardPacks.description,
         official: cardPacks.official,

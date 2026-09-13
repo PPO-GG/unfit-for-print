@@ -12,6 +12,7 @@ import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { blackCards, cardPacks, whiteCards } from "~~/server/db/schema";
 import { cardTable } from "~~/server/utils/cardTable";
+import { findPackId } from "~~/server/utils/packs";
 
 const DEFAULT_PER_PAGE = 24;
 const MAX_PER_PAGE = 60;
@@ -32,18 +33,22 @@ export default defineEventHandler(async (event) => {
   const perPage = clampInt(query.perPage, DEFAULT_PER_PAGE, 1, MAX_PER_PAGE);
 
   const conditions = [eq(table.active, true)];
-  if (query.pack) conditions.push(eq(table.pack, query.pack as string));
+  if (query.pack) {
+    const packId = await findPackId(db, query.pack);
+    if (!packId) return { cards: [], total: 0, page, perPage };
+    conditions.push(eq(table.packId, packId));
+  }
   if (query.search) conditions.push(ilike(table.text, `%${query.search}%`));
   const where = and(...conditions);
 
   const columns = {
     id: table.id,
     text: table.text,
-    pack: table.pack,
-    // Same two label columns /api/cards/resolve returns, for the same reason:
-    // the card footer renders its pack and a single card has no roster to
-    // derive a series prefix from. See app/utils/packName.ts.
-    packDisplayName: cardPacks.displayName,
+    // The pack name and series, for the same reason /api/cards/resolve
+    // returns them: the card footer renders its pack and a single card has no
+    // roster to derive a series prefix from. See app/utils/packName.ts.
+    pack: cardPacks.name,
+    packId: table.packId,
     packSeries: cardPacks.series,
     imageKey: table.imageKey,
     imageFormat: table.imageFormat,
@@ -57,7 +62,7 @@ export default defineEventHandler(async (event) => {
       .from(table)
       // LEFT, not inner: most packs have no card_packs row, and an inner join
       // would empty the gallery for all of them.
-      .leftJoin(cardPacks, eq(table.pack, cardPacks.pack))
+      .leftJoin(cardPacks, eq(table.packId, cardPacks.id))
       .where(where)
       .orderBy(asc(table.text), asc(table.id))
       .limit(perPage)
