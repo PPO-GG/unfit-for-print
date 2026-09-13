@@ -18,32 +18,35 @@ import {
 
 /** Minimal tile; only `pack` and `total` matter to the sort. */
 function tile(pack: string, total: number): PackTile {
-  return { pack, white: total, black: 0, total, isDefault: false };
+  return { id: pack, pack, white: total, black: 0, total, isDefault: false };
 }
 
 describe("buildPackGallery", () => {
   it("combines a pack's white and black stats into a single tile", () => {
     const gallery = buildPackGallery(
       {
-        white: [{ pack: "Base", total: 10, active: 8 }],
-        black: [{ pack: "Base", total: 4, active: 3 }],
+        white: [{ packId: "Base", pack: "Base", total: 10, active: 8 }],
+        black: [{ packId: "Base", pack: "Base", total: 4, active: 3 }],
       },
       [],
     );
 
     expect(gallery).toEqual([
-      { pack: "Base", white: 8, black: 3, total: 11, isDefault: false },
+      { id: "Base", pack: "Base", white: 8, black: 3, total: 11, isDefault: false },
     ]);
   });
 
   it("counts a pack that only has one card type", () => {
     const gallery = buildPackGallery(
-      { white: [{ pack: "Answers Only", total: 5, active: 5 }], black: [] },
+      {
+        white: [{ packId: "Answers Only", pack: "Answers Only", total: 5, active: 5 }],
+        black: [],
+      },
       [],
     );
 
     expect(gallery).toEqual([
-      { pack: "Answers Only", white: 5, black: 0, total: 5, isDefault: false },
+      { id: "Answers Only", pack: "Answers Only", white: 5, black: 0, total: 5, isDefault: false },
     ]);
   });
 
@@ -52,14 +55,14 @@ describe("buildPackGallery", () => {
     // same pack read "CAH Base Set" there and "Base Pack" in the admin rail.
     const gallery = buildPackGallery(
       {
-        white: [{ pack: "CAH Base Set", total: 10, active: 8 }],
+        white: [{ packId: "CAH Base Set", pack: "CAH Base Set", total: 10, active: 8 }],
         black: [],
       },
       [],
       [
         {
+          id: "CAH Base Set",
           pack: "CAH Base Set",
-          displayName: "Base Pack",
           series: "Cards Against Humanity",
           description: "Where it all started.",
           official: true,
@@ -70,7 +73,6 @@ describe("buildPackGallery", () => {
 
     expect(gallery[0]).toMatchObject({
       pack: "CAH Base Set",
-      displayName: "Base Pack",
       series: "Cards Against Humanity",
       description: "Where it all started.",
       official: true,
@@ -82,12 +84,15 @@ describe("buildPackGallery", () => {
     // Most packs have no card_packs row at all, and a tile must not sprout
     // null fields the label helper would then have to special-case.
     const gallery = buildPackGallery(
-      { white: [{ pack: "Unfit Labs", total: 5, active: 5 }], black: [] },
+      {
+        white: [{ packId: "Unfit Labs", pack: "Unfit Labs", total: 5, active: 5 }],
+        black: [],
+      },
       [],
       [
         {
+          id: "Something Else",
           pack: "Something Else",
-          displayName: "Nope",
           series: null,
           description: null,
           official: false,
@@ -97,7 +102,7 @@ describe("buildPackGallery", () => {
     );
 
     expect(gallery).toEqual([
-      { pack: "Unfit Labs", white: 5, black: 0, total: 5, isDefault: false },
+      { id: "Unfit Labs", pack: "Unfit Labs", white: 5, black: 0, total: 5, isDefault: false },
     ]);
   });
 
@@ -105,10 +110,10 @@ describe("buildPackGallery", () => {
     const gallery = buildPackGallery(
       {
         white: [
-          { pack: "Retired", total: 6, active: 0 },
-          { pack: "Live", total: 2, active: 2 },
+          { packId: "Retired", pack: "Retired", total: 6, active: 0 },
+          { packId: "Live", pack: "Live", total: 2, active: 2 },
         ],
-        black: [{ pack: "Retired", total: 3, active: 0 }],
+        black: [{ packId: "Retired", pack: "Retired", total: 3, active: 0 }],
       },
       [],
     );
@@ -120,8 +125,8 @@ describe("buildPackGallery", () => {
     const gallery = buildPackGallery(
       {
         white: [
-          { pack: "Base", total: 1, active: 1 },
-          { pack: "Extra", total: 1, active: 1 },
+          { packId: "Base", pack: "Base", total: 1, active: 1 },
+          { packId: "Extra", pack: "Extra", total: 1, active: 1 },
         ],
         black: [],
       },
@@ -136,9 +141,9 @@ describe("buildPackGallery", () => {
     const gallery = buildPackGallery(
       {
         white: [
-          { pack: "Zeta", total: 1, active: 1 },
-          { pack: "alpha", total: 1, active: 1 },
-          { pack: "Beta", total: 1, active: 1 },
+          { packId: "Zeta", pack: "Zeta", total: 1, active: 1 },
+          { packId: "alpha", pack: "alpha", total: 1, active: 1 },
+          { packId: "Beta", pack: "Beta", total: 1, active: 1 },
         ],
         black: [],
       },
@@ -150,6 +155,21 @@ describe("buildPackGallery", () => {
 
   it("returns nothing when there are no packs at all", () => {
     expect(buildPackGallery({ white: [], black: [] }, [])).toEqual([]);
+  });
+
+  it("keys tiles by pack id, so a renamed pack is one tile under its new name", () => {
+    const gallery = buildPackGallery(
+      {
+        white: [{ packId: "id-1", pack: "New Name", total: 3, active: 3 }],
+        black: [{ packId: "id-1", pack: "New Name", total: 1, active: 1 }],
+      },
+      ["id-1"],
+      [{ id: "id-1", pack: "New Name", series: null, description: null, official: false, nsfw: false }],
+    );
+
+    expect(gallery).toEqual([
+      expect.objectContaining({ id: "id-1", pack: "New Name", total: 4, isDefault: true }),
+    ]);
   });
 });
 
@@ -213,6 +233,7 @@ describe("filterAndSortPacks with labels", () => {
   // the raw key meant typing the name printed on the tile found nothing.
   const gallery = [
     {
+      id: "CAH Base Set",
       pack: "CAH Base Set",
       white: 1249,
       black: 261,
@@ -221,7 +242,7 @@ describe("filterAndSortPacks with labels", () => {
       displayName: "Base Pack",
       series: "Cards Against Humanity",
     },
-    { pack: "Zebra Pack", white: 10, black: 2, total: 12, isDefault: false },
+    { id: "Zebra Pack", pack: "Zebra Pack", white: 10, black: 2, total: 12, isDefault: false },
   ];
 
   it("finds a pack by the display name shown on its tile", () => {
@@ -253,6 +274,7 @@ describe("filterAndSortPacks with labels", () => {
     const result = filterAndSortPacks(
       [
         {
+          id: "Aardvark",
           pack: "Aardvark",
           white: 1,
           black: 0,
@@ -261,7 +283,7 @@ describe("filterAndSortPacks with labels", () => {
           displayName: "Zulu Pack",
           series: null,
         },
-        { pack: "Bison Pack", white: 1, black: 0, total: 1, isDefault: false },
+        { id: "Bison Pack", pack: "Bison Pack", white: 1, black: 0, total: 1, isDefault: false },
       ],
       { search: "", defaultOnly: false, sort: "name" },
     );
@@ -272,9 +294,9 @@ describe("filterAndSortPacks with labels", () => {
 
 describe("filterAndSortPacks", () => {
   const gallery = [
-    { pack: "CAH Base Set", white: 1249, black: 261, total: 1510, isDefault: true },
-    { pack: "Card Lab", white: 1193, black: 103, total: 1296, isDefault: false },
-    { pack: "Blue Box", white: 100, black: 20, total: 120, isDefault: true },
+    { id: "CAH Base Set", pack: "CAH Base Set", white: 1249, black: 261, total: 1510, isDefault: true },
+    { id: "Card Lab", pack: "Card Lab", white: 1193, black: 103, total: 1296, isDefault: false },
+    { id: "Blue Box", pack: "Blue Box", white: 100, black: 20, total: 120, isDefault: true },
   ];
 
   it("returns every pack, biggest first, with no filters applied", () => {
@@ -427,7 +449,7 @@ function packTile(
   black: number,
   isDefault = false,
 ): PackTile {
-  return { pack, white, black, total: white + black, isDefault };
+  return { id: pack, pack, white, black, total: white + black, isDefault };
 }
 
 /** 12 packs of 250 cards each — 3000 total, so a 1000–2000 budget has slack. */
@@ -550,6 +572,11 @@ describe("pickRandomPacks", () => {
 
   it("returns an empty selection when there are no packs at all", () => {
     expect(pickRandomPacks([], { rng: seededRng([0.5]) })).toEqual([]);
+  });
+
+  it("returns pack ids, not names", () => {
+    const tiles = [{ id: "uuid-a", pack: "A", white: 900, black: 100, total: 1000, isDefault: false }];
+    expect(pickRandomPacks(tiles, { minPacks: 1, rng: () => 0.5 })).toEqual(["uuid-a"]);
   });
 });
 

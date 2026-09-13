@@ -22,6 +22,7 @@ import { SFX } from "~/config/sfx.config";
 import { pickRandomPacks } from "~/utils/cardPacks";
 
 export interface ShuffleResult {
+  /** Pack ids, as written to settings.cardPacks. */
   packs: string[];
   /** Combined white+black active cards across the rolled packs. */
   total: number;
@@ -69,7 +70,7 @@ export function useShufflePacks() {
 
       const chosen = new Set(packs);
       const total = roster
-        .filter((tile) => chosen.has(tile.pack))
+        .filter((tile) => chosen.has(tile.id))
         .reduce((sum, tile) => sum + tile.total, 0);
 
       await mutations.updateSettings({ cardPacks: packs });

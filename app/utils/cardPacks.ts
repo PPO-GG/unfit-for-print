@@ -11,24 +11,26 @@ import { commonPackPrefix, packLabel } from "~/utils/packName";
  */
 
 export interface PackStat {
+  packId: string;
+  /** The pack's current name. */
   pack: string;
   total: number;
   active: number;
 }
 
 export interface PackTile {
+  /** Pack id — what a lobby stores and what `/api/cards/browse` is queried by. */
+  id: string;
+  /** The pack's name. */
   pack: string;
   white: number;
   black: number;
   total: number;
   isDefault: boolean;
   /**
-   * Presentation metadata from `card_packs`, present only for the packs that
-   * actually have a row. Left off entirely rather than set to null so a tile
-   * structurally satisfies `PackLabelMeta` without the label helper having to
-   * special-case the majority of packs that carry no metadata at all.
+   * Presentation metadata from `card_packs`. Left off entirely rather than
+   * set to null so a tile structurally satisfies `PackLabelMeta`.
    */
-  displayName?: string | null;
   series?: string | null;
   description?: string | null;
   official?: boolean;
@@ -37,8 +39,8 @@ export interface PackTile {
 
 /** The `card_packs` fields `/api/cards/packs` exposes publicly. */
 export interface PackMetaRow {
+  id: string;
   pack: string;
-  displayName: string | null;
   series: string | null;
   description: string | null;
   official: boolean;
@@ -146,29 +148,29 @@ export function filterAndSortPacks(
 
 export function buildPackGallery(
   packs: { white: PackStat[]; black: PackStat[] },
-  defaultPacks: string[],
+  defaultPackIds: string[],
   meta: PackMetaRow[] = [],
 ): PackTile[] {
-  const defaults = new Set(defaultPacks);
-  const byPack = new Map(meta.map((row) => [row.pack, row]));
+  const defaults = new Set(defaultPackIds);
+  const byId = new Map(meta.map((row) => [row.id, row]));
   const tiles = new Map<string, PackTile>();
 
   const add = (stats: PackStat[], key: "white" | "black") => {
     for (const stat of stats) {
-      if (!stat.pack) continue;
-      const row = byPack.get(stat.pack);
+      if (!stat.packId) continue;
+      const row = byId.get(stat.packId);
       const tile =
-        tiles.get(stat.pack) ??
+        tiles.get(stat.packId) ??
         {
+          id: stat.packId,
           pack: stat.pack,
           white: 0,
           black: 0,
           total: 0,
-          isDefault: defaults.has(stat.pack),
+          isDefault: defaults.has(stat.packId),
           // Spread, so a pack with no row keeps the exact shape it always had.
           ...(row
             ? {
-                displayName: row.displayName,
                 series: row.series,
                 description: row.description,
                 official: row.official,
@@ -178,7 +180,7 @@ export function buildPackGallery(
         };
       tile[key] += stat.active;
       tile.total += stat.active;
-      tiles.set(stat.pack, tile);
+      tiles.set(stat.packId, tile);
     }
   };
 
@@ -209,7 +211,7 @@ export interface PickRandomPacksOptions {
    * pointless shuffle.
    */
   minPacks?: number;
-  /** Current selection; an identical roll is re-rolled once. */
+  /** Current selection (pack ids); an identical roll is re-rolled once. */
   exclude?: string[];
   /** Injectable for deterministic tests. */
   rng?: () => number;
@@ -264,9 +266,9 @@ function rollOnce(
   // Top up blacks. Deliberately ignores `max`: a deck the host can't play is
   // worse than one slightly over budget.
   if (black < minBlack) {
-    const chosen = new Set(picked.map((t) => t.pack));
+    const chosen = new Set(picked.map((t) => t.id));
     const donors = order
-      .filter((t) => !chosen.has(t.pack) && t.black > 0)
+      .filter((t) => !chosen.has(t.id) && t.black > 0)
       .sort((a, b) => b.black - a.black);
     for (const donor of donors) {
       if (black >= minBlack) break;
@@ -279,8 +281,8 @@ function rollOnce(
 }
 
 /**
- * Picks a random spread of packs whose combined card count lands inside
- * `min`–`max`, for the host's "Shuffle packs" control.
+ * Picks a random spread of pack **ids** whose combined card count lands
+ * inside `min`–`max`, for the host's "Shuffle packs" control.
  *
  * The contract that matters is playability, not randomness: a roll that hits
  * the card budget with white-only packs would 500 `game/start.post.ts`, so the
@@ -303,13 +305,13 @@ export function pickRandomPacks(
   if (eligible.length === 0) return [];
 
   let picked = rollOnce(eligible, min, max, minBlack, minPacks, rng).map(
-    (t) => t.pack,
+    (t) => t.id,
   );
 
   // Clicking Shuffle and seeing the same chips light up reads as a dead button.
   if (exclude?.length && samePackSet(picked, exclude)) {
     const retry = rollOnce(eligible, min, max, minBlack, minPacks, rng).map(
-      (t) => t.pack,
+      (t) => t.id,
     );
     if (!samePackSet(retry, picked)) picked = retry;
   }

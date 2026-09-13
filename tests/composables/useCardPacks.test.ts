@@ -52,8 +52,8 @@ describe("useCardPacks", () => {
   it("exposes the pack gallery and a total active card count after loading", async () => {
     stubPackEndpoints(
       {
-        white: [{ pack: "Base", total: 12, active: 10 }],
-        black: [{ pack: "Base", total: 5, active: 4 }],
+        white: [{ packId: "Base", pack: "Base", total: 12, active: 10 }],
+        black: [{ packId: "Base", pack: "Base", total: 5, active: 4 }],
       },
       ["Base"],
     );
@@ -62,14 +62,14 @@ describe("useCardPacks", () => {
     await load();
 
     expect(tiles.value).toEqual([
-      { pack: "Base", white: 10, black: 4, total: 14, isDefault: true },
+      { id: "Base", pack: "Base", white: 10, black: 4, total: 14, isDefault: true },
     ]);
     expect(totalCards.value).toBe(14);
   });
 
   it("fetches once even when two callers load concurrently", async () => {
     const calls = stubPackEndpoints({
-      white: [{ pack: "Base", total: 1, active: 1 }],
+      white: [{ packId: "Base", pack: "Base", total: 1, active: 1 }],
       black: [],
     });
 
@@ -82,7 +82,7 @@ describe("useCardPacks", () => {
 
   it("does not refetch once the roster is already loaded", async () => {
     const calls = stubPackEndpoints({
-      white: [{ pack: "Base", total: 1, active: 1 }],
+      white: [{ packId: "Base", pack: "Base", total: 1, active: 1 }],
       black: [],
     });
 
@@ -95,7 +95,7 @@ describe("useCardPacks", () => {
 
   it("refetches when a reload is explicitly forced", async () => {
     const calls = stubPackEndpoints({
-      white: [{ pack: "Base", total: 1, active: 1 }],
+      white: [{ packId: "Base", pack: "Base", total: 1, active: 1 }],
       black: [],
     });
 
@@ -128,7 +128,7 @@ describe("useCardPacks", () => {
     await load();
 
     stubPackEndpoints({
-      white: [{ pack: "Base", total: 1, active: 1 }],
+      white: [{ packId: "Base", pack: "Base", total: 1, active: 1 }],
       black: [],
     });
     await load();

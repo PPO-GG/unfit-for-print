@@ -45,11 +45,13 @@ import { useCardPacks } from "~/composables/useCardPacks";
 /** 12 packs of 250 active cards each, so a 1000–2000 budget has room to move. */
 function stubRoster(count = 12) {
   const white = Array.from({ length: count }, (_, i) => ({
+    packId: `Pack ${i + 1}`,
     pack: `Pack ${i + 1}`,
     total: 200,
     active: 200,
   }));
   const black = Array.from({ length: count }, (_, i) => ({
+    packId: `Pack ${i + 1}`,
     pack: `Pack ${i + 1}`,
     total: 50,
     active: 50,
