@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
     .where(eq(users.discordUserId, profile.id))
     .limit(1);
 
-  let user: typeof users.$inferSelect;
+  let user: typeof users.$inferSelect | undefined;
   if (existing) {
     [user] = await db
       .update(users)
@@ -91,6 +91,9 @@ export default defineEventHandler(async (event) => {
         isGuest: false,
       })
       .returning();
+  }
+  if (!user) {
+    return sendRedirect(event, `${baseUrl}/?error=user_upsert_failed`);
   }
 
   await setUserSession(event, {

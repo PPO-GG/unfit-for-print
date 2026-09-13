@@ -46,6 +46,10 @@ export default defineEventHandler(async (event) => {
     })
     .returning();
 
+  if (!lobby) {
+    throw createError({ statusCode: 500, statusMessage: "Failed to create lobby" });
+  }
+
   await db.insert(players).values({
     userId,
     lobbyId: lobby.id,
