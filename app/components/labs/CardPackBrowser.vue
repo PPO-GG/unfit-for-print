@@ -70,13 +70,29 @@
           type="button"
           @click="openPack(tile.pack)"
         >
-          <span v-if="tile.isDefault" class="pack-tile__badge"
-            >{{ t("labs.in_default_rotation") }}</span
+          <span
+            v-if="tile.isDefault || tile.official || tile.nsfw"
+            class="pack-tile__badges"
           >
+            <span v-if="tile.isDefault" class="pack-tile__badge">{{
+              t("labs.in_default_rotation")
+            }}</span>
+            <span
+              v-if="tile.official"
+              class="pack-tile__badge pack-tile__badge--official"
+              >{{ t("labs.pack_official") }}</span
+            >
+            <span v-if="tile.nsfw" class="pack-tile__badge pack-tile__badge--nsfw">{{
+              t("labs.pack_nsfw")
+            }}</span>
+          </span>
           <span v-if="labelFor(tile).series" class="pack-tile__series">{{
             labelFor(tile).series
           }}</span>
           <span class="pack-tile__name">{{ labelFor(tile).name }}</span>
+          <span v-if="tile.description" class="pack-tile__desc">{{
+            tile.description
+          }}</span>
           <span class="pack-tile__counts">
             <span class="pack-tile__count pack-tile__count--white">
               <i /> {{ t("labs.answers_count", tile.white) }}
@@ -97,6 +113,24 @@
             <Icon name="solar:alt-arrow-left-bold-duotone" /> {{ t("labs.back_to_packs") }}
           </button>
           <h2>{{ selectedLabel }}</h2>
+          <span
+            v-if="selectedTile && (selectedTile.official || selectedTile.nsfw)"
+            class="pack-tile__badges pack-detail__badges"
+          >
+            <span
+              v-if="selectedTile.official"
+              class="pack-tile__badge pack-tile__badge--official"
+              >{{ t("labs.pack_official") }}</span
+            >
+            <span
+              v-if="selectedTile.nsfw"
+              class="pack-tile__badge pack-tile__badge--nsfw"
+              >{{ t("labs.pack_nsfw") }}</span
+            >
+          </span>
+          <p v-if="selectedTile?.description" class="pack-detail__desc">
+            {{ selectedTile.description }}
+          </p>
         </div>
         <p>{{ cardNoun }}</p>
       </div>
@@ -446,6 +480,11 @@ onMounted(loadPacks);
   background: rgba(140, 220, 120, 0.09);
   transform: translateY(-2px);
 }
+.pack-tile__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
 .pack-tile__badge {
   width: max-content;
   padding: 0.2rem 0.45rem;
@@ -456,6 +495,33 @@ onMounted(loadPacks);
   font-size: 0.52rem;
   letter-spacing: 0.11em;
   text-transform: uppercase;
+}
+.pack-tile__badge--official {
+  border-color: rgba(136, 145, 180, 0.5);
+  color: #c3c9e0;
+}
+.pack-tile__badge--nsfw {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+.pack-tile__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #aab1cc;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pack-detail__badges {
+  margin-top: 0.5rem;
+}
+.pack-detail__desc {
+  max-width: 60ch;
+  margin: 0.5rem 0 0;
+  color: #aab1cc;
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 .pack-tile__series {
   margin-bottom: -0.5rem;

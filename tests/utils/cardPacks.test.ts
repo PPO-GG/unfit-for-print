@@ -47,7 +47,7 @@ describe("buildPackGallery", () => {
     ]);
   });
 
-  it("carries display name and series onto the tile when metadata exists", () => {
+  it("carries pack metadata onto the tile when a row exists", () => {
     // The Labs gallery rendered the raw pack key for its whole life, so the
     // same pack read "CAH Base Set" there and "Base Pack" in the admin rail.
     const gallery = buildPackGallery(
@@ -56,13 +56,25 @@ describe("buildPackGallery", () => {
         black: [],
       },
       [],
-      [{ pack: "CAH Base Set", displayName: "Base Pack", series: "Cards Against Humanity" }],
+      [
+        {
+          pack: "CAH Base Set",
+          displayName: "Base Pack",
+          series: "Cards Against Humanity",
+          description: "Where it all started.",
+          official: true,
+          nsfw: true,
+        },
+      ],
     );
 
     expect(gallery[0]).toMatchObject({
       pack: "CAH Base Set",
       displayName: "Base Pack",
       series: "Cards Against Humanity",
+      description: "Where it all started.",
+      official: true,
+      nsfw: true,
     });
   });
 
@@ -72,7 +84,16 @@ describe("buildPackGallery", () => {
     const gallery = buildPackGallery(
       { white: [{ pack: "Unfit Labs", total: 5, active: 5 }], black: [] },
       [],
-      [{ pack: "Something Else", displayName: "Nope", series: null }],
+      [
+        {
+          pack: "Something Else",
+          displayName: "Nope",
+          series: null,
+          description: null,
+          official: false,
+          nsfw: false,
+        },
+      ],
     );
 
     expect(gallery).toEqual([

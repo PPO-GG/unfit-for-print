@@ -30,6 +30,9 @@ export interface PackTile {
    */
   displayName?: string | null;
   series?: string | null;
+  description?: string | null;
+  official?: boolean;
+  nsfw?: boolean;
 }
 
 /** The `card_packs` fields `/api/cards/packs` exposes publicly. */
@@ -37,6 +40,9 @@ export interface PackMetaRow {
   pack: string;
   displayName: string | null;
   series: string | null;
+  description: string | null;
+  official: boolean;
+  nsfw: boolean;
 }
 
 export type PackSort = "cards-desc" | "cards-asc" | "name";
@@ -160,7 +166,15 @@ export function buildPackGallery(
           total: 0,
           isDefault: defaults.has(stat.pack),
           // Spread, so a pack with no row keeps the exact shape it always had.
-          ...(row ? { displayName: row.displayName, series: row.series } : {}),
+          ...(row
+            ? {
+                displayName: row.displayName,
+                series: row.series,
+                description: row.description,
+                official: row.official,
+                nsfw: row.nsfw,
+              }
+            : {}),
         };
       tile[key] += stat.active;
       tile.total += stat.active;
