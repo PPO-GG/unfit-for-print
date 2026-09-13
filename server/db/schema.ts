@@ -84,47 +84,62 @@ export const players = pgTable("players", {
     .defaultNow(),
 });
 
-export const whiteCards = pgTable("white_cards", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  text: text("text"),
-  pack: text("pack"),
-  active: boolean("active").notNull().default(true),
-  timesPlayed: integer("times_played").notNull().default(0),
-  timesWon: integer("times_won").notNull().default(0),
-  imageKey: text("image_key"),
-  imageFormat: text("image_format"),
-  attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
-});
+export const whiteCards = pgTable(
+  "white_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    text: text("text"),
+    /** Retired by migration 0012_pack_ids — never read or written. Use `packId`. */
+    pack: text("pack"),
+    packId: uuid("pack_id").references(() => cardPacks.id),
+    active: boolean("active").notNull().default(true),
+    timesPlayed: integer("times_played").notNull().default(0),
+    timesWon: integer("times_won").notNull().default(0),
+    imageKey: text("image_key"),
+    imageFormat: text("image_format"),
+    attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
+  },
+  (table) => [index("white_cards_pack_id_idx").on(table.packId)],
+);
 
-export const blackCards = pgTable("black_cards", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  text: text("text"),
-  pack: text("pack"),
-  active: boolean("active").notNull().default(true),
-  pick: integer("pick").notNull().default(1),
-  timesPlayed: integer("times_played").notNull().default(0),
-  timesSkipped: integer("times_skipped").notNull().default(0),
-  imageKey: text("image_key"),
-  imageFormat: text("image_format"),
-  attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
-});
+export const blackCards = pgTable(
+  "black_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    text: text("text"),
+    /** Retired by migration 0012_pack_ids — never read or written. Use `packId`. */
+    pack: text("pack"),
+    packId: uuid("pack_id").references(() => cardPacks.id),
+    active: boolean("active").notNull().default(true),
+    pick: integer("pick").notNull().default(1),
+    timesPlayed: integer("times_played").notNull().default(0),
+    timesSkipped: integer("times_skipped").notNull().default(0),
+    imageKey: text("image_key"),
+    imageFormat: text("image_format"),
+    attachment: jsonb("attachment").$type<Record<string, unknown> | null>(),
+  },
+  (table) => [index("black_cards_pack_id_idx").on(table.packId)],
+);
 
+/** Retired by migration 0012_pack_ids — replaced by `card_packs.is_default`. */
 export const defaultCardPacks = pgTable("default_card_packs", {
   pack: text("pack").primaryKey(),
 });
 
 /**
- * Per-pack metadata. Deliberately has **no foreign key** to the card tables:
- * a pack exists because cards point at it, and this row is optional
- * decoration on top. Packs with no row keep working exactly as before, which
- * is also why nothing here is required beyond the key itself.
- *
- * `color` is stored ahead of any reader: /api/cards/resolve already returns
- * each card's `pack`, so a future per-pack card treatment (foil, pattern,
- * accent) is a pure rendering change with no migration behind it.
+ * The pack registry. A pack is this row: a stable uuid `id` and one unique
+ * `name`. Cards point at it through `pack_id`, so renaming a pack is a
+ * one-row update and anything holding the id (a lobby's pack selection, an
+ * admin URL) survives it. Before 0012_pack_ids the name itself was the key on
+ * every card row, which is why rename used to rewrite whole card tables and
+ * break games in progress.
  */
 export const cardPacks = pgTable("card_packs", {
-  pack: text("pack").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  /** Retired by 0012_pack_ids: the old name key. Never read or written. */
+  pack: text("pack"),
+  /** Retired by 0012_pack_ids: folded into `name`. Never read or written. */
   displayName: text("display_name"),
   description: text("description"),
   icon: text("icon"),
@@ -132,12 +147,12 @@ export const cardPacks = pgTable("card_packs", {
   sortOrder: integer("sort_order").notNull().default(0),
   official: boolean("official").notNull().default(false),
   nsfw: boolean("nsfw").notNull().default(false),
+  /** Seeded into every new lobby's pack selection. */
+  isDefault: boolean("is_default").notNull().default(false),
   /**
    * The brand/series a pack belongs to (e.g. "Cards Against Humanity",
-   * "Unfit for Print") — editable, and distinct from `displayName`. Most
-   * packs never got a row here, so the admin UI still falls back to
-   * `commonPackPrefix`/`splitPackName`'s guess from the raw pack name when
-   * this is null; an explicit value always wins over that guess.
+   * "Unfit for Print"). When null the UI falls back to
+   * `commonPackPrefix`/`splitPackName`'s guess from the name.
    */
   series: text("series"),
 });
