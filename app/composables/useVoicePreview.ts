@@ -2,9 +2,10 @@ import { ref, onScopeDispose, getCurrentScope } from "vue";
 import { useBrowserSpeech } from "./useBrowserSpeech";
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
 import { applyVolume } from "~/utils/volume";
+import type { TTSProviderType } from "~/constants/ttsProviders";
 
 export interface VoicePreviewDescriptor {
-  provider: "kokoro" | "google" | "openai" | "elevenlabs" | "browser";
+  provider: TTSProviderType;
   voiceId: string;
   apiVoice?: string;
   speed?: number;
@@ -78,39 +79,14 @@ export function useVoicePreview() {
         return;
       }
 
-      let endpoint = "";
-      let payload: Record<string, any> = {};
+      // Every non-browser voice is Kokoro now.
+      const payload = {
+        text: PREVIEW_TTS_TEXT,
+        voice: descriptor.apiVoice,
+        ...(descriptor.speed != null && { speed: descriptor.speed }),
+      };
 
-      if (descriptor.provider === "kokoro") {
-        endpoint = "/api/kokoro-speak";
-        payload = {
-          text: PREVIEW_TTS_TEXT,
-          voice: descriptor.apiVoice,
-          ...(descriptor.speed != null && { speed: descriptor.speed }),
-        };
-      } else if (descriptor.provider === "google") {
-        endpoint = "/api/google-speak";
-        payload = {
-          text: PREVIEW_TTS_TEXT,
-          voiceName: descriptor.apiVoice,
-        };
-      } else if (descriptor.provider === "openai") {
-        endpoint = "/api/openai-speak";
-        payload = {
-          text: PREVIEW_TTS_TEXT,
-          voice: descriptor.apiVoice || "fable",
-          model: "tts-1",
-        };
-      } else if (descriptor.provider === "elevenlabs") {
-        endpoint = "/api/speak";
-        payload = {
-          text: PREVIEW_TTS_TEXT,
-          voiceId: descriptor.apiVoice,
-          modelId: "eleven_multilingual_v2",
-        };
-      }
-
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/kokoro-speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

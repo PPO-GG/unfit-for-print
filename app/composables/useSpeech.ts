@@ -1,44 +1,17 @@
 import { ref } from "vue";
 import { useBrowserSpeech } from "./useBrowserSpeech";
-import { TTS_PROVIDERS } from "~/constants/ttsProviders";
+import { TTS_PROVIDERS, type TTSProviderType } from "~/constants/ttsProviders";
 import { applyVolume } from "~/utils/volume";
 
-// Define provider types
-export type TTSProvider = "browser" | "elevenlabs" | "openai" | "google" | "kokoro";
+export type TTSProvider = TTSProviderType;
 
-// Define options for each provider
 export interface TTSOptions {
-  // Browser TTS options
   browserVoice?: string;
   browserRate?: number;
-
-  // ElevenLabs options
-  elevenLabsVoiceId?: string;
-  elevenLabsModelId?: string;
-
-  // OpenAI options
-  openAIVoice?: string;
-  openAIModel?: string;
-
-  // Google options
-  googleVoiceName?: string;
 }
 
-// Default options
 const defaultOptions: TTSOptions = {
-  // Browser defaults
   browserRate: 1.0,
-
-  // ElevenLabs defaults
-  elevenLabsVoiceId: "pzxut4zZz4GImZNlqQ3H",
-  elevenLabsModelId: "eleven_multilingual_v2",
-
-  // OpenAI defaults
-  openAIVoice: "nova",
-  openAIModel: "tts-1",
-
-  // Google defaults
-  googleVoiceName: "en-US-Neural2-D",
 };
 
 export function applyTtsVolume(
@@ -97,36 +70,13 @@ export function useSpeech(options: TTSOptions = {}) {
         return;
       }
 
-      // For API-based TTS (ElevenLabs and OpenAI)
+      // API-based TTS (Kokoro)
       if (!audio) return;
 
       let endpoint: string;
       let payload: any;
 
-      if (provider === "elevenlabs") {
-        endpoint = "/api/speak";
-        payload = {
-          text,
-          voiceId: mergedOptions.elevenLabsVoiceId,
-          modelId: mergedOptions.elevenLabsModelId,
-        };
-      } else if (provider === "openai") {
-        endpoint = "/api/openai-speak";
-        payload = {
-          text,
-          voice: mergedOptions.openAIVoice,
-          model: mergedOptions.openAIModel,
-        };
-      } else if (provider === "google") {
-        endpoint = "/api/google-speak";
-        const googleConfig = Object.values(TTS_PROVIDERS).find(
-          (p) => p.id === userPrefs.ttsVoice,
-        );
-        payload = {
-          text,
-          voiceName: googleConfig?.apiVoice ?? TTS_PROVIDERS.GOOGLE_MALE.apiVoice,
-        };
-      } else if (provider === "kokoro") {
+      if (provider === "kokoro") {
         endpoint = "/api/kokoro-speak";
         const kokoroConfig = Object.values(TTS_PROVIDERS).find(
           (p) => p.id === userPrefs.ttsVoice,
@@ -140,7 +90,7 @@ export function useSpeech(options: TTSOptions = {}) {
         throw new Error(`Unknown provider: ${provider}`);
       }
 
-      // /api/*-speak routes authenticate via requireAuth, which reads the
+      // /api/kokoro-speak authenticates via requireAuth, which reads the
       // session cookie automatically sent with same-origin requests — no
       // manual Authorization header needed.
       const response = await fetch(endpoint, {

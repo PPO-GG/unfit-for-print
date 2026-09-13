@@ -373,7 +373,6 @@ import { mergeCardText } from "~/composables/useMergeCards";
 import { useI18n } from "vue-i18n";
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
 import {
-  TTS_PROVIDERS,
   getProviderFromVoiceId,
   type TTSProviderType,
 } from "~/constants/ttsProviders";
@@ -436,9 +435,6 @@ const handleLogout = async () => {
     console.error("Logout error:", err);
   }
 };
-
-const openAIConfig = TTS_PROVIDERS.OPENAI;
-const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
 
 const whiteCard = ref<any>(null);
 const blackCard = ref<any>(null);
@@ -506,10 +502,7 @@ let speechService = {
 };
 
 if (typeof window !== "undefined") {
-  speechService = useSpeech({
-    elevenLabsVoiceId: elevenLabsConfig.apiVoice,
-    openAIVoice: openAIConfig.apiVoice,
-  });
+  speechService = useSpeech();
 }
 
 const isClient = computed(() => typeof window !== "undefined");

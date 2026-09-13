@@ -18,7 +18,6 @@ loadEnv();
 // This list is a debt ledger, not a permanent exclusion: delete entries as the
 // suites are repaired, and never add one to make a new failure go away.
 const KNOWN_FAILING = [
-  "tests/composables/useVoicePreview.test.ts",
   "tests/stores/userPrefsStore.test.ts",
   "tests/components/game/BlackCard.test.ts",
   "tests/components/game/UserHand.test.ts",

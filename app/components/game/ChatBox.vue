@@ -125,13 +125,10 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { Filter } from "bad-words";
 import { useBrowserSpeech } from "~/composables/useBrowserSpeech";
-import { useSpeech } from "~/composables/useSpeech";
 import { useUserPrefsStore } from "~/stores/userPrefsStore";
 import { SFX } from "~/config/sfx.config";
 
-const elevenLabsVoiceId = "NuIlfu52nTXRM2NXDrjS";
 const browserSpeech = useBrowserSpeech();
-const elevenLabsSpeech = useSpeech({ elevenLabsVoiceId });
 const prefs = useUserPrefsStore();
 const { t } = useI18n();
 const maxLength = 255;
@@ -153,11 +150,7 @@ const isMessageEmpty = computed(() => !newMessage.value.trim());
 const filter = new Filter();
 
 const speak = (text: string) => {
-  if (prefs.ttsVoice === elevenLabsVoiceId) {
-    elevenLabsSpeech.speak("elevenlabs", text);
-  } else {
-    browserSpeech.speak(text);
-  }
+  browserSpeech.speak(text);
 };
 
 function uidToHSLColor(uid: string): string {

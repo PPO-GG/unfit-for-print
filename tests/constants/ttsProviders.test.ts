@@ -1,120 +1,46 @@
 import { describe, it, expect } from 'vitest'
-import { getProviderFromVoiceId, TTS_PROVIDERS } from '~/constants/ttsProviders'
+import { getProviderFromVoiceId, TTS_PROVIDERS, DEFAULT_TTS_VOICE } from '~/constants/ttsProviders'
+import { KOKORO_ALLOWED_VOICES } from '~~/server/api/kokoro-speak.post'
 
 describe('getProviderFromVoiceId', () => {
-  it('returns elevenlabs for ElevenLabs voice ID', () => {
-    expect(getProviderFromVoiceId(TTS_PROVIDERS.ELEVENLABS.id)).toBe('elevenlabs')
-  })
-
-  it('returns openai for OpenAI voice ID', () => {
-    expect(getProviderFromVoiceId(TTS_PROVIDERS.OPENAI.id)).toBe('openai')
-  })
-
-  it('returns google for GOOGLE_MALE voice ID', () => {
-    expect(getProviderFromVoiceId(TTS_PROVIDERS.GOOGLE_MALE.id)).toBe('google')
-  })
-
-  it('returns google for GOOGLE_FEMALE voice ID', () => {
-    expect(getProviderFromVoiceId(TTS_PROVIDERS.GOOGLE_FEMALE.id)).toBe('google')
-  })
-
-  it('returns google for AU voice ID', () => {
-    expect(getProviderFromVoiceId(TTS_PROVIDERS.GOOGLE_AU_B.id)).toBe('google')
-  })
-
-  it('returns google for UK voice ID', () => {
-    expect(getProviderFromVoiceId(TTS_PROVIDERS.GOOGLE_GB_D.id)).toBe('google')
+  it('returns kokoro for any kokoro- prefixed ID', () => {
+    expect(getProviderFromVoiceId('kokoro-af_heart')).toBe('kokoro')
+    expect(getProviderFromVoiceId('kokoro-bm_v0lewis')).toBe('kokoro')
   })
 
   it('returns browser for unknown voice ID', () => {
     expect(getProviderFromVoiceId('some-browser-voice')).toBe('browser')
   })
-})
 
-describe('TTS_PROVIDERS', () => {
-  it('GOOGLE_MALE has correct shape', () => {
-    expect(TTS_PROVIDERS.GOOGLE_MALE).toEqual({
-      id: 'google-neural2-male',
-      apiVoice: 'en-US-Neural2-D',
-      displayName: 'Google US Neural2-D (Male)',
-    })
-  })
-
-  it('GOOGLE_FEMALE has correct shape', () => {
-    expect(TTS_PROVIDERS.GOOGLE_FEMALE).toEqual({
-      id: 'google-neural2-female',
-      apiVoice: 'en-US-Neural2-C',
-      displayName: 'Google US Neural2-C (Female)',
-    })
-  })
-
-  it('GOOGLE_AU_A has correct shape', () => {
-    expect(TTS_PROVIDERS.GOOGLE_AU_A).toEqual({
-      id: 'google-neural2-au-a',
-      apiVoice: 'en-AU-Neural2-A',
-      displayName: 'Google AU Neural2-A (Female)',
-    })
-  })
-
-  it('GOOGLE_GB_B has correct shape', () => {
-    expect(TTS_PROVIDERS.GOOGLE_GB_B).toEqual({
-      id: 'google-neural2-gb-b',
-      apiVoice: 'en-GB-Neural2-B',
-      displayName: 'Google UK Neural2-B (Male)',
-    })
-  })
-
-  it('all google voice IDs start with google-neural2-', () => {
-    const googleKeys = Object.keys(TTS_PROVIDERS).filter((k) => k.startsWith('GOOGLE_'))
-    for (const key of googleKeys) {
-      const provider = TTS_PROVIDERS[key as keyof typeof TTS_PROVIDERS]
-      expect(provider.id).toMatch(/^google-neural2-/)
-    }
+  it('treats a saved voice from a removed provider as browser', () => {
+    // Players' prefs can still hold these ids; they must not route to an
+    // endpoint that no longer has a client path.
+    expect(getProviderFromVoiceId('google-neural2-male')).toBe('browser')
+    expect(getProviderFromVoiceId('openai-fable')).toBe('browser')
+    expect(getProviderFromVoiceId('NuIlfu52nTXRM2NXDrjS')).toBe('browser')
   })
 })
 
 describe('Kokoro voices', () => {
-  it('getProviderFromVoiceId returns kokoro for any kokoro- prefixed ID', () => {
-    expect(getProviderFromVoiceId('kokoro-af_heart')).toBe('kokoro')
-    expect(getProviderFromVoiceId('kokoro-bm_george')).toBe('kokoro')
-    expect(getProviderFromVoiceId('kokoro-ff_siwis')).toBe('kokoro')
+  const kokoro = Object.values(TTS_PROVIDERS)
+
+  it('every voice id is kokoro- prefixed and unique', () => {
+    const ids = kokoro.map((p) => p.id)
+    for (const id of ids) expect(id).toMatch(/^kokoro-/)
+    expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('KOKORO_AF_HEART has correct shape', () => {
-    expect(TTS_PROVIDERS.KOKORO_AF_HEART).toEqual({
-      id: 'kokoro-af_heart',
-      apiVoice: 'af_heart',
-      displayName: 'Kokoro · Heart (American F)',
-    })
+  it('every voice id matches its apiVoice', () => {
+    // The id is what gets saved to prefs; the apiVoice is what Kokoro is sent.
+    // A mismatch means the picker labels one voice and plays another.
+    for (const p of kokoro) expect(p.id).toBe(`kokoro-${p.apiVoice}`)
   })
 
-  it('KOKORO_BF_EMMA has correct shape', () => {
-    expect(TTS_PROVIDERS.KOKORO_BF_EMMA).toEqual({
-      id: 'kokoro-bf_emma',
-      apiVoice: 'bf_emma',
-      displayName: 'Kokoro · Emma (British F)',
-    })
+  it('every voice the picker offers is accepted by /api/kokoro-speak', () => {
+    for (const p of kokoro) expect(KOKORO_ALLOWED_VOICES.has(p.apiVoice)).toBe(true)
   })
 
-  it('all kokoro voice IDs start with kokoro-', () => {
-    const kokoroKeys = Object.keys(TTS_PROVIDERS).filter(k => k.startsWith('KOKORO_'))
-    expect(kokoroKeys.length).toBe(16)
-    for (const key of kokoroKeys) {
-      const provider = TTS_PROVIDERS[key as keyof typeof TTS_PROVIDERS]
-      expect(provider.id).toMatch(/^kokoro-/)
-    }
-  })
-
-  it('all kokoro apiVoice values are in the server allowlist', () => {
-    const ALLOWED_VOICES = [
-      'af_heart', 'af_bella', 'af_nicole', 'af_aoede', 'af_kore',
-      'af_sarah', 'af_alloy', 'af_nova', 'am_fenrir', 'am_michael',
-      'am_puck', 'bf_emma', 'bf_isabella', 'bm_fable', 'bm_george', 'ff_siwis',
-    ]
-    const kokoroKeys = Object.keys(TTS_PROVIDERS).filter(k => k.startsWith('KOKORO_'))
-    for (const key of kokoroKeys) {
-      const provider = TTS_PROVIDERS[key as keyof typeof TTS_PROVIDERS]
-      expect(ALLOWED_VOICES).toContain(provider.apiVoice)
-    }
+  it('the default voice is a Kokoro voice', () => {
+    expect(getProviderFromVoiceId(DEFAULT_TTS_VOICE.id)).toBe('kokoro')
   })
 })
