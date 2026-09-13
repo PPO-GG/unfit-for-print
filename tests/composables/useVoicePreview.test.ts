@@ -28,14 +28,18 @@ describe("useVoicePreview", () => {
 
     const playMock = vi.fn().mockResolvedValue(undefined);
     const pauseMock = vi.fn();
-    const mockAudio = vi.fn().mockImplementation(() => ({
-      play: playMock,
-      pause: pauseMock,
-      src: "",
-      volume: 1,
-      onended: null,
-      onerror: null,
-    }));
+    // A `function`, not an arrow: the composable calls `new Audio(url)`, and
+    // Vitest 4 refuses to construct a mock whose implementation is an arrow.
+    const mockAudio = vi.fn(function () {
+      return {
+        play: playMock,
+        pause: pauseMock,
+        src: "",
+        volume: 1,
+        onended: null,
+        onerror: null,
+      };
+    });
     global.Audio = mockAudio as any;
     global.URL.createObjectURL = vi.fn().mockReturnValue("blob:mock-audio");
     global.URL.revokeObjectURL = vi.fn();
