@@ -28,6 +28,7 @@ import {
   renamePack,
 } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
+import { normalizePackText } from "#shared/packMetaText";
 
 const MAX_IDS = 500;
 
@@ -56,6 +57,10 @@ export default defineEventHandler(async (event) => {
     });
   }
   const targetName = typeof toPack === "string" ? toPack.trim() : null;
+  // A pack named with a stray double space is still found by its exact name;
+  // a typed destination that only differs by internal whitespace should still
+  // land on it rather than spawn (or collide with) a near-duplicate.
+  const normalizedTargetName = targetName ? normalizePackText(targetName) : null;
   const clearing = toPackId === undefined && toPack === null;
 
   const sourceRef =
@@ -99,12 +104,15 @@ export default defineEventHandler(async (event) => {
       if (!targetId) throw createError({ statusCode: 404, statusMessage: "Destination pack not found" });
     } else if (targetName) {
       targetId = await findPackId(tx, targetName);
+      if (!targetId && normalizedTargetName !== targetName) {
+        targetId = await findPackId(tx, normalizedTargetName!);
+      }
     }
 
     // ── Specific cards ──────────────────────────────────────────────────────
     if (ids) {
       const table = cardTable(type) as typeof whiteCards;
-      const dest = clearing ? null : (targetId ?? (await ensurePackByName(tx, targetName!)));
+      const dest = clearing ? null : (targetId ?? (await ensurePackByName(tx, normalizedTargetName!)));
       const rows = await tx
         .update(table)
         .set({ packId: dest })
@@ -135,7 +143,7 @@ export default defineEventHandler(async (event) => {
     const sourceRetainsCards = type !== "all" && before[otherType] > 0;
 
     if (sourceRetainsCards) {
-      const dest = targetId ?? (await ensurePackByName(tx, targetName!));
+      const dest = targetId ?? (await ensurePackByName(tx, normalizedTargetName!));
       for (const table of tables) {
         await tx.update(table).set({ packId: dest }).where(eq(table.packId, sourceId));
       }
@@ -147,7 +155,7 @@ export default defineEventHandler(async (event) => {
       return { moved, aux: "drop" as Aux };
     }
 
-    await renamePack(tx, sourceId, targetName!);
+    await renamePack(tx, sourceId, normalizedTargetName!);
     return { moved, aux: "move" as Aux };
   });
 });

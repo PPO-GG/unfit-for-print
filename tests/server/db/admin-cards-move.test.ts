@@ -97,6 +97,48 @@ describe("POST /api/admin/cards/move — rename", () => {
 
     expect(await packNamesOf(whiteCards)).toEqual(["Target"]);
   });
+
+  it("finds an existing pack across a double-space typo, merging the second source into the first instead of colliding", async () => {
+    await insertCards(whiteCards, { text: "p", pack: "P" });
+    await insertCards(whiteCards, { text: "q", pack: "Q" });
+
+    const first = await callMove({ from: { pack: "P" }, toPack: "Y  Z", type: "all" });
+    expect(first).toEqual({ moved: { white: 1, black: 0 }, aux: "move" });
+    expect(await packNamesOf(whiteCards)).toEqual(["Q", "Y Z"]);
+
+    const second = await callMove({ from: { pack: "Q" }, toPack: "Y  Z", type: "all" });
+    expect(second).toEqual({ moved: { white: 1, black: 0 }, aux: "drop" });
+
+    expect(await packNamesOf(whiteCards)).toEqual(["Y Z", "Y Z"]);
+    expect((await db.select().from(cardPacks)).map((p) => p.name)).toEqual(["Y Z"]);
+  });
+
+  it("creates a normalized name for an id move to a double-spaced destination", async () => {
+    const [card] = await insertCards(whiteCards, { text: "w1", pack: "Source" });
+
+    const result = await callMove({ from: { ids: [card.id] }, toPack: "Y  Z", type: "white" });
+
+    expect(result).toEqual({ moved: { white: 1, black: 0 }, aux: null });
+    expect(await packNamesOf(whiteCards)).toEqual(["Y Z"]);
+  });
+
+  it("finds an existing double-spaced pack by its exact name rather than spawning a twin", async () => {
+    const targetId = await seedPack("Cards Against Humanity  Nasty Bundle");
+    const [card] = await insertCards(whiteCards, { text: "w1", pack: "Source" });
+
+    await callMove({
+      from: { ids: [card.id] },
+      toPack: "Cards Against Humanity  Nasty Bundle",
+      type: "white",
+    });
+
+    expect(await packNamesOf(whiteCards)).toEqual(["Cards Against Humanity  Nasty Bundle"]);
+    const matches = await db
+      .select()
+      .from(cardPacks)
+      .where(eq(cardPacks.name, "Cards Against Humanity  Nasty Bundle"));
+    expect(matches).toEqual([expect.objectContaining({ id: targetId })]);
+  });
 });
 
 describe("POST /api/admin/cards/move — merge", () => {
