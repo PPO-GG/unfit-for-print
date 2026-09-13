@@ -119,7 +119,7 @@ Standalone ~660-line Yjs server with its own `package.json`, Dockerfile, and loc
 - i18n: 9 locales in `i18n/locales/`, strategy `no_prefix`. Add new user-facing strings to `en.json` at minimum.
 - Runtime config is env-driven (`NUXT_*`); see `.env.example`. Anything under `runtimeConfig.public` ships to the client bundle.
 - Commits follow **Conventional Commits** — enforced by commitlint in CI and consumed by release-please (`feat`, `fix`, `perf`, `refactor`, `docs` are user-visible in the changelog). Scopes in use: `web`, `server`, `bot`. Do not hand-edit `CHANGELOG.md` or `package.json` version — release-please owns them.
-- All work happens on **`main`**; `dev` no longer exists.
+- **`main`** is the only long-lived branch; `dev` no longer exists. `main` is branch-protected: changes land through a pull request from a short-lived branch, and the `Tests` and `Build` checks in `.github/workflows/ci.yml` must pass. CI runs only on pull requests, so pushing straight to `main` skips the gate — don't, even though admin pushes aren't blocked.
 
 ## Legacy vestiges
 

@@ -393,7 +393,7 @@ onMounted(async () => {
         color: "error",
         icon: "i-mdi-alert-circle",
       });
-      return router.replace("/join?error=not_found");
+      return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
     }
 
     try {
