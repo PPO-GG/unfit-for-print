@@ -1,5 +1,5 @@
 {
-  "id": "bd786d84-0e2f-459f-95ba-7b07c8cce9c9",
+  "id": "ebfd9d79-0601-40a4-bd1f-d9a1e72548fc",
   "prevId": "0acff52d-f10a-4768-8529-a425a8e83f45",
   "version": "7",
   "dialect": "postgresql",
@@ -24,6 +24,12 @@
         "pack": {
           "name": "pack",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pack_id": {
+          "name": "pack_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -74,8 +80,38 @@
           "notNull": false
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "black_cards_pack_id_idx": {
+          "name": "black_cards_pack_id_idx",
+          "columns": [
+            {
+              "expression": "pack_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "black_cards_pack_id_card_packs_id_fk": {
+          "name": "black_cards_pack_id_card_packs_id_fk",
+          "tableFrom": "black_cards",
+          "tableTo": "card_packs",
+          "columnsFrom": [
+            "pack_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -86,11 +122,24 @@
       "name": "card_packs",
       "schema": "",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "pack": {
           "name": "pack",
           "type": "text",
-          "primaryKey": true,
-          "notNull": true
+          "primaryKey": false,
+          "notNull": false
         },
         "display_name": {
           "name": "display_name",
@@ -137,6 +186,13 @@
           "notNull": true,
           "default": false
         },
+        "is_default": {
+          "name": "is_default",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "series": {
           "name": "series",
           "type": "text",
@@ -147,7 +203,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "card_packs_name_unique": {
+          "name": "card_packs_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -369,9 +433,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "issue_events_lobby_code_idx": {
           "name": "issue_events_lobby_code_idx",
@@ -384,24 +448,24 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "issue_events_group_id_issue_groups_id_fk": {
           "name": "issue_events_group_id_issue_groups_id_fk",
           "tableFrom": "issue_events",
+          "tableTo": "issue_groups",
           "columnsFrom": [
             "group_id"
           ],
-          "tableTo": "issue_groups",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -492,9 +556,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -502,10 +566,10 @@
       "uniqueConstraints": {
         "issue_groups_fingerprint_unique": {
           "name": "issue_groups_fingerprint_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "fingerprint"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -587,25 +651,25 @@
         "lobbies_host_user_id_users_id_fk": {
           "name": "lobbies_host_user_id_users_id_fk",
           "tableFrom": "lobbies",
+          "tableTo": "users",
           "columnsFrom": [
             "host_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "lobbies_code_unique": {
           "name": "lobbies_code_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "code"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -641,15 +705,15 @@
         "lobby_passwords_lobby_id_lobbies_id_fk": {
           "name": "lobby_passwords_lobby_id_lobbies_id_fk",
           "tableFrom": "lobby_passwords",
+          "tableTo": "lobbies",
           "columnsFrom": [
             "lobby_id"
           ],
-          "tableTo": "lobbies",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -720,28 +784,28 @@
         "players_user_id_users_id_fk": {
           "name": "players_user_id_users_id_fk",
           "tableFrom": "players",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "players_lobby_id_lobbies_id_fk": {
           "name": "players_lobby_id_lobbies_id_fk",
           "tableFrom": "players",
+          "tableTo": "lobbies",
           "columnsFrom": [
             "lobby_id"
           ],
-          "tableTo": "lobbies",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -798,15 +862,15 @@
         "reports_reported_by_users_id_fk": {
           "name": "reports_reported_by_users_id_fk",
           "tableFrom": "reports",
+          "tableTo": "users",
           "columnsFrom": [
             "reported_by"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -923,15 +987,15 @@
         "submissions_submitter_id_users_id_fk": {
           "name": "submissions_submitter_id_users_id_fk",
           "tableFrom": "submissions",
+          "tableTo": "users",
           "columnsFrom": [
             "submitter_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -975,28 +1039,28 @@
         "user_decorations_user_id_users_id_fk": {
           "name": "user_decorations_user_id_users_id_fk",
           "tableFrom": "user_decorations",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "user_decorations_decoration_id_decorations_id_fk": {
           "name": "user_decorations_decoration_id_decorations_id_fk",
           "tableFrom": "user_decorations",
+          "tableTo": "decorations",
           "columnsFrom": [
             "decoration_id"
           ],
-          "tableTo": "decorations",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1071,15 +1135,15 @@
         "user_stats_user_id_users_id_fk": {
           "name": "user_stats_user_id_users_id_fk",
           "tableFrom": "user_stats",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1151,10 +1215,10 @@
       "uniqueConstraints": {
         "users_discord_user_id_unique": {
           "name": "users_discord_user_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "discord_user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -1181,6 +1245,12 @@
         "pack": {
           "name": "pack",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pack_id": {
+          "name": "pack_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1224,8 +1294,38 @@
           "notNull": false
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "white_cards_pack_id_idx": {
+          "name": "white_cards_pack_id_idx",
+          "columns": [
+            {
+              "expression": "pack_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "white_cards_pack_id_card_packs_id_fk": {
+          "name": "white_cards_pack_id_card_packs_id_fk",
+          "tableFrom": "white_cards",
+          "tableTo": "card_packs",
+          "columnsFrom": [
+            "pack_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1235,10 +1335,10 @@
   },
   "enums": {},
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},
