@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.23.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.22.0...v3.23.0) (2026-09-13)
+
+
+### ✨ Features
+
+* **web:** show pack tags and description in the Labs card browser ([#114](https://github.com/PPO-GG/unfit-for-print/issues/114)) ([44ca750](https://github.com/PPO-GG/unfit-for-print/commit/44ca750804d4877e30d290f4c2f22b591d40df37))
+
+
+### 🐛 Bug Fixes
+
+* clear the typecheck backlog and make Typecheck a blocking CI check ([#117](https://github.com/PPO-GG/unfit-for-print/issues/117)) ([cdf1d0c](https://github.com/PPO-GG/unfit-for-print/commit/cdf1d0c460664a061f4efd884bd24044458dbbd0))
+* **web:** finish removing Google, OpenAI and ElevenLabs TTS from the client ([#116](https://github.com/PPO-GG/unfit-for-print/issues/116)) ([4bcff60](https://github.com/PPO-GG/unfit-for-print/commit/4bcff606659506097b381157d8139dddbe55aa71))
+* **web:** send not-found lobbies home instead of a missing /join page ([#113](https://github.com/PPO-GG/unfit-for-print/issues/113)) ([8560228](https://github.com/PPO-GG/unfit-for-print/commit/85602288b715c754aefc5ed272f13fd45308f79e))
+
 ## [3.22.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.21.0...v3.22.0) (2026-09-12)
 
 
