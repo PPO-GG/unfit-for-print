@@ -77,7 +77,7 @@ export const TTS_PROVIDERS = {
   },
   KOKORO_BM_V0LEWIS: {
     id: "kokoro-bm_v0lewis",
-    apiVoice: "bm_lewis",
+    apiVoice: "bm_v0lewis",
     displayName: "Kokoro · Lewis (British M)",
   },
   KOKORO_FF_SIWIS: {

@@ -1,3 +1,14 @@
+import { TTS_PROVIDERS } from "../../app/constants/ttsProviders";
+
+// Derived from the client's voice list rather than kept as a second copy: a
+// hand-maintained list here drifted once already, and the voice picker offered
+// a voice (bm_v0lewis) this route rejected with "Invalid voice".
+export const KOKORO_ALLOWED_VOICES: ReadonlySet<string> = new Set(
+  Object.values(TTS_PROVIDERS)
+    .filter((p) => p.id.startsWith("kokoro-"))
+    .map((p) => p.apiVoice),
+);
+
 export default defineEventHandler(async (event) => {
   const { text, voice, speed } = await readBody(event) as { text: string; voice: string; speed?: number };
 
@@ -15,13 +26,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const ALLOWED_VOICES = [
-    'af_heart', 'af_bella', 'af_nicole', 'af_aoede', 'af_kore',
-    'af_sarah', 'af_alloy', 'af_nova', 'am_fenrir', 'am_michael',
-    'am_puck', 'bf_emma', 'bf_isabella', 'bm_fable', 'bm_george', 'ff_siwis',
-  ];
-
-  if (!ALLOWED_VOICES.includes(voice)) {
+  if (!KOKORO_ALLOWED_VOICES.has(voice)) {
     throw createError({
       statusCode: 400,
       statusMessage: 'Invalid voice',

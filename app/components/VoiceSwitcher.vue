@@ -3,7 +3,6 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
 import { ref, computed, onMounted } from "vue";
 import { useBrowserSpeech } from "~/composables/useBrowserSpeech";
-import { useIsAdmin } from "~/composables/useAdminCheck";
 import { TTS_PROVIDERS } from "~/constants/ttsProviders";
 import { useVoicePreview, type VoicePreviewDescriptor } from "~/composables/useVoicePreview";
 
@@ -14,16 +13,7 @@ interface VoiceDropdownMenuItem extends DropdownMenuItem {
 const userPrefs = useUserPrefsStore();
 const voices = ref<SpeechSynthesisVoice[]>([]);
 const { getVoices, isVoiceAvailable } = useBrowserSpeech();
-const isAdmin = useIsAdmin();
 const { activeVoiceId, isLoading, playPreview, stopPreview } = useVoicePreview();
-
-const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
-const openAIConfig = TTS_PROVIDERS.OPENAI;
-
-const googleVoiceConfigs = Object.values(TTS_PROVIDERS).filter((p) =>
-  p.id.startsWith("google-neural2-"),
-);
-const googleVoiceIdSet = new Set(googleVoiceConfigs.map((p) => p.id));
 
 const kokoroVoiceConfigs = Object.values(TTS_PROVIDERS).filter((p) =>
   p.id.startsWith("kokoro-"),
@@ -43,17 +33,7 @@ const findBestMatchingVoice = (): SpeechSynthesisVoice | null => {
   return bestMatch || voices.value[0] || null;
 };
 
-const isAIVoiceAvailable = (voiceId: string): boolean => {
-  return (
-    (voiceId === elevenLabsConfig.id ||
-      voiceId === openAIConfig.id ||
-      googleVoiceIdSet.has(voiceId)) &&
-    isAdmin.value
-  );
-};
-
 const updateVoice = () => {
-  if (isAIVoiceAvailable(userPrefs.ttsVoice)) return;
   // Kokoro voices are valid for all users — keep as-is
   if (kokoroVoiceIdSet.has(userPrefs.ttsVoice)) return;
   if (!isVoiceAvailable(userPrefs.ttsVoice)) {
@@ -68,77 +48,15 @@ const loadVoices = () => {
   if (!userPrefs.ttsVoice) {
     const bestMatch = findBestMatchingVoice();
     userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || "";
-  } else if (
-    userPrefs.ttsVoice === elevenLabsConfig.id ||
-    userPrefs.ttsVoice === openAIConfig.id ||
-    googleVoiceIdSet.has(userPrefs.ttsVoice)
-  ) {
-    // Admin-only AI voice: reset to browser if user lost admin
-    if (!isAdmin.value) {
-      const bestMatch = findBestMatchingVoice();
-      userPrefs.ttsVoice = bestMatch?.name || voices.value[0]?.name || "";
-    }
-  } else if (kokoroVoiceIdSet.has(userPrefs.ttsVoice)) {
-    // Kokoro voices are valid for all — no reset needed
   } else {
+    // A saved voice that no longer exists (a removed Google/OpenAI/ElevenLabs
+    // or Kokoro voice) falls through to here and is swapped for a browser one.
     updateVoice();
   }
 };
 
 const items = computed<VoiceDropdownMenuItem[]>(() => {
   const result: VoiceDropdownMenuItem[] = [];
-
-  // Premium Voices — admin only
-  if (isAdmin.value) {
-    result.push({
-      label: "Premium Voices",
-      icon: "i-solar-crown-bold-duotone",
-      children: [
-        ...googleVoiceConfigs.map((config) => ({
-          label: config.displayName,
-          color: (userPrefs.ttsVoice === config.id ? "primary" : undefined) as any,
-          icon: userPrefs.ttsVoice === config.id
-            ? "i-solar-user-speak-bold-duotone"
-            : "i-solar-magic-stick-3-bold-duotone",
-          slot: "voice",
-          voiceDescriptor: {
-            provider: "google" as const,
-            voiceId: config.id,
-            apiVoice: config.apiVoice,
-          },
-          onSelect: () => { userPrefs.ttsVoice = config.id },
-        })),
-        {
-          label: openAIConfig.displayName,
-          color: (userPrefs.ttsVoice === openAIConfig.id ? "primary" : undefined) as any,
-          icon: userPrefs.ttsVoice === openAIConfig.id
-            ? "i-solar-user-speak-bold-duotone"
-            : "i-solar-magic-stick-3-bold-duotone",
-          slot: "voice",
-          voiceDescriptor: {
-            provider: "openai" as const,
-            voiceId: openAIConfig.id,
-            apiVoice: openAIConfig.apiVoice,
-          },
-          onSelect: () => { userPrefs.ttsVoice = openAIConfig.id },
-        },
-        {
-          label: elevenLabsConfig.displayName,
-          color: (userPrefs.ttsVoice === elevenLabsConfig.id ? "primary" : undefined) as any,
-          icon: userPrefs.ttsVoice === elevenLabsConfig.id
-            ? "i-solar-user-speak-bold-duotone"
-            : "i-solar-magic-stick-3-bold-duotone",
-          slot: "voice",
-          voiceDescriptor: {
-            provider: "elevenlabs" as const,
-            voiceId: elevenLabsConfig.id,
-            apiVoice: elevenLabsConfig.apiVoice,
-          },
-          onSelect: () => { userPrefs.ttsVoice = elevenLabsConfig.id },
-        },
-      ],
-    });
-  }
 
   // Kokoro TTS — all users
   result.push({

@@ -13,8 +13,8 @@ import { SFX } from "~/config/sfx.config";
 import { useSpeech } from "~/composables/useSpeech";
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
 import {
-  TTS_PROVIDERS,
   getProviderFromVoiceId,
+  type TTSProviderType,
 } from "~/constants/ttsProviders";
 import MobileGameLayout from "~/components/game/mobile/MobileGameLayout.vue";
 import CornerControls from "~/components/game/CornerControls.vue";
@@ -59,25 +59,19 @@ const myId = userStore.user?.id ?? "";
 const { notify } = useNotifications();
 
 // ── TTS (read-aloud broadcast) ──────────────────────────────────
-type TTSProvider = "browser" | "elevenlabs" | "openai" | "google" | "kokoro";
 const userPrefs = useUserPrefsStore();
 
 let speechService = {
-  speak: (_provider: TTSProvider, _text: string) => {},
+  speak: (_provider: TTSProviderType, _text: string) => {},
   isSpeaking: ref(false),
 };
 
 if (import.meta.client) {
-  const openAIConfig = TTS_PROVIDERS.OPENAI;
-  const elevenLabsConfig = TTS_PROVIDERS.ELEVENLABS;
-  speechService = useSpeech({
-    elevenLabsVoiceId: elevenLabsConfig.apiVoice,
-    openAIVoice: openAIConfig.apiVoice,
-  });
+  speechService = useSpeech();
 }
 
 const currentProvider = computed(
-  (): TTSProvider => getProviderFromVoiceId(userPrefs.ttsVoice),
+  (): TTSProviderType => getProviderFromVoiceId(userPrefs.ttsVoice),
 );
 
 const readingAloud = computed(() => {
