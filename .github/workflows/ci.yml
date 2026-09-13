@@ -7,7 +7,7 @@
 # Three jobs:
 #   Tests     — vitest against a throwaway Postgres service container (gating)
 #   Build     — `nuxt build`, the check that catches what unit tests cannot
-#   Typecheck — advisory only, see the note on that job
+#   Typecheck — `vue-tsc --noEmit`, clean since the 28 legacy errors were fixed
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: CI
@@ -99,15 +99,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
-  # ── Typecheck (advisory) ────────────────────────────────────────────────
-  # Non-blocking on purpose: vue-tsc reports ~28 pre-existing errors on main,
-  # so gating on it would fail every pull request regardless of its contents.
-  # It runs so the count is visible and so regressions in touched files are
-  # noticeable. Make it required once the count reaches zero.
+  # ── Typecheck ───────────────────────────────────────────────────────────
+  # Was advisory while main carried ~28 pre-existing errors. Now that it is
+  # clean it fails the run like the other jobs — it is the check that would
+  # have caught a removed TTS provider still being read on the home page,
+  # which Tests and Build both passed.
   typecheck:
-    name: Typecheck (advisory)
+    name: Typecheck
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

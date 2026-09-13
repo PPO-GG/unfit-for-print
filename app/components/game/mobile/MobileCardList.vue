@@ -42,7 +42,7 @@ function isSelected(cardId: string): boolean {
 
 function pickColor(cardId: string): string {
   const idx = selectionIndex(cardId);
-  return PICK_COLORS[idx] ?? PICK_COLORS[0];
+  return PICK_COLORS[idx] ?? PICK_COLORS[0]!;
 }
 
 function cardStyle(cardId: string) {

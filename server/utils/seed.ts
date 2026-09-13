@@ -102,17 +102,19 @@ export const seedCardsFromJson = async ({
   try {
     logLine("Fetching existing white cards...");
     if (onProgress) onProgress(0, { ...stats });
-    const existingWhiteCards = await db
-      .select({ text: whiteCards.text })
-      .from(whiteCards);
+    // `text` is nullable in the schema; a row with no text can't collide
+    // with an incoming card, so it is dropped before the duplicate checks.
+    const existingWhiteCards = (
+      await db.select({ text: whiteCards.text }).from(whiteCards)
+    ).filter(hasText);
     logLine(`Found ${existingWhiteCards.length} existing white cards`);
     if (onProgress) onProgress(0, { ...stats });
 
     logLine("Fetching existing black cards...");
     if (onProgress) onProgress(0, { ...stats });
-    const existingBlackCards = await db
-      .select({ text: blackCards.text })
-      .from(blackCards);
+    const existingBlackCards = (
+      await db.select({ text: blackCards.text }).from(blackCards)
+    ).filter(hasText);
     logLine(`Found ${existingBlackCards.length} existing black cards`);
     if (onProgress) onProgress(0, { ...stats });
 
@@ -435,6 +437,10 @@ export const seedCardsFromJson = async ({
 };
 
 // Helper function to find similar cards
+function hasText(row: { text: string | null }): row is { text: string } {
+  return row.text != null;
+}
+
 function findSimilarCard(
   cardText: string,
   existingCards: { text: string }[],

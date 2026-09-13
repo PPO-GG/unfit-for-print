@@ -54,7 +54,6 @@ export default defineNuxtConfig({
     "@nuxt/fonts",
     "@nuxt/icon",
     "@pinia/nuxt",
-    "@vueuse/sound/nuxt",
     "@vueuse/nuxt",
     "@nuxt/ui",
     "pinia-plugin-persistedstate/nuxt",
@@ -110,11 +109,6 @@ export default defineNuxtConfig({
     },
   },
 
-  sound: {
-    sounds: {
-      scan: true,
-    },
-  },
   i18n: {
     defaultLocale: "en",
     locales: [
@@ -169,8 +163,14 @@ export default defineNuxtConfig({
     // nuxt-auth-utils session cookie config. Without maxAge, h3 issues the
     // session cookie with no Expires/Max-Age, making it a browser-session
     // cookie that's wiped on browser close instead of persisting.
+    //
+    // `password` is required by h3's SessionConfig type. Left empty on
+    // purpose — the same default nuxt-auth-utils applies — so the real secret
+    // still comes from NUXT_SESSION_PASSWORD at runtime and never gets baked
+    // into the build output.
     session: {
       maxAge: 60 * 60 * 24 * 30, // 30 days
+      password: "",
     },
 
     public: {

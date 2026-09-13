@@ -68,7 +68,7 @@ const PALETTE = [
 function colorFromId(id: string): string {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[hash % PALETTE.length];
+  return PALETTE[hash % PALETTE.length]!;
 }
 
 function initials(p: Player): string {
@@ -76,7 +76,7 @@ function initials(p: Player): string {
   const name = p.name?.trim() ?? "";
   if (!name) return "?";
   const parts = name.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length >= 2) return (parts[0]!.charAt(0) + parts.at(-1)!.charAt(0)).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }
 

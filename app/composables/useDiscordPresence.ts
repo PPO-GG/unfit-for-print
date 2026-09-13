@@ -88,7 +88,7 @@ export function mapGameStateToActivity(input: PresenceInput): DiscordActivity {
 }
 
 interface UseDiscordPresenceOptions {
-  phase: Ref<string>;
+  phase: Ref<GameState["phase"]>;
   round: Ref<number>;
   playerCount: Ref<number>;
 }

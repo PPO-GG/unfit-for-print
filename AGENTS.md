@@ -34,7 +34,7 @@ pnpm vitest run tests/server/db/game-engine.test.ts -t "deals a full hand"
 pnpm typecheck      # vue-tsc --noEmit
 ```
 
-There is **no linter** in this project (no ESLint/Prettier/Biome) — don't invent `pnpm lint`. `pnpm typecheck` exists but is **not currently clean**: it reports ~34 pre-existing errors, concentrated in `server/utils/` (Discord signature `Uint8Array`/`BufferSource` variance, nullable `text` columns in `seed.ts`, `User.id` not on nuxt-auth-utils' `User`) and `app/components/lobby/`. Treat it as a signal on files you touch, not a gate you can expect to pass repo-wide.
+There is **no linter** in this project (no ESLint/Prettier/Biome) — don't invent `pnpm lint`. `pnpm typecheck` is **clean** and CI's `Typecheck` job fails on any error, so keep it at zero. It is the only check that catches a property read off something that no longer exists — Tests and Build both passed while the home page 500'd on a removed TTS provider. If it reports an error inside `node_modules` or references a package you removed, run `pnpm nuxt prepare` first: `.nuxt/tsconfig.json` is generated and goes stale.
 
 ## Testing rules (important)
 
