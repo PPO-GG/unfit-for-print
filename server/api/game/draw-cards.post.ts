@@ -2,9 +2,9 @@
 // Fetches fresh white cards from Postgres, excluding already-used IDs.
 // Called mid-game when the draw pile runs low — keeps cards fresh (no recycling).
 
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { whiteCards } from "~~/server/db/schema";
+import { whiteCards, cardPacks as cardPacksTable } from "~~/server/db/schema";
 import { fetchAllIds, shuffle } from "~~/server/utils/game-engine";
 import { requirePlayerInLobby } from "~~/server/utils/session";
 
@@ -41,8 +41,9 @@ export default defineEventHandler(async (event) => {
 
   // Resolve card texts
   const rows = await db
-    .select({ id: whiteCards.id, text: whiteCards.text, pack: whiteCards.pack })
+    .select({ id: whiteCards.id, text: whiteCards.text, pack: cardPacksTable.name })
     .from(whiteCards)
+    .leftJoin(cardPacksTable, eq(whiteCards.packId, cardPacksTable.id))
     .where(inArray(whiteCards.id, selectedIds));
 
   const cardTexts: Record<string, { text: string; pack: string }> = {};

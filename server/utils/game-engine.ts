@@ -6,6 +6,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { useDb } from "../db/client";
 import type { whiteCards, blackCards } from "../db/schema";
+import { resolvePackRefs } from "./packs";
 
 // ─── Shuffle ────────────────────────────────────────────────────────
 
@@ -19,6 +20,14 @@ export function shuffle<T>(array: T[]): T[] {
 
 // ─── Fetch All Card IDs ──────────────────────────────────────────────
 
+/**
+ * Active card ids, optionally limited to `cardPacks`. Those refs are pack ids,
+ * or pack names from a lobby created before migration 0012_pack_ids — both
+ * resolve here, so a game in flight across that deploy keeps drawing.
+ *
+ * No refs means every pack (unchanged). Refs that all fail to resolve — every
+ * selected pack deleted or merged away — mean no cards, never every card.
+ */
 export async function fetchAllIds(
   table: typeof whiteCards | typeof blackCards,
   cardPacks?: string[],
@@ -26,7 +35,9 @@ export async function fetchAllIds(
   const db = useDb();
   const conditions = [eq(table.active, true)];
   if (cardPacks && cardPacks.length > 0) {
-    conditions.push(inArray(table.pack, cardPacks));
+    const packIds = await resolvePackRefs(db, cardPacks);
+    if (packIds.length === 0) return [];
+    conditions.push(inArray(table.packId, packIds));
   }
 
   const rows = await db
