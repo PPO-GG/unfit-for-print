@@ -14,7 +14,10 @@ vi.mock("gsap", () => ({
   },
 }));
 
-vi.mock("canvas-confetti", () => ({ default: vi.fn() }));
+vi.mock("~/utils/confetti", () => ({
+  burstConfetti: vi.fn(),
+  resetConfetti: vi.fn(),
+}));
 
 vi.mock("~/utils/discord", () => ({
   getDiscordIdFromPlayer: vi.fn(() => null),

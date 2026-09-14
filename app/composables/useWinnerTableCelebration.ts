@@ -13,10 +13,12 @@
  * All deferred work (rAF loops, setTimeouts) is tracked and cancelled on
  * unmount — GameTable can disappear mid-celebration during a Teleportal
  * reconnect, and a confetti loop that outlives its component runs forever.
+ * Confetti goes through `~/utils/confetti`; see there for why it is not the
+ * library's default worker-backed cannon.
  */
 import { ref, watch, nextTick, onBeforeUnmount, type Ref } from "vue";
 import { gsap } from "gsap";
-import confetti from "canvas-confetti";
+import { burstConfetti, resetConfetti } from "~/utils/confetti";
 
 const CONFETTI_COLORS = ["#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
 
@@ -73,7 +75,7 @@ export function useWinnerTableCelebration(
   // called confetti() every animation frame for 3s, which visibly janked the
   // mouse while it ran.
   function fireConfetti() {
-    confetti({
+    burstConfetti({
       particleCount: 50,
       angle: 60,
       spread: 55,
@@ -83,7 +85,7 @@ export function useWinnerTableCelebration(
       gravity: 0.9,
       ticks: 150,
     });
-    confetti({
+    burstConfetti({
       particleCount: 50,
       angle: 120,
       spread: 55,
@@ -96,7 +98,7 @@ export function useWinnerTableCelebration(
 
     // Big center burst
     later(() => {
-      confetti({
+      burstConfetti({
         particleCount: 100,
         spread: 100,
         origin: { x: 0.5, y: 0.5 },
@@ -116,7 +118,7 @@ export function useWinnerTableCelebration(
     if (!winnerId || winnerId !== myId()) return;
 
     // Immediate burst — angled upward/right from the bottom-left corner
-    confetti({
+    burstConfetti({
       particleCount: 60,
       angle: 55,
       spread: 60,
@@ -130,7 +132,7 @@ export function useWinnerTableCelebration(
 
     // Delayed secondary burst for a layered feel
     later(() => {
-      confetti({
+      burstConfetti({
         particleCount: 40,
         angle: 70,
         spread: 50,
@@ -145,7 +147,7 @@ export function useWinnerTableCelebration(
 
     // Third burst — wider fan
     later(() => {
-      confetti({
+      burstConfetti({
         particleCount: 30,
         angle: 45,
         spread: 80,
@@ -241,7 +243,7 @@ export function useWinnerTableCelebration(
       y: winnerBurstRect.top + winnerBurstRect.height / 2,
     };
 
-    confetti({
+    burstConfetti({
       particleCount: 40,
       spread: 55,
       origin: {
@@ -292,6 +294,7 @@ export function useWinnerTableCelebration(
    */
   function resetForNewRound() {
     winnerAnimating.value = false;
+    resetConfetti();
 
     const container = cardContainerRef.value;
     if (!container) return;
@@ -304,6 +307,7 @@ export function useWinnerTableCelebration(
   onBeforeUnmount(() => {
     for (const id of timers) clearTimeout(id);
     timers.clear();
+    resetConfetti();
   });
 
   return {

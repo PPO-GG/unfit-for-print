@@ -23,7 +23,10 @@ import { ref, computed } from "vue";
 // calls, so they must be shimmed as globals here.
 Object.assign(globalThis, Vue);
 
-vi.mock("canvas-confetti", () => ({ default: vi.fn() }));
+vi.mock("~/utils/confetti", () => ({
+  burstConfetti: vi.fn(),
+  resetConfetti: vi.fn(),
+}));
 vi.mock("gsap", () => ({ gsap: { to: vi.fn(), set: vi.fn(), fromTo: vi.fn() } }));
 
 vi.mock("@vueuse/core", async (importOriginal) => {

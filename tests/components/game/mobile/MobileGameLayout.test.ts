@@ -2,9 +2,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 
-// Mock canvas-confetti since it's not installed and not needed in tests
-vi.mock("canvas-confetti", () => ({
-  default: vi.fn(),
+vi.mock("~/utils/confetti", () => ({
+  burstConfetti: vi.fn(),
+  resetConfetti: vi.fn(),
 }));
 
 vi.unmock("vue");

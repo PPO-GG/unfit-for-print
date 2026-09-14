@@ -205,8 +205,8 @@ watch(
   async (winnerId) => {
     if (!winnerId || typeof window === "undefined") return;
     try {
-      const { default: confetti } = await import("canvas-confetti");
-      confetti({
+      const { burstConfetti } = await import("~/utils/confetti");
+      burstConfetti({
         particleCount: 80,
         spread: 90,
         origin: { x: 0.5, y: 0.4 },
@@ -216,7 +216,7 @@ watch(
       if (winnerId === props.myId) {
         setTimeout(
           () =>
-            confetti({
+            burstConfetti({
               particleCount: 50,
               angle: 55,
               spread: 60,
