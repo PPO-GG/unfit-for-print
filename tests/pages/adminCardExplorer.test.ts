@@ -3,11 +3,12 @@
 // state, selection → loading, focus, the dirty guard, and action routing.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
-import { computed, defineComponent, nextTick, onMounted, ref, watch } from "vue";
+import { computed, defineComponent, nextTick, onMounted, ref, watch, type Ref } from "vue";
 import type { AdminCard, AdminPack } from "~/types/adminCard";
 
 vi.stubGlobal("definePageMeta", () => {});
-vi.stubGlobal("defineShortcuts", vi.fn());
+const defineShortcuts = vi.fn();
+vi.stubGlobal("defineShortcuts", defineShortcuts);
 Object.assign(globalThis, { computed, ref, watch, onMounted, nextTick });
 
 const routeQuery = ref<Record<string, string>>({});
@@ -52,7 +53,8 @@ const mutations = {
 };
 vi.mock("~/composables/useExplorerMutations", () => ({ useExplorerMutations: () => mutations }));
 const confirm = vi.fn(async () => true);
-vi.mock("~/composables/useConfirm", () => ({ useConfirm: () => ({ confirm }) }));
+const confirmOpen = ref(false);
+vi.mock("~/composables/useConfirm", () => ({ useConfirm: () => ({ confirm, isOpen: confirmOpen }) }));
 vi.mock("~/composables/useNotifications", () => ({ useNotifications: () => ({ notify: vi.fn() }) }));
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: vi.fn() }));
 
@@ -101,6 +103,9 @@ const stubs = {
 
 import ExplorerPage from "~/pages/admin/cards/index.vue";
 
+type Shortcuts = Ref<Record<string, () => void>>;
+const shortcuts = () => defineShortcuts.mock.lastCall![0] as Shortcuts;
+
 async function mountPage(query: Record<string, string> = {}) {
   routeQuery.value = query;
   const w = mount(ExplorerPage, { global: { stubs } });
@@ -111,6 +116,11 @@ async function mountPage(query: Record<string, string> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   dirty.value = false;
+  confirmOpen.value = false;
+  // clearAllMocks keeps queued mockResolvedValueOnce values; a test that never
+  // reaches confirm must not hand its "Keep editing" to the next test.
+  confirm.mockReset();
+  confirm.mockResolvedValue(true);
   cards.value = [];
   localStorage.clear();
 });
@@ -177,5 +187,68 @@ describe("Card Explorer page", () => {
 
     expect(mutations.mergePacks).toHaveBeenCalledWith([packs.value[0], packs.value[1]], packs.value[1]);
     expect(routeQuery.value.packs).toBe("p2");
+  });
+
+  it("asks before a right-click moves focus to the other pane, and respects Keep editing", async () => {
+    const w = await mountPage();
+    await w.get("[data-testid='pack-p1']").trigger("click");
+    await flushPromises();
+    dirty.value = true;
+    confirm.mockResolvedValueOnce(false);
+
+    w.getComponent(CardTable).vm.$emit("contextmenu", "c-p1");
+    await flushPromises();
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(w.get("[data-testid='inspector']").attributes("data-focus")).toBe("pack");
+  });
+
+  it("asks once when a right-click both selects a card and moves focus", async () => {
+    const w = await mountPage();
+    await w.get("[data-testid='pack-p1']").trigger("click");
+    await flushPromises();
+    dirty.value = true;
+
+    const table = w.getComponent(CardTable).vm;
+    table.$emit("click", "c-p1", { ctrlKey: false, metaKey: false, shiftKey: false });
+    table.$emit("contextmenu", "c-p1");
+    await flushPromises();
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const inspector = w.get("[data-testid='inspector']");
+    expect(inspector.attributes("data-focus")).toBe("card");
+    expect(inspector.attributes("data-cards")).toBe("1");
+  });
+
+  it("turns page shortcuts off while a dialog or the confirm is open", async () => {
+    const w = await mountPage();
+    expect(Object.keys(shortcuts().value)).toContain("escape");
+
+    await w.getComponent(Inspector).vm.$emit("packs-merge");
+    await nextTick();
+    expect(shortcuts().value).toEqual({});
+
+    await w.get("[data-testid='merge-dialog']").trigger("click");
+    w.getComponent(MergeDialog).vm.$emit("update:open", false);
+    await flushPromises();
+    expect(Object.keys(shortcuts().value)).toContain("escape");
+
+    confirmOpen.value = true;
+    expect(shortcuts().value).toEqual({});
+  });
+
+  it("asks before Escape clears the selection, and respects Keep editing", async () => {
+    const w = await mountPage();
+    await w.get("[data-testid='pack-p1']").trigger("click");
+    await flushPromises();
+    dirty.value = true;
+    confirm.mockResolvedValueOnce(false);
+
+    shortcuts().value.escape!();
+    await flushPromises();
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(w.get("[data-testid='inspector']").attributes("data-packs")).toBe("1");
+    expect(routeQuery.value.packs).toBe("p1");
   });
 });

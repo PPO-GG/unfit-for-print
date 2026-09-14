@@ -28,7 +28,7 @@ definePageMeta({ middleware: "admin" });
 const route = useRoute();
 const router = useRouter();
 const { $activityFetch } = useNuxtApp();
-const { confirm } = useConfirm();
+const { confirm, isOpen: confirmOpen } = useConfirm();
 const { notify } = useNotifications();
 
 const roster = useAdminPackRoster();
@@ -87,15 +87,22 @@ const selectedCards = computed(() => {
 
 const inspector = ref<{ dirty: boolean; focusText: () => void; focusName: () => void } | null>(null);
 
-async function guard() {
-  if (!inspector.value?.dirty) return true;
-  return confirm({
+// One right-click emits a guarded `click` and then `contextmenu` in the same
+// tick. Both await this one in-flight prompt: a second `confirm()` would
+// replace the singleton dialog's resolver and leave the first caller hanging.
+let pendingGuard: Promise<boolean> | null = null;
+function guard(): Promise<boolean> {
+  if (!inspector.value?.dirty) return Promise.resolve(true);
+  pendingGuard ??= confirm({
     title: "Discard unsaved changes?",
     message: "Your edits to this item haven't been saved.",
     confirmButtonText: "Discard",
     confirmButtonColor: "warning",
     cancelButtonText: "Keep editing",
+  }).finally(() => {
+    pendingGuard = null;
   });
+  return pendingGuard;
 }
 
 type Mods = { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean };
@@ -113,6 +120,12 @@ async function onCardClick(id: string, mods: Mods) {
   if (!(await guard())) return;
   focus.value = "card";
   cardSel.click(id, mods);
+}
+/** A right-click moves focus to its pane — which swaps the inspector's editor. */
+async function onContextFocus(scope: ActionScope) {
+  if (focus.value === scope) return;
+  if (!(await guard())) return;
+  focus.value = scope;
 }
 async function onCardToggle(id: string) {
   if (!(await guard())) return;
@@ -207,6 +220,9 @@ async function runAction(id: ActionId) {
   const cardsNow = selectedCards.value;
   switch (id) {
     case "rename":
+      // Only a focus change swaps the editor; renaming from an already-focused
+      // pack form keeps its edits, so there is nothing to discard.
+      if (focus.value !== "pack" && !(await guard())) return;
       focus.value = "pack";
       await nextTick();
       inspector.value?.focusName();
@@ -256,10 +272,24 @@ const actions = useExplorerActions({
   cards: selectedCards,
   focus,
   run: runAction,
-  selectAll: (scope) => (scope === "pack" ? packSel : cardSel).selectAll(),
-  clear: (scope) => (scope === "pack" ? packSel : cardSel).clear(),
+  selectAll: async (scope) => {
+    if (!(await guard())) return;
+    (scope === "pack" ? packSel : cardSel).selectAll();
+  },
+  clear: async (scope) => {
+    if (!(await guard())) return;
+    (scope === "pack" ? packSel : cardSel).clear();
+  },
 });
-defineShortcuts(actions.shortcuts);
+// The shortcuts listen on window, so they would also fire behind a dialog:
+// Escape closing the Merge dialog would clear the selection, and Delete would
+// stack a second confirm on the singleton dialog. Off while anything is open.
+const pageShortcuts = computed(() =>
+  confirmOpen.value || mergeOpen.value || moveOpen.value || seriesOpen.value || addOpen.value
+    ? {}
+    : actions.shortcuts.value,
+);
+defineShortcuts(pageShortcuts);
 
 async function onCardSave(edit: { text: string; pick?: number; pack?: string }) {
   const card = selectedCards.value[0];
@@ -359,7 +389,7 @@ const CARD_CHIPS: { id: CardFilter; label: string }[] = [
           :menu="actions.packMenu.value"
           @click="onPackClick"
           @all="onAllPacks"
-          @contextmenu="focus = 'pack'"
+          @contextmenu="onContextFocus('pack')"
         />
         <AdminSelectionBar
           v-if="packSel.selected.value.length"
@@ -404,7 +434,7 @@ const CARD_CHIPS: { id: CardFilter; label: string }[] = [
             @click="onCardClick"
             @toggle="onCardToggle"
             @open="onCardOpen"
-            @contextmenu="focus = 'card'"
+            @contextmenu="onContextFocus('card')"
           />
           <AdminCardGrid
             v-else
