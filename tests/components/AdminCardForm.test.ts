@@ -89,6 +89,21 @@ describe("AdminCardForm", () => {
     expect(mountForm().text()).toContain("Disable");
     expect(mountForm({ ...white, active: false }).text()).toContain("Enable");
   });
+
+  it("goes clean once a reload arrives carrying the saved edit", async () => {
+    const w = mountForm();
+    vmOf(w).draft.text = "Edited.";
+    vmOf(w).save();
+    await w.setProps({ card: { ...white, text: "Edited." } });
+    expect(vmOf(w).dirty).toBe(false);
+    expect(vmOf(w).draft.text).toBe("Edited.");
+  });
+
+  it("does not count an emptied pack field as dirty", () => {
+    const w = mountForm();
+    vmOf(w).draft.pack = "";
+    expect(vmOf(w).dirty).toBe(false);
+  });
 });
 
 describe("AdminCardForm — image cards", () => {

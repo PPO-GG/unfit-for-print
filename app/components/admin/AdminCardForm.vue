@@ -39,22 +39,37 @@ const fromCard = () => ({
 const base = ref(fromCard());
 const draft = reactive(fromCard());
 
-const dirty = computed(
-  () =>
+const dirty = computed(() => {
+  const pack = draft.pack.trim();
+  return (
     draft.text.trim() !== base.value.text.trim() ||
     (props.card.type === "black" && Number(draft.pick) !== base.value.pick) ||
-    draft.pack.trim() !== base.value.pack,
-);
+    (pack !== "" && pack !== base.value.pack)
+  );
+});
 
 function revert() {
   base.value = fromCard();
   Object.assign(draft, base.value);
 }
 
+// A draft that already equals the incoming card counts as "settled" too, not
+// just a clean one — the reload after a save arrives with the same values the
+// draft was edited to, and `dirty` above is still comparing against the old
+// `base`, so without this the draft would look permanently dirty forever.
+const matchesIncoming = (card: AdminCard) => {
+  const pack = draft.pack.trim();
+  return (
+    draft.text.trim() === (card.text ?? "").trim() &&
+    (card.type !== "black" || Number(draft.pick) === (card.pick ?? 1)) &&
+    (pack === "" || pack === (card.pack ?? ""))
+  );
+};
+
 watch(
   () => [props.card.id, props.card.text, props.card.pick, props.card.pack] as const,
   ([id], [prevId]) => {
-    if (id !== prevId || !dirty.value) revert();
+    if (id !== prevId || !dirty.value || matchesIncoming(props.card)) revert();
   },
 );
 

@@ -32,7 +32,11 @@ const revert = () => {
 watch(
   () => props.pack,
   (next, prev) => {
-    if (!prev || next.id !== prev.id || !dirty.value) revert();
+    // A draft that already equals the incoming pack counts as settled too:
+    // after `save()` normalizes the name in place, the reload arrives with
+    // that same normalized value, but `dirty` above still compares against
+    // the pre-save `base` and would otherwise call it dirty forever.
+    if (!prev || next.id !== prev.id || !dirty.value || draftsEqual(draft.value, packToDraft(next))) revert();
   },
 );
 

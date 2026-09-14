@@ -82,4 +82,12 @@ describe("AdminPackForm", () => {
     await w.vm.$nextTick();
     expect(w.find("[data-testid='pack-shout-hint']").exists()).toBe(true);
   });
+
+  it("goes clean once a reload arrives carrying the saved, normalized name", async () => {
+    const w = mountForm();
+    vmOf(w).draft.name = "  Blue   Box ";
+    vmOf(w).save();
+    await w.setProps({ pack: pack({ name: "Blue Box" }) });
+    expect(vmOf(w).dirty).toBe(false);
+  });
 });
