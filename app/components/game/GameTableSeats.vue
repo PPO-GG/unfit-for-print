@@ -1,7 +1,14 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted, watch, nextTick } from "vue";
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  watch,
+  nextTick,
+} from "vue";
 import { gsap } from "gsap";
-import confetti from "canvas-confetti";
+import { burstConfetti } from "~/utils/confetti";
 import type { Player } from "~/types/player";
 import { getDiscordIdFromPlayer } from "~/utils/discord";
 
@@ -229,6 +236,11 @@ watch(
 );
 
 // ── Confetti burst on winner's seat ────────────────────────────
+let followUpBurst: ReturnType<typeof setTimeout> | null = null;
+onBeforeUnmount(() => {
+  if (followUpBurst) clearTimeout(followUpBurst);
+});
+
 watch(
   () => props.roundWinner,
   (winnerId) => {
@@ -244,7 +256,7 @@ watch(
     const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#ec4899", "#a855f7"];
 
     // Quick starburst from the winner's seat
-    confetti({
+    burstConfetti({
       particleCount: 50,
       spread: 70,
       startVelocity: 25,
@@ -256,8 +268,10 @@ watch(
     });
 
     // Second smaller burst slightly delayed for layered effect
-    setTimeout(() => {
-      confetti({
+    if (followUpBurst) clearTimeout(followUpBurst);
+    followUpBurst = setTimeout(() => {
+      followUpBurst = null;
+      burstConfetti({
         particleCount: 30,
         spread: 50,
         startVelocity: 15,

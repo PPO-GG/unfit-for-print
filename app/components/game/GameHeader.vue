@@ -129,7 +129,7 @@ const formattedRound = computed(() => {
   return String(r).padStart(2, "0");
 });
 
-import confetti from "canvas-confetti";
+import { burstConfetti } from "~/utils/confetti";
 
 // ── Submission bounce pulse ──
 const previousSubmissions = ref<Set<string>>(new Set());
@@ -217,7 +217,7 @@ watch(
     const originX = (rect.left + rect.width / 2) / window.innerWidth;
     const originY = (rect.top + rect.height / 2) / window.innerHeight;
 
-    confetti({
+    burstConfetti({
       particleCount: 35,
       spread: 60,
       startVelocity: 18,
