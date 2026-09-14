@@ -12,7 +12,7 @@ import { computed, ref } from "vue";
 import { useElementSize, useVirtualList } from "@vueuse/core";
 import { gridGeometry, chunkRows, rowHeight, GRID_GAP } from "~/utils/gridGeometry";
 import { getCardImageUrl } from "~/utils/cardImage";
-import type { AdminCard } from "~/composables/useAdminCardList";
+import type { AdminCard } from "~/types/adminCard";
 
 const props = defineProps<{
   cards: AdminCard[];
@@ -58,8 +58,8 @@ const isSelected = (id: string) => props.selectedIds.includes(id);
           <AdminCardPreview
             v-for="card in row.data"
             :key="card.id"
-            :text="card.text"
-            :pack="card.pack"
+            :text="card.text ?? ''"
+            :pack="card.pack ?? undefined"
             :active="card.active"
             :type="card.type"
             :pick="card.pick"
