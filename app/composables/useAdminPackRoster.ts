@@ -5,6 +5,7 @@
  */
 import { computed, ref } from "vue";
 import type { AdminPack } from "~/types/adminCard";
+import { useNotifications } from "~/composables/useNotifications";
 
 interface StatRow {
   packId: string;
@@ -60,6 +61,7 @@ export function mergeRoster(
 
 export function useAdminPackRoster() {
   const { $activityFetch } = useNuxtApp();
+  const { notify } = useNotifications();
   const packs = ref<AdminPack[]>([]);
   const loading = ref(false);
 
@@ -75,6 +77,8 @@ export function useAdminPackRoster() {
         $activityFetch<{ packs: AdminMetaRow[] }>("/api/admin/cards/pack-meta"),
       ]);
       packs.value = mergeRoster(stats, meta.packs);
+    } catch {
+      notify({ title: "Could not load packs", color: "error" });
     } finally {
       loading.value = false;
     }

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: fetchMock }));
+const notifyMock = vi.fn();
+vi.mock("~/composables/useNotifications", () => ({ useNotifications: () => ({ notify: notifyMock }) }));
 
 import { mergeRoster, useAdminPackRoster } from "~/composables/useAdminPackRoster";
 
@@ -24,6 +26,7 @@ const stats = {
 // arguments after every test.
 beforeEach(() => {
   fetchMock.mockReset();
+  notifyMock.mockReset();
 });
 
 describe("mergeRoster", () => {
@@ -56,5 +59,23 @@ describe("useAdminPackRoster", () => {
     expect(roster.findByName("CAH Base Set")?.id).toBe("p1");
     expect(roster.findByName("Empty")?.id).toBe("p2");
     expect(roster.findByName("Nope")).toBeUndefined();
+  });
+
+  it("notifies and keeps the previous packs when the fetch rejects", async () => {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(url === "/api/cards/packs" ? stats : { packs: adminMeta }),
+    );
+    const roster = useAdminPackRoster();
+    await roster.load();
+    const previous = roster.packs.value;
+
+    fetchMock.mockReset();
+    fetchMock.mockRejectedValue(new Error("network down"));
+    await expect(roster.load()).resolves.toBeUndefined();
+
+    expect(roster.packs.value).toBe(previous);
+    expect(roster.loading.value).toBe(false);
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    expect(notifyMock).toHaveBeenCalledWith({ title: "Could not load packs", color: "error" });
   });
 });
