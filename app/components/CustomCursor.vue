@@ -1,7 +1,14 @@
 <script lang="ts" setup>
 import { useCursor } from "~/composables/useCursor";
 
-const { cursorRef, animated, init, destroy } = useCursor();
+const props = defineProps<{
+  /** Skip the JS-animated cursor even on Chromium (the Discord Activity). */
+  cssOnly?: boolean;
+}>();
+
+const { cursorRef, animated, init, destroy } = useCursor({
+  animated: props.cssOnly ? false : undefined,
+});
 
 onMounted(() => init());
 onUnmounted(() => destroy());

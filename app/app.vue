@@ -2,10 +2,14 @@
   <UApp>
     <NuxtPwaManifest />
     <ClientOnly>
-      <template v-if="!isDiscordActivity">
-        <CustomCursor />
-        <InstallPwaBanner />
-      </template>
+      <!-- Inside Discord the cursor is CSS-only: without it, main.css's
+           fallback leaves the arrow on every child of a card (#119). Keyed so
+           the strategy is rebuilt if Activity detection flips after mount. -->
+      <CustomCursor
+        :key="isDiscordActivity ? 'css' : 'auto'"
+        :css-only="isDiscordActivity"
+      />
+      <InstallPwaBanner v-if="!isDiscordActivity" />
     </ClientOnly>
     <ConfirmDialog />
     <ReportProblemModal />

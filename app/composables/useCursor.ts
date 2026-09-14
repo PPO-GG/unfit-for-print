@@ -13,6 +13,11 @@ import { ref } from "vue";
  *   rendering. Firefox's main-thread architecture causes visible jank
  *   with JS-driven cursors on heavy pages, so we let the OS handle it.
  *
+ * - **Discord Activity**: always the CSS cursor, whatever the engine. The
+ *   animated one is not used inside Discord's iframe (see `app.vue`), and
+ *   without either the page falls back to `main.css`, which cannot see the
+ *   interactive selectors below.
+ *
  * Touch devices are excluded automatically via `(pointer: fine)`.
  */
 
@@ -192,9 +197,14 @@ function createCssCursor() {
   let initialized = false;
   let styleEl: HTMLStyleElement | null = null;
 
-  const pointerSelector = INTERACTIVE_SELECTORS.map(
-    (s) => `.custom-cursor-active ${s}`,
-  ).join(",\n    ");
+  // Descendants too. The default rule below sets the arrow on every element
+  // directly rather than letting it inherit, so a hand on `.card-scaler` alone
+  // never reached the card's logo <img> or a black card's blank <span>. The
+  // animated cursor gets this for free from `closest()`.
+  const pointerSelector = INTERACTIVE_SELECTORS.flatMap((s) => [
+    `.custom-cursor-active ${s}`,
+    `.custom-cursor-active ${s} *`,
+  ]).join(",\n    ");
 
   function init() {
     if (typeof window === "undefined" || initialized) return;
@@ -241,6 +251,7 @@ function createCssCursor() {
    Public API
    ═══════════════════════════════════════════════════════════════ */
 
-export function useCursor() {
-  return isChromium ? createAnimatedCursor() : createCssCursor();
+export function useCursor(options: { animated?: boolean } = {}) {
+  const animated = options.animated ?? isChromium;
+  return animated ? createAnimatedCursor() : createCssCursor();
 }
