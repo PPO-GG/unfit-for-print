@@ -6,7 +6,7 @@
  */
 import { computed, ref, watch } from "vue";
 import type { AdminPack } from "~/types/adminCard";
-import { draftsEqual, packToDraft, type PackDraft } from "~/utils/packDraft";
+import { draftsEqual, packToDraft, rebaseDraft, type PackDraft } from "~/utils/packDraft";
 import { splitPackName } from "~/utils/packName";
 import { looksShouted, normalizePackText } from "#shared/packMetaText";
 
@@ -36,7 +36,15 @@ watch(
     // after `save()` normalizes the name in place, the reload arrives with
     // that same normalized value, but `dirty` above still compares against
     // the pre-save `base` and would otherwise call it dirty forever.
-    if (!prev || next.id !== prev.id || !dirty.value || draftsEqual(draft.value, packToDraft(next))) revert();
+    const incoming = packToDraft(next);
+    if (!prev || next.id !== prev.id || !dirty.value || draftsEqual(draft.value, incoming)) {
+      revert();
+      return;
+    }
+    // Still dirty: keep the admin's edits, but take everything they didn't
+    // touch from the reload so Save can't revert a change made elsewhere.
+    draft.value = rebaseDraft(draft.value, base.value, incoming);
+    base.value = incoming;
   },
 );
 

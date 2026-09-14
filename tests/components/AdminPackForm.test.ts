@@ -69,6 +69,17 @@ describe("AdminPackForm", () => {
     expect(vmOf(w).draft.description).toBe("server");
   });
 
+  it("rebases untouched fields of a dirty draft onto a reload of the same pack", async () => {
+    // "Set as default" from the selection bar mid-edit must not be undone by
+    // the next Save sending the draft's stale isDefault.
+    const w = mountForm();
+    vmOf(w).draft.description = "mine";
+    await w.setProps({ pack: pack({ isDefault: true, description: "server" }) });
+    expect(vmOf(w).draft.isDefault).toBe(true);
+    expect(vmOf(w).draft.description).toBe("mine");
+    expect(vmOf(w).dirty).toBe(true);
+  });
+
   it("re-seeds for a different pack", async () => {
     const w = mountForm();
     vmOf(w).draft.description = "mine";
