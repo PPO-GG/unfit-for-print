@@ -306,7 +306,7 @@ watch(
       <template v-else-if="phase === 'submitting' && isJudge">
         <div class="center-state">
           <Icon
-            name="i-solar-gavel-bold"
+            name="i-mdi-gavel"
             class="state-icon state-icon--purple"
           />
           <p class="state-title">Waiting for players...</p>

@@ -28,7 +28,7 @@ describe('rarityColorClass', () => {
 
 describe('categoryIcon', () => {
   it('returns hat icon', () =>
-    expect(categoryIcon('hat')).toBe('i-solar-hat-bold'))
+    expect(categoryIcon('hat')).toBe('i-solar-chef-hat-bold'))
   it('returns glasses icon for face', () =>
     expect(categoryIcon('face')).toBe('i-solar-glasses-bold'))
   it('returns stars icon for effect', () =>

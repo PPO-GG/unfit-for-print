@@ -24,7 +24,7 @@
                is invisible on a card that never flips, and without a maskUrl it
                resolves url(undefined) and fires a 404 per card. -->
           <div v-if="!card" class="lightbox__pending">
-            <Icon name="solar:loading-bold-duotone" class="animate-spin" />
+            <Icon name="lucide:loader-circle" class="animate-spin" />
           </div>
           <div v-else class="lightbox__card">
             <BlackCard

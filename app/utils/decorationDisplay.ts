@@ -30,7 +30,7 @@ export function rarityColorClass(rarity: string): string {
 export function categoryIcon(category: string): string {
   switch (category) {
     case "hat":
-      return "i-solar-hat-bold";
+      return "i-solar-chef-hat-bold";
     case "face":
       return "i-solar-glasses-bold";
     case "effect":
