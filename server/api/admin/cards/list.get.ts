@@ -1,8 +1,8 @@
-import { and, eq, getTableColumns, ilike } from "drizzle-orm";
+import { and, eq, getTableColumns, ilike, inArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { cardPacks } from "~~/server/db/schema";
 import { cardTable } from "~~/server/utils/cardTable";
-import { findPackId } from "~~/server/utils/packs";
+import { findPackId, resolvePackRefs } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
@@ -17,6 +17,12 @@ export default defineEventHandler(async (event) => {
     const packId = await findPackId(db, query.pack);
     if (!packId) return [];
     conditions.push(eq(table.packId, packId));
+  }
+  if (typeof query.packs === "string" && query.packs.trim()) {
+    // The Explorer's multi-pack view. Ids from the client; names still resolve.
+    const packIds = await resolvePackRefs(db, query.packs.split(","));
+    if (!packIds.length) return [];
+    conditions.push(inArray(table.packId, packIds));
   }
   if (query.pick && "pick" in table) conditions.push(eq((table as any).pick, Number(query.pick)));
   if (query.search) conditions.push(ilike(table.text, `%${query.search}%`));
