@@ -57,6 +57,15 @@ describe("savePack", () => {
     expect(await m.savePack(p, { ...m.packToDraft(p), name: "Taken" })).toBe(false);
     expect(notify.mock.calls[0]![0].description).toContain('A pack named "Taken" already exists');
   });
+
+  it("reports a partly-saved pack when a later toggle fails", async () => {
+    fetchMock.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("down"));
+    const m = useExplorerMutations();
+    const p = pack("p1");
+    expect(await m.savePack(p, { ...m.packToDraft(p), isDefault: true })).toBe(false);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]![0].title).toBe("Pack partly saved");
+  });
 });
 
 describe("pack bulk", () => {
@@ -84,10 +93,39 @@ describe("pack bulk", () => {
     expect(confirm.mock.calls[0]![0].message).toContain("4 cards");
   });
 
+  it("treats a 404 delete as already gone and keeps going", async () => {
+    fetchMock
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce({ statusCode: 404 })
+      .mockResolvedValueOnce({});
+    const m = useExplorerMutations();
+    expect(await m.deletePacks([pack("a"), pack("b"), pack("c")])).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("counts a hard failure as not deleted and reports how many landed", async () => {
+    fetchMock
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce({ statusCode: 500 });
+    const m = useExplorerMutations();
+    expect(await m.deletePacks([pack("a"), pack("b"), pack("c")])).toBe(false);
+    expect(notify.mock.calls.at(-1)![0].description).toBe("Deleted 2 of 3 packs.");
+  });
+
   it("writes the merge summary", () => {
     const m = useExplorerMutations();
     expect(m.mergeSummary([pack("a"), pack("b")], pack("b"))).toBe(
       '"Pack b" keeps its name, description and default status. 4 cards move from "Pack a". ' +
+        "A game in progress that selected it stops drawing from it until the lobby restarts.",
+    );
+  });
+
+  it("uses singular verb agreement for a single moved card", () => {
+    const m = useExplorerMutations();
+    const single = pack("a", { white: { total: 1, active: 1 }, black: { total: 0, active: 0 } });
+    expect(m.mergeSummary([single], pack("b"))).toBe(
+      '"Pack b" keeps its name, description and default status. 1 card moves from "Pack a". ' +
         "A game in progress that selected it stops drawing from it until the lobby restarts.",
     );
   });

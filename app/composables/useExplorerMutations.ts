@@ -55,42 +55,61 @@ export function useExplorerMutations() {
     }
   }
 
+  /**
+   * `pack-meta` and the two toggles are three separate requests; if the
+   * details save but a toggle throws, the admin needs to know the name and
+   * description did land rather than seeing a blanket "could not save".
+   */
   async function savePack(p: AdminPack, d: PackDraft) {
     const name = d.name.trim();
-    return run(
-      "Could not save the pack",
-      async () => {
-        try {
-          await post("/api/admin/cards/pack-meta", {
-            id: p.id,
-            ...(name && name !== p.name ? { name } : {}),
-            description: orNull(d.description),
-            icon: orNull(d.icon),
-            color: orNull(d.color),
-            series: orNull(d.series),
-            sortOrder: Number(d.sortOrder) || 0,
-            official: d.official,
-            nsfw: d.nsfw,
+    busy.value = true;
+    let metaSaved = false;
+    try {
+      try {
+        await post("/api/admin/cards/pack-meta", {
+          id: p.id,
+          ...(name && name !== p.name ? { name } : {}),
+          description: orNull(d.description),
+          icon: orNull(d.icon),
+          color: orNull(d.color),
+          series: orNull(d.series),
+          sortOrder: Number(d.sortOrder) || 0,
+          official: d.official,
+          nsfw: d.nsfw,
+        });
+        metaSaved = true;
+      } catch (err) {
+        if ((err as { statusCode?: number })?.statusCode === 409) {
+          notify({
+            title: "Name already taken",
+            description: `A pack named "${name}" already exists — select both packs and use Merge into… instead.`,
+            color: "warning",
           });
-        } catch (err) {
-          if ((err as { statusCode?: number })?.statusCode === 409) {
-            notify({
-              title: "Name already taken",
-              description: `A pack named "${name}" already exists — select both packs and use Merge into… instead.`,
-              color: "warning",
-            });
-          }
-          throw err;
         }
-        if (d.isDefault !== p.isDefault) {
-          await post("/api/admin/cards/toggle-default-pack", { packId: p.id, isDefault: d.isDefault });
-        }
-        if (d.active !== !isPackDisabled(p)) {
-          await post("/api/admin/cards/toggle-pack", { packId: p.id, type: "all", active: d.active });
-        }
-      },
-      "Pack saved",
-    );
+        throw err;
+      }
+      if (d.isDefault !== p.isDefault) {
+        await post("/api/admin/cards/toggle-default-pack", { packId: p.id, isDefault: d.isDefault });
+      }
+      if (d.active !== !isPackDisabled(p)) {
+        await post("/api/admin/cards/toggle-pack", { packId: p.id, type: "all", active: d.active });
+      }
+      notify({ title: "Pack saved", color: "success" });
+      return true;
+    } catch (err) {
+      if (metaSaved) {
+        notify({
+          title: "Pack partly saved",
+          description: "Details were saved, but changing default or enabled status failed.",
+          color: "warning",
+        });
+      } else if ((err as { statusCode?: number })?.statusCode !== 409) {
+        notify({ title: "Could not save the pack", color: "error" });
+      }
+      return false;
+    } finally {
+      busy.value = false;
+    }
   }
 
   function mergeSummary(sources: AdminPack[], target: AdminPack) {
@@ -98,9 +117,10 @@ export function useExplorerMutations() {
     const count = moving.reduce((n, s) => n + packTotal(s), 0);
     const names = moving.map((s) => `"${s.name}"`).join(", ");
     const pronoun = moving.length === 1 ? "it" : "them";
+    const verb = count === 1 ? "moves" : "move";
     return (
       `"${target.name}" keeps its name, description and default status. ` +
-      `${plural(count, "card")} move from ${names}. ` +
+      `${plural(count, "card")} ${verb} from ${names}. ` +
       `A game in progress that selected ${pronoun} stops drawing from ${pronoun} until the lobby restarts.`
     );
   }
@@ -128,44 +148,82 @@ export function useExplorerMutations() {
     );
 
   const setPacksDefault = (packs: AdminPack[], isDefault: boolean) =>
-    run("Could not update default packs", async () => {
-      for (const p of packs.filter((p) => p.isDefault !== isDefault)) {
-        await post("/api/admin/cards/toggle-default-pack", { packId: p.id, isDefault });
-      }
-    });
+    run(
+      "Could not update default packs",
+      async () => {
+        for (const p of packs.filter((p) => p.isDefault !== isDefault)) {
+          await post("/api/admin/cards/toggle-default-pack", { packId: p.id, isDefault });
+        }
+      },
+      "Default packs updated",
+    );
 
   const setPacksSeries = (packs: AdminPack[], series: string) =>
-    run("Could not set the series", () =>
-      post("/api/admin/cards/pack-meta-bulk", { packs: packs.map((p) => p.id), series }).then(
-        () => undefined,
-      ),
+    run(
+      "Could not set the series",
+      () =>
+        post("/api/admin/cards/pack-meta-bulk", { packs: packs.map((p) => p.id), series }).then(
+          () => undefined,
+        ),
+      "Series updated",
     );
 
   const setPacksFlag = (packs: AdminPack[], flag: "official" | "nsfw", value: boolean) =>
-    run("Could not update packs", async () => {
-      for (const p of packs.filter((p) => p[flag] !== value)) {
-        await post("/api/admin/cards/pack-meta", { id: p.id, [flag]: value });
-      }
-    });
+    run(
+      "Could not update packs",
+      async () => {
+        for (const p of packs.filter((p) => p[flag] !== value)) {
+          await post("/api/admin/cards/pack-meta", { id: p.id, [flag]: value });
+        }
+      },
+      "Packs updated",
+    );
 
+  /**
+   * Deletes are sequential and per-pack: the roster the admin is looking at
+   * can already be stale, so `delete-pack` answering 404 for an
+   * already-deleted pack counts as done rather than aborting the whole
+   * batch on the first stale row. Other failures stop the batch after five
+   * in a row, same as `deleteCards`.
+   */
   async function deletePacks(packs: AdminPack[]) {
-    const cards = packs.reduce((n, p) => n + packTotal(p), 0);
+    const cardCount = packs.reduce((n, p) => n + packTotal(p), 0);
     const ok = await confirm({
       title: `Delete ${plural(packs.length, "pack")}`,
-      message: `Permanently delete ${plural(packs.length, "pack")} and their ${plural(cards, "card")}? This cannot be undone.`,
+      message: `Permanently delete ${plural(packs.length, "pack")} and their ${plural(cardCount, "card")}? This cannot be undone.`,
       confirmButtonText: "Delete",
       confirmButtonColor: "error",
     });
     if (!ok) return false;
-    return run(
-      "Delete failed",
-      async () => {
-        for (const p of packs) {
+
+    busy.value = true;
+    let deleted = 0;
+    let failedInARow = 0;
+    try {
+      for (const p of packs) {
+        try {
           await post("/api/admin/cards/delete-pack", { packId: p.id, type: "all" });
+          deleted++;
+          failedInARow = 0;
+        } catch (err) {
+          if ((err as { statusCode?: number })?.statusCode === 404) {
+            deleted++;
+            failedInARow = 0;
+            continue;
+          }
+          if (++failedInARow >= 5) break;
         }
-      },
-      `${plural(packs.length, "pack")} deleted`,
-    );
+      }
+    } finally {
+      busy.value = false;
+    }
+    const all = deleted === packs.length;
+    notify({
+      title: all ? "Packs deleted" : "Delete incomplete",
+      description: `Deleted ${deleted} of ${plural(packs.length, "pack")}.`,
+      color: all ? "success" : "error",
+    });
+    return all;
   }
 
   const moveCards = (cards: AdminCard[], dest: { packId: string } | { name: string }) =>
@@ -194,12 +252,16 @@ export function useExplorerMutations() {
     );
 
   const setCardsPick = (cards: AdminCard[], pick: number) =>
-    run("Could not set pick", async () => {
-      const ids = cards.filter((c) => c.type === "black" && (c.pick ?? 1) !== pick).map((c) => c.id);
-      for (const chunk of chunks(ids, PICK_CHUNK)) {
-        await post("/api/admin/cards/set-pick", { ids: chunk, pick });
-      }
-    });
+    run(
+      "Could not set pick",
+      async () => {
+        const ids = cards.filter((c) => c.type === "black" && (c.pick ?? 1) !== pick).map((c) => c.id);
+        for (const chunk of chunks(ids, PICK_CHUNK)) {
+          await post("/api/admin/cards/set-pick", { ids: chunk, pick });
+        }
+      },
+      "Pick updated",
+    );
 
   const saveCard = (card: AdminCard, edit: { text: string; pick?: number }) =>
     run(
