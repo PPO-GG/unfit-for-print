@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.24.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.23.0...v3.24.0) (2026-09-14)
+
+
+### ✨ Features
+
+* **server:** stable pack ids ([#120](https://github.com/PPO-GG/unfit-for-print/issues/120)) ([0000c72](https://github.com/PPO-GG/unfit-for-print/commit/0000c7235e5af980cc53bc0407df00c6b82aec2d))
+* **web:** admin card explorer ([#124](https://github.com/PPO-GG/unfit-for-print/issues/124)) ([fd42ee5](https://github.com/PPO-GG/unfit-for-print/commit/fd42ee576c03a2242a2beb1d45e1a1cd92a77022))
+
+
+### 🐛 Bug Fixes
+
+* **web:** keep the Labs lightbox on screen across a page boundary ([#123](https://github.com/PPO-GG/unfit-for-print/issues/123)) ([e1eb750](https://github.com/PPO-GG/unfit-for-print/commit/e1eb750b4501c2a28b149e26112c8c4804217637))
+* **web:** keep the pointer cursor across whole cards in the Discord Activity ([#126](https://github.com/PPO-GG/unfit-for-print/issues/126)) ([8402f1b](https://github.com/PPO-GG/unfit-for-print/commit/8402f1bcc7f550bbb3c3bb266c8b148ffc9a6eb1)), closes [#119](https://github.com/PPO-GG/unfit-for-print/issues/119)
+* **web:** replace icon names missing from their collections ([#122](https://github.com/PPO-GG/unfit-for-print/issues/122)) ([d6b9841](https://github.com/PPO-GG/unfit-for-print/commit/d6b9841d5a6a95d81ce99cabc0421d5f6b61a3ce))
+* **web:** stop confetti freezing on screen in the Discord Activity ([#125](https://github.com/PPO-GG/unfit-for-print/issues/125)) ([ef6467d](https://github.com/PPO-GG/unfit-for-print/commit/ef6467de975fece12efb426627409b89123f895b)), closes [#118](https://github.com/PPO-GG/unfit-for-print/issues/118)
+
 ## [3.23.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.22.0...v3.23.0) (2026-09-13)
 
 
