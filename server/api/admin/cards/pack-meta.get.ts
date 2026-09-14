@@ -4,11 +4,13 @@
 
 import { useDb } from "~~/server/db/client";
 import { cardPacks } from "~~/server/db/schema";
+import { packMetaColumns } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);
-  const db = useDb();
-  const packs = await db.select().from(cardPacks);
+  // `pack` is the name under its pre-id key — the admin client indexes this
+  // roster by it. The retired `pack`/`display_name` columns are never sent.
+  const packs = await useDb().select(packMetaColumns).from(cardPacks).orderBy(cardPacks.name);
   return { packs };
 });

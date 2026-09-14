@@ -1,10 +1,12 @@
-// Upsert one pack's metadata. Only the fields present in the body are
-// written, so editing the NSFW toggle cannot blank a description the form
-// did not send.
+// Update one pack's metadata, by id or by name. Only fields present in the
+// body are written, so toggling NSFW cannot blank a description the form did
+// not send. `name` renames the pack in place (see renamePack); the retired
+// `displayName` is ignored.
 
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { cardPacks } from "~~/server/db/schema";
+import { ensurePackByName, findPackId, packMetaColumns, renamePack } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
 import { normalizePackText } from "#shared/packMetaText";
 
@@ -12,8 +14,9 @@ export default defineEventHandler(async (event) => {
   await requireAdmin(event);
 
   const body = await readBody<{
+    id?: string;
     pack?: string;
-    displayName?: string | null;
+    name?: string;
     description?: string | null;
     icon?: string | null;
     color?: string | null;
@@ -23,41 +26,34 @@ export default defineEventHandler(async (event) => {
     nsfw?: boolean;
   }>(event);
 
-  if (typeof body.pack !== "string" || !body.pack.trim()) {
-    throw createError({ statusCode: 400, statusMessage: "pack name is required" });
+  const db = useDb();
+
+  let id: string | null = null;
+  if (body.id) {
+    id = await findPackId(db, body.id);
+    if (!id) throw createError({ statusCode: 404, statusMessage: "Pack not found" });
+  } else if (typeof body.pack === "string" && body.pack.trim()) {
+    // Not normalized: an existing name may contain double spaces, and
+    // collapsing them would create a second pack instead of finding this one.
+    id = await ensurePackByName(db, body.pack);
+  } else {
+    throw createError({ statusCode: 400, statusMessage: "pack id or name is required" });
   }
-  // NOT normalized: `pack` is the primary key and the literal value on every
-  // card row, so collapsing whitespace here would silently point the metadata
-  // at a pack that does not exist. Renaming a key is move.post.ts's job.
-  const pack = body.pack.trim();
+
+  if (typeof body.name === "string") await renamePack(db, id, body.name);
 
   const updates: Record<string, unknown> = {};
-  // The hand-typed fields are normalized at the boundary, so the row is clean
-  // no matter which client wrote it — the admin form applies the same rule,
-  // but it is not the only possible caller.
-  for (const key of ["displayName", "description", "icon", "color", "series"] as const) {
+  for (const key of ["description", "icon", "color", "series"] as const) {
     if (key in body) updates[key] = normalizePackText(body[key]);
   }
   if (typeof body.sortOrder === "number") updates.sortOrder = body.sortOrder;
   if (typeof body.official === "boolean") updates.official = body.official;
   if (typeof body.nsfw === "boolean") updates.nsfw = body.nsfw;
 
-  const db = useDb();
-
-  // A body carrying only `pack` is a legal request — an empty metadata row
-  // is a valid state — but Drizzle throws on an empty `set`, so fall back to
-  // onConflictDoNothing() and read the row back instead of updating it.
-  if (Object.keys(updates).length === 0) {
-    await db.insert(cardPacks).values({ pack }).onConflictDoNothing();
-    const [row] = await db.select().from(cardPacks).where(eq(cardPacks.pack, pack));
-    return row;
+  if (Object.keys(updates).length) {
+    await db.update(cardPacks).set(updates).where(eq(cardPacks.id, id));
   }
 
-  const [row] = await db
-    .insert(cardPacks)
-    .values({ pack, ...updates })
-    .onConflictDoUpdate({ target: cardPacks.pack, set: updates })
-    .returning();
-
+  const [row] = await db.select(packMetaColumns).from(cardPacks).where(eq(cardPacks.id, id));
   return row;
 });

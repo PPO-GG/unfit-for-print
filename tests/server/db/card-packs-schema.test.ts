@@ -1,55 +1,67 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { cardPacks } from "~/server/db/schema";
+import { cardPacks, whiteCards } from "~/server/db/schema";
+import { resetCardTables } from "./helpers/cards";
 
 const db = useDb();
 
-beforeEach(async () => {
-  await db.delete(cardPacks);
-});
+beforeEach(resetCardTables);
 
-describe("card_packs table", () => {
-  it("stores metadata keyed by the pack name, with sane defaults", async () => {
-    await db.insert(cardPacks).values({ pack: "Base" });
+describe("card_packs registry", () => {
+  it("gives each pack a generated id and sane defaults", async () => {
+    const [row] = await db.insert(cardPacks).values({ name: "Base" }).returning();
 
-    const [row] = await db.select().from(cardPacks).where(eq(cardPacks.pack, "Base"));
-
-    expect(row.pack).toBe("Base");
-    expect(row.displayName).toBeNull();
+    expect(row.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(row.name).toBe("Base");
     expect(row.description).toBeNull();
-    expect(row.icon).toBeNull();
-    expect(row.color).toBeNull();
+    expect(row.series).toBeNull();
     expect(row.sortOrder).toBe(0);
     expect(row.official).toBe(false);
     expect(row.nsfw).toBe(false);
+    expect(row.isDefault).toBe(false);
   });
 
   it("round-trips every metadata field", async () => {
-    await db.insert(cardPacks).values({
-      pack: "Blue Box",
-      displayName: "Blue Box Expansion",
+    const [{ id }] = await db
+      .insert(cardPacks)
+      .values({
+        name: "Blue Box",
+        description: "The blue one.",
+        icon: "🟦",
+        color: "#3b82f6",
+        sortOrder: 5,
+        official: true,
+        nsfw: true,
+        isDefault: true,
+        series: "Cards Against Humanity",
+      })
+      .returning({ id: cardPacks.id });
+
+    const [row] = await db.select().from(cardPacks).where(eq(cardPacks.id, id));
+
+    expect(row).toMatchObject({
+      name: "Blue Box",
       description: "The blue one.",
       icon: "🟦",
       color: "#3b82f6",
       sortOrder: 5,
       official: true,
       nsfw: true,
+      isDefault: true,
+      series: "Cards Against Humanity",
     });
-
-    const [row] = await db.select().from(cardPacks).where(eq(cardPacks.pack, "Blue Box"));
-
-    expect(row.displayName).toBe("Blue Box Expansion");
-    expect(row.description).toBe("The blue one.");
-    expect(row.icon).toBe("🟦");
-    expect(row.color).toBe("#3b82f6");
-    expect(row.sortOrder).toBe(5);
-    expect(row.official).toBe(true);
-    expect(row.nsfw).toBe(true);
   });
 
-  it("rejects a duplicate pack key", async () => {
-    await db.insert(cardPacks).values({ pack: "Base" });
-    await expect(db.insert(cardPacks).values({ pack: "Base" })).rejects.toThrow();
+  it("rejects a duplicate name", async () => {
+    await db.insert(cardPacks).values({ name: "Base" });
+    await expect(db.insert(cardPacks).values({ name: "Base" })).rejects.toThrow();
+  });
+
+  it("refuses a card pointing at a pack that does not exist", async () => {
+    await expect(
+      db.insert(whiteCards).values({ text: "orphan", packId: randomUUID() }),
+    ).rejects.toThrow();
   });
 });

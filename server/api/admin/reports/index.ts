@@ -1,6 +1,6 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, getTableColumns } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { reports, whiteCards, blackCards } from "~~/server/db/schema";
+import { reports, whiteCards, blackCards, cardPacks } from "~~/server/db/schema";
 import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
@@ -17,13 +17,18 @@ export default defineEventHandler(async (event) => {
         [primary, report.cardType],
         [fallback, report.cardType === "black" ? "white" : "black"],
       ] as const) {
-        const [card] = await db.select().from(table).where(eq(table.id, report.cardId)).limit(1);
+        const [card] = await db
+          .select({ ...getTableColumns(table), packName: cardPacks.name })
+          .from(table)
+          .leftJoin(cardPacks, eq(table.packId, cardPacks.id))
+          .where(eq(table.id, report.cardId))
+          .limit(1);
         if (card) {
           return {
             ...report,
             cardType: correctedType,
             cardText: card.text,
-            cardPack: card.pack ?? null,
+            cardPack: card.packName ?? null,
             cardActive: card.active,
             cardPick: "pick" in card ? card.pick : null,
           };

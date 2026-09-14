@@ -29,22 +29,30 @@ vi.mock("~/composables/useShufflePacks", () => ({
 
 import LobbySettingsDrawer from "~/components/lobby/LobbySettingsDrawer.vue";
 
+const BASE = "11111111-1111-4111-8111-111111111111";
+const BLUE = "22222222-2222-4222-8222-222222222222";
+
 /** Roster the drawer fetches on open: two real packs, so "Ghost" is stale. */
 function stubPackRoster() {
   vi.stubGlobal("$fetch", async (url: string) => {
     if (url === "/api/cards/packs") {
       return {
         white: [
-          { pack: "Base", active: 400 },
-          { pack: "Blue", active: 300 },
+          { packId: BASE, pack: "Base", active: 400 },
+          { packId: BLUE, pack: "Blue", active: 300 },
         ],
         black: [
-          { pack: "Base", active: 100 },
-          { pack: "Blue", active: 80 },
+          { packId: BASE, pack: "Base", active: 100 },
+          { packId: BLUE, pack: "Blue", active: 80 },
+        ],
+        // "Base" was renamed from its pre-migration key "Raw Base".
+        meta: [
+          { id: BASE, pack: "Base", legacyKey: "Raw Base" },
+          { id: BLUE, pack: "Blue", legacyKey: null },
         ],
       };
     }
-    if (url === "/api/cards/default-packs") return { packs: ["Base"] };
+    if (url === "/api/cards/default-packs") return { packs: [BASE] };
     return {};
   });
 }
@@ -60,9 +68,9 @@ const settings = {
   cardPacks: ["Base", "Ghost"],
 } as any;
 
-function mountDrawer(isHost = true) {
+function mountDrawer(isHost = true, cardPacks: string[] = settings.cardPacks) {
   return mount(LobbySettingsDrawer, {
-    props: { open: true, settings, isHost, lobbyId: "lobby-1" },
+    props: { open: true, settings: { ...settings, cardPacks }, isHost, lobbyId: "lobby-1" },
     global: {
       stubs: { UIcon: true, Teleport: true, Transition: false },
     },
@@ -82,7 +90,14 @@ describe("LobbySettingsDrawer — shuffle control", () => {
 
     await wrapper.get(".lsd-shuffle-btn").trigger("click");
 
-    expect(shuffle).toHaveBeenCalledWith(["Base"]);
+    expect(shuffle).toHaveBeenCalledWith([BASE]);
+  });
+
+  it("upgrades a pre-migration raw key to its pack id when the host opens it", async () => {
+    mountDrawer(true, ["Raw Base", BLUE]);
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith({ cardPacks: [BASE, BLUE] });
   });
 
   it("hides the control from non-hosts", async () => {

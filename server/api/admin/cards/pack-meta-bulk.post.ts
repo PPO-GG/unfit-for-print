@@ -1,11 +1,13 @@
-// Bulk-set `series` across many packs in one upsert, so assigning ~106 packs
+// Bulk-set `series` across many packs in one update, so assigning ~106 packs
 // to the same brand doesn't take 106 round trips. Deliberately scoped to
 // `series` alone rather than the whole metadata row — the other fields stay
 // single-pack, edited through pack-meta.post.ts, where a mistake only ever
 // touches one row.
 
+import { inArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { cardPacks } from "~~/server/db/schema";
+import { ensurePackByName, findPackId, isPackId, packMetaColumns } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
 import { normalizePackText } from "#shared/packMetaText";
 
@@ -29,14 +31,16 @@ export default defineEventHandler(async (event) => {
   const series = normalizePackText(body.series);
 
   const db = useDb();
-  // One statement, not a loop: Postgres applies ON CONFLICT per inserted row,
-  // so this creates a bare row for any pack with no metadata yet and updates
-  // `series` (and nothing else) on any pack that already has one.
-  const rows = await db
-    .insert(cardPacks)
-    .values(packs.map((pack) => ({ pack, series })))
-    .onConflictDoUpdate({ target: cardPacks.pack, set: { series } })
-    .returning();
+  // Ids resolve as-is; names are created when missing, matching the old
+  // upsert that gave every named pack a row.
+  const ids: string[] = [];
+  for (const ref of packs) {
+    ids.push(isPackId(ref) ? ((await findPackId(db, ref)) ?? "") : await ensurePackByName(db, ref));
+  }
+  const known = [...new Set(ids.filter(Boolean))];
+  if (!known.length) return { packs: [] };
 
+  await db.update(cardPacks).set({ series }).where(inArray(cardPacks.id, known));
+  const rows = await db.select(packMetaColumns).from(cardPacks).where(inArray(cardPacks.id, known));
   return { packs: rows };
 });

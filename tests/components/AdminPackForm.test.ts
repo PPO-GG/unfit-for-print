@@ -40,7 +40,6 @@ describe("AdminPackForm", () => {
   it("starts from empty defaults when the pack has no metadata row", () => {
     const wrapper = mountForm(null);
     expect(wrapper.vm.form).toEqual({
-      displayName: "",
       description: "",
       icon: "",
       color: "",
@@ -54,7 +53,6 @@ describe("AdminPackForm", () => {
   it("seeds the form from an existing metadata row", () => {
     const wrapper = mountForm({
       pack: "Base",
-      displayName: "Base Set",
       description: "the original",
       icon: "🎴",
       color: "#f00",
@@ -63,14 +61,13 @@ describe("AdminPackForm", () => {
       official: true,
       nsfw: false,
     });
-    expect(wrapper.vm.form.displayName).toBe("Base Set");
     expect(wrapper.vm.form.series).toBe("Cards Against Humanity");
     expect(wrapper.vm.form.sortOrder).toBe(3);
     expect(wrapper.vm.form.official).toBe(true);
   });
 
   it("posts the form, sending empty strings as null", async () => {
-    fetchMock.mockResolvedValue({ pack: "Base", displayName: null });
+    fetchMock.mockResolvedValue({ pack: "Base" });
     const wrapper = mountForm(null);
     wrapper.vm.form.description = "a blurb";
 
@@ -81,7 +78,6 @@ describe("AdminPackForm", () => {
       method: "POST",
       body: {
         pack: "Base",
-        displayName: null,
         description: "a blurb",
         icon: null,
         color: null,
@@ -93,7 +89,7 @@ describe("AdminPackForm", () => {
     });
   });
 
-  it("autofills display name and series from the derived split when the pack has no metadata", () => {
+  it("autofills series from the derived split when the pack has no metadata", () => {
     const wrapper = mount(AdminPackForm, {
       props: {
         pack: "Cards Against Humanity: Blue Box Expansion",
@@ -102,28 +98,18 @@ describe("AdminPackForm", () => {
       },
       global: { stubs },
     });
-    expect(wrapper.vm.form.displayName).toBe("Blue Box Expansion");
     expect(wrapper.vm.form.series).toBe("Cards Against Humanity");
-  });
-
-  it("does not autofill a display name when the pack name never splits", () => {
-    // No seriesPrefix at all — splitPackName has nothing to derive, so
-    // suggesting the raw pack name back as a "display name" would be a no-op.
-    const wrapper = mountForm(null);
-    expect(wrapper.vm.form.displayName).toBe("");
-    expect(wrapper.vm.form.series).toBe("");
   });
 
   it("prefers an explicit metadata value over the derived autofill", () => {
     const wrapper = mount(AdminPackForm, {
       props: {
         pack: "Cards Against Humanity: Blue Box Expansion",
-        meta: { pack: "x", displayName: "The Blue One", series: "CAH" },
+        meta: { pack: "x", series: "CAH" },
         seriesPrefix: "Cards Against Humanity:",
       },
       global: { stubs },
     });
-    expect(wrapper.vm.form.displayName).toBe("The Blue One");
     expect(wrapper.vm.form.series).toBe("CAH");
   });
 
@@ -142,7 +128,7 @@ describe("AdminPackForm", () => {
   });
 
   it("emits the saved row on success", async () => {
-    const saved = { pack: "Base", displayName: "Base Set" };
+    const saved = { pack: "Base" };
     fetchMock.mockResolvedValue(saved);
     const wrapper = mountForm(null);
 
@@ -163,7 +149,7 @@ describe("AdminPackForm", () => {
   });
 
   it("saves when the in-form Save button is clicked", async () => {
-    const saved = { pack: "Base", displayName: "Base Set" };
+    const saved = { pack: "Base" };
     fetchMock.mockResolvedValue(saved);
     const wrapper = mountForm(null);
 
@@ -176,6 +162,12 @@ describe("AdminPackForm", () => {
     );
     expect(wrapper.emitted("saved")?.at(-1)).toEqual([saved]);
   });
+
+  it("has no Display name field — a pack has one name, renamed from the Packs screen", () => {
+    const wrapper = mountForm();
+    expect(wrapper.text()).not.toContain("Display name");
+    expect("displayName" in wrapper.vm.form).toBe(false);
+  });
 });
 
 // Pack metadata is rendered by five surfaces that all uppercase in CSS, which
@@ -186,14 +178,12 @@ describe("AdminPackForm — entry hygiene", () => {
   it("collapses internal whitespace and trims before sending", async () => {
     fetchMock.mockResolvedValue({ pack: "Base" });
     const wrapper = mountForm(null);
-    wrapper.vm.form.displayName = "  Nasty   Bundle  ";
-    wrapper.vm.form.series = "Cards Against  Humanity";
+    wrapper.vm.form.series = "  Cards   Against  Humanity ";
 
     await wrapper.vm.save();
     await flushPromises();
 
     expect(fetchMock.mock.calls[0]![1].body).toMatchObject({
-      displayName: "Nasty Bundle",
       series: "Cards Against Humanity",
     });
   });
@@ -215,12 +205,12 @@ describe("AdminPackForm — entry hygiene", () => {
     // The existing contract: blank clears the column rather than storing "".
     fetchMock.mockResolvedValue({ pack: "Base" });
     const wrapper = mountForm(null);
-    wrapper.vm.form.displayName = "   ";
+    wrapper.vm.form.series = "   ";
 
     await wrapper.vm.save();
     await flushPromises();
 
-    expect(fetchMock.mock.calls[0]![1].body.displayName).toBeNull();
+    expect(fetchMock.mock.calls[0]![1].body.series).toBeNull();
   });
 
   it("warns when a name is typed in caps", async () => {
@@ -242,7 +232,7 @@ describe("AdminPackForm — entry hygiene", () => {
   it("stays quiet on a short acronym", async () => {
     // Warning on "CAH" would train the admin to click past the warning.
     const wrapper = mountForm(null);
-    wrapper.vm.form.displayName = "CAH";
+    wrapper.vm.form.series = "CAH";
     await wrapper.vm.$nextTick();
 
     expect(wrapper.find('[data-testid="pack-shout-hint"]').exists()).toBe(false);

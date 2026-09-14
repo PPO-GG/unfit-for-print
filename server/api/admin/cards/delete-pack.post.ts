@@ -1,46 +1,45 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { whiteCards, blackCards, defaultCardPacks, cardPacks } from "~~/server/db/schema";
+import { whiteCards, blackCards, cardPacks } from "~~/server/db/schema";
 import { cardTable } from "~~/server/utils/cardTable";
+import { findPackId, packCardCounts } from "~~/server/utils/packs";
 import { requireAdmin } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event);
-  const { pack, type = "all" } = await readBody<{ pack: string; type?: string }>(event);
+  const { pack, packId: rawId, type = "all" } = await readBody<{
+    pack?: string;
+    packId?: string;
+    type?: string;
+  }>(event);
 
-  if (!pack || typeof pack !== "string") {
-    throw createError({ statusCode: 400, statusMessage: "pack name is required" });
+  const ref = rawId ?? pack;
+  if (!ref || typeof ref !== "string") {
+    throw createError({ statusCode: 400, statusMessage: "pack is required" });
   }
 
   const db = useDb();
 
-  // One transaction over both branches: the card deletes and the auxiliary-row
-  // cleanup have to stand or fall together. Before card_packs is migrated the
-  // last statement throws, and without this the cards would already be gone.
+  // One transaction: the card deletes and the registry-row removal stand or
+  // fall together. The row carries the pack's metadata and default flag, so
+  // it goes exactly when the pack has no cards left.
   return db.transaction(async (tx) => {
+    const packId = await findPackId(tx, ref);
+    // Not a silent success: a stale admin tab should learn the pack is gone.
+    if (!packId) throw createError({ statusCode: 404, statusMessage: "Pack not found" });
+
     if (type === "all") {
-      await tx.delete(whiteCards).where(eq(whiteCards.pack, pack));
-      await tx.delete(blackCards).where(eq(blackCards.pack, pack));
-      await tx.delete(defaultCardPacks).where(eq(defaultCardPacks.pack, pack));
-      await tx.delete(cardPacks).where(eq(cardPacks.pack, pack));
-      return { success: true };
+      await tx.delete(whiteCards).where(eq(whiteCards.packId, packId));
+      await tx.delete(blackCards).where(eq(blackCards.packId, packId));
+    } else {
+      const table = cardTable(type);
+      await tx.delete(table).where(eq(table.packId, packId));
     }
 
-    const table = cardTable(type);
-    await tx.delete(table).where(eq(table.pack, pack));
-
-    // If the opposite card type has no remaining cards in this pack, also clean up defaultCardPacks
-    const oppositeTable = type === "white" ? blackCards : whiteCards;
-    const remaining = await tx
-      .select({ id: oppositeTable.id })
-      .from(oppositeTable)
-      .where(eq(oppositeTable.pack, pack))
-      .limit(1);
-    if (!remaining.length) {
-      await tx.delete(defaultCardPacks).where(eq(defaultCardPacks.pack, pack));
-      await tx.delete(cardPacks).where(eq(cardPacks.pack, pack));
+    const remaining = await packCardCounts(tx, packId);
+    if (remaining.white + remaining.black === 0) {
+      await tx.delete(cardPacks).where(eq(cardPacks.id, packId));
     }
-
     return { success: true };
   });
 });

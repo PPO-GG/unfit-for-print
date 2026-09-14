@@ -65,3 +65,21 @@ describe("LobbySettingsSummary — shuffle control", () => {
     expect(wrapper.findAll(".lss-pack-chip")).toHaveLength(2);
   });
 });
+
+describe("LobbySettingsSummary — pack names", () => {
+  it("renders names for ids and passes legacy names through", () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const wrapper = mount(LobbySettingsSummary, {
+      props: {
+        settings: { ...settings, cardPacks: [id, "CAH: Blue Box Expansion", "22222222-2222-4222-8222-222222222222"] },
+        packNames: { [id]: "CAH Base Set" },
+      },
+      global: { stubs },
+    });
+
+    expect(wrapper.findAll(".lss-pack-chip").map((c) => c.text())).toEqual([
+      "CAH Base Set",
+      "CAH: Blue Box Expansion",
+    ]);
+  });
+});

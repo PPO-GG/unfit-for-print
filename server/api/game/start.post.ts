@@ -5,6 +5,7 @@ import { eq, and, ne, inArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, players, whiteCards, blackCards } from "~~/server/db/schema";
 import { fetchAllIds, shuffle } from "~~/server/utils/game-engine";
+import { resolvePackRefs } from "~~/server/utils/packs";
 import { requireHost } from "~~/server/utils/session";
 
 interface GameSettings {
@@ -106,6 +107,16 @@ export default defineEventHandler(async (event) => {
   const firstBlackId = eligibleBlackIds[0]!;
   const blackDeck = eligibleBlackIds.slice(1);
 
+  // --- Pack selection as ids ---
+  // A lobby created before 0012_pack_ids still holds raw pack keys. Handing
+  // back the resolved ids means the client's settings sync below upgrades the
+  // doc at game start, even if the host never opened the settings drawer.
+  // An empty selection means "every pack" and stays empty.
+  const selectedPacks = gameSettings?.cardPacks ?? [];
+  const cardPackIds = selectedPacks.length
+    ? await resolvePackRefs(db, selectedPacks, { legacyKeys: true })
+    : [];
+
   // --- Update lobby status ---
   await db.update(lobbies).set({ status: "playing" }).where(eq(lobbies.id, lobbyId));
 
@@ -124,7 +135,7 @@ export default defineEventHandler(async (event) => {
       maxPoints: gameSettings?.maxPoints || 10,
       cardsPerPlayer: CARDS_PER_PLAYER,
       maxPick: MAX_PICK,
-      cardPacks: gameSettings?.cardPacks || [],
+      cardPacks: cardPackIds,
       isPrivate: gameSettings?.isPrivate || false,
       lobbyName: gameSettings?.lobbyName || "Unnamed Game",
     },

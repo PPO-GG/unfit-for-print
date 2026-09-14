@@ -114,17 +114,18 @@
             <USelectMenu
               v-model="localSettings.cardPacks"
               :items="availablePacks"
+              value-key="value"
               :loading="loadingPacks"
               multiple
               class="w-full"
             />
-            <div v-if="localSettings.cardPacks?.length" class="pack-tags">
+            <div v-if="localPackLabels.length" class="pack-tags">
               <span
-                v-for="pack in localSettings.cardPacks"
-                :key="pack"
+                v-for="label in localPackLabels"
+                :key="label"
                 class="pack-tag"
               >
-                {{ pack }}
+                {{ label }}
               </span>
             </div>
           </div>
@@ -161,6 +162,7 @@
 import { onMounted, ref, watch } from "vue";
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 import { useNotifications } from "~/composables/useNotifications";
+import { normalizePackSelection, packLabelsFor } from "~/utils/lobbyPackSelection";
 
 const { t } = useI18n();
 const { notify } = useNotifications();
@@ -180,34 +182,71 @@ const { mutations } = useLobby();
 const localSettings = ref<LobbySettings>({ ...props.settings });
 const expanded = ref(props.inline ?? false);
 
+// The roster this component fetches: pack id + display name (+ the
+// pre-0012_pack_ids key an old lobby may still hold), active cards only.
+// `availablePacks` (the select's items) and `packNamesById` (for rendering ids
+// back to names) both derive from it.
+const packRoster = ref<{ id: string; name: string; legacyKey: string | null }[]>([]);
+const availablePacks = computed(() =>
+  packRoster.value.map((p) => ({ label: p.name, value: p.id })),
+);
+const packNamesById = computed(() =>
+  Object.fromEntries(packRoster.value.map((p) => [p.id, p.name])),
+);
+const localPackLabels = computed(() =>
+  packLabelsFor(localSettings.value.cardPacks ?? [], packNamesById.value),
+);
+
+// A pre-migration lobby's `cardPacks` holds raw pack keys; this upgrades them to ids
+// in place (and drops anything the roster no longer knows) once the roster
+// is loaded, so both the select's checked state and a later Save write ids.
+function normalizeLocalCardPacks() {
+  if (packRoster.value.length === 0) return;
+  localSettings.value.cardPacks = normalizePackSelection(
+    localSettings.value.cardPacks ?? [],
+    packRoster.value,
+  ).ids;
+}
+
 watch(
   () => props.settings,
   (newVal) => {
     localSettings.value = { ...newVal };
+    normalizeLocalCardPacks();
   },
   { deep: true },
 );
 
-const availablePacks = ref<string[]>([]);
 const loadingPacks = ref(false);
 
 onMounted(async () => {
   loadingPacks.value = true;
   try {
-    const { white, black } = await $fetch("/api/cards/packs", {
-      query: { activeOnly: 1 },
-    });
-    const packSet = new Set<string>();
+    const { white, black, meta } = await $fetch<{
+      white: { packId: string; pack: string; active: number }[];
+      black: { packId: string; pack: string; active: number }[];
+      meta?: { id: string; legacyKey?: string | null }[];
+    }>("/api/cards/packs", { query: { activeOnly: 1 } });
+    const legacyKeyById = new Map((meta ?? []).map((row) => [row.id, row.legacyKey ?? null]));
 
     // Only offer packs that still have at least one active card of either
     // type — a fully-disabled pack would otherwise sit in the picker and
     // silently produce an empty draw pool. activeOnly above already excludes
     // them server-side; this stays as a cheap invariant guard on a path where
     // an empty draw pool would break a live game.
-    white.forEach((p) => { if (p.active > 0) packSet.add(p.pack); });
-    black.forEach((p) => { if (p.active > 0) packSet.add(p.pack); });
+    const byId = new Map<string, { name: string; count: number }>();
+    for (const p of [...white, ...black]) {
+      const entry = byId.get(p.packId) ?? { name: p.pack, count: 0 };
+      entry.count += p.active;
+      byId.set(p.packId, entry);
+    }
 
-    availablePacks.value = Array.from(packSet).sort();
+    packRoster.value = [...byId.entries()]
+      .filter(([, { count }]) => count > 0)
+      .map(([id, { name }]) => ({ id, name, legacyKey: legacyKeyById.get(id) ?? null }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    normalizeLocalCardPacks();
   } catch {
     notify({
       title: t("game.settings.fetch_packs_error"),
@@ -261,8 +300,14 @@ const formatValue = (key: keyof LobbySettings) => {
   if (key === "manualDraw" || key === "isPrivate") return value ? "YES" : "NO";
   if (key === "maxPick")
     return t("game.settings.up_to_pick_n", { n: value || 3 });
-  if (key === "cardPacks" && Array.isArray(value))
-    return value.join(", ") || "—";
+  if (key === "cardPacks" && Array.isArray(value)) {
+    // Map a legacy raw key to its id first, so it reads as the pack's current
+    // name rather than a key that name may have replaced.
+    const entries = packRoster.value.length
+      ? normalizePackSelection(value, packRoster.value).ids
+      : value;
+    return packLabelsFor(entries, packNamesById.value).join(", ") || "—";
+  }
   return value || "—";
 };
 

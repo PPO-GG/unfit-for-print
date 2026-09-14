@@ -4,9 +4,11 @@ import type { CardAttachmentConfig } from "~/types/card";
 export interface BrowsableCard {
   id: string;
   text: string | null;
+  /** The pack's current name. */
   pack: string | null;
-  /** `card_packs` labelling, null for the many packs with no row. */
-  packDisplayName: string | null;
+  packId: string | null;
+  /** Retired: no longer sent by the server. */
+  packDisplayName?: string | null;
   packSeries: string | null;
   imageKey: string | null;
   imageFormat: string | null;

@@ -65,10 +65,10 @@
       <div v-else class="pack-tiles">
         <button
           v-for="tile in visiblePacks"
-          :key="tile.pack"
+          :key="tile.id"
           class="pack-tile"
           type="button"
-          @click="openPack(tile.pack)"
+          @click="openPack(tile.id)"
         >
           <span
             v-if="tile.isDefault || tile.official || tile.nsfw"
@@ -255,7 +255,7 @@ const packSearch = ref("");
 const packSort = ref<PackSort>("cards-desc");
 const defaultOnly = ref(false);
 
-const selectedPack = ref<string | null>(null);
+const selectedPack = ref<string | null>(null); // Pack id.
 const type = ref<"white" | "black">("white");
 const search = ref("");
 const page = ref(1);
@@ -341,16 +341,14 @@ function stepLightbox(delta: number) {
 // keystroke. So these are whole-pack totals and deliberately ignore `search`;
 // the heading's `cardNoun` is the search-aware number.
 const selectedTile = computed(() =>
-  packTiles.value.find((tile) => tile.pack === selectedPack.value) ?? null,
+  packTiles.value.find((tile) => tile.id === selectedPack.value) ?? null,
 );
 
-// The open pack's heading, labelled like its tile was. Falls back to the raw
-// key while the roster is still loading and `selectedTile` is null — a deep
-// link opens a pack before the gallery behind it has arrived.
+// The open pack's heading, labelled like its tile was. Blank while the roster
+// is still loading and `selectedTile` is null — a deep link opens a pack
+// before the gallery behind it has arrived, and an id is not a heading.
 const selectedLabel = computed(() =>
-  selectedTile.value
-    ? labelFor(selectedTile.value).full
-    : (selectedPack.value ?? ""),
+  selectedTile.value ? labelFor(selectedTile.value).full : "",
 );
 
 const cardNoun = computed(() =>
@@ -424,8 +422,8 @@ async function fetchCards() {
 
 watch(queryKey, fetchCards);
 
-function openPack(pack: string) {
-  selectedPack.value = pack;
+function openPack(packId: string) {
+  selectedPack.value = packId;
   type.value = "white";
   search.value = "";
   searchTerm.value = "";

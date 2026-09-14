@@ -2,6 +2,7 @@
 import { compareTwoStrings } from "string-similarity";
 import { useDb } from "../db/client";
 import { blackCards, whiteCards } from "../db/schema";
+import { ensurePackByName } from "./packs";
 
 const renderProgressBar = (current: number, total: number, barLength = 40) => {
   const percent = current / total;
@@ -140,6 +141,7 @@ export const seedCardsFromJson = async ({
       const pack = data[packIndex];
       const packName = pack.name || `Pack ${pack.pack || "unknown"}`;
       stats.currentPack = packName;
+      const packId = await ensurePackByName(db, packName);
 
       // Skip packs if resuming
       if (packIndex < startPackIndex) {
@@ -242,7 +244,7 @@ export const seedCardsFromJson = async ({
           try {
             await db.insert(whiteCards).values({
               text: card.text,
-              pack: packName,
+              packId,
               active: true,
             });
 
@@ -365,7 +367,7 @@ export const seedCardsFromJson = async ({
             await db.insert(blackCards).values({
               text: card.text,
               pick: card.pick || 1,
-              pack: packName,
+              packId,
               active: true,
             });
 

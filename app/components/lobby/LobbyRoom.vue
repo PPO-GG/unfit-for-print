@@ -41,6 +41,7 @@
             :settings="reactive.settings.value"
             :is-host="isHost"
             :shuffling="shufflePending"
+            :pack-names="packNames"
             @edit="settingsOpen = true"
             @shuffle="shufflePacks"
           />
@@ -111,6 +112,14 @@ function shufflePacks() {
   if (!isHost.value) return;
   return shuffle(reactive.settings.value?.cardPacks ?? []);
 }
+
+// The summary renders pack names; the doc holds ids. Shares the load-once
+// roster useShufflePacks already uses.
+const { tiles: packTiles, load: loadPackRoster } = useCardPacks();
+const packNames = computed(() =>
+  Object.fromEntries(packTiles.value.map((tile) => [tile.id, tile.pack])),
+);
+onMounted(() => loadPackRoster());
 
 const myId = computed(() => userStore.user?.id ?? null);
 

@@ -1,13 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useDb } from "~/server/db/client";
-import { whiteCards, blackCards } from "~/server/db/schema";
 import handler from "~/server/api/cards/browse.get";
-
-const db = useDb();
+import { resetCardTables, insertCards, seedPack } from "./helpers/cards";
+import { whiteCards, blackCards } from "~/server/db/schema";
 
 beforeEach(async () => {
-  await db.delete(whiteCards);
-  await db.delete(blackCards);
+  await resetCardTables();
 });
 
 function mockEvent(query: Record<string, string> = {}) {
@@ -17,7 +14,7 @@ function mockEvent(query: Record<string, string> = {}) {
 
 describe("GET /api/cards/browse", () => {
   it("omits inactive cards so the browser only shows what can be dealt", async () => {
-    await db.insert(whiteCards).values([
+    await insertCards(whiteCards, [
       { text: "dealt", pack: "Base", active: true },
       { text: "retired", pack: "Base", active: false },
     ]);
@@ -29,8 +26,8 @@ describe("GET /api/cards/browse", () => {
   });
 
   it("defaults to white cards when no type is given", async () => {
-    await db.insert(whiteCards).values({ text: "a white one", active: true });
-    await db.insert(blackCards).values({ text: "a black one?", active: true, pick: 1 });
+    await insertCards(whiteCards, { text: "a white one", active: true });
+    await insertCards(blackCards, { text: "a black one?", active: true, pick: 1 });
 
     const result = await handler(mockEvent({}));
 
@@ -38,7 +35,7 @@ describe("GET /api/cards/browse", () => {
   });
 
   it("returns pick alongside black cards", async () => {
-    await db.insert(blackCards).values({ text: "two blanks?", active: true, pick: 2 });
+    await insertCards(blackCards, { text: "two blanks?", active: true, pick: 2 });
 
     const result = await handler(mockEvent({ type: "black" }));
 
@@ -46,7 +43,7 @@ describe("GET /api/cards/browse", () => {
   });
 
   it("restricts results to the requested pack", async () => {
-    await db.insert(whiteCards).values([
+    await insertCards(whiteCards, [
       { text: "in pack", pack: "Base", active: true },
       { text: "other pack", pack: "Expansion", active: true },
     ]);
@@ -56,8 +53,29 @@ describe("GET /api/cards/browse", () => {
     expect(result.cards.map((c) => c.text)).toEqual(["in pack"]);
   });
 
+  it("accepts a pack id as well as a name", async () => {
+    await insertCards(whiteCards, [
+      { text: "in pack", pack: "Base", active: true },
+      { text: "other", pack: "Expansion", active: true },
+    ]);
+    const id = await seedPack("Base");
+
+    const result = await handler(mockEvent({ pack: id }));
+
+    expect(result.cards.map((c: { text: string }) => c.text)).toEqual(["in pack"]);
+    expect(result.cards[0]).toMatchObject({ pack: "Base", packId: id });
+  });
+
+  it("returns nothing for an unknown pack rather than every card", async () => {
+    await insertCards(whiteCards, { text: "in pack", pack: "Base", active: true });
+
+    const result = await handler(mockEvent({ pack: "Ghost" }));
+
+    expect(result).toMatchObject({ cards: [], total: 0 });
+  });
+
   it("matches search case-insensitively against card text", async () => {
-    await db.insert(whiteCards).values([
+    await insertCards(whiteCards, [
       { text: "A Wonderful Thing", active: true },
       { text: "something else", active: true },
     ]);
@@ -68,7 +86,8 @@ describe("GET /api/cards/browse", () => {
   });
 
   it("pages through results while reporting the full match count", async () => {
-    await db.insert(whiteCards).values(
+    await insertCards(
+      whiteCards,
       ["a", "b", "c", "d", "e"].map((text) => ({ text, pack: "Base", active: true })),
     );
 
@@ -82,7 +101,8 @@ describe("GET /api/cards/browse", () => {
   });
 
   it("caps perPage so a single request cannot pull an entire pack", async () => {
-    await db.insert(whiteCards).values(
+    await insertCards(
+      whiteCards,
       Array.from({ length: 70 }, (_, i) => ({
         text: `card ${String(i).padStart(2, "0")}`,
         active: true,
