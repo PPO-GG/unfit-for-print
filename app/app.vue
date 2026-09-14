@@ -108,8 +108,12 @@ if (import.meta.client) {
     );
   }
 
+  // Admin screens own Escape (the Card Explorer clears its selection with it),
+  // so like the game room they don't get Settings popping open over them.
+  const isAdminRoute = computed(() => route.path.startsWith("/admin"));
+
   const handleGlobalEsc = (e: KeyboardEvent) => {
-    if (e.key !== "Escape" || isGameRoute.value || isTypingTarget(e.target)) {
+    if (e.key !== "Escape" || isGameRoute.value || isAdminRoute.value || isTypingTarget(e.target)) {
       return;
     }
     if (uiStore.showPolicy) {

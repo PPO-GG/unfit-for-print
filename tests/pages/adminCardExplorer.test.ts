@@ -3,7 +3,7 @@
 // state, selection → loading, focus, the dirty guard, and action routing.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
-import { computed, defineComponent, nextTick, onMounted, ref, watch, type Ref } from "vue";
+import { computed, defineComponent, nextTick, onMounted, reactive, ref, watch, type Ref } from "vue";
 import type { AdminCard, AdminPack } from "~/types/adminCard";
 
 vi.stubGlobal("definePageMeta", () => {});
@@ -57,6 +57,8 @@ const confirmOpen = ref(false);
 vi.mock("~/composables/useConfirm", () => ({ useConfirm: () => ({ confirm, isOpen: confirmOpen }) }));
 vi.mock("~/composables/useNotifications", () => ({ useNotifications: () => ({ notify: vi.fn() }) }));
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: vi.fn() }));
+const uiStore = reactive({ showSettings: false });
+vi.mock("~/stores/uiStore", () => ({ useUiStore: () => uiStore }));
 
 const dirty = ref(false);
 const PackList = defineComponent({
@@ -124,6 +126,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   dirty.value = false;
   confirmOpen.value = false;
+  uiStore.showSettings = false;
   // clearAllMocks keeps queued mockResolvedValueOnce values; a test that never
   // reaches confirm must not hand its "Keep editing" to the next test.
   confirm.mockReset();
@@ -242,6 +245,17 @@ describe("Card Explorer page", () => {
 
     confirmOpen.value = true;
     expect(shortcuts().value).toEqual({});
+  });
+
+  it("turns page shortcuts off while the Settings slideover is open", async () => {
+    await mountPage();
+    expect(Object.keys(shortcuts().value)).toContain("escape");
+
+    uiStore.showSettings = true;
+    expect(shortcuts().value).toEqual({});
+
+    uiStore.showSettings = false;
+    expect(Object.keys(shortcuts().value)).toContain("escape");
   });
 
   it("keeps a pack selected when a pack filter hides it", async () => {

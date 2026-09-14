@@ -17,6 +17,7 @@ import { useExplorerActions, type ActionId, type ActionScope } from "~/composabl
 import { useListSelection } from "~/composables/useListSelection";
 import { useConfirm } from "~/composables/useConfirm";
 import { useNotifications } from "~/composables/useNotifications";
+import { useUiStore } from "~/stores/uiStore";
 import { buildPackList, packOrder, packTotal, type PackChip, type PackSort } from "~/utils/packListView";
 import { cardCounts, filterCards, sortCards, type CardSort } from "~/utils/cardTableView";
 import { parseExplorerQuery, serializeExplorerQuery, type CardFilter, type CardView } from "~/utils/explorerQuery";
@@ -30,6 +31,7 @@ const router = useRouter();
 const { $activityFetch } = useNuxtApp();
 const { confirm, isOpen: confirmOpen } = useConfirm();
 const { notify } = useNotifications();
+const uiStore = useUiStore();
 
 const roster = useAdminPackRoster();
 const list = useAdminCards();
@@ -289,9 +291,10 @@ const actions = useExplorerActions({
 });
 // The shortcuts listen on window, so they would also fire behind a dialog:
 // Escape closing the Merge dialog would clear the selection, and Delete would
-// stack a second confirm on the singleton dialog. Off while anything is open.
+// stack a second confirm on the singleton dialog. Off while anything is open,
+// including the app-wide Settings slideover mounted in app.vue.
 const pageShortcuts = computed(() =>
-  confirmOpen.value || mergeOpen.value || moveOpen.value || seriesOpen.value || addOpen.value
+  confirmOpen.value || mergeOpen.value || moveOpen.value || seriesOpen.value || addOpen.value || uiStore.showSettings
     ? {}
     : actions.shortcuts.value,
 );
