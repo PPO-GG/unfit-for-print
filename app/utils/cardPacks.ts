@@ -52,7 +52,7 @@ export interface PackMetaRow {
   nsfw: boolean;
 }
 
-export type PackSort = "cards-desc" | "cards-asc" | "name";
+export type PackGallerySort = "cards-desc" | "cards-asc" | "name";
 
 /**
  * What a tile actually reads as on screen, for the controls that have to
@@ -71,7 +71,7 @@ function tileLabel(tile: PackTile, seriesPrefix = ""): string {
  */
 export function sortPackGallery(
   tiles: PackTile[],
-  sort: PackSort,
+  sort: PackGallerySort,
   seriesPrefix = "",
 ): PackTile[] {
   const byName = (a: PackTile, b: PackTile) =>
@@ -118,7 +118,7 @@ export function stepCardIndex(
 export interface PackGalleryView {
   search: string;
   defaultOnly: boolean;
-  sort: PackSort;
+  sort: PackGallerySort;
   /**
    * Shared series prefix across the loaded roster, from `commonPackPrefix`.
    * Only affects which string search and A-Z see; omitting it falls back to

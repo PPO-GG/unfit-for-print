@@ -11,8 +11,6 @@ import { packToDraft, type PackDraft } from "~/utils/packDraft";
 import { useNotifications } from "~/composables/useNotifications";
 import { useConfirm } from "~/composables/useConfirm";
 
-export type { PackDraft };
-
 const MOVE_CHUNK = 500;
 const PICK_CHUNK = 1000;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
