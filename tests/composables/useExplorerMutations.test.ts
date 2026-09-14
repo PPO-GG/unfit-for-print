@@ -50,6 +50,13 @@ describe("savePack", () => {
     ]);
   });
 
+  it("does not toggle an empty pack whose Enabled switch was left alone", async () => {
+    const m = useExplorerMutations();
+    const p = pack("p1", { white: { total: 0, active: 0 }, black: { total: 0, active: 0 } });
+    await m.savePack(p, { ...m.packToDraft(p), description: "new" });
+    expect(calls().map(([url]) => url)).toEqual(["/api/admin/cards/pack-meta"]);
+  });
+
   it("explains a name clash and fails", async () => {
     fetchMock.mockRejectedValueOnce({ statusCode: 409 });
     const m = useExplorerMutations();

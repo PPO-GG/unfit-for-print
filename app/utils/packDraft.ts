@@ -1,5 +1,5 @@
 import type { AdminPack } from "~/types/adminCard";
-import { isPackDisabled } from "~/utils/packListView";
+import { isPackDisabled, packTotal } from "~/utils/packListView";
 
 /** The editable state of one pack, as the inspector form holds it. */
 export interface PackDraft {
@@ -25,8 +25,18 @@ export const packToDraft = (p: AdminPack): PackDraft => ({
   official: p.official,
   nsfw: p.nsfw,
   isDefault: p.isDefault,
-  active: !isPackDisabled(p),
+  // An empty pack has no cards to disable, so it reads as enabled: otherwise
+  // its Enabled switch would start off and flipping it would change nothing.
+  active: packTotal(p) === 0 || !isPackDisabled(p),
 });
 
+/**
+ * `sortOrder` compares as a number: `v-model.number` yields "" for a cleared
+ * field and a string for input it cannot parse, and `savePack` sends
+ * `Number(d.sortOrder) || 0` anyway — a strict compare would keep the form
+ * dirty after a save that stored exactly what was typed.
+ */
 export const draftsEqual = (a: PackDraft, b: PackDraft) =>
-  (Object.keys(a) as (keyof PackDraft)[]).every((k) => a[k] === b[k]);
+  (Object.keys(a) as (keyof PackDraft)[]).every((k) =>
+    k === "sortOrder" ? (Number(a[k]) || 0) === (Number(b[k]) || 0) : a[k] === b[k],
+  );

@@ -91,7 +91,9 @@ export function useExplorerMutations() {
       if (d.isDefault !== p.isDefault) {
         await post("/api/admin/cards/toggle-default-pack", { packId: p.id, isDefault: d.isDefault });
       }
-      if (d.active !== !isPackDisabled(p)) {
+      // Against the same derived state the form was seeded from, so an empty
+      // pack (which reads as enabled) is never toggled by an untouched switch.
+      if (d.active !== packToDraft(p).active) {
         await post("/api/admin/cards/toggle-pack", { packId: p.id, type: "all", active: d.active });
       }
       notify({ title: "Pack saved", color: "success" });
