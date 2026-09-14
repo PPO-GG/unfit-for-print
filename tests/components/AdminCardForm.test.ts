@@ -1,197 +1,117 @@
 import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
 import AdminCardForm from "~/components/admin/AdminCardForm.vue";
+import type { AdminCard } from "~/types/adminCard";
 
 const stubs = {
-  UTextarea: {
-    props: ["modelValue"],
-    emits: ["update:modelValue"],
-    template: `<textarea :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
-  },
-  UInput: {
-    props: ["modelValue"],
-    emits: ["update:modelValue"],
-    template: `<input :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
-  },
-  UButton: { template: "<button><slot /></button>" },
+  UTextarea: { props: ["modelValue"], emits: ["update:modelValue"], template: `<textarea :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />` },
+  UInput: { props: ["modelValue"], emits: ["update:modelValue"], template: `<input :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />` },
+  UButton: { props: ["disabled"], template: "<button :disabled='disabled' v-bind='$attrs'><slot /></button>" },
   UFormField: { props: ["label"], template: "<div><label>{{ label }}</label><slot /></div>" },
-  AdminPackPicker: { props: ["modelValue", "packs"], template: "<div class='picker'></div>" },
+  AdminPackPicker: { props: ["modelValue", "packs"], emits: ["update:modelValue"], template: "<div class='picker'></div>" },
 };
 
-const white = { id: "w1", text: "A card.", type: "white" as const, pack: "Base", active: true };
-const black = { id: "b1", text: "Why? _", type: "black" as const, pack: "Base", active: true, pick: 1 };
+const white: AdminCard = { id: "w1", text: "A card.", type: "white", packId: "p1", pack: "Base", active: true };
+const black: AdminCard = { id: "b1", text: "Why? _", type: "black", packId: "p1", pack: "Base", active: true, pick: 1 };
 
-const mountForm = (card = white) =>
-  mount(AdminCardForm, { props: { card, packs: ["Base", "Blue"] }, global: { stubs } });
+type FormVm = { draft: { text: string; pick: number; pack: string }; dirty: boolean; save: () => void; revert: () => void };
+const mountForm = (card: AdminCard = white, extra = {}) =>
+  mount(AdminCardForm, { props: { card, packs: ["Base", "Blue"], ...extra }, global: { stubs } });
+const vmOf = (w: ReturnType<typeof mountForm>) => w.vm as unknown as FormVm;
 
 describe("AdminCardForm", () => {
-  it("seeds the draft from the card", () => {
-    expect(mountForm().vm.draft.text).toBe("A card.");
+  it("seeds a clean draft from the card", () => {
+    const vm = vmOf(mountForm());
+    expect(vm.draft.text).toBe("A card.");
+    expect(vm.dirty).toBe(false);
   });
 
-  it("re-seeds when a different card is inspected", async () => {
-    const wrapper = mountForm();
-    wrapper.vm.draft.text = "edited but not saved";
-    await wrapper.setProps({ card: { ...white, id: "w2", text: "Another." } });
-    expect(wrapper.vm.draft.text).toBe("Another.");
+  it("does not save while clean, and never on blur", async () => {
+    const w = mountForm();
+    await w.get("textarea").trigger("blur");
+    vmOf(w).save();
+    expect(w.emitted("save")).toBeUndefined();
   });
 
-  it("emits save with the edited text", async () => {
-    const wrapper = mountForm();
-    wrapper.vm.draft.text = "Edited.";
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "Edited.", pick: undefined }]);
+  it("emits the edit on save, with pack only when it changed", async () => {
+    const w = mountForm();
+    vmOf(w).draft.text = "Edited.";
+    vmOf(w).save();
+    vmOf(w).draft.pack = "Blue";
+    vmOf(w).save();
+    expect(w.emitted("save")).toEqual([
+      [{ text: "Edited.", pick: undefined, pack: undefined }],
+      [{ text: "Edited.", pick: undefined, pack: "Blue" }],
+    ]);
   });
 
-  it("includes pick for black cards only", async () => {
-    const wrapper = mountForm(black);
-    wrapper.vm.draft.pick = 2;
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "Why? _", pick: 2 }]);
+  it("saves with Ctrl+Enter", async () => {
+    const w = mountForm();
+    vmOf(w).draft.text = "Edited.";
+    await w.get("textarea").trigger("keydown", { key: "Enter", ctrlKey: true });
+    expect(w.emitted("save")).toHaveLength(1);
   });
 
-  it("does not save an empty text", async () => {
-    const wrapper = mountForm();
-    wrapper.vm.draft.text = "   ";
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")).toBeUndefined();
+  it("includes pick for black cards and refuses empty text", async () => {
+    const w = mountForm(black);
+    vmOf(w).draft.pick = 2;
+    vmOf(w).save();
+    expect(w.emitted("save")?.[0]).toEqual([{ text: "Why? _", pick: 2, pack: undefined }]);
+
+    const t = mountForm();
+    vmOf(t).draft.text = "   ";
+    vmOf(t).save();
+    expect(t.emitted("save")).toBeUndefined();
   });
 
-  it("labels the deactivate action by current state", () => {
-    expect(mountForm().text()).toContain("Deactivate");
-    expect(mountForm({ ...white, active: false }).text()).toContain("Activate");
+  it("reverts to the card", () => {
+    const w = mountForm();
+    vmOf(w).draft.text = "changed";
+    vmOf(w).revert();
+    expect(vmOf(w).draft.text).toBe("A card.");
+    expect(vmOf(w).dirty).toBe(false);
   });
 
-  it("does not save when nothing changed", async () => {
-    const wrapper = mountForm();
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")).toBeUndefined();
+  it("re-seeds for another card or a clean reload, but keeps a dirty draft", async () => {
+    const w = mountForm();
+    await w.setProps({ card: { ...white, text: "Reloaded." } });
+    expect(vmOf(w).draft.text).toBe("Reloaded.");
+
+    vmOf(w).draft.text = "mine";
+    await w.setProps({ card: { ...white, text: "Reloaded again." } });
+    expect(vmOf(w).draft.text).toBe("mine");
+
+    await w.setProps({ card: { ...white, id: "w2", text: "Other." } });
+    expect(vmOf(w).draft.text).toBe("Other.");
   });
 
-  it("saves once when Ctrl+Enter is followed by a blur, before the parent catches up", async () => {
-    const wrapper = mountForm();
-    wrapper.vm.draft.text = "Edited.";
-    await wrapper.vm.save(); // Ctrl+Enter
-    await wrapper.vm.save(); // the blur that follows, props not yet updated
-    expect(wrapper.emitted("save")).toHaveLength(1);
-  });
-
-  it("saves again when the text changes after a save, still before the parent catches up", async () => {
-    const wrapper = mountForm();
-    wrapper.vm.draft.text = "Edited.";
-    await wrapper.vm.save();
-    wrapper.vm.draft.text = "Edited twice.";
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")).toHaveLength(2);
-  });
-
-  it("lets a different card save the same text the previous one had", async () => {
-    const wrapper = mountForm();
-    wrapper.vm.draft.text = "Shared text.";
-    await wrapper.vm.save();
-    await wrapper.setProps({ card: { ...white, id: "w2", text: "Different." } });
-    wrapper.vm.draft.text = "Shared text.";
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")).toHaveLength(2);
-  });
-
-  it("saves again once the card prop catches up and the text changes again", async () => {
-    const wrapper = mountForm();
-    wrapper.vm.draft.text = "Edited.";
-    await wrapper.vm.save();
-    await wrapper.setProps({ card: { ...white, text: "Edited." } });
-    wrapper.vm.draft.text = "Edited twice.";
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")).toHaveLength(2);
-  });
-
-  it("still saves a changed pick on a black card", async () => {
-    const wrapper = mountForm(black);
-    wrapper.vm.draft.pick = 2;
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "Why? _", pick: 2 }]);
+  it("labels the enable action by current state", () => {
+    expect(mountForm().text()).toContain("Disable");
+    expect(mountForm({ ...white, active: false }).text()).toContain("Enable");
   });
 });
 
 describe("AdminCardForm — image cards", () => {
-  const image = {
-    id: "i1",
-    text: "",
-    type: "white" as const,
-    pack: "Memes",
-    active: true,
-    imageKey: "doge.webp",
-    imageFormat: "webp",
-  };
+  const image: AdminCard = { ...black, text: null, imageKey: "abc", imageFormat: "png" };
 
-  it("renders the image instead of the text field", () => {
-    const wrapper = mount(AdminCardForm, {
-      props: { card: image, packs: ["Memes"] },
-      global: { stubs },
-    });
-    const img = wrapper.find('[data-testid="card-image"]');
-    expect(img.exists()).toBe(true);
-    expect(img.attributes("src")).toBe("/api/cards/images/doge.webp");
-    expect(wrapper.find("textarea").exists()).toBe(false);
-  });
-
-  it("still renders the textarea for a text card", () => {
-    const wrapper = mount(AdminCardForm, {
-      props: { card: white, packs: ["Base"] },
-      global: { stubs },
-    });
-    expect(wrapper.find('[data-testid="card-image"]').exists()).toBe(false);
-    expect(wrapper.find("textarea").exists()).toBe(true);
-  });
-
-  it("lets an image card save a changed pick, which empty text would otherwise block", async () => {
-    const wrapper = mount(AdminCardForm, {
-      props: { card: { ...image, type: "black" as const, pick: 1 }, packs: ["Memes"] },
-      global: { stubs },
-    });
-    wrapper.vm.draft.pick = 2;
-    await wrapper.vm.save();
-    expect(wrapper.emitted("save")?.at(-1)).toEqual([{ text: "", pick: 2 }]);
+  it("shows the image instead of a text field and can still save a pick", () => {
+    const w = mountForm(image);
+    expect(w.find("[data-testid='card-image']").exists()).toBe(true);
+    expect(w.find("textarea").exists()).toBe(false);
+    vmOf(w).draft.pick = 3;
+    vmOf(w).save();
+    expect(w.emitted("save")?.[0]).toEqual([{ text: "", pick: 3, pack: undefined }]);
   });
 });
 
 describe("AdminCardForm — performance", () => {
-  const packCards = [
-    { id: "p1", text: "p", type: "white", timesPlayed: 100, timesWon: 5 },
-    { id: "p2", text: "q", type: "white", timesPlayed: 100, timesWon: 7 },
-  ];
-
-  const mountWithStats = (card: object) =>
-    mount(AdminCardForm, {
-      props: { card: card as never, packs: ["Base"], packCards: packCards as never },
-      global: { stubs },
-    });
-
-  it("shows the counters and the rate", () => {
-    const text = mountWithStats({
-      id: "w1", text: "A card.", type: "white", pack: "Base", active: true,
-      timesPlayed: 412, timesWon: 38,
-    }).text();
-    expect(text).toContain("412");
-    expect(text).toContain("38");
-    expect(text).toContain("9.2%");
+  it("shows counters and the rate once there are enough plays", () => {
+    const w = mountForm({ ...white, timesPlayed: 200, timesWon: 20 });
+    expect(w.text()).toContain("200");
+    expect(w.text()).toContain("10.0%");
   });
 
-  it("says so instead of showing a rate below the play threshold", () => {
-    const text = mountWithStats({
-      id: "w1", text: "A card.", type: "white", pack: "Base", active: true,
-      timesPlayed: 3, timesWon: 2,
-    }).text();
-    expect(text).toMatch(/not enough plays/i);
-    expect(text).not.toContain("66.7%");
-  });
-
-  it("shows skips rather than wins for a black card", () => {
-    const text = mountWithStats({
-      id: "b1", text: "Why? _", type: "black", pack: "Base", active: true,
-      timesPlayed: 100, timesSkipped: 30,
-    }).text();
-    expect(text).toMatch(/skipped/i);
-    expect(text).toContain("30");
+  it("says so below the play threshold", () => {
+    expect(mountForm({ ...white, timesPlayed: 2, timesWon: 1 }).text()).toContain("Not enough plays");
   });
 });

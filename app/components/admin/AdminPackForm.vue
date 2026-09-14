@@ -1,170 +1,115 @@
 <script setup lang="ts">
 /**
- * Edits one pack's metadata row. The row is optional — a pack with no row is
- * the normal case — so the form opens on blank defaults and the POST upserts.
- *
- * Empty strings are sent as null so clearing a field actually clears it,
- * rather than storing "" and having every reader test for both.
- *
- * Series starts pre-filled from the same derived guess AdminPackTile shows
- * whenever the row has no explicit value, so a one-click Save turns the
- * guess into real data. A pack has a single name since pack ids; it is
- * renamed from the Packs screen, not here.
+ * One pack, edited in the inspector: its one name (a real rename — the id
+ * stays, so lobbies keep it), series, presentation fields, and the default
+ * and enabled switches. Nothing saves until Save or Ctrl/⌘+Enter.
  */
-import { ref, computed, watch } from "vue";
-import { useNotifications } from "~/composables/useNotifications";
+import { computed, ref, watch } from "vue";
+import type { AdminPack } from "~/types/adminCard";
+import { draftsEqual, packToDraft, type PackDraft } from "~/utils/packDraft";
 import { splitPackName } from "~/utils/packName";
-import { normalizePackText, looksShouted } from "#shared/packMetaText";
-import type { CardPackMeta } from "~/types/cardPack";
+import { looksShouted, normalizePackText } from "#shared/packMetaText";
 
 const props = defineProps<{
-  pack: string;
-  meta: CardPackMeta | null;
-  /** Shared series prefix across the loaded packs, from `commonPackPrefix`. */
+  pack: AdminPack;
   seriesPrefix?: string;
+  saving?: boolean;
 }>();
 
-const emit = defineEmits<{
-  saved: [CardPackMeta];
-}>();
+const emit = defineEmits<{ save: [PackDraft]; delete: [] }>();
 
-const { $activityFetch } = useNuxtApp();
-const { notify } = useNotifications();
+// Measured against what the draft was seeded from, not the live prop — see
+// AdminCardForm for why comparing to a freshly reloaded prop would misfire.
+const base = ref<PackDraft>(packToDraft(props.pack));
+const draft = ref<PackDraft>(packToDraft(props.pack));
+const dirty = computed(() => !draftsEqual(draft.value, base.value));
 
-const saving = ref(false);
+const revert = () => {
+  base.value = packToDraft(props.pack);
+  draft.value = { ...base.value };
+};
 
-const blank = () => ({
-  description: "",
-  icon: "",
-  color: "",
-  series: "",
-  sortOrder: 0,
-  official: false,
-  nsfw: false,
-});
-
-const form = ref(blank());
-
-const derived = computed(() => splitPackName(props.pack, props.seriesPrefix ?? ""));
-// The derived series carries the trailing separator (": ") that makes sense
-// concatenated in a tile's headline, not as a value someone actually saves —
-// same stripping the bulk "Set series…" popover does before prefilling.
-const suggestedSeries = computed(() => derived.value.series.replace(/[:\s]+$/, ""));
-
-function seed() {
-  form.value = props.meta
-    ? {
-        description: props.meta.description ?? "",
-        icon: props.meta.icon ?? "",
-        color: props.meta.color ?? "",
-        series: props.meta.series ?? suggestedSeries.value,
-        sortOrder: props.meta.sortOrder ?? 0,
-        official: props.meta.official ?? false,
-        nsfw: props.meta.nsfw ?? false,
-      }
-    : { ...blank(), series: suggestedSeries.value };
-}
-seed();
-// Also on `pack` changing: switching packs discards whatever was mid-edit
-// rather than resuming it against the newly selected pack.
 watch(
-  () => [props.pack, props.meta],
-  () => seed(),
+  () => props.pack,
+  (next, prev) => {
+    if (!prev || next.id !== prev.id || !dirty.value) revert();
+  },
 );
 
-/**
- * Every text field goes through the shared normalizer — trimmed, internal
- * whitespace collapsed, blank becomes null — so the row cannot pick up the
- * defects that are invisible in a UI that uppercases everything in CSS.
- */
-const orNull = normalizePackText;
+// The guess the old tiles showed, offered rather than pre-filled: a
+// pre-filled field would make every untouched pack look edited.
+const suggestedSeries = computed(() =>
+  splitPackName(props.pack.name, props.seriesPrefix ?? "").series.replace(/[:\s]+$/, ""),
+);
+const canSuggest = computed(() => !draft.value.series && Boolean(suggestedSeries.value));
 
-// Advisory, not a gate. Casing is the admin's call; this just makes the
-// consequence visible at the point of entry, since every surface that renders
-// these uppercases them anyway and would hide a shouted value.
-const shoutedFields = computed(() =>
-  (["series"] as const).filter((key) =>
-    looksShouted(form.value[key]),
-  ),
+const shouted = computed(() =>
+  (["name", "series"] as const).filter((k) => looksShouted(draft.value[k])),
 );
 
-async function save() {
-  saving.value = true;
-  // Write the normalized values back into the form first: saving silently
-  // different text than the box shows is how "I fixed that already" happens.
-  form.value.series = orNull(form.value.series) ?? "";
-  try {
-    const row = await $activityFetch<CardPackMeta>("/api/admin/cards/pack-meta", {
-      method: "POST",
-      body: {
-        pack: props.pack,
-        description: orNull(form.value.description),
-        icon: orNull(form.value.icon),
-        color: orNull(form.value.color),
-        series: orNull(form.value.series),
-        sortOrder: Number(form.value.sortOrder) || 0,
-        official: form.value.official,
-        nsfw: form.value.nsfw,
-      },
-    });
-    emit("saved", row);
-  } catch {
-    notify({
-      title: "Save Failed",
-      description: `Could not save details for "${props.pack}".`,
-      color: "error",
-    });
-  } finally {
-    saving.value = false;
-  }
+function save() {
+  if (!dirty.value) return;
+  draft.value.name = normalizePackText(draft.value.name) ?? "";
+  draft.value.series = normalizePackText(draft.value.series) ?? "";
+  if (!draft.value.name) return;
+  emit("save", { ...draft.value });
 }
 
-defineExpose({ form, save });
+const nameField = ref<{ $el: HTMLElement } | null>(null);
+const focusName = () => nameField.value?.$el?.querySelector?.("input")?.focus();
+
+defineExpose({ draft, dirty, save, revert, focusName });
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <UFormField label="Series / brand">
-      <UInput v-model="form.series" class="w-full" placeholder="e.g. Cards Against Humanity" />
+  <div class="flex flex-col gap-3" @keydown.meta.enter.prevent="save" @keydown.ctrl.enter.prevent="save">
+    <p class="text-[10px] uppercase tracking-wider text-slate-500">Pack</p>
+
+    <UFormField label="Name">
+      <UInput ref="nameField" v-model="draft.name" class="w-full" data-testid="pack-name-input" />
     </UFormField>
 
-    <p
-      v-if="shoutedFields.length"
-      data-testid="pack-shout-hint"
-      class="-mt-2 text-xs text-amber-400/90"
-    >
-      Type {{ shoutedFields.length > 1 ? "these" : "this" }} the way you'd write
-      it in a sentence — every screen uppercases pack names already, and stored
-      caps can't be turned back into title case.
+    <UFormField label="Series / brand">
+      <UInput v-model="draft.series" class="w-full" :placeholder="suggestedSeries || 'e.g. Cards Against Humanity'" />
+      <button
+        v-if="canSuggest"
+        type="button"
+        data-testid="use-series-suggestion"
+        class="mt-1 text-[11px] text-primary-300 hover:underline"
+        @click="draft.series = suggestedSeries"
+      >
+        Use “{{ suggestedSeries }}”
+      </button>
+    </UFormField>
+
+    <p v-if="shouted.length" data-testid="pack-shout-hint" class="-mt-1 text-xs text-amber-400/90">
+      Type {{ shouted.length > 1 ? "these" : "this" }} the way you'd write it in a sentence — every screen
+      uppercases pack names already, and stored caps can't be turned back into title case.
     </p>
 
     <UFormField label="Description">
-      <UTextarea v-model="form.description" class="w-full" :rows="3" placeholder="What is in this pack?" />
+      <UTextarea v-model="draft.description" class="w-full" :rows="3" placeholder="What is in this pack?" />
     </UFormField>
 
     <div class="grid grid-cols-2 gap-3">
-      <UFormField label="Icon">
-        <UInput v-model="form.icon" class="w-full" placeholder="🎴" />
-      </UFormField>
-      <UFormField label="Accent colour">
-        <UInput v-model="form.color" class="w-full" placeholder="#3b82f6" />
-      </UFormField>
+      <UFormField label="Icon"><UInput v-model="draft.icon" class="w-full" placeholder="🎴" /></UFormField>
+      <UFormField label="Accent colour"><UInput v-model="draft.color" class="w-full" placeholder="#3b82f6" /></UFormField>
     </div>
 
     <UFormField label="Sort order">
-      <UInput v-model="form.sortOrder" type="number" class="w-full" />
+      <UInput v-model.number="draft.sortOrder" type="number" class="w-full" />
     </UFormField>
 
-    <div class="flex items-center justify-between">
-      <USwitch v-model="form.official" label="Official pack" />
-    </div>
+    <USwitch v-model="draft.official" label="Official pack" />
+    <USwitch v-model="draft.nsfw" label="NSFW" />
+    <USwitch v-model="draft.isDefault" label="Default for new lobbies" />
+    <USwitch v-model="draft.active" label="Enabled" />
 
-    <div class="flex items-center justify-between">
-      <USwitch v-model="form.nsfw" label="NSFW" />
-    </div>
-
-    <div class="flex justify-end">
-      <UButton color="primary" :loading="saving" @click="save">Save details</UButton>
+    <div class="flex gap-2 pt-1">
+      <UButton size="xs" color="primary" :disabled="!dirty" :loading="saving" data-testid="pack-save" @click="save">Save</UButton>
+      <UButton size="xs" variant="ghost" :disabled="!dirty" @click="revert">Revert</UButton>
+      <span class="flex-1" />
+      <UButton size="xs" color="error" variant="ghost" @click="emit('delete')">Delete pack</UButton>
     </div>
   </div>
 </template>
