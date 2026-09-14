@@ -24,9 +24,14 @@
                is invisible on a card that never flips, and without a maskUrl it
                resolves url(undefined) and fires a 404 per card. -->
           <div v-if="!card" class="lightbox__pending">
-            <Icon name="solar:loading-bold-duotone" class="animate-spin" />
+            <Icon name="lucide:loader-circle" class="animate-spin" />
           </div>
-          <div v-else class="lightbox__card">
+          <div
+            v-else
+            class="lightbox__card"
+            :class="{ 'lightbox__card--pending': pending }"
+            :aria-busy="pending"
+          >
             <BlackCard
               v-if="type === 'black'"
               :key="card.id"
@@ -62,6 +67,11 @@
               :tilt-degrees="cardTilt"
               :scale="lightboxScale"
             />
+            <div v-if="pending" class="lightbox__spinner">
+              <span class="lightbox__halo">
+                <Icon name="lucide:loader-circle" class="animate-spin" />
+              </span>
+            </div>
           </div>
         </div>
 
@@ -78,7 +88,7 @@
         <div class="lightbox__meta">
           <span class="lightbox__chip">{{ typeLabel }}</span>
           <span
-            v-if="type === 'black' && (card?.pick ?? 1) > 1"
+            v-if="type === 'black' && !pending && (card?.pick ?? 1) > 1"
             class="lightbox__chip"
           >
             {{ t("labs.pick_n", { count: card?.pick }) }}
@@ -102,8 +112,13 @@ import { getCardImageUrl } from "~/utils/cardImage";
 import { packLabel } from "~/utils/packName";
 
 const props = defineProps<{
-  /** Null while the page holding the current position is still loading. */
+  /**
+   * The card to show. While `pending`, this is the last card that resolved
+   * (kept on stage so a page fetch does not blink it out), or null if none has.
+   */
   card: BrowsableCard | null;
+  /** The page holding `position` is still loading. */
+  pending?: boolean;
   type: "white" | "black";
   /** 1-based position across the entire filtered result set. */
   position: number;
@@ -210,16 +225,47 @@ watch(open, async (isOpen) => {
   transform: scale(calc(1 / var(--lb-card-ss)));
   transform-origin: top left;
 }
+.lightbox__card :deep(.card-scaler) {
+  transition:
+    opacity 0.15s ease,
+    filter 0.15s ease;
+}
+.lightbox__card--pending :deep(.card-scaler) {
+  opacity: 0.45;
+  filter: saturate(0.6);
+}
+.lightbox__spinner {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+/* A dark disc so the spinner reads over the card's own text. */
+.lightbox__halo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 999px;
+  background: rgba(5, 6, 13, 0.78);
+  box-shadow: 0 0 1.5rem 0.6rem rgba(5, 6, 13, 0.5);
+  color: #a9ed87;
+  font-size: 1.75rem;
+}
 .lightbox__pending {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #a9ed87;
+  font-size: 1.75rem;
   width: clamp(200px, 46vh, 300px);
   aspect-ratio: 3 / 4;
   border: 1px dashed rgba(255, 255, 255, 0.15);
   border-radius: 14px;
-  color: #a9ed87;
-  font-size: 1.75rem;
 }
 .lightbox__nav {
   display: flex;

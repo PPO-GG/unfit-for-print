@@ -183,14 +183,6 @@
           :type="type"
           @select="openLightbox"
         />
-        <LabsCardLightbox
-          v-model:open="lightboxOpen"
-          :card="lightboxCard"
-          :type="type"
-          :position="lightboxGlobalIndex + 1"
-          :total="total"
-          @step="stepLightbox"
-        />
         <div v-if="total > perPage" class="labs-pagination">
           <p class="pack-range">
             {{
@@ -210,6 +202,19 @@
           </ClientOnly>
         </div>
       </template>
+
+      <!-- Outside the loading/empty/grid chain on purpose: stepping across a
+           page boundary sets `cardsLoading`, which used to unmount the modal
+           until the next page arrived. -->
+      <LabsCardLightbox
+        v-model:open="lightboxOpen"
+        :card="lightboxCard"
+        :pending="lightboxPending"
+        :type="type"
+        :position="lightboxGlobalIndex + 1"
+        :total="total"
+        @step="stepLightbox"
+      />
     </template>
   </div>
 </template>
@@ -220,7 +225,10 @@
 // public /api/cards/browse route, which only ever returns active cards, so the
 // browser can never advertise a card a game would not deal.
 import { watchDebounced } from "@vueuse/core";
-import type { CardBrowseResponse } from "~/types/cardBrowser";
+import type {
+  BrowsableCard,
+  CardBrowseResponse,
+} from "~/types/cardBrowser";
 import {
   filterAndSortPacks,
   pageForIndex,
@@ -307,14 +315,6 @@ const lightboxLocation = computed(() =>
   pageForIndex(lightboxGlobalIndex.value, perPage),
 );
 
-// Null while the page holding the current position is still in flight, which is
-// what the lightbox renders its spinner for.
-const lightboxCard = computed(() =>
-  lightboxLocation.value.page === page.value
-    ? (cards.value[lightboxLocation.value.offset] ?? null)
-    : null,
-);
-
 function openLightbox(offset: number) {
   lightboxGlobalIndex.value = (page.value - 1) * perPage + offset;
   lightboxOpen.value = true;
@@ -379,12 +379,65 @@ watch([selectedPack, type, searchTerm], () => {
   page.value = 1;
   lightboxOpen.value = false;
   lightboxGlobalIndex.value = 0;
+  lastLightboxCard.value = null;
+  clearPageCache();
 });
 
-const queryKey = computed(
-  () =>
-    `${selectedPack.value}|${type.value}|${searchTerm.value}|${page.value}`,
-);
+const pageKey = (pageNumber: number) =>
+  `${selectedPack.value}|${type.value}|${searchTerm.value}|${pageNumber}`;
+
+const queryKey = computed(() => pageKey(page.value));
+
+// Pages already fetched for the current filters, and the requests still out.
+// Both are keyed by `pageKey`, so an entry can only ever answer for the filters
+// it was fetched under; clearing on a filter change just bounds the memory.
+// `cacheGeneration` stops a reply for a cleared view from repopulating it.
+const pageCache = new Map<string, CardBrowseResponse>();
+const pageRequests = new Map<string, Promise<CardBrowseResponse>>();
+let cacheGeneration = 0;
+
+function clearPageCache() {
+  pageCache.clear();
+  pageRequests.clear();
+  cacheGeneration++;
+}
+
+function requestPage(pageNumber: number): Promise<CardBrowseResponse> {
+  const key = pageKey(pageNumber);
+  const inFlight = pageRequests.get(key);
+  if (inFlight) return inFlight;
+  const generation = cacheGeneration;
+  const request = $activityFetch<CardBrowseResponse>("/api/cards/browse", {
+    query: {
+      type: type.value,
+      pack: selectedPack.value,
+      search: searchTerm.value || undefined,
+      page: pageNumber,
+      perPage,
+    },
+  })
+    .then((result) => {
+      if (generation === cacheGeneration) pageCache.set(key, result);
+      return result;
+    })
+    .finally(() => {
+      if (pageRequests.get(key) === request) pageRequests.delete(key);
+    });
+  pageRequests.set(key, request);
+  return request;
+}
+
+// The `queryKey` whose rows `cards` currently holds. `page` moves the moment
+// the lightbox steps, but `cards` does not until the reply lands, so comparing
+// the two is what tells a loaded card from the previous page's row at the same
+// offset.
+const cardsKey = ref<string | null>(null);
+
+function applyPage(key: string, result: CardBrowseResponse) {
+  cards.value = result.cards;
+  total.value = result.total;
+  cardsKey.value = key;
+}
 
 // Every filter funnels through this one watcher, so a multi-field change like
 // openPack() issues exactly one request instead of one per field. `requestSeq`
@@ -394,23 +447,20 @@ let requestSeq = 0;
 async function fetchCards() {
   if (!selectedPack.value) return;
   const seq = ++requestSeq;
+  const key = queryKey.value;
+  // A page the lightbox prefetched (or one already visited) lands in the same
+  // flush, so neither the grid nor the lightbox passes through a loading state.
+  const cached = pageCache.get(key);
+  if (cached) {
+    applyPage(key, cached);
+    cardsLoading.value = false;
+    return;
+  }
   cardsLoading.value = true;
   try {
-    const result = await $activityFetch<CardBrowseResponse>(
-      "/api/cards/browse",
-      {
-        query: {
-          type: type.value,
-          pack: selectedPack.value,
-          search: searchTerm.value || undefined,
-          page: page.value,
-          perPage,
-        },
-      },
-    );
+    const result = await requestPage(page.value);
     if (seq !== requestSeq) return;
-    cards.value = result.cards;
-    total.value = result.total;
+    applyPage(key, result);
   } catch (error) {
     if (seq !== requestSeq) return;
     console.error("Error loading cards:", error);
@@ -421,6 +471,46 @@ async function fetchCards() {
 }
 
 watch(queryKey, fetchCards);
+
+// The card at the lightbox's position, or null while its page is in flight.
+const resolvedLightboxCard = computed(() =>
+  cardsKey.value === queryKey.value &&
+  lightboxLocation.value.page === page.value
+    ? (cards.value[lightboxLocation.value.offset] ?? null)
+    : null,
+);
+
+// While a page is in flight the lightbox keeps the last card it resolved on
+// stage, dimmed under a spinner, rather than blinking out. Forgotten on a
+// filter change so a new result set never opens on a card from the old one.
+const lastLightboxCard = shallowRef<BrowsableCard | null>(null);
+watch(resolvedLightboxCard, (card) => {
+  if (card) lastLightboxCard.value = card;
+});
+
+const lightboxCard = computed(
+  () => resolvedLightboxCard.value ?? lastLightboxCard.value,
+);
+const lightboxPending = computed(() => !resolvedLightboxCard.value);
+
+// Steps are cheap to take in a row, so when the lightbox is within reach of a
+// page boundary the page across it is fetched ahead of time. Waits until the
+// current page has landed so it never races the request the step itself made,
+// and wraps like stepping does, so card 1 also warms the last page.
+const PREFETCH_MARGIN = 3;
+
+watch([lightboxOpen, lightboxGlobalIndex, cardsKey], () => {
+  if (!lightboxOpen.value || cardsKey.value !== queryKey.value) return;
+  if (total.value <= perPage) return;
+  for (const delta of [-PREFETCH_MARGIN, PREFETCH_MARGIN]) {
+    const index = stepCardIndex(lightboxGlobalIndex.value, delta, total.value);
+    const near = pageForIndex(index, perPage).page;
+    if (near === page.value || pageCache.has(pageKey(near))) continue;
+    // Best effort: a failure here surfaces, with its toast, when the step
+    // itself requests the page.
+    requestPage(near).catch(() => {});
+  }
+});
 
 function openPack(packId: string) {
   selectedPack.value = packId;
@@ -437,8 +527,11 @@ function closePack() {
   selectedPack.value = null;
   cards.value = [];
   total.value = 0;
+  cardsKey.value = null;
   cardsLoading.value = false;
   lightboxOpen.value = false;
+  lastLightboxCard.value = null;
+  clearPageCache();
 }
 
 function setType(next: "white" | "black") {
