@@ -39,7 +39,12 @@ const initial = () => ({
   nsfw: tri("nsfw"),
 });
 const state = reactive(initial());
-watch(() => props.packs.map((p) => p.id).join(","), () => Object.assign(state, initial()));
+// Keyed on more than just the id list — see AdminCardBulkForm's reseed watch
+// for why: a reload after a bulk apply keeps the same ids but new values.
+watch(
+  () => props.packs.map((p) => [p.id, p.series ?? "", ...FLAGS.map((f) => getFlag(p, f.key))].join("|")).join(","),
+  () => Object.assign(state, initial()),
+);
 
 const changes = computed(() => {
   const base = initial();

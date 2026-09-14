@@ -37,4 +37,19 @@ describe("AdminPackBulkForm", () => {
     expect(w.emitted("apply")?.[0]).toEqual([{ series: "Unfit", nsfw: true }]);
     expect(w.emitted("merge")).toHaveLength(1);
   });
+
+  it("settles dirty once the reload reflects an applied series change", async () => {
+    const w = mountForm([pack("a"), pack("b")]);
+    await w.get("[data-testid='series']").setValue("Unfit");
+    expect((w.vm as unknown as { dirty: boolean }).dirty).toBe(true);
+    await w.setProps({ packs: [pack("a", { series: "Unfit" }), pack("b", { series: "Unfit" })] });
+    expect((w.vm as unknown as { dirty: boolean }).dirty).toBe(false);
+  });
+
+  it("reseeds to a newly shared series while untouched", async () => {
+    const w = mountForm([pack("a"), pack("b")]);
+    await w.setProps({ packs: [pack("a", { series: "New" }), pack("b", { series: "New" })] });
+    expect((w.get("[data-testid='series']").element as HTMLInputElement).value).toBe("New");
+    expect((w.vm as unknown as { dirty: boolean }).dirty).toBe(false);
+  });
 });

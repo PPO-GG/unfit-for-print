@@ -51,4 +51,18 @@ describe("AdminCardBulkForm", () => {
     expect(w.findAll("[data-testid^='bulk-card-']")).toHaveLength(50);
     expect(w.text()).toContain("+ 3 more");
   });
+
+  it("settles dirty once the reload reflects an applied status change", async () => {
+    const w = mountForm([card("a"), card("b", { active: false })]);
+    await w.get("[data-testid='bulk-status-off']").trigger("click");
+    expect((w.vm as unknown as { dirty: boolean }).dirty).toBe(true);
+    await w.setProps({ cards: [card("a", { active: false }), card("b", { active: false })] });
+    expect((w.vm as unknown as { dirty: boolean }).dirty).toBe(false);
+  });
+
+  it("leaves Apply disabled when the chosen pack is the one every card already shares", async () => {
+    const w = mountForm([card("a"), card("b")]);
+    await w.get("[data-testid='picker']").setValue("Base");
+    expect(w.get("[data-testid='bulk-apply']").attributes("disabled")).toBeDefined();
+  });
 });

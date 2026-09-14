@@ -38,7 +38,14 @@ function reseed() {
   active.value = initialActive();
   pick.value = initialPick();
 }
-watch(() => props.cards.map((c) => c.id).join(","), reseed);
+// Keyed on more than just the id list: a reload after a bulk mutation (move,
+// disable, set-pick) keeps the same selected ids but changes their values, and
+// the reseed needs to re-run then too, or the field the admin just applied
+// keeps reading like an unsaved edit.
+watch(
+  () => props.cards.map((c) => `${c.id}|${c.pack ?? ""}|${c.active !== false}|${c.pick ?? 1}`).join(","),
+  reseed,
+);
 
 const packPlaceholder = computed(() => {
   if (packShared.value.state === "same") return packShared.value.value || "No pack";
@@ -49,7 +56,9 @@ const packPlaceholder = computed(() => {
 
 const changes = computed(() => {
   const out: { pack?: string; active?: boolean; pick?: number } = {};
-  if (pack.value.trim()) out.pack = pack.value.trim();
+  const trimmedPack = pack.value.trim();
+  const sharedPack = packShared.value.state === "same" ? packShared.value.value : null;
+  if (trimmedPack && trimmedPack !== sharedPack) out.pack = trimmedPack;
   if (active.value !== initialActive() && active.value !== "mixed") out.active = active.value === "on";
   if (allBlack.value && pick.value !== null && pick.value !== initialPick()) out.pick = pick.value;
   return out;

@@ -26,7 +26,7 @@ const emit = defineEmits<{
   "cards-delete": [];
   "pack-save": [PackDraft];
   "pack-delete": [];
-  "packs-apply": [Record<string, string | boolean>];
+  "packs-apply": [{ series?: string; active?: boolean; isDefault?: boolean; official?: boolean; nsfw?: boolean }];
   "packs-merge": [];
   "packs-delete": [];
   narrow: [scope: "pack" | "card", id: string];
