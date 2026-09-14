@@ -22,6 +22,22 @@ describe("normalizePackSelection", () => {
     expect(normalizePackSelection([A, gone, "Ghost"], roster)).toEqual({ ids: [A], changed: true });
   });
 
+  it("maps a pre-migration raw key to its id through legacyKey", () => {
+    const withKeys = [
+      { id: A, name: "CAH Base Set", legacyKey: "Base" },
+      { id: B, name: "Blue Box", legacyKey: null },
+    ];
+    expect(normalizePackSelection(["Base", B], withKeys)).toEqual({ ids: [A, B], changed: true });
+  });
+
+  it("prefers a legacyKey match over a different pack's name", () => {
+    const swapped = [
+      { id: A, name: "Y", legacyKey: "X" },
+      { id: B, name: "X", legacyKey: "Y" },
+    ];
+    expect(normalizePackSelection(["X"], swapped)).toEqual({ ids: [A], changed: true });
+  });
+
   it("collapses a name and its id to one entry", () => {
     expect(normalizePackSelection([A, "CAH Base Set"], roster)).toEqual({ ids: [A], changed: true });
   });

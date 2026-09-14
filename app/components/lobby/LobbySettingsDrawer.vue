@@ -249,7 +249,14 @@ const { t } = useI18n();
 const { mutations } = useLobby();
 
 const loadingPacks = ref(false);
-type PackDetail = { id: string; name: string; count: number; color: string };
+type PackDetail = {
+  id: string;
+  name: string;
+  /** Pre-0012_pack_ids key an old lobby may still hold; see normalizePackSelection. */
+  legacyKey: string | null;
+  count: number;
+  color: string;
+};
 const availablePacks = ref<PackDetail[]>([]);
 
 const PACK_COLORS = [
@@ -406,11 +413,14 @@ onMounted(async () => {
     // activeOnly excludes packs an admin has switched off, so their names never
     // reach the client; the `count > 0` filter below stays as a cheap invariant
     // guard on a path where an empty draw pool would break a live game.
-    const { white, black } = await $fetch<{
+    const { white, black, meta } = await $fetch<{
       white: { packId: string; pack: string; active: number }[];
       black: { packId: string; pack: string; active: number }[];
+      meta?: { id: string; legacyKey?: string | null }[];
     }>("/api/cards/packs", { query: { activeOnly: 1 } });
     if (cancelled) return;
+
+    const legacyKeyById = new Map((meta ?? []).map((row) => [row.id, row.legacyKey ?? null]));
 
     const byId = new Map<string, { name: string; count: number }>();
     for (const p of [...white, ...black]) {
@@ -421,7 +431,13 @@ onMounted(async () => {
 
     availablePacks.value = [...byId.entries()]
       .filter(([, { count }]) => count > 0)
-      .map(([id, { name, count }]): PackDetail => ({ id, name, count, color: packColor(name) }))
+      .map(([id, { name, count }]): PackDetail => ({
+        id,
+        name,
+        legacyKey: legacyKeyById.get(id) ?? null,
+        count,
+        color: packColor(name),
+      }))
       .sort((a, b) => b.count - a.count);
 
     if (props.isHost && !cancelled) {

@@ -45,6 +45,11 @@ function stubPackRoster() {
           { packId: BASE, pack: "Base", active: 100 },
           { packId: BLUE, pack: "Blue", active: 80 },
         ],
+        // "Base" was renamed from its pre-migration key "Raw Base".
+        meta: [
+          { id: BASE, pack: "Base", legacyKey: "Raw Base" },
+          { id: BLUE, pack: "Blue", legacyKey: null },
+        ],
       };
     }
     if (url === "/api/cards/default-packs") return { packs: [BASE] };
@@ -63,9 +68,9 @@ const settings = {
   cardPacks: ["Base", "Ghost"],
 } as any;
 
-function mountDrawer(isHost = true) {
+function mountDrawer(isHost = true, cardPacks: string[] = settings.cardPacks) {
   return mount(LobbySettingsDrawer, {
-    props: { open: true, settings, isHost, lobbyId: "lobby-1" },
+    props: { open: true, settings: { ...settings, cardPacks }, isHost, lobbyId: "lobby-1" },
     global: {
       stubs: { UIcon: true, Teleport: true, Transition: false },
     },
@@ -86,6 +91,13 @@ describe("LobbySettingsDrawer — shuffle control", () => {
     await wrapper.get(".lsd-shuffle-btn").trigger("click");
 
     expect(shuffle).toHaveBeenCalledWith([BASE]);
+  });
+
+  it("upgrades a pre-migration raw key to its pack id when the host opens it", async () => {
+    mountDrawer(true, ["Raw Base", BLUE]);
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith({ cardPacks: [BASE, BLUE] });
   });
 
   it("hides the control from non-hosts", async () => {

@@ -41,6 +41,11 @@ export interface PackTile {
 export interface PackMetaRow {
   id: string;
   pack: string;
+  /**
+   * The pre-0012_pack_ids raw key, which old lobbies hold in
+   * `settings.cardPacks`. Null for packs created after the migration.
+   */
+  legacyKey?: string | null;
   series: string | null;
   description: string | null;
   official: boolean;

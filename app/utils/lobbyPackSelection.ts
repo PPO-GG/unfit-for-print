@@ -3,21 +3,29 @@ import { isPackId } from "~/utils/packRef";
 /**
  * Cleans a lobby's `settings.cardPacks` against the live roster.
  *
- * Lobbies created before pack ids stored pack *names*; this maps those to ids
- * so the host's next write upgrades the doc in place. Entries that match no
- * live pack (deleted, merged away, or switched off) are dropped, exactly as
- * the drawer's old name-based sanitising did.
+ * Lobbies created before pack ids stored the raw pack *key*, which migration
+ * 0012_pack_ids kept in the retired `card_packs.pack` column (exposed as
+ * `legacyKey`) while promoting any display name to `name`. A non-id entry maps
+ * by `legacyKey` first, then by `name` — the same order the server's
+ * `resolvePackRefs(..., { legacyKeys: true })` uses — so the host's next write
+ * upgrades the doc in place to the pack the lobby actually chose. Entries that
+ * match no live pack (deleted, merged away, or switched off) are dropped,
+ * exactly as the drawer's old name-based sanitising did.
  */
 export function normalizePackSelection(
   entries: string[],
-  roster: { id: string; name: string }[],
+  roster: { id: string; name: string; legacyKey?: string | null }[],
 ): { ids: string[]; changed: boolean } {
   const liveIds = new Set(roster.map((p) => p.id));
   const idByName = new Map(roster.map((p) => [p.name, p.id]));
+  const idByLegacyKey = new Map<string, string>();
+  for (const p of roster) {
+    if (p.legacyKey && !idByLegacyKey.has(p.legacyKey)) idByLegacyKey.set(p.legacyKey, p.id);
+  }
 
   const ids: string[] = [];
   for (const entry of entries) {
-    const id = isPackId(entry) ? entry : idByName.get(entry);
+    const id = isPackId(entry) ? entry : (idByLegacyKey.get(entry) ?? idByName.get(entry));
     if (id && liveIds.has(id) && !ids.includes(id)) ids.push(id);
   }
 
