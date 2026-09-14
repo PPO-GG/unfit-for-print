@@ -29,22 +29,25 @@ vi.mock("~/composables/useShufflePacks", () => ({
 
 import LobbySettingsDrawer from "~/components/lobby/LobbySettingsDrawer.vue";
 
+const BASE = "11111111-1111-4111-8111-111111111111";
+const BLUE = "22222222-2222-4222-8222-222222222222";
+
 /** Roster the drawer fetches on open: two real packs, so "Ghost" is stale. */
 function stubPackRoster() {
   vi.stubGlobal("$fetch", async (url: string) => {
     if (url === "/api/cards/packs") {
       return {
         white: [
-          { pack: "Base", active: 400 },
-          { pack: "Blue", active: 300 },
+          { packId: BASE, pack: "Base", active: 400 },
+          { packId: BLUE, pack: "Blue", active: 300 },
         ],
         black: [
-          { pack: "Base", active: 100 },
-          { pack: "Blue", active: 80 },
+          { packId: BASE, pack: "Base", active: 100 },
+          { packId: BLUE, pack: "Blue", active: 80 },
         ],
       };
     }
-    if (url === "/api/cards/default-packs") return { packs: ["Base"] };
+    if (url === "/api/cards/default-packs") return { packs: [BASE] };
     return {};
   });
 }
@@ -82,7 +85,7 @@ describe("LobbySettingsDrawer — shuffle control", () => {
 
     await wrapper.get(".lsd-shuffle-btn").trigger("click");
 
-    expect(shuffle).toHaveBeenCalledWith(["Base"]);
+    expect(shuffle).toHaveBeenCalledWith([BASE]);
   });
 
   it("hides the control from non-hosts", async () => {

@@ -198,14 +198,14 @@
                 <div v-else class="lsd-packs-chips">
                   <button
                     v-for="pack in availablePacks"
-                    :key="pack.name"
+                    :key="pack.id"
                     class="lobby-pack-chip"
                     :class="{
-                      'lobby-pack-chip--on': activePacks.includes(pack.name),
+                      'lobby-pack-chip--on': activePacks.includes(pack.id),
                     }"
                     :disabled="!isHost"
                     :style="{ '--pack-color': pack.color }"
-                    @click="isHost && togglePack(pack.name)"
+                    @click="isHost && togglePack(pack.id)"
                   >
                     <span class="lsd-pack-dot" aria-hidden="true" />
                     <span class="lsd-pack-name">{{ pack.name }}</span>
@@ -231,6 +231,7 @@
 <script lang="ts" setup>
 import { useLobby } from "~/composables/useLobby";
 import { useShufflePacks } from "~/composables/useShufflePacks";
+import { normalizePackSelection } from "~/utils/lobbyPackSelection";
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 
 const props = defineProps<{
@@ -248,7 +249,7 @@ const { t } = useI18n();
 const { mutations } = useLobby();
 
 const loadingPacks = ref(false);
-type PackDetail = { name: string; count: number; color: string };
+type PackDetail = { id: string; name: string; count: number; color: string };
 const availablePacks = ref<PackDetail[]>([]);
 
 const PACK_COLORS = [
@@ -269,18 +270,19 @@ function packColor(name: string): string {
   );
 }
 
+// Always ids. A pre-migration lobby's name entries are mapped here for
+// display, and written back as ids by the host in onMounted below.
 const activePacks = computed<string[]>(() => {
   const raw = props.settings?.cardPacks ?? [];
   if (availablePacks.value.length === 0) return raw;
-  const validNames = new Set(availablePacks.value.map((p) => p.name));
-  return raw.filter((p) => validNames.has(p));
+  return normalizePackSelection(raw, availablePacks.value).ids;
 });
 
 const activePacksStatLabel = computed(() => {
   const active = activePacks.value;
   if (active.length === 0) return "0 packs";
   const validPacks = availablePacks.value.filter((p) =>
-    active.includes(p.name),
+    active.includes(p.id),
   );
   const totalCards = validPacks.reduce((sum, p) => sum + p.count, 0);
   const packLabel = validPacks.length === 1 ? "pack" : "packs";
@@ -376,11 +378,11 @@ function toggleRequirePassword() {
   // When checked, don't write anything to the doc until user types in the input
 }
 
-function togglePack(pack: string) {
+function togglePack(packId: string) {
   const current = activePacks.value;
-  const next = current.includes(pack)
-    ? current.filter((p) => p !== pack)
-    : [...current, pack];
+  const next = current.includes(packId)
+    ? current.filter((p) => p !== packId)
+    : [...current, packId];
   mutations.updateSettings({ cardPacks: next });
 }
 
@@ -405,54 +407,39 @@ onMounted(async () => {
     // reach the client; the `count > 0` filter below stays as a cheap invariant
     // guard on a path where an empty draw pool would break a live game.
     const { white, black } = await $fetch<{
-      white: { pack: string; active: number }[];
-      black: { pack: string; active: number }[];
+      white: { packId: string; pack: string; active: number }[];
+      black: { packId: string; pack: string; active: number }[];
     }>("/api/cards/packs", { query: { activeOnly: 1 } });
     if (cancelled) return;
 
-    const counts = new Map<string, number>();
-    white.forEach((p) => {
-      counts.set(p.pack, (counts.get(p.pack) ?? 0) + p.active);
-    });
-    black.forEach((p) => {
-      counts.set(p.pack, (counts.get(p.pack) ?? 0) + p.active);
-    });
+    const byId = new Map<string, { name: string; count: number }>();
+    for (const p of [...white, ...black]) {
+      const entry = byId.get(p.packId) ?? { name: p.pack, count: 0 };
+      entry.count += p.active;
+      byId.set(p.packId, entry);
+    }
 
-    if (cancelled) return;
-    availablePacks.value = Array.from(counts.entries())
-      .filter(([, count]) => count > 0)
-      .map(
-        ([name, count]): PackDetail => ({
-          name,
-          count,
-          color: packColor(name),
-        }),
-      )
+    availablePacks.value = [...byId.entries()]
+      .filter(([, { count }]) => count > 0)
+      .map(([id, { name, count }]): PackDetail => ({ id, name, count, color: packColor(name) }))
       .sort((a, b) => b.count - a.count);
 
     if (props.isHost && !cancelled) {
-      const validNames = new Set(availablePacks.value.map((p) => p.name));
       const current = props.settings?.cardPacks ?? [];
-      const sanitized = current.filter((p) => validNames.has(p));
+      const { ids: sanitized, changed } = normalizePackSelection(current, availablePacks.value);
 
-      if (current.length === 0 || sanitized.length !== current.length) {
+      if (current.length === 0 || changed) {
         if (sanitized.length > 0) {
           mutations.updateSettings({ cardPacks: sanitized });
         } else {
+          const allIds = availablePacks.value.map((p) => p.id);
           try {
-            const { packs } = await $fetch<{ packs: string[] }>(
-              "/api/cards/default-packs",
-            );
+            const { packs } = await $fetch<{ packs: string[] }>("/api/cards/default-packs");
             if (cancelled) return;
-            const defaults = packs.filter((p) => validNames.has(p));
-            mutations.updateSettings({
-              cardPacks:
-                defaults.length > 0 ? defaults : Array.from(validNames),
-            });
+            const defaults = packs.filter((id) => allIds.includes(id));
+            mutations.updateSettings({ cardPacks: defaults.length > 0 ? defaults : allIds });
           } catch {
-            if (!cancelled) {
-              mutations.updateSettings({ cardPacks: Array.from(validNames) });
-            }
+            if (!cancelled) mutations.updateSettings({ cardPacks: allIds });
           }
         }
       }

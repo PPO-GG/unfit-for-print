@@ -33,8 +33,8 @@
         </button>
       </div>
       <div class="lss-packs-list">
-        <span v-for="pack in settings.cardPacks" :key="pack" class="lobby-pack-chip lobby-pack-chip--on lss-pack-chip">{{ pack }}</span>
-        <span v-if="settings.cardPacks.length === 0" class="lss-no-packs">None selected</span>
+        <span v-for="label in packLabels" :key="label" class="lobby-pack-chip lobby-pack-chip--on lss-pack-chip">{{ label }}</span>
+        <span v-if="packLabels.length === 0" class="lss-no-packs">None selected</span>
       </div>
     </template>
     <div v-else class="lss-loading">Loading settings…</div>
@@ -43,16 +43,27 @@
 
 <script lang="ts" setup>
 import type { LobbySettings } from "~/composables/useLobbyReactive";
+import { isPackId } from "~/utils/packRef";
 
 const props = defineProps<{
   settings: LobbySettings | null;
   isHost?: boolean;
   shuffling?: boolean;
+  /** Pack id → name, from the roster. Legacy name entries render as-is. */
+  packNames?: Record<string, string>;
 }>();
 defineEmits<{ (e: "edit"): void; (e: "shuffle"): void }>();
 
 const { t } = useI18n();
 const requirePassword = computed(() => !!props.settings?.hasPassword);
+
+// An id with no roster entry (still loading, or the pack is gone) is not
+// worth showing as a uuid; a legacy name entry is already readable.
+const packLabels = computed(() =>
+  (props.settings?.cardPacks ?? [])
+    .map((entry) => props.packNames?.[entry] ?? (isPackId(entry) ? null : entry))
+    .filter((label): label is string => Boolean(label)),
+);
 </script>
 
 <style scoped>
