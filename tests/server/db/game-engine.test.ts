@@ -45,6 +45,17 @@ describe("fetchAllIds", () => {
     expect(await fetchAllIds(whiteCards, [baseId, "Other"])).toHaveLength(2);
   });
 
+  it("deals from a display-named pack selected by its pre-migration raw key", async () => {
+    await insertCards(whiteCards, [
+      { text: "a", pack: "Pretty", active: true },
+      { text: "b", pack: "Pretty", active: true },
+      { text: "c", pack: "Other", active: true },
+    ]);
+    await seedPack("Pretty", { pack: "Raw Key" });
+
+    expect(await fetchAllIds(whiteCards, ["Raw Key"])).toHaveLength(2);
+  });
+
   it("deals nothing when every selected pack is unknown, instead of every card", async () => {
     await insertCards(whiteCards, { text: "a", pack: "Base", active: true });
 

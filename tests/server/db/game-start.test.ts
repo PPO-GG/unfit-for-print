@@ -65,9 +65,9 @@ describe("POST /api/game/start", () => {
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 
-  // `cardPacks: ["Base"]` here is a legacy pack name, not an id — these cases
-  // double as the regression test for a lobby created before migration
-  // 0012_pack_ids, whose settings still hold names.
+  // `cardPacks: ["Base"]` here is a pack *name* (fixtures leave the retired
+  // key column null). A real pre-migration lobby holds the raw key instead,
+  // which is covered by "deals from a lobby still holding a raw legacy key".
   it("deals hands and marks the lobby playing for a valid host", async () => {
     const [lobby] = await db.insert(lobbies).values({ code: "GAME", hostUserId: currentUserId }).returning();
     await db.insert(players).values({
@@ -212,6 +212,45 @@ describe("POST /api/game/start", () => {
     expect(result.blackDeck).toHaveLength(0);
     expect(Object.keys(result.blackPicks)).toHaveLength(1);
     expect(result.config.cardPacks).toEqual([baseId]);
+  });
+
+  it("deals from a lobby still holding a raw legacy key and upgrades it to the id", async () => {
+    const [lobby] = await db.insert(lobbies).values({ code: "LEGACY", hostUserId: currentUserId }).returning();
+    await db.insert(players).values({ userId: currentUserId, lobbyId: lobby.id, name: "Host", isHost: true });
+    const [other] = await db.insert(users).values({ name: "Player2" }).returning();
+    await db.insert(players).values({ userId: other.id, lobbyId: lobby.id, name: "Player2", isHost: false });
+    await insertCards(
+      whiteCards,
+      Array.from({ length: 40 }, (_, i) => ({ text: `White ${i}`, pack: "Pretty", active: true })),
+    );
+    await insertCards(blackCards, { text: "Black?", pack: "Pretty", active: true, pick: 1 });
+    await insertCards(blackCards, { text: "Elsewhere?", pack: "Other", active: true, pick: 1 });
+    const prettyId = await seedPack("Pretty", { pack: "Raw Key" });
+
+    const handler = (await import("~/server/api/game/start.post")).default;
+    const result = await handler(
+      mockEvent({ lobbyId: lobby.id, settings: { cardPacks: ["Raw Key"] } }),
+    );
+
+    expect(Object.keys(result.blackPicks)).toHaveLength(1);
+    expect(result.config.cardPacks).toEqual([prettyId]);
+  });
+
+  it("keeps an empty pack selection empty in the returned config", async () => {
+    const [lobby] = await db.insert(lobbies).values({ code: "ALL", hostUserId: currentUserId }).returning();
+    await db.insert(players).values({ userId: currentUserId, lobbyId: lobby.id, name: "Host", isHost: true });
+    const [other] = await db.insert(users).values({ name: "Player2" }).returning();
+    await db.insert(players).values({ userId: other.id, lobbyId: lobby.id, name: "Player2", isHost: false });
+    await insertCards(
+      whiteCards,
+      Array.from({ length: 40 }, (_, i) => ({ text: `White ${i}`, pack: "Base", active: true })),
+    );
+    await insertCards(blackCards, { text: "Black?", pack: "Base", active: true, pick: 1 });
+
+    const handler = (await import("~/server/api/game/start.post")).default;
+    const result = await handler(mockEvent({ lobbyId: lobby.id, settings: { cardPacks: [] } }));
+
+    expect(result.config.cardPacks).toEqual([]);
   });
 });
 

@@ -20,10 +20,14 @@ export default defineEventHandler(async (event) => {
     packStats(blackCards),
     // `pack` is the pack's name under its pre-id key, so consumers that match
     // meta rows to stats by name keep working; `id` is what new code keys on.
+    // `legacyKey` is the retired `card_packs.pack` key (null for packs created
+    // after 0012_pack_ids): pre-migration lobbies stored it in
+    // `settings.cardPacks`, and the host's settings UI maps it back to an id.
     useDb()
       .select({
         id: cardPacks.id,
         pack: cardPacks.name,
+        legacyKey: cardPacks.pack,
         series: cardPacks.series,
         description: cardPacks.description,
         official: cardPacks.official,

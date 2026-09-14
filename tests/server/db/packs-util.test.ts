@@ -41,6 +41,27 @@ describe("resolvePackRefs", () => {
     expect(await resolvePackRefs(db, [])).toEqual([]);
   });
 
+  it("resolves a pre-migration lobby's raw key by the retired column only in legacy mode", async () => {
+    const id = await seedPack("Pretty", { pack: "Raw Key" });
+
+    expect(await resolvePackRefs(db, ["Raw Key"], { legacyKeys: true })).toEqual([id]);
+    expect(await resolvePackRefs(db, ["Raw Key"])).toEqual([]);
+  });
+
+  it("falls back to the name in legacy mode when no retired key matches", async () => {
+    const id = await seedPack("Created Later");
+
+    expect(await resolvePackRefs(db, ["Created Later"], { legacyKeys: true })).toEqual([id]);
+  });
+
+  it("prefers the retired key over another pack's name when keys and names swapped", async () => {
+    const a = await seedPack("Y", { pack: "X" });
+    const b = await seedPack("X", { pack: "Y" });
+
+    expect(await resolvePackRefs(db, ["X"], { legacyKeys: true })).toEqual([a]);
+    expect(await resolvePackRefs(db, ["X"])).toEqual([b]);
+  });
+
   it("findPackId returns null for an unknown ref", async () => {
     expect(await findPackId(db, "Nope")).toBeNull();
   });

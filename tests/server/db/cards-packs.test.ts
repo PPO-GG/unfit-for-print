@@ -93,4 +93,18 @@ describe("GET /api/cards/packs", () => {
     expect(result.white).toEqual([{ packId: id, pack: "New", total: 1, active: 1 }]);
     expect(result.meta).toEqual([expect.objectContaining({ id, pack: "New" })]);
   });
+
+  it("exposes a pack's pre-migration key as legacyKey, null for newer packs", async () => {
+    const pretty = await seedPack("Pretty", { pack: "Raw Key" });
+    const fresh = await seedPack("Fresh");
+
+    const result = await handler(mockEvent());
+
+    expect(result.meta).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: pretty, pack: "Pretty", legacyKey: "Raw Key" }),
+        expect.objectContaining({ id: fresh, pack: "Fresh", legacyKey: null }),
+      ]),
+    );
+  });
 });

@@ -4,10 +4,11 @@
  * so nothing that holds an id — a lobby's pack selection, an admin URL — goes
  * stale when it happens.
  *
- * Names still arrive from two places: lobbies created before migration
- * 0012_pack_ids hold names in `settings.cardPacks`, and the admin client sends
- * names until PR 2 moves it to ids. `resolvePackRefs` is the one bridge for
- * both, so no route re-implements "is this an id or a name?".
+ * Non-id refs still arrive from two places: lobbies created before migration
+ * 0012_pack_ids hold raw pack keys in `settings.cardPacks`, and the admin
+ * client sends names until PR 2 moves it to ids. `resolvePackRefs` is the one
+ * bridge for both (`legacyKeys` for the former), so no route re-implements
+ * "is this an id, a key or a name?".
  */
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { whiteCards, blackCards, cardPacks } from "~~/server/db/schema";
@@ -23,23 +24,62 @@ export function isPackId(ref: unknown): ref is string {
   return typeof ref === "string" && UUID_RE.test(ref);
 }
 
-export async function resolvePackRefs(db: Db, refs: readonly unknown[]): Promise<string[]> {
+export interface ResolvePackRefsOptions {
+  /**
+   * The refs come from a lobby's `settings.cardPacks`. Before 0012_pack_ids
+   * those held the raw pack key, and the migration promoted a pack's display
+   * name to `name` — so a legacy ref is looked up by the retired
+   * `card_packs.pack` key first, and only a ref no key matches falls back to
+   * `name`. Key first is what keeps a key/display-name swap between two packs
+   * resolving to the pack the lobby actually chose. This is the one sanctioned
+   * read of a retired column; the column-drop migration must carry the mapping
+   * forward (e.g. a `legacy_key` column) before dropping it.
+   *
+   * Off by default: admin routes send current names, never legacy keys.
+   */
+  legacyKeys?: boolean;
+}
+
+export async function resolvePackRefs(
+  db: Db,
+  refs: readonly unknown[],
+  { legacyKeys = false }: ResolvePackRefsOptions = {},
+): Promise<string[]> {
   const strings = [
     ...new Set(refs.filter((r): r is string => typeof r === "string" && r.trim() !== "")),
   ];
   if (!strings.length) return [];
 
+  const resolved = new Set<string>();
+  let names = strings.filter((r) => !isPackId(r));
+
+  if (legacyKeys && names.length) {
+    const keyed: { id: string; pack: string }[] = await db
+      .select({ id: cardPacks.id, pack: cardPacks.pack })
+      .from(cardPacks)
+      .where(inArray(cardPacks.pack, names))
+      .orderBy(cardPacks.id);
+    // The retired column lost its uniqueness with the old primary key, so
+    // pick one id per key deterministically rather than fan a ref out.
+    const idByKey = new Map<string, string>();
+    for (const row of keyed) if (!idByKey.has(row.pack)) idByKey.set(row.pack, row.id);
+    for (const id of idByKey.values()) resolved.add(id);
+    names = names.filter((n) => !idByKey.has(n));
+  }
+
   const ids = strings.filter(isPackId);
-  const names = strings.filter((r) => !isPackId(r));
   const conditions = [];
   if (ids.length) conditions.push(inArray(cardPacks.id, ids));
   if (names.length) conditions.push(inArray(cardPacks.name, names));
 
-  const rows: { id: string }[] = await db
-    .select({ id: cardPacks.id })
-    .from(cardPacks)
-    .where(or(...conditions));
-  return rows.map((r) => r.id);
+  if (conditions.length) {
+    const rows: { id: string }[] = await db
+      .select({ id: cardPacks.id })
+      .from(cardPacks)
+      .where(or(...conditions));
+    for (const row of rows) resolved.add(row.id);
+  }
+  return [...resolved];
 }
 
 export async function findPackId(db: Db, ref: unknown): Promise<string | null> {

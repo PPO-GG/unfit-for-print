@@ -13,7 +13,7 @@ import { resolvePackRefs } from "./packs";
 export function shuffle<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+    [array[i], array[j]] = [array[j]!, array[i]!];
   }
   return array;
 }
@@ -22,8 +22,9 @@ export function shuffle<T>(array: T[]): T[] {
 
 /**
  * Active card ids, optionally limited to `cardPacks`. Those refs are pack ids,
- * or pack names from a lobby created before migration 0012_pack_ids — both
- * resolve here, so a game in flight across that deploy keeps drawing.
+ * or raw pack keys from a lobby created before migration 0012_pack_ids — both
+ * resolve here (`legacyKeys`), so a game in flight across that deploy keeps
+ * drawing even from a pack whose display name became its `name`.
  *
  * No refs means every pack (unchanged). Refs that all fail to resolve — every
  * selected pack deleted or merged away — mean no cards, never every card.
@@ -35,7 +36,7 @@ export async function fetchAllIds(
   const db = useDb();
   const conditions = [eq(table.active, true)];
   if (cardPacks && cardPacks.length > 0) {
-    const packIds = await resolvePackRefs(db, cardPacks);
+    const packIds = await resolvePackRefs(db, cardPacks, { legacyKeys: true });
     if (packIds.length === 0) return [];
     conditions.push(inArray(table.packId, packIds));
   }
