@@ -6,11 +6,10 @@
  * Empty strings are sent as null so clearing a field actually clears it,
  * rather than storing "" and having every reader test for both.
  *
- * Display name and series start pre-filled from the same derived guess
- * AdminPackTile shows (`splitPackName`/`seriesPrefix`) whenever the row has
- * no explicit value of its own, so opening the form for one of the ~106
- * "Cards Against Humanity: …" packs is a one-click Save to turn the guess
- * into real, editable data instead of retyping it.
+ * Series starts pre-filled from the same derived guess AdminPackTile shows
+ * whenever the row has no explicit value, so a one-click Save turns the
+ * guess into real data. A pack has a single name since pack ids; it is
+ * renamed from the Packs screen, not here.
  */
 import { ref, computed, watch } from "vue";
 import { useNotifications } from "~/composables/useNotifications";
@@ -35,7 +34,6 @@ const { notify } = useNotifications();
 const saving = ref(false);
 
 const blank = () => ({
-  displayName: "",
   description: "",
   icon: "",
   color: "",
@@ -48,10 +46,6 @@ const blank = () => ({
 const form = ref(blank());
 
 const derived = computed(() => splitPackName(props.pack, props.seriesPrefix ?? ""));
-// splitPackName falls back to the whole raw name as `label` when nothing
-// splits off — suggesting that back as a "display name" would just echo the
-// pack key, so there's only a real suggestion once a series actually split.
-const suggestedName = computed(() => (derived.value.series ? derived.value.label : ""));
 // The derived series carries the trailing separator (": ") that makes sense
 // concatenated in a tile's headline, not as a value someone actually saves —
 // same stripping the bulk "Set series…" popover does before prefilling.
@@ -60,7 +54,6 @@ const suggestedSeries = computed(() => derived.value.series.replace(/[:\s]+$/, "
 function seed() {
   form.value = props.meta
     ? {
-        displayName: props.meta.displayName ?? suggestedName.value,
         description: props.meta.description ?? "",
         icon: props.meta.icon ?? "",
         color: props.meta.color ?? "",
@@ -69,7 +62,7 @@ function seed() {
         official: props.meta.official ?? false,
         nsfw: props.meta.nsfw ?? false,
       }
-    : { ...blank(), displayName: suggestedName.value, series: suggestedSeries.value };
+    : { ...blank(), series: suggestedSeries.value };
 }
 seed();
 // Also on `pack` changing: switching packs discards whatever was mid-edit
@@ -90,7 +83,7 @@ const orNull = normalizePackText;
 // consequence visible at the point of entry, since every surface that renders
 // these uppercases them anyway and would hide a shouted value.
 const shoutedFields = computed(() =>
-  (["displayName", "series"] as const).filter((key) =>
+  (["series"] as const).filter((key) =>
     looksShouted(form.value[key]),
   ),
 );
@@ -99,14 +92,12 @@ async function save() {
   saving.value = true;
   // Write the normalized values back into the form first: saving silently
   // different text than the box shows is how "I fixed that already" happens.
-  form.value.displayName = orNull(form.value.displayName) ?? "";
   form.value.series = orNull(form.value.series) ?? "";
   try {
     const row = await $activityFetch<CardPackMeta>("/api/admin/cards/pack-meta", {
       method: "POST",
       body: {
         pack: props.pack,
-        displayName: orNull(form.value.displayName),
         description: orNull(form.value.description),
         icon: orNull(form.value.icon),
         color: orNull(form.value.color),
@@ -133,10 +124,6 @@ defineExpose({ form, save });
 
 <template>
   <div class="flex flex-col gap-4">
-    <UFormField label="Display name">
-      <UInput v-model="form.displayName" class="w-full" placeholder="Shown instead of the raw pack name" />
-    </UFormField>
-
     <UFormField label="Series / brand">
       <UInput v-model="form.series" class="w-full" placeholder="e.g. Cards Against Humanity" />
     </UFormField>
