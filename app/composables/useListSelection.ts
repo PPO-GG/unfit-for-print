@@ -6,7 +6,17 @@ import {
   type SelectionState,
 } from "~/utils/listSelection";
 
-export function useListSelection(order: Ref<string[]>) {
+export interface ListSelectionOptions {
+  /**
+   * The ids a selection may keep. Defaults to `order`, so filtering the list
+   * drops hidden rows; pass the full roster to keep a selection across a
+   * filter instead. Shift ranges and selectAll always follow `order`.
+   */
+  pruneAgainst?: Ref<string[]>;
+}
+
+export function useListSelection(order: Ref<string[]>, options: ListSelectionOptions = {}) {
+  const keepable = options.pruneAgainst ?? order;
   const selected = ref<string[]>([]);
   const anchor = ref<string | null>(null);
 
@@ -37,7 +47,7 @@ export function useListSelection(order: Ref<string[]>) {
 
   // pruneSelection returns its input object untouched when nothing changed,
   // so an identity check is enough to skip a no-op write.
-  watch(order, (next) => {
+  watch(keepable, (next) => {
     const before = current();
     const pruned = pruneSelection(before, next);
     if (pruned !== before) commit(pruned);

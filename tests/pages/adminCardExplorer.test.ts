@@ -237,6 +237,21 @@ describe("Card Explorer page", () => {
     expect(shortcuts().value).toEqual({});
   });
 
+  it("keeps a pack selected when a pack filter hides it", async () => {
+    const w = await mountPage();
+    await w.get("[data-testid='pack-p1']").trigger("click");
+    await flushPromises();
+    loadCards.mockClear();
+
+    w.getComponent(PackList).vm.$emit("update:search", "Pack p2");
+    await flushPromises();
+
+    expect(w.find("[data-testid='pack-p1']").exists()).toBe(false);
+    expect(w.get("[data-testid='inspector']").attributes("data-packs")).toBe("1");
+    expect(routeQuery.value.packs).toBe("p1");
+    expect(loadCards).not.toHaveBeenCalled();
+  });
+
   it("asks before Escape clears the selection, and respects Keep editing", async () => {
     const w = await mountPage();
     await w.get("[data-testid='pack-p1']").trigger("click");

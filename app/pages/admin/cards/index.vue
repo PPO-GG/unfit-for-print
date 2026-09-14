@@ -50,7 +50,11 @@ const packRows = computed(() =>
   }),
 );
 const visiblePackIds = computed(() => packOrder(packRows.value));
-const packSel = useListSelection(visiblePackIds);
+// Pruned against the whole roster, not the filtered list: typing a filter that
+// hides a selected pack must not deselect it — that would reload the cards and
+// unmount a dirty editor without asking. Cards still prune to what is visible.
+const rosterPackIds = computed(() => roster.packs.value.map((p) => p.id));
+const packSel = useListSelection(visiblePackIds, { pruneAgainst: rosterPackIds });
 
 const chipCounts = computed(() => {
   const count = (chip: PackChip) =>

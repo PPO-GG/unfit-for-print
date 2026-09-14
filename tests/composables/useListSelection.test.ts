@@ -43,4 +43,24 @@ describe("useListSelection", () => {
 
     expect(sel.selected.value).toEqual(["a"]);
   });
+
+  it("prunes against pruneAgainst when given, keeping ids merely filtered out of the order", async () => {
+    const order = ref(["a", "b", "c"]);
+    const all = ref(["a", "b", "c"]);
+    const sel = useListSelection(order, { pruneAgainst: all });
+    sel.set(["a", "c"]);
+
+    order.value = ["a"];
+    await nextTick();
+    expect(sel.selected.value).toEqual(["a", "c"]);
+
+    // Ranges and selectAll still follow the on-screen order.
+    sel.selectAll();
+    expect(sel.selected.value).toEqual(["a"]);
+
+    sel.set(["a", "c"]);
+    all.value = ["a", "b"];
+    await nextTick();
+    expect(sel.selected.value).toEqual(["a"]);
+  });
 });
