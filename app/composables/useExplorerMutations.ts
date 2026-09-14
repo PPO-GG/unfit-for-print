@@ -1,8 +1,9 @@
 /**
  * Every write the Explorer performs, by pack id. Each method calls its route,
  * reports the outcome, and returns whether it succeeded; the page reloads the
- * roster and cards after a success rather than patching local state — the old
- * hand-maintained mirror is what let counts drift from the database.
+ * roster and cards after every call, success or failure, rather than patching
+ * local state — the old hand-maintained mirror is what let counts drift from
+ * the database.
  */
 import { ref } from "vue";
 import type { AdminCard, AdminCardType, AdminPack } from "~/types/adminCard";
