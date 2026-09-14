@@ -56,20 +56,26 @@ export function buildPackList(
   if (!opts.grouped) return visible.map(packRow);
 
   const groups = new Map<string, AdminPack[]>();
+  const labels = new Map<string, string>();
   for (const p of visible) {
-    const label = p.series?.trim() || NO_SERIES;
-    groups.set(label, [...(groups.get(label) ?? []), p]);
+    const foldedKey = (p.series?.trim() || "").toLocaleLowerCase();
+    const displayKey = foldedKey || NO_SERIES;
+    groups.set(displayKey, [...(groups.get(displayKey) ?? []), p]);
+    if (!labels.has(displayKey)) {
+      labels.set(displayKey, foldedKey === "" ? NO_SERIES : p.series!.trim());
+    }
   }
-  const labels = [...groups.keys()].sort((a, b) => {
+  const sortedKeys = [...groups.keys()].sort((a, b) => {
     if (a === NO_SERIES) return 1;
     if (b === NO_SERIES) return -1;
-    return a.localeCompare(b, undefined, { sensitivity: "base" });
+    return labels.get(a)!.localeCompare(labels.get(b)!, undefined, { sensitivity: "base" });
   });
 
-  return labels.flatMap((label) => {
-    const members = groups.get(label)!;
+  return sortedKeys.flatMap((displayKey) => {
+    const members = groups.get(displayKey)!;
+    const label = labels.get(displayKey)!;
     return [
-      { kind: "group" as const, key: `group:${label}`, label, count: members.length },
+      { kind: "group" as const, key: `group:${displayKey}`, label, count: members.length },
       ...members.map(packRow),
     ];
   });

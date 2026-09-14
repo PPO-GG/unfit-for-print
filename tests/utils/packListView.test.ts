@@ -73,6 +73,18 @@ describe("buildPackList", () => {
       "Unfit for Print",
     ]);
   });
+
+  it("groups case-insensitively by series and uses the first member's original case", () => {
+    const mixedPacks = [
+      pack("Pack A", { series: "CAH" }),
+      pack("Pack B", { series: "cah" }),
+    ];
+    const rows = buildPackList(mixedPacks, { search: "", chip: "all", sort: "name", grouped: true });
+    expect(rows.filter((r) => r.kind === "group").length).toBe(1);
+    const groupLabel = (rows.find((r) => r.kind === "group") as { label: string }).label;
+    expect(groupLabel).toBe("CAH");
+    expect((rows.find((r) => r.kind === "group") as { count: number }).count).toBe(2);
+  });
 });
 
 describe("isPackDisabled", () => {
