@@ -7,13 +7,19 @@
  * has no rate, and callers must render that as "not enough plays" rather than
  * as zero.
  */
-import type { AdminCard } from "~/composables/useAdminCardList";
-
 export const MIN_PLAYS_FOR_RATE = 20;
 
 export type RateKind = "win" | "skip";
 
-export function cardRate(card: AdminCard): { kind: RateKind; value: number | null } {
+/** The counters a rate needs — satisfied by both the old and new admin card shapes. */
+export type RateCard = {
+  type: "white" | "black";
+  timesPlayed?: number;
+  timesWon?: number;
+  timesSkipped?: number;
+};
+
+export function cardRate(card: RateCard): { kind: RateKind; value: number | null } {
   const kind: RateKind = card.type === "black" ? "skip" : "win";
   const played = card.timesPlayed ?? 0;
   if (played < MIN_PLAYS_FOR_RATE) return { kind, value: null };
@@ -21,7 +27,7 @@ export function cardRate(card: AdminCard): { kind: RateKind; value: number | nul
   return { kind, value: hits / played };
 }
 
-export function packAverage(cards: AdminCard[], kind: RateKind): number | null {
+export function packAverage(cards: RateCard[], kind: RateKind): number | null {
   const rates: number[] = [];
   for (const card of cards) {
     const r = cardRate(card);
