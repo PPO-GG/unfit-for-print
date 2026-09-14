@@ -91,12 +91,19 @@ const MergeDialog = defineComponent({
   template: `<button data-testid="merge-dialog" :data-open="open" @click="$emit('confirm', packs[1])" />`,
 });
 
+const SelectionBar = defineComponent({
+  name: "AdminSelectionBar",
+  props: ["label", "actions", "busy"],
+  emits: ["run", "clear"],
+  template: `<div data-testid="selection-bar" :data-label="label" />`,
+});
+
 const stubs = {
   AdminPackList: PackList,
   AdminCardTable: CardTable,
   AdminExplorerInspector: Inspector,
   AdminMergeDialog: MergeDialog,
-  AdminCardGrid: true, AdminSelectionBar: true, AdminMoveDialog: true, AdminSeriesDialog: true,
+  AdminCardGrid: true, AdminSelectionBar: SelectionBar, AdminMoveDialog: true, AdminSeriesDialog: true,
   AdminCardManagerAddModal: true, NuxtLink: { template: "<a><slot /></a>" },
   UButton: { template: "<button v-bind='$attrs'><slot /></button>" }, UInput: true,
 };
@@ -250,6 +257,21 @@ describe("Card Explorer page", () => {
     expect(w.get("[data-testid='inspector']").attributes("data-packs")).toBe("1");
     expect(routeQuery.value.packs).toBe("p1");
     expect(loadCards).not.toHaveBeenCalled();
+  });
+
+  it("asks before the selection bar's Clear drops a dirty editor, and respects Keep editing", async () => {
+    const w = await mountPage();
+    await w.get("[data-testid='pack-p1']").trigger("click");
+    await flushPromises();
+    dirty.value = true;
+    confirm.mockResolvedValueOnce(false);
+
+    w.getComponent(SelectionBar).vm.$emit("clear");
+    await flushPromises();
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(w.get("[data-testid='inspector']").attributes("data-packs")).toBe("1");
+    expect(routeQuery.value.packs).toBe("p1");
   });
 
   it("asks before Escape clears the selection, and respects Keep editing", async () => {

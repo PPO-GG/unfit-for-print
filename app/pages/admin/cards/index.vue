@@ -143,6 +143,11 @@ async function onCardOpen(id: string) {
   await nextTick();
   inspector.value?.focusText();
 }
+/** Esc and the selection bars' Clear both unmount the editor, so both ask. */
+async function clearSelection(scope: ActionScope) {
+  if (!(await guard())) return;
+  (scope === "pack" ? packSel : cardSel).clear();
+}
 function onNarrow(scope: ActionScope, id: string) {
   (scope === "pack" ? packSel : cardSel).set([id]);
 }
@@ -280,10 +285,7 @@ const actions = useExplorerActions({
     if (!(await guard())) return;
     (scope === "pack" ? packSel : cardSel).selectAll();
   },
-  clear: async (scope) => {
-    if (!(await guard())) return;
-    (scope === "pack" ? packSel : cardSel).clear();
-  },
+  clear: clearSelection,
 });
 // The shortcuts listen on window, so they would also fire behind a dialog:
 // Escape closing the Merge dialog would clear the selection, and Delete would
@@ -401,7 +403,7 @@ const CARD_CHIPS: { id: CardFilter; label: string }[] = [
           :actions="actions.packBar.value"
           :busy="m.busy.value"
           @run="runAction"
-          @clear="packSel.clear()"
+          @clear="clearSelection('pack')"
         />
       </div>
 
@@ -456,7 +458,7 @@ const CARD_CHIPS: { id: CardFilter; label: string }[] = [
           :actions="actions.cardBar.value"
           :busy="m.busy.value"
           @run="runAction"
-          @clear="cardSel.clear()"
+          @clear="clearSelection('card')"
         />
       </section>
 
