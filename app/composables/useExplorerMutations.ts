@@ -138,16 +138,27 @@ export function useExplorerMutations() {
       `Merged into "${target.name}"`,
     );
 
-  const setPacksActive = (packs: AdminPack[], active: boolean) =>
-    run(
+  /**
+   * `toggle-pack` sets every card in a pack, so it only goes to packs not
+   * already in the target state: re-enabling a partly enabled pack would
+   * resurrect the cards disabled one by one (e.g. as duplicates).
+   */
+  async function setPacksActive(packs: AdminPack[], active: boolean) {
+    const targets = packs.filter((p) => (active ? isPackDisabled(p) : !isPackDisabled(p)));
+    if (!targets.length) {
+      notify({ title: "Nothing to change" });
+      return true;
+    }
+    return run(
       "Could not update packs",
       async () => {
-        for (const p of packs) {
+        for (const p of targets) {
           await post("/api/admin/cards/toggle-pack", { packId: p.id, type: "all", active });
         }
       },
-      `${plural(packs.length, "pack")} ${active ? "enabled" : "disabled"}`,
+      `${plural(targets.length, "pack")} ${active ? "enabled" : "disabled"}`,
     );
+  }
 
   const setPacksDefault = (packs: AdminPack[], isDefault: boolean) =>
     run(

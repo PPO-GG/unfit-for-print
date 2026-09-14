@@ -92,6 +92,23 @@ describe("pack bulk", () => {
     ]);
   });
 
+  it("enables only fully disabled packs, so a partly enabled pack keeps its disabled cards", async () => {
+    const m = useExplorerMutations();
+    const off = pack("off", { white: { total: 3, active: 0 }, black: { total: 1, active: 0 } });
+    const partly = pack("partly", { white: { total: 3, active: 2 }, black: { total: 1, active: 1 } });
+    expect(await m.setPacksActive([off, partly], true)).toBe(true);
+    expect(calls()).toEqual([["/api/admin/cards/toggle-pack", { packId: "off", type: "all", active: true }]]);
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ title: "1 pack enabled" }));
+  });
+
+  it("makes no request when no pack needs the change", async () => {
+    const m = useExplorerMutations();
+    const off = pack("off", { white: { total: 3, active: 0 }, black: { total: 1, active: 0 } });
+    expect(await m.setPacksActive([off], false)).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({ title: "Nothing to change" });
+  });
+
   it("does nothing when a delete is not confirmed", async () => {
     confirm.mockResolvedValueOnce(false);
     const m = useExplorerMutations();
