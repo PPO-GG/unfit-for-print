@@ -43,7 +43,7 @@
 
 <script lang="ts" setup>
 import type { LobbySettings } from "~/composables/useLobbyReactive";
-import { isPackId } from "~/utils/packRef";
+import { packLabelsFor } from "~/utils/lobbyPackSelection";
 
 const props = defineProps<{
   settings: LobbySettings | null;
@@ -57,12 +57,8 @@ defineEmits<{ (e: "edit"): void; (e: "shuffle"): void }>();
 const { t } = useI18n();
 const requirePassword = computed(() => !!props.settings?.hasPassword);
 
-// An id with no roster entry (still loading, or the pack is gone) is not
-// worth showing as a uuid; a legacy name entry is already readable.
 const packLabels = computed(() =>
-  (props.settings?.cardPacks ?? [])
-    .map((entry) => props.packNames?.[entry] ?? (isPackId(entry) ? null : entry))
-    .filter((label): label is string => Boolean(label)),
+  packLabelsFor(props.settings?.cardPacks ?? [], props.packNames ?? {}),
 );
 </script>
 

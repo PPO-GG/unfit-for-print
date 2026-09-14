@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizePackSelection } from "~/utils/lobbyPackSelection";
+import { normalizePackSelection, packLabelsFor } from "~/utils/lobbyPackSelection";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -24,5 +24,22 @@ describe("normalizePackSelection", () => {
 
   it("collapses a name and its id to one entry", () => {
     expect(normalizePackSelection([A, "CAH Base Set"], roster)).toEqual({ ids: [A], changed: true });
+  });
+});
+
+describe("packLabelsFor", () => {
+  it("resolves an id to its roster name", () => {
+    expect(packLabelsFor([A, "CAH: Blue Box Expansion"], { [A]: "CAH Base Set" })).toEqual([
+      "CAH Base Set",
+      "CAH: Blue Box Expansion",
+    ]);
+  });
+
+  it("drops an id with no matching roster name", () => {
+    expect(packLabelsFor([A, B], { [A]: "CAH Base Set" })).toEqual(["CAH Base Set"]);
+  });
+
+  it("passes a legacy name entry through unchanged", () => {
+    expect(packLabelsFor(["Legacy Name"], {})).toEqual(["Legacy Name"]);
   });
 });

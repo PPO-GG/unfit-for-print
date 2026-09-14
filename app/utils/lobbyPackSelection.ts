@@ -24,3 +24,22 @@ export function normalizePackSelection(
   const changed = ids.length !== entries.length || ids.some((id, i) => id !== entries[i]);
   return { ids, changed };
 }
+
+/**
+ * Renders a lobby's `settings.cardPacks` entries as display names.
+ *
+ * `namesById` comes from the live roster. An id with no roster entry (still
+ * loading, or the pack is gone) is not worth showing as a uuid and is
+ * dropped; a legacy name entry (pre-migration lobby) is already readable and
+ * passes through as-is. Shared by `LobbySettingsSummary.vue` and
+ * `GameSettings.vue`'s read-only view so the "what does this id mean"
+ * decision lives in exactly one place.
+ */
+export function packLabelsFor(
+  entries: string[],
+  namesById: Record<string, string>,
+): string[] {
+  return entries
+    .map((entry) => namesById[entry] ?? (isPackId(entry) ? null : entry))
+    .filter((label): label is string => Boolean(label));
+}
