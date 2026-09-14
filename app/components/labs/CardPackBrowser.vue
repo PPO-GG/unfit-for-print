@@ -48,7 +48,7 @@
       </div>
 
       <div v-if="packsLoading" class="labs-state">
-        <Icon name="solar:loading-bold-duotone" class="animate-spin" />
+        <Icon name="lucide:loader-circle" class="animate-spin" />
         <p>{{ t("labs.loading_packs") }}</p>
       </div>
       <div v-else-if="visiblePacks.length === 0" class="labs-state">
@@ -163,7 +163,7 @@
       </div>
 
       <div v-if="cardsLoading" class="labs-state">
-        <Icon name="solar:loading-bold-duotone" class="animate-spin" />
+        <Icon name="lucide:loader-circle" class="animate-spin" />
         <p>{{ t("labs.loading_cards") }}</p>
       </div>
       <div v-else-if="cards.length === 0" class="labs-state">

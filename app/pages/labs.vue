@@ -131,7 +131,7 @@
         </div>
         <ClientOnly>
           <div v-if="loading" class="labs-state">
-            <Icon name="solar:loading-bold-duotone" class="animate-spin" />
+            <Icon name="lucide:loader-circle" class="animate-spin" />
             <p>{{ t("labs.loading_experiments") }}</p>
           </div>
           <div v-else-if="submissions.length === 0" class="labs-state">

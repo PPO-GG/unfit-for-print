@@ -58,7 +58,7 @@ function hasSubmitted(userId: string): boolean {
             />
             <div v-else class="avatar avatar--placeholder" />
             <span v-if="player.userId === judgeId" class="judge-badge">
-              <Icon name="i-solar-gavel-bold" class="w-2.5 h-2.5" />
+              <Icon name="i-mdi-gavel" class="w-2.5 h-2.5" />
             </span>
           </div>
         </AvatarDecoration>

@@ -175,7 +175,7 @@ onMounted(() => {
         >
           <UIcon
             v-if="isLoading && (item as VoiceDropdownMenuItem).voiceDescriptor && activeVoiceId === (item as VoiceDropdownMenuItem).voiceDescriptor?.voiceId"
-            name="i-solar-spinner-linear"
+            name="i-lucide-loader-circle"
             class="size-3.5 animate-spin text-primary"
           />
           <UIcon

@@ -135,7 +135,7 @@
             type="submit"
             color="primary"
             class="save-btn"
-            icon="i-solar-floppy-disk-bold-duotone"
+            icon="i-solar-diskette-bold-duotone"
             block
           >
             {{ t("game.settings.save_settings") }}

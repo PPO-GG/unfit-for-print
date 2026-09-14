@@ -507,7 +507,7 @@ onMounted(() => loadCards());
         v-if="loadingCards"
         class="mt-4 flex items-center gap-2 text-sm text-slate-400"
       >
-        <UIcon name="i-solar-loading-bold-duotone" class="animate-spin" />
+        <UIcon name="i-lucide-loader-circle" class="animate-spin" />
         Loading cards...
       </div>
     </UCard>

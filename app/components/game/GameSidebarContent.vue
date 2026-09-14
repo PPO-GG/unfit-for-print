@@ -226,7 +226,7 @@ const canStart = computed(() => playerCount.value >= minPlayers);
           v-else-if="!isHost && isStarting"
           class="launch-waiting-text text-green-400"
         >
-          <Icon name="solar:loading-bold-duotone" class="animate-spin mr-1" />
+          <Icon name="lucide:loader-circle" class="animate-spin mr-1" />
           {{ t("lobby.starting_game") }}
         </p>
         <p v-else class="launch-waiting-text">
