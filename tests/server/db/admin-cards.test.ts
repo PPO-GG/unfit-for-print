@@ -276,3 +276,32 @@ describe("admin cards set-active", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("GET /api/admin/cards/list — packs filter", () => {
+  it("returns cards from every listed pack, by id", async () => {
+    await insertCards(whiteCards, [
+      { text: "base", pack: "Base" },
+      { text: "blue", pack: "Blue" },
+      { text: "red", pack: "Red" },
+    ]);
+    const base = await seedPack("Base");
+    const blue = await seedPack("Blue");
+
+    const handler = (await import("~/server/api/admin/cards/list.get")).default;
+    const rows = await handler(mockEvent(undefined, { type: "white", packs: `${base},${blue}` }));
+
+    expect(rows.map((r: { text: string }) => r.text).sort()).toEqual(["base", "blue"]);
+    expect(rows.find((r: { text: string }) => r.text === "blue")).toMatchObject({ packId: blue, pack: "Blue" });
+  });
+
+  it("returns nothing when no listed pack exists", async () => {
+    await insertCards(whiteCards, { text: "base", pack: "Base" });
+
+    const handler = (await import("~/server/api/admin/cards/list.get")).default;
+    const rows = await handler(
+      mockEvent(undefined, { type: "white", packs: "00000000-0000-4000-8000-000000000000" }),
+    );
+
+    expect(rows).toEqual([]);
+  });
+});

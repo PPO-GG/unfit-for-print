@@ -1,372 +1,503 @@
 <script setup lang="ts">
 /**
- * The Packs index. Organising, importing and (later) the pack builder live
- * here. Browsing a pack's cards used to navigate to the separate
- * /admin/cards/browse page; now it expands inline as `AdminCardBrowserPanel`,
- * toggled by `?pack=` on this same route, so switching between the grid and
- * a pack's cards is a query change rather than a page load and both views
- * share one set of pack/card composable instances instead of loading pack
- * stats twice.
+ * The Card Explorer: pack list · card table · inspector on one screen.
  *
- * Pack selection exists on this screen only — the browser never selects
- * packs, which is what removed the two-selection-systems confusion.
+ * The page owns state and wiring only. Rules live in utils (selection, pack
+ * list view, card filtering, URL query), loading in useAdminPackRoster /
+ * useAdminCards, writes in useExplorerMutations, and the actions shared by the
+ * context menus, selection bars and keyboard in useExplorerActions.
  */
-import { computed, ref, watch, onMounted } from "vue";
-import { useAdminPackStats, type AdminPackStat } from "~/composables/useAdminPackStats";
-import { useAdminCardList } from "~/composables/useAdminCardList";
-import { useAdminCardMutations } from "~/composables/useAdminCardMutations";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useLocalStorage, watchDebounced } from "@vueuse/core";
+import type { AdminCard, AdminPack } from "~/types/adminCard";
+import { useAdminPackRoster } from "~/composables/useAdminPackRoster";
+import { useAdminCards } from "~/composables/useAdminCards";
+import { useExplorerMutations } from "~/composables/useExplorerMutations";
+import { useExplorerActions, type ActionId, type ActionScope } from "~/composables/useExplorerActions";
+import { useListSelection } from "~/composables/useListSelection";
 import { useConfirm } from "~/composables/useConfirm";
+import { useNotifications } from "~/composables/useNotifications";
+import { useUiStore } from "~/stores/uiStore";
+import { buildPackList, packOrder, packTotal, type PackChip, type PackSort } from "~/utils/packListView";
+import { cardCounts, filterCards, sortCards, type CardSort } from "~/utils/cardTableView";
+import { parseExplorerQuery, serializeExplorerQuery, type CardFilter, type CardView } from "~/utils/explorerQuery";
 import { commonPackPrefix } from "~/utils/packName";
+import type { PackDraft } from "~/utils/packDraft";
 
 definePageMeta({ middleware: "admin" });
 
 const route = useRoute();
 const router = useRouter();
+const { $activityFetch } = useNuxtApp();
+const { confirm, isOpen: confirmOpen } = useConfirm();
+const { notify } = useNotifications();
+const uiStore = useUiStore();
 
-/** Set from `?pack=`; when present the browser panel replaces the grid. */
-const browsingPack = computed(() => (route.query.pack as string) || null);
+const roster = useAdminPackRoster();
+const list = useAdminCards();
+const m = useExplorerMutations();
 
-const packs = useAdminPackStats();
-const {
-  packStats, sortedPacks, packMeta, defaultPacks, selectedPacks, packSearchTerm,
-  loadPacks, loadDefaultPacks, loadPackMeta,
-  togglePackSelection, clearPackSelection, toggleDefaultPack, bulkSetSeries,
-} = packs;
+// ── Pack list ──────────────────────────────────────────────────────────────
+const packSearch = ref("");
+const packChip = ref<PackChip>("all");
+const packSort = useLocalStorage<PackSort>("admin-explorer:pack-sort", "name");
+const packGrouped = useLocalStorage<boolean>("admin-explorer:pack-grouped", true);
 
-const list = useAdminCardList();
-const mutations = useAdminCardMutations({ list, packs });
-const {
-  bulkActionLoading, renamePack, mergePacks, bulkTogglePacks, bulkDeletePacks, createCard,
-  packExists, renameSummary, mergeSummary,
-} = mutations;
+const packRows = computed(() =>
+  buildPackList(roster.packs.value, {
+    search: packSearch.value,
+    chip: packChip.value,
+    sort: packSort.value,
+    grouped: packGrouped.value,
+  }),
+);
+const visiblePackIds = computed(() => packOrder(packRows.value));
+// Pruned against the whole roster, not the filtered list: typing a filter that
+// hides a selected pack must not deselect it — that would reload the cards and
+// unmount a dirty editor without asking. Cards still prune to what is visible.
+const rosterPackIds = computed(() => roster.packs.value.map((p) => p.id));
+const packSel = useListSelection(visiblePackIds, { pruneAgainst: rosterPackIds });
 
-const { confirm } = useConfirm();
+const chipCounts = computed(() => {
+  const count = (chip: PackChip) =>
+    buildPackList(roster.packs.value, { search: "", chip, sort: "name", grouped: false }).length;
+  return { all: count("all"), default: count("default"), official: count("official"), nsfw: count("nsfw"), inactive: count("inactive") };
+});
+const totalCards = computed(() => roster.packs.value.reduce((n, p) => n + packTotal(p), 0));
+const packNames = computed(() => roster.packs.value.map((p) => p.name));
+const seriesPrefix = computed(() => commonPackPrefix(packNames.value));
 
-const showAdd = ref(false);
-const mergeTarget = ref("");
-const mergeOpen = ref(false);
-const seriesInput = ref("");
-const seriesOpen = ref(false);
+// ── Cards ──────────────────────────────────────────────────────────────────
+const initialQuery = parseExplorerQuery(route.query);
+const cardFilter = ref<CardFilter>(initialQuery.type);
+const cardSearch = ref(initialQuery.q);
+const cardView = ref<CardView>(initialQuery.view);
+const cardSort = ref<CardSort | null>(null);
 
-const allPackNames = computed(() => Object.keys(packStats.value).sort());
+const visibleCards = computed(() =>
+  sortCards(filterCards(list.cards.value, { type: cardFilter.value, q: cardSearch.value }), cardSort.value),
+);
+const visibleCardIds = computed(() => visibleCards.value.map((c) => c.id));
+const cardSel = useListSelection(visibleCardIds);
+const counts = computed(() => cardCounts(list.cards.value));
 
-// Every selected pack is already a default -> the action unsets; otherwise
-// it sets, so a mixed selection defaults to "make them all default" rather
-// than "clear the ones that already are".
-const allSelectedDefault = computed(
-  () =>
-    selectedPacks.value.length > 0 &&
-    selectedPacks.value.every((name) => defaultPacks.value.includes(name)),
+// ── Focus and selection ────────────────────────────────────────────────────
+const focus = ref<ActionScope>("pack");
+const selectedPacks = computed(() =>
+  packSel.selected.value.map((id) => roster.byId.value.get(id)).filter((p): p is AdminPack => Boolean(p)),
+);
+const selectedCards = computed(() => {
+  const byId = new Map(list.cards.value.map((c) => [c.id, c]));
+  return cardSel.selected.value.map((id) => byId.get(id)).filter((c): c is AdminCard => Boolean(c));
+});
+
+const inspector = ref<{ dirty: boolean; focusText: () => void; focusName: () => void } | null>(null);
+
+// One right-click emits a guarded `click` and then `contextmenu` in the same
+// tick. Both await this one in-flight prompt: a second `confirm()` would
+// replace the singleton dialog's resolver and leave the first caller hanging.
+let pendingGuard: Promise<boolean> | null = null;
+function guard(): Promise<boolean> {
+  if (!inspector.value?.dirty) return Promise.resolve(true);
+  pendingGuard ??= confirm({
+    title: "Discard unsaved changes?",
+    message: "Your edits to this item haven't been saved.",
+    confirmButtonText: "Discard",
+    confirmButtonColor: "warning",
+    cancelButtonText: "Keep editing",
+  }).finally(() => {
+    pendingGuard = null;
+  });
+  return pendingGuard;
+}
+
+type Mods = { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean };
+async function onPackClick(id: string, mods: Mods) {
+  if (!(await guard())) return;
+  focus.value = "pack";
+  packSel.click(id, mods);
+}
+async function onAllPacks() {
+  if (!(await guard())) return;
+  focus.value = "pack";
+  packSel.clear();
+}
+async function onCardClick(id: string, mods: Mods) {
+  if (!(await guard())) return;
+  focus.value = "card";
+  cardSel.click(id, mods);
+}
+/** A right-click moves focus to its pane — which swaps the inspector's editor. */
+async function onContextFocus(scope: ActionScope) {
+  if (focus.value === scope) return;
+  if (!(await guard())) return;
+  focus.value = scope;
+}
+async function onCardToggle(id: string) {
+  if (!(await guard())) return;
+  focus.value = "card";
+  cardSel.toggle(id);
+}
+async function onCardOpen(id: string) {
+  if (!(await guard())) return;
+  focus.value = "card";
+  cardSel.set([id]);
+  await nextTick();
+  inspector.value?.focusText();
+}
+/** Esc and the selection bars' Clear both unmount the editor, so both ask. */
+async function clearSelection(scope: ActionScope) {
+  if (!(await guard())) return;
+  (scope === "pack" ? packSel : cardSel).clear();
+}
+function onNarrow(scope: ActionScope, id: string) {
+  (scope === "pack" ? packSel : cardSel).set([id]);
+}
+function onDrop(scope: ActionScope, id: string) {
+  (scope === "pack" ? packSel : cardSel).remove(id);
+}
+
+// ── URL state ──────────────────────────────────────────────────────────────
+const ready = ref(false);
+function syncUrl() {
+  if (!ready.value) return;
+  router.replace({
+    query: serializeExplorerQuery({
+      packs: packSel.selected.value,
+      type: cardFilter.value,
+      q: cardSearch.value,
+      card: cardSel.selected.value.length === 1 ? cardSel.selected.value[0]! : null,
+      view: cardView.value,
+    }),
+  });
+}
+watch([() => packSel.selected.value.join(","), () => cardSel.selected.value.join(","), cardFilter, cardView], syncUrl);
+watchDebounced(cardSearch, syncUrl, { debounce: 300 });
+
+// ── Loading ────────────────────────────────────────────────────────────────
+async function refresh() {
+  await roster.load();
+  await list.load(packSel.selected.value);
+}
+
+watch(
+  () => packSel.selected.value.join(","),
+  async () => {
+    if (!ready.value) return;
+    cardSel.clear();
+    focus.value = "pack";
+    await list.load(packSel.selected.value);
+  },
 );
 
-const toggleSelectedDefault = async () => {
-  const makeDefault = !allSelectedDefault.value;
-  const targets = selectedPacks.value.filter(
-    (name) => defaultPacks.value.includes(name) !== makeDefault,
-  );
-  if (!targets.length) return;
-  bulkActionLoading.value = true;
-  try {
-    await Promise.all(targets.map((name) => toggleDefaultPack(name)));
-  } finally {
-    bulkActionLoading.value = false;
+onMounted(async () => {
+  await roster.load();
+  const q = parseExplorerQuery(route.query);
+  if (q.legacyPack) {
+    const found = roster.findByName(q.legacyPack);
+    packSel.set(found ? [found.id] : []);
+  } else {
+    packSel.set(q.packs.filter((id) => roster.byId.value.has(id)));
   }
+  await list.load(packSel.selected.value);
+  if (q.card && list.cards.value.some((c) => c.id === q.card)) {
+    cardSel.set([q.card]);
+    focus.value = "card";
+  }
+  ready.value = true;
+  syncUrl();
+});
+
+// ── Mutations ──────────────────────────────────────────────────────────────
+// Reload after every write, success or failure: a partly-failed write (a pack
+// save whose details landed but whose default toggle threw) must never leave
+// the view contradicting the database.
+const after = async (ok: boolean) => {
+  await refresh();
+  return ok;
+};
+const destination = (name: string) => {
+  const existing = roster.packs.value.find((p) => p.name === name);
+  return existing ? { packId: existing.id } : { name };
 };
 
-const totalCards = computed(() =>
-  sortedPacks.value.reduce((n, p) => n + p.black.total + p.white.total, 0),
-);
+const mergeOpen = ref(false);
+const moveOpen = ref(false);
+const seriesOpen = ref(false);
+const addOpen = ref(false);
 
-// `sortedPacks` is alphabetical and search-filtered by the composable; this
-// re-orders that result rather than replacing it, so the pack search box keeps
-// working whichever sort is chosen.
-const packSort = ref<"name" | "size" | "default">("name");
-const packSortItems = [
-  { label: "Name", value: "name" },
-  { label: "Size", value: "size" },
-  { label: "Defaults first", value: "default" },
-];
-
-// Chips narrow the already-loaded set; they never refetch. `sortedPacks` has
-// already applied the search box, so this composes on top of it.
-type PackChip = "all" | "default" | "official" | "nsfw" | "inactive";
-const packChip = ref<PackChip>("all");
-
-const isDark = (p: AdminPackStat) => p.black.active + p.white.active === 0;
-
-function matchesChip(p: AdminPackStat, chip: PackChip): boolean {
-  switch (chip) {
-    case "default":
-      return defaultPacks.value.includes(p.name);
-    case "official":
-      return Boolean(packMeta.value[p.name]?.official);
-    case "nsfw":
-      return Boolean(packMeta.value[p.name]?.nsfw);
-    case "inactive":
-      return isDark(p);
-    default:
-      return true;
+async function runAction(id: ActionId) {
+  const packsNow = selectedPacks.value;
+  const cardsNow = selectedCards.value;
+  switch (id) {
+    case "rename":
+      // Only a focus change swaps the editor; renaming from an already-focused
+      // pack form keeps its edits, so there is nothing to discard.
+      if (focus.value !== "pack" && !(await guard())) return;
+      focus.value = "pack";
+      await nextTick();
+      inspector.value?.focusName();
+      return;
+    case "merge":
+      mergeOpen.value = true;
+      return;
+    case "enable-packs":
+    case "disable-packs":
+      await after(await m.setPacksActive(packsNow, id === "enable-packs"));
+      return;
+    case "toggle-default":
+      await after(await m.setPacksDefault(packsNow, !packsNow.every((p) => p.isDefault)));
+      return;
+    case "set-series":
+      seriesOpen.value = true;
+      return;
+    case "check-duplicates":
+      router.push({ path: "/admin/cards/duplicates", query: { packs: packsNow.map((p) => p.name).join(",") } });
+      return;
+    case "delete-packs":
+      if (await after(await m.deletePacks(packsNow))) packSel.clear();
+      return;
+    case "move":
+      moveOpen.value = true;
+      return;
+    case "enable-cards":
+    case "disable-cards":
+      await after(await m.setCardsActive(cardsNow, id === "enable-cards"));
+      return;
+    case "copy-text":
+      try {
+        await navigator.clipboard.writeText(cardsNow[0]?.text ?? "");
+        notify({ title: "Copied", color: "success" });
+      } catch {
+        notify({ title: "Could not copy", color: "error" });
+      }
+      return;
+    case "delete-cards":
+      if (await after(await m.deleteCards(cardsNow))) cardSel.clear();
+      return;
   }
 }
 
-// Counts come off the full roster, not the filtered view, so a chip always
-// reports how many it would show rather than how many survive the other chip.
-const chipCounts = computed(() => {
-  const all = Object.values(packStats.value);
-  return {
-    all: all.length,
-    default: all.filter((p) => matchesChip(p, "default")).length,
-    official: all.filter((p) => matchesChip(p, "official")).length,
-    nsfw: all.filter((p) => matchesChip(p, "nsfw")).length,
-    inactive: all.filter((p) => matchesChip(p, "inactive")).length,
-  };
+const actions = useExplorerActions({
+  packs: selectedPacks,
+  cards: selectedCards,
+  focus,
+  run: runAction,
+  selectAll: async (scope) => {
+    if (!(await guard())) return;
+    (scope === "pack" ? packSel : cardSel).selectAll();
+  },
+  clear: clearSelection,
 });
-
-// 106 of 111 packs share the "Cards Against Humanity:" prefix; the tile shows
-// it small so the distinguishing half can take the headline. Derived from the
-// full roster rather than the filtered view so the series label does not
-// change as you type in the search box.
-const seriesPrefix = computed(() =>
-  commonPackPrefix(Object.keys(packStats.value)),
+// The shortcuts listen on window, so they would also fire behind a dialog:
+// Escape closing the Merge dialog would clear the selection, and Delete would
+// stack a second confirm on the singleton dialog. Off while anything is open,
+// including the app-wide Settings slideover mounted in app.vue.
+const pageShortcuts = computed(() =>
+  confirmOpen.value || mergeOpen.value || moveOpen.value || seriesOpen.value || addOpen.value || uiStore.showSettings
+    ? {}
+    : actions.shortcuts.value,
 );
+defineShortcuts(pageShortcuts);
 
-const orderedPacks = computed(() => {
-  const rows = sortedPacks.value.filter((p) => matchesChip(p, packChip.value));
-  if (packSort.value === "size") {
-    return rows.sort(
-      (a, b) => b.black.total + b.white.total - (a.black.total + a.white.total),
-    );
+async function onCardSave(edit: { text: string; pick?: number; pack?: string }) {
+  const card = selectedCards.value[0];
+  if (!card) return;
+  let ok = await m.saveCard(card, { text: edit.text, pick: edit.pick });
+  if (ok && edit.pack) ok = await m.moveCards([card], destination(edit.pack));
+  await after(ok);
+}
+async function onCardsApply(changes: { pack?: string; active?: boolean; pick?: number }) {
+  const target = selectedCards.value;
+  let ok = true;
+  if (ok && changes.pack) ok = await m.moveCards(target, destination(changes.pack));
+  if (ok && changes.active !== undefined) ok = await m.setCardsActive(target, changes.active);
+  if (ok && changes.pick !== undefined) ok = await m.setCardsPick(target, changes.pick);
+  await after(ok);
+}
+async function onPackSave(draft: PackDraft) {
+  const pack = selectedPacks.value[0];
+  if (pack) await after(await m.savePack(pack, draft));
+}
+async function onPacksApply(changes: {
+  series?: string;
+  active?: boolean;
+  isDefault?: boolean;
+  official?: boolean;
+  nsfw?: boolean;
+}) {
+  const target = selectedPacks.value;
+  let ok = true;
+  if (ok && typeof changes.series === "string") ok = await m.setPacksSeries(target, changes.series);
+  if (ok && typeof changes.active === "boolean") ok = await m.setPacksActive(target, changes.active);
+  if (ok && typeof changes.isDefault === "boolean") ok = await m.setPacksDefault(target, changes.isDefault);
+  if (ok && typeof changes.official === "boolean") ok = await m.setPacksFlag(target, "official", changes.official);
+  if (ok && typeof changes.nsfw === "boolean") ok = await m.setPacksFlag(target, "nsfw", changes.nsfw);
+  await after(ok);
+}
+async function onMergeConfirm(target: AdminPack) {
+  const ok = await m.mergePacks(selectedPacks.value, target);
+  // Select the target before reloading: the target survives the merge, so the
+  // new roster keeps it, whereas reloading first would prune the merged-away
+  // sources and briefly load every card for an empty selection.
+  if (ok) packSel.set([target.id]);
+  await refresh();
+}
+async function onMoveConfirm(name: string) {
+  await after(await m.moveCards(selectedCards.value, destination(name)));
+}
+async function onSeriesConfirm(series: string) {
+  await after(await m.setPacksSeries(selectedPacks.value, series));
+}
+async function onAddCard(payload: Record<string, unknown>) {
+  try {
+    await $activityFetch("/api/admin/cards/create", { method: "POST", body: payload });
+    addOpen.value = false;
+    notify({ title: "Card added", color: "success" });
+  } catch {
+    notify({ title: "Could not add the card", color: "error" });
   }
-  if (packSort.value === "default") {
-    return rows.sort(
-      (a, b) =>
-        Number(defaultPacks.value.includes(b.name)) -
-        Number(defaultPacks.value.includes(a.name)),
-    );
-  }
-  return rows;
-});
+  await refresh();
+}
 
-// Same route, query-only — AdminCardBrowserPanel reads `pack`/`type`/`q`/
-// `sort` off this same query, so this is a fresh browsing session for `name`.
-const openPack = (name: string) => router.push({ query: { pack: name } });
-
-// Cross-pack "Check duplicates" hands the current selection to the scanner
-// as a comma-separated scope rather than building a second duplicate-finding
-// UI inline — see server/utils and app/pages/admin/cards/duplicates.vue.
-const checkDuplicatesForSelected = () =>
-  router.push({
-    path: "/admin/cards/duplicates",
-    query: { packs: selectedPacks.value.join(",") },
-  });
-
-/**
- * Renaming a pack onto a name that already exists is a *merge* server-side:
- * the source's `card_packs` row is deleted and its description/default status
- * go with it, with no undo. The inline rename on the tile is not a dialog, so
- * this is the only place that can put renameSummary()'s warning — the "already
- * exists, so this merges" line and the live-lobby caveat — in front of the
- * admin before it happens. A plain rename onto a free name needs no confirm.
- */
-const onRename = async (from: string, to: string) => {
-  const target = to.trim();
-  if (!target || target === from) return;
-  if (packExists(target)) {
-    const ok = await confirm({
-      title: `Merge "${from}" into "${target}"?`,
-      message: renameSummary(from, target),
-      confirmButtonText: "Merge",
-      confirmButtonColor: "warning",
-    });
-    if (!ok) return;
-  }
-  await renamePack(from, target);
-};
-
-const mergeWarning = computed(() =>
-  mergeSummary([...selectedPacks.value], mergeTarget.value),
-);
-
-const confirmMerge = async () => {
-  if (await mergePacks([...selectedPacks.value], mergeTarget.value)) {
-    mergeTarget.value = "";
-    mergeOpen.value = false;
-  }
-};
-
-// Prefills with the derived series guess (colon stripped) the first time the
-// popover opens for an empty field — the common case is turning that guess
-// into real, editable data, not typing a brand name from scratch.
-watch(seriesOpen, (open) => {
-  if (open && !seriesInput.value.trim()) {
-    seriesInput.value = seriesPrefix.value.replace(/[:\s]+$/, "");
-  }
-});
-
-const confirmSetSeries = async () => {
-  if (await bulkSetSeries([...selectedPacks.value], seriesInput.value)) {
-    seriesInput.value = "";
-    seriesOpen.value = false;
-  }
-};
-
-// A card added to a brand-new pack has no tile yet — reload the pack stats
-// so it appears, rather than requiring a manual refresh.
-const onAddCard = async (payload: Record<string, unknown>) => {
-  if (await createCard(payload)) {
-    showAdd.value = false;
-    await loadPacks();
-  }
-};
-
-onMounted(() => Promise.all([loadPacks(), loadDefaultPacks(), loadPackMeta()]));
+const plural = (n: number, w: string) => `${n.toLocaleString()} ${w}${n === 1 ? "" : "s"}`;
+const CARD_CHIPS: { id: CardFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "black", label: "Black" },
+  { id: "white", label: "White" },
+  { id: "inactive", label: "Disabled" },
+];
 </script>
 
 <template>
   <div class="h-[100dvh] min-w-[1100px] flex flex-col overflow-hidden">
-    <AdminCardBrowserPanel
-      v-if="browsingPack"
-      :packs="packs"
-      :list="list"
-      :mutations="mutations"
-    />
-    <div v-else class="contents">
     <header class="flex items-center gap-2 pl-24 pr-4 py-2.5 border-b border-slate-700/60 bg-slate-900/70">
       <NuxtLink to="/admin" class="text-xs text-slate-400 hover:text-white">Admin</NuxtLink>
       <span class="text-slate-600 text-xs">/</span>
-      <span class="text-xs text-white font-medium">Packs</span>
-      <span class="text-xs text-slate-500">
-        {{ sortedPacks.length }} packs · {{ totalCards.toLocaleString() }} cards
-      </span>
+      <span class="text-xs text-white font-medium">Cards</span>
+      <span class="text-xs text-slate-500">{{ plural(roster.packs.value.length, "pack") }} · {{ plural(totalCards, "card") }}</span>
       <span class="flex-1" />
-      <UInput
-        v-model="packSearchTerm"
-        placeholder="Search packs…"
-        icon="i-solar-magnifer-linear"
-        class="w-64"
-      />
-      <USelectMenu
-        v-model="packSort"
-        :items="packSortItems"
-        value-key="value"
-        class="w-40"
-      />
       <UButton to="/admin/cards/duplicates" size="xs" variant="soft">Duplicates</UButton>
-      <UButton to="/admin/cards/upload" size="xs" variant="soft">Upload pack</UButton>
-      <UButton size="xs" color="primary" @click="showAdd = true">Add card</UButton>
+      <UButton to="/admin/cards/upload" size="xs" variant="soft">Upload</UButton>
+      <UButton size="xs" color="primary" icon="i-solar-add-circle-linear" @click="addOpen = true">Card</UButton>
     </header>
 
-    <div
-      v-if="selectedPacks.length"
-      class="flex items-center gap-2 px-4 py-2 border-b border-primary-700/50 bg-primary-950/60"
-    >
-      <span class="text-xs text-primary-100">{{ selectedPacks.length }} packs selected</span>
-      <UPopover v-model:open="mergeOpen">
-        <UButton size="xs" color="primary" variant="soft" :loading="bulkActionLoading">
-          Merge into…
-        </UButton>
-        <template #content>
-          <div class="p-3 w-64 flex flex-col gap-2">
-            <AdminPackPicker
-              v-model="mergeTarget"
-              :packs="allPackNames"
-              :exclude="selectedPacks"
-              label="Destination"
-            />
-            <!-- The popover replaced the merge dialog, so this is where the
-                 consequences have to be stated: which pack's settings survive,
-                 and that games in progress drop the merged packs. -->
-            <p v-if="mergeWarning" data-testid="merge-summary" class="text-[11px] text-amber-300/90">
-              {{ mergeWarning }}
-            </p>
-            <UButton size="xs" color="primary" :disabled="!mergeTarget.trim()" @click="confirmMerge">
-              Merge
-            </UButton>
-          </div>
-        </template>
-      </UPopover>
-      <UPopover v-model:open="seriesOpen">
-        <UButton size="xs" variant="soft">
-          Set series…
-        </UButton>
-        <template #content>
-          <div class="p-3 w-64 flex flex-col gap-2">
-            <UFormField label="Series / brand">
-              <UInput
-                v-model="seriesInput"
-                class="w-full"
-                placeholder="e.g. Cards Against Humanity"
-                data-testid="bulk-series-input"
-              />
-            </UFormField>
-            <UButton size="xs" color="primary" @click="confirmSetSeries">
-              Set for {{ selectedPacks.length }} pack{{ selectedPacks.length === 1 ? "" : "s" }}
-            </UButton>
-          </div>
-        </template>
-      </UPopover>
-      <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="toggleSelectedDefault">
-        {{ allSelectedDefault ? "Unset default" : "Set as default" }}
-      </UButton>
-      <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="bulkTogglePacks(true)">Activate</UButton>
-      <UButton size="xs" variant="ghost" :loading="bulkActionLoading" @click="bulkTogglePacks(false)">Deactivate</UButton>
-      <UButton size="xs" variant="ghost" @click="checkDuplicatesForSelected">Check duplicates</UButton>
-      <UButton size="xs" color="error" variant="ghost" :loading="bulkActionLoading" @click="bulkDeletePacks">Delete</UButton>
-      <span class="flex-1" />
-      <UButton size="xs" variant="ghost" @click="clearPackSelection">Clear</UButton>
-    </div>
-
-    <div class="flex items-center gap-2 px-4 py-2 border-b border-slate-700/60 bg-slate-900/40">
-      <button
-        v-for="chip in [
-          { id: 'all', label: 'All', n: chipCounts.all },
-          { id: 'default', label: 'Default', n: chipCounts.default },
-          { id: 'official', label: 'Official', n: chipCounts.official },
-          { id: 'nsfw', label: 'NSFW', n: chipCounts.nsfw },
-          { id: 'inactive', label: 'Inactive', n: chipCounts.inactive },
-        ]"
-        :key="chip.id"
-        type="button"
-        :data-testid="`pack-chip-${chip.id}`"
-        :aria-pressed="packChip === chip.id"
-        class="rounded-full px-3 py-1 text-xs transition-colors"
-        :class="
-          packChip === chip.id
-            ? 'bg-primary-600 text-white'
-            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-        "
-        @click="packChip = chip.id as typeof packChip"
-      >
-        {{ chip.label }}
-        <span class="opacity-70 ml-1">{{ chip.n.toLocaleString() }}</span>
-      </button>
-    </div>
-
-    <div class="flex-1 overflow-y-auto p-4">
-      <p v-if="!orderedPacks.length" class="text-xs text-slate-500">
-        No packs match this filter.
-      </p>
-      <div class="grid gap-5" style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))">
-        <AdminPackTile
-          v-for="pack in orderedPacks"
-          :key="pack.name"
-          :pack="pack"
-          :meta="packMeta[pack.name] ?? null"
-          :series-prefix="seriesPrefix"
-          :is-default="defaultPacks.includes(pack.name)"
-          :selected="selectedPacks.includes(pack.name)"
-          @open="openPack(pack.name)"
-          @toggle-select="togglePackSelection(pack.name)"
-          @rename="onRename(pack.name, $event)"
+    <div class="flex-1 flex min-h-0">
+      <div class="w-64 shrink-0 flex flex-col min-h-0">
+        <AdminPackList
+          v-model:search="packSearch"
+          v-model:chip="packChip"
+          v-model:sort="packSort"
+          v-model:grouped="packGrouped"
+          class="flex-1 min-h-0"
+          :rows="packRows"
+          :selected-ids="packSel.selected.value"
+          :current-id="focus === 'pack' && selectedPacks.length === 1 ? selectedPacks[0]!.id : null"
+          :chip-counts="chipCounts"
+          :total-cards="totalCards"
+          :menu="actions.packMenu.value"
+          @click="onPackClick"
+          @all="onAllPacks"
+          @contextmenu="onContextFocus('pack')"
+        />
+        <AdminSelectionBar
+          v-if="packSel.selected.value.length"
+          :label="`${plural(packSel.selected.value.length, 'pack')} selected`"
+          :actions="actions.packBar.value"
+          :busy="m.busy.value"
+          @run="runAction"
+          @clear="clearSelection('pack')"
         />
       </div>
-    </div>
+
+      <section class="flex-1 flex flex-col min-w-0">
+        <div class="flex items-center gap-2 px-3 py-2 border-b border-slate-700/60 bg-slate-900/40">
+          <button
+            v-for="c in CARD_CHIPS"
+            :key="c.id"
+            type="button"
+            :data-testid="`card-chip-${c.id}`"
+            :aria-pressed="cardFilter === c.id"
+            class="rounded-full px-3 py-1 text-xs"
+            :class="cardFilter === c.id ? 'bg-primary-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'"
+            @click="cardFilter = c.id"
+          >
+            {{ c.label }} <span class="opacity-70">{{ counts[c.id].toLocaleString() }}</span>
+          </button>
+          <span class="flex-1" />
+          <UInput v-model="cardSearch" size="sm" icon="i-solar-magnifer-linear" placeholder="Search cards…" class="w-64" />
+          <UButton size="xs" variant="ghost" :icon="cardView === 'table' ? 'i-solar-widget-linear' : 'i-solar-list-linear'" @click="cardView = cardView === 'table' ? 'grid' : 'table'">
+            {{ cardView === "table" ? "Grid" : "Table" }}
+          </UButton>
+        </div>
+
+        <div class="flex-1 min-h-0 p-2">
+          <AdminCardTable
+            v-if="cardView === 'table'"
+            v-model:sort="cardSort"
+            :cards="visibleCards"
+            :selected-ids="cardSel.selected.value"
+            :current-id="focus === 'card' && selectedCards.length === 1 ? selectedCards[0]!.id : null"
+            :menu="actions.cardMenu.value"
+            :loading="list.loading.value"
+            @click="onCardClick"
+            @toggle="onCardToggle"
+            @open="onCardOpen"
+            @contextmenu="onContextFocus('card')"
+          />
+          <AdminCardGrid
+            v-else
+            :cards="visibleCards"
+            :selected-ids="cardSel.selected.value"
+            :inspected-id="selectedCards.length === 1 ? selectedCards[0]!.id : null"
+            @inspect="(id: string) => onCardClick(id, { ctrlKey: false, metaKey: false, shiftKey: false })"
+            @select="(id: string, ev: MouseEvent) => (ev.shiftKey ? onCardClick(id, { ctrlKey: false, metaKey: false, shiftKey: true }) : onCardToggle(id))"
+          />
+        </div>
+
+        <AdminSelectionBar
+          v-if="cardSel.selected.value.length"
+          :label="`${plural(cardSel.selected.value.length, 'card')} selected`"
+          :actions="actions.cardBar.value"
+          :busy="m.busy.value"
+          @run="runAction"
+          @clear="clearSelection('card')"
+        />
+      </section>
+
+      <AdminExplorerInspector
+        ref="inspector"
+        class="w-80 shrink-0"
+        :focus="focus"
+        :packs="selectedPacks"
+        :cards="selectedCards"
+        :pack-names="packNames"
+        :pack-cards="list.cards.value"
+        :series-prefix="seriesPrefix"
+        :busy="m.busy.value"
+        @card-save="onCardSave"
+        @card-toggle-active="runAction(selectedCards[0]?.active === false ? 'enable-cards' : 'disable-cards')"
+        @card-delete="runAction('delete-cards')"
+        @cards-apply="onCardsApply"
+        @cards-delete="runAction('delete-cards')"
+        @pack-save="onPackSave"
+        @pack-delete="runAction('delete-packs')"
+        @packs-apply="onPacksApply"
+        @packs-merge="mergeOpen = true"
+        @packs-delete="runAction('delete-packs')"
+        @narrow="onNarrow"
+        @drop="onDrop"
+      />
     </div>
 
-    <AdminCardManagerAddModal
-      v-model="showAdd"
-      :available-packs="allPackNames"
-      @add="onAddCard"
+    <AdminMergeDialog v-model:open="mergeOpen" :sources="selectedPacks" :packs="roster.packs.value" :summary="m.mergeSummary" @confirm="onMergeConfirm" />
+    <AdminMoveDialog v-model:open="moveOpen" :count="selectedCards.length" :pack-names="packNames" @confirm="onMoveConfirm" />
+    <AdminSeriesDialog
+      v-model:open="seriesOpen"
+      :count="selectedPacks.length"
+      :initial="selectedPacks.length && selectedPacks.every((p) => p.series === selectedPacks[0]!.series) ? (selectedPacks[0]!.series ?? '') : ''"
+      @confirm="onSeriesConfirm"
     />
+    <AdminCardManagerAddModal v-model="addOpen" :available-packs="packNames" @add="onAddCard" />
   </div>
 </template>

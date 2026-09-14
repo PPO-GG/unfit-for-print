@@ -1,14 +1,10 @@
 <script setup lang="ts">
 /**
- * Inspector state ② — one card, edited in place. This replaces the edit
- * modal: the grid stays visible, so you keep your position in a long scan.
- *
- * `draft` is local and re-seeds whenever a different card is inspected, so
- * clicking away from an unsaved edit discards it rather than leaking it onto
- * the next card.
+ * One card, edited in the inspector. Nothing saves until Save or Ctrl/⌘+Enter;
+ * `dirty` lets the page ask before a selection change throws an edit away.
  */
-import { reactive, ref, watch, computed } from "vue";
-import type { AdminCard } from "~/composables/useAdminCardList";
+import { computed, reactive, ref, watch } from "vue";
+import type { AdminCard } from "~/types/adminCard";
 import { cardRate, packAverage, MIN_PLAYS_FOR_RATE } from "~/composables/useAdminCardStats";
 import { getCardImageUrl } from "~/utils/cardImage";
 
@@ -19,114 +15,117 @@ const props = defineProps<{
   saving?: boolean;
 }>();
 
-/**
- * An image card has no text to edit — showing it an empty textarea invited an
- * edit that /api/admin/cards/edit turns into "this card is text now", nulling
- * imageKey/imageFormat/attachment. Show the image instead; the page passes the
- * existing image fields back through on save so they survive a pick change.
- * Editing the attachment itself is a follow-up.
- */
-const hasImage = computed(() => Boolean(props.card.imageKey));
-const imageUrl = computed(() =>
-  props.card.imageKey ? getCardImageUrl(props.card.imageKey) : "",
-);
-
-const rate = computed(() => cardRate(props.card));
-const average = computed(() => packAverage(props.packCards ?? [], rate.value.kind));
-const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
-
 const emit = defineEmits<{
-  save: [{ text: string; pick?: number }];
-  move: [string];
+  save: [{ text: string; pick?: number; pack?: string }];
   "toggle-active": [];
   delete: [];
 }>();
 
-const draft = reactive({ text: props.card.text ?? "", pick: props.card.pick ?? 1 });
+const hasImage = computed(() => Boolean(props.card.imageKey));
+const imageUrl = computed(() => (props.card.imageKey ? getCardImageUrl(props.card.imageKey) : ""));
+const rate = computed(() => cardRate(props.card));
+const average = computed(() => packAverage(props.packCards ?? [], rate.value.kind));
+const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
-// What we last emitted via `save`, so a blur that follows a Ctrl/Cmd+Enter
-// save can be recognized as a repeat even though the parent's save is async
-// and props.card has not caught up yet (see below).
-const lastEmitted = ref<{ text: string; pick?: number } | null>(null);
+const fromCard = () => ({
+  text: props.card.text ?? "",
+  pick: props.card.pick ?? 1,
+  pack: props.card.pack ?? "",
+});
+
+// `base` is what the draft was seeded from. Dirtiness is measured against it,
+// not against the live prop: after a reload the prop already holds new values,
+// and comparing to those would mark an untouched draft dirty and freeze it.
+const base = ref(fromCard());
+const draft = reactive(fromCard());
+
+const dirty = computed(() => {
+  const pack = draft.pack.trim();
+  return (
+    draft.text.trim() !== base.value.text.trim() ||
+    (props.card.type === "black" && Number(draft.pick) !== base.value.pick) ||
+    (pack !== "" && pack !== base.value.pack)
+  );
+});
+
+function revert() {
+  base.value = fromCard();
+  Object.assign(draft, base.value);
+}
+
+// A draft that already equals the incoming card counts as "settled" too, not
+// just a clean one — the reload after a save arrives with the same values the
+// draft was edited to, and `dirty` above is still comparing against the old
+// `base`, so without this the draft would look permanently dirty forever.
+const matchesIncoming = (card: AdminCard) => {
+  const pack = draft.pack.trim();
+  return (
+    draft.text.trim() === (card.text ?? "").trim() &&
+    (card.type !== "black" || Number(draft.pick) === (card.pick ?? 1)) &&
+    (pack === "" || pack === (card.pack ?? ""))
+  );
+};
 
 watch(
-  () => props.card.id,
-  () => {
-    draft.text = props.card.text ?? "";
-    draft.pick = props.card.pick ?? 1;
-    lastEmitted.value = null;
+  () => [props.card.id, props.card.text, props.card.pick, props.card.pack] as const,
+  ([id], [prevId]) => {
+    if (id !== prevId || !dirty.value || matchesIncoming(props.card)) revert();
   },
 );
 
 function save() {
+  if (!dirty.value) return;
   const text = draft.text.trim();
-  // An image card legitimately has no text, and its `pick` is still editable.
   if (!text && !hasImage.value) return;
-
-  const pick = props.card.type === "black" ? Number(draft.pick) || 1 : undefined;
-  // Both blur and Ctrl/Cmd+Enter reach this. Without a dirty check, saving
-  // with the keyboard and then moving focus away sends the same edit twice.
-  // The parent's save is async, so props.card may still hold the pre-save
-  // values when the second call lands — comparing against lastEmitted (what
-  // we ourselves just sent) catches that case; comparing against props.card
-  // is kept as a cheap short-circuit for the common "nothing changed" case.
-  const payload = { text, pick };
-  const unchangedFromCard =
-    text === (props.card.text ?? "").trim() &&
-    pick === (props.card.type === "black" ? props.card.pick ?? 1 : undefined);
-  const unchangedFromLastEmitted =
-    lastEmitted.value !== null &&
-    lastEmitted.value.text === payload.text &&
-    lastEmitted.value.pick === payload.pick;
-  if (unchangedFromCard || unchangedFromLastEmitted) return;
-
-  lastEmitted.value = payload;
-  emit("save", payload);
+  const pack = draft.pack.trim();
+  emit("save", {
+    text,
+    pick: props.card.type === "black" ? Number(draft.pick) || 1 : undefined,
+    pack: pack && pack !== base.value.pack ? pack : undefined,
+  });
 }
 
-defineExpose({ draft, save });
+const textArea = ref<{ $el: HTMLElement } | null>(null);
+function focusText() {
+  textArea.value?.$el?.querySelector?.("textarea")?.focus();
+}
+
+defineExpose({ draft, dirty, save, revert, focusText });
 </script>
 
 <template>
   <div class="flex flex-col gap-3">
-    <p class="text-[10px] uppercase tracking-wider text-slate-500">
-      {{ card.type }} card
-    </p>
+    <p class="text-[10px] uppercase tracking-wider text-slate-500">{{ card.type }} card</p>
 
     <UFormField v-if="hasImage" label="Image">
-      <img
-        data-testid="card-image"
-        class="w-full rounded border border-slate-700 object-contain bg-slate-950"
-        :src="imageUrl"
-        alt=""
-      />
-      <p class="text-[10px] text-slate-500 mt-1">
-        Image cards have no text. Re-upload to replace the picture.
-      </p>
+      <img data-testid="card-image" class="w-full rounded border border-slate-700 object-contain bg-slate-950" :src="imageUrl" alt="" />
+      <p class="text-[10px] text-slate-500 mt-1">Image cards have no text. Re-upload to replace the picture.</p>
     </UFormField>
     <UFormField v-else label="Text">
       <UTextarea
+        ref="textArea"
         v-model="draft.text"
         :rows="4"
         class="w-full"
-        @blur="save"
-        @keydown.meta.enter="save"
-        @keydown.ctrl.enter="save"
+        @keydown.meta.enter.prevent="save"
+        @keydown.ctrl.enter.prevent="save"
       />
     </UFormField>
 
     <UFormField v-if="card.type === 'black'" label="Pick">
-      <UInput v-model="draft.pick" type="number" class="w-full" @blur="save" />
+      <UInput v-model="draft.pick" type="number" class="w-full" @keydown.meta.enter.prevent="save" @keydown.ctrl.enter.prevent="save" />
     </UFormField>
 
     <UFormField label="Pack">
-      <AdminPackPicker
-        :model-value="card.pack ?? ''"
-        :packs="packs"
-        label=""
-        @update:model-value="emit('move', $event)"
-      />
+      <AdminPackPicker v-model="draft.pack" :packs="packs" label="" />
     </UFormField>
+
+    <div class="flex gap-2">
+      <UButton size="xs" color="primary" :disabled="!dirty" :loading="saving" data-testid="card-save" @click="save">
+        Save
+      </UButton>
+      <UButton size="xs" variant="ghost" :disabled="!dirty" @click="revert">Revert</UButton>
+    </div>
 
     <div class="pt-1">
       <p class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Performance</p>
@@ -146,30 +145,17 @@ defineExpose({ draft, save });
       <template v-else>
         <div class="flex justify-between text-xs py-0.5">
           <span class="text-slate-400">{{ rate.kind === "skip" ? "Skip rate" : "Win rate" }}</span>
-          <span :class="rate.kind === 'skip' ? 'text-red-400' : 'text-green-400'" class="font-semibold">
-            {{ pct(rate.value) }}
-          </span>
+          <span :class="rate.kind === 'skip' ? 'text-red-400' : 'text-green-400'" class="font-semibold">{{ pct(rate.value) }}</span>
         </div>
-        <p v-if="average !== null" class="text-[10px] text-slate-500">
-          pack average {{ pct(average) }}
-        </p>
+        <p v-if="average !== null" class="text-[10px] text-slate-500">pack average {{ pct(average) }}</p>
       </template>
     </div>
 
     <div class="flex gap-2 pt-1">
-      <UButton
-        size="xs"
-        class="flex-1"
-        :color="card.active ? 'warning' : 'success'"
-        variant="soft"
-        :loading="saving"
-        @click="emit('toggle-active')"
-      >
-        {{ card.active ? "Deactivate" : "Activate" }}
+      <UButton size="xs" class="flex-1" :color="card.active ? 'warning' : 'success'" variant="soft" @click="emit('toggle-active')">
+        {{ card.active ? "Disable" : "Enable" }}
       </UButton>
-      <UButton size="xs" color="error" variant="ghost" @click="emit('delete')">
-        Delete
-      </UButton>
+      <UButton size="xs" color="error" variant="ghost" @click="emit('delete')">Delete</UButton>
     </div>
   </div>
 </template>

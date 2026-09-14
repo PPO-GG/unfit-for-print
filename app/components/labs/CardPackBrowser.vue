@@ -233,7 +233,7 @@ import {
   filterAndSortPacks,
   pageForIndex,
   stepCardIndex,
-  type PackSort,
+  type PackGallerySort,
   type PackTile,
 } from "~/utils/cardPacks";
 import { packLabel } from "~/utils/packName";
@@ -260,7 +260,7 @@ const {
 const labelFor = (tile: PackTile) =>
   packLabel(tile.pack, tile, seriesPrefix.value);
 const packSearch = ref("");
-const packSort = ref<PackSort>("cards-desc");
+const packSort = ref<PackGallerySort>("cards-desc");
 const defaultOnly = ref(false);
 
 const selectedPack = ref<string | null>(null); // Pack id.
