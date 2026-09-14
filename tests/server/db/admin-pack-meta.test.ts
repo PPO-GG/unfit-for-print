@@ -183,6 +183,19 @@ describe("POST /api/admin/cards/delete-pack — metadata cleanup", () => {
     expect(await db.select().from(cardPacks)).toEqual([]);
   });
 
+  it("404s for an unknown pack instead of reporting success", async () => {
+    await insertCards(whiteCards, { text: "w", pack: "Survivor" });
+
+    const handler = (await import("~/server/api/admin/cards/delete-pack.post")).default;
+    await expect(handler(mockEvent({ pack: "Stale Name", type: "all" }))).rejects.toMatchObject({
+      statusCode: 404,
+    });
+    await expect(
+      handler(mockEvent({ packId: "33333333-3333-4333-8333-333333333333", type: "all" })),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(await db.select().from(whiteCards)).toHaveLength(1);
+  });
+
   it("keeps the card_packs row when the other card type survives", async () => {
     await insertCards(whiteCards, { text: "w", pack: "Mixed" });
     await insertCards(blackCards, { text: "b", pack: "Mixed" });

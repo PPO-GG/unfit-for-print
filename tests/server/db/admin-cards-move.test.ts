@@ -46,7 +46,7 @@ describe("POST /api/admin/cards/move — rename", () => {
     expect(await packNamesOf(blackCards)).toEqual(["New"]);
   });
 
-  it("carries the card_packs and default_card_packs rows to the new key", async () => {
+  it("keeps the pack's metadata and default flag on the renamed pack", async () => {
     await insertCards(whiteCards, { text: "w1", pack: "Old" });
     await seedPack("Old", { description: "keep me", nsfw: true, isDefault: true });
 
@@ -68,6 +68,19 @@ describe("POST /api/admin/cards/move — rename", () => {
 
     expect(result).toEqual({ moved: { white: 0, black: 0 }, aux: null });
     expect(await packNamesOf(whiteCards)).toEqual(["Same"]);
+  });
+
+  it("404s for an unknown source pack instead of reporting a rename", async () => {
+    await insertCards(whiteCards, { text: "w1", pack: "Real" });
+
+    await expect(
+      callMove({ from: { pack: "Stale Name" }, toPack: "New", type: "all" }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    await expect(
+      callMove({ from: { packId: "33333333-3333-4333-8333-333333333333" }, toPack: "New", type: "all" }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(await packNamesOf(whiteCards)).toEqual(["Real"]);
+    expect((await db.select().from(cardPacks)).map((p) => p.name)).toEqual(["Real"]);
   });
 
   it("renames by keeping the pack's id, so lobbies holding it are unaffected", async () => {

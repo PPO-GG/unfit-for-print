@@ -25,7 +25,8 @@ export default defineEventHandler(async (event) => {
   // it goes exactly when the pack has no cards left.
   return db.transaction(async (tx) => {
     const packId = await findPackId(tx, ref);
-    if (!packId) return { success: true };
+    // Not a silent success: a stale admin tab should learn the pack is gone.
+    if (!packId) throw createError({ statusCode: 404, statusMessage: "Pack not found" });
 
     if (type === "all") {
       await tx.delete(whiteCards).where(eq(whiteCards.packId, packId));

@@ -122,8 +122,11 @@ export default defineEventHandler(async (event) => {
     }
 
     // ── A whole pack, or one type of it ─────────────────────────────────────
+    // An unknown source is an error, not a zero-card success: a stale admin
+    // tab would otherwise toast "Pack Renamed" for a pack that no longer exists.
     const sourceId = await findPackId(tx, sourceRef);
-    if (!sourceId || sourceId === targetId) return { moved: none, aux: null as Aux };
+    if (!sourceId) throw createError({ statusCode: 404, statusMessage: "Pack not found" });
+    if (sourceId === targetId) return { moved: none, aux: null as Aux };
 
     const before = await packCardCounts(tx, sourceId);
     const moved =
