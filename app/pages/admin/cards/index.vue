@@ -315,10 +315,10 @@ async function onAddCard(payload: Record<string, unknown>) {
     await $activityFetch("/api/admin/cards/create", { method: "POST", body: payload });
     addOpen.value = false;
     notify({ title: "Card added", color: "success" });
-    await refresh();
   } catch {
     notify({ title: "Could not add the card", color: "error" });
   }
+  await refresh();
 }
 
 const plural = (n: number, w: string) => `${n.toLocaleString()} ${w}${n === 1 ? "" : "s"}`;
