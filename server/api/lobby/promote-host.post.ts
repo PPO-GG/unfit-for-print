@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { lobbies, players } from "~~/server/db/schema";
+import { lobbies, players, users } from "~~/server/db/schema";
 import { requireHost } from "~~/server/utils/session";
 
 export default defineEventHandler(async (event) => {
@@ -11,12 +11,19 @@ export default defineEventHandler(async (event) => {
   if (newHostUserId === currentHostId) return { success: true };
 
   const [newHostPlayer] = await db
-    .select({ id: players.id })
+    .select({ id: players.id, isGuest: users.isGuest })
     .from(players)
+    .innerJoin(users, eq(users.id, players.userId))
     .where(and(eq(players.userId, newHostUserId), eq(players.lobbyId, lobbyId)))
     .limit(1);
   if (!newHostPlayer) {
     throw createError({ statusCode: 400, statusMessage: "newHostUserId is not a player in this lobby" });
+  }
+  // Only a signed-in account may host, as lobby/create enforces. The player
+  // list already hides the crown for guests; this is the half a client
+  // cannot skip.
+  if (newHostPlayer.isGuest) {
+    throw createError({ statusCode: 400, statusMessage: "A guest cannot be made host" });
   }
 
   await db.update(lobbies).set({ hostUserId: newHostUserId }).where(eq(lobbies.id, lobbyId));

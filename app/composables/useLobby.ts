@@ -434,33 +434,41 @@ export const useLobby = () => {
     // Remove the player row on the server, and tear down the lobby
     // registry row too if this was the last human (self-heal logic moved
     // server-side — see /api/lobby/leave).
+    let serverResult: { newHostUserId: string | null; lobbyClosed: boolean } | null = null;
     try {
-      await $activityFetch("/api/lobby/leave", {
-        method: "POST",
-        body: { lobbyId },
-      });
+      const res = await $activityFetch<{ newHostUserId?: string | null; lobbyClosed?: boolean }>(
+        "/api/lobby/leave",
+        { method: "POST", body: { lobbyId } },
+      );
+      serverResult = {
+        newHostUserId: res?.newHostUserId ?? null,
+        lobbyClosed: !!res?.lobbyClosed,
+      };
     } catch (err) {
       console.warn("[useLobby] Failed to leave lobby on server:", err);
     }
 
-    // Check remaining human players
+    // Remaining non-bot players. Spectators count as candidates for host,
+    // since the server hands it to a signed-in spectator when no signed-in
+    // player is seated.
     const playersMap = lobbyDoc.doc.value ? lobbyDoc.getPlayers() : null;
-    const remainingHumans: Array<{ id: string; data: any }> = [];
+    const humans: Array<{ id: string; data: any }> = [];
     if (playersMap) {
       for (const [pid, raw] of playersMap.entries()) {
         try {
           const p = JSON.parse(raw);
-          if (p.playerType !== "bot" && p.playerType !== "spectator") {
-            remainingHumans.push({ id: pid, data: p });
-          }
+          if (p.playerType !== "bot") humans.push({ id: pid, data: p });
         } catch {
           /* skip malformed */
         }
       }
     }
+    const seated = humans.filter((h) => h.data.playerType !== "spectator");
+    // Guests join with provider "anonymous"; only signed-in accounts may host.
+    const isSignedIn = (h: { data: any }) => h.data.provider !== "anonymous";
 
-    // If no human players remain, tear down
-    if (remainingHumans.length === 0) {
+    // No seated human left — nobody to hand the lobby to, and nobody to tell.
+    if (seated.length === 0) {
       // Disconnect Y.Doc — Teleportal will GC the doc. disconnect() itself
       // clears the context provider, since it's the function every teardown
       // path (including this one) funnels through.
@@ -468,24 +476,39 @@ export const useLobby = () => {
       return;
     }
 
-    // Host left — promote a new one via Y.Doc
     const hostUserId = meta?.get("hostUserId");
-    if (hostUserId === userId && remainingHumans.length > 0) {
-      const newHost = remainingHumans[0]!;
-      lobbyDoc.doc.value?.transact(() => {
-        // Update meta
-        lobbyDoc.getMeta().set("hostUserId", newHost.id);
+    // Written instead of a new host when nobody left may host: every client's
+    // game page watches for it and goes home (see pages/game/[code].vue).
+    const closeForEveryone = () => lobbyDoc.getMeta().set("closedAt", Date.now());
 
-        // Update player record
-        const updatedPlayer = { ...newHost.data, isHost: true };
-        lobbyDoc.getPlayers().set(newHost.id, JSON.stringify(updatedPlayer));
+    if (serverResult?.lobbyClosed) {
+      closeForEveryone();
+    } else if (hostUserId === userId) {
+      // Promote whoever the server just made host, so requireHost and the
+      // Y.Doc agree on who that is. If the request failed, apply the server's
+      // rule here: a signed-in player, then a signed-in spectator.
+      const newHost = serverResult
+        ? humans.find((h) => h.id === serverResult.newHostUserId)
+        : (seated.find(isSignedIn) ?? humans.find(isSignedIn));
 
-        // Demote all other players
-        for (const other of remainingHumans.slice(1)) {
-          const otherData = { ...other.data, isHost: false };
-          lobbyDoc.getPlayers().set(other.id, JSON.stringify(otherData));
-        }
-      });
+      if (!newHost) {
+        closeForEveryone();
+      } else {
+        lobbyDoc.doc.value?.transact(() => {
+          // Update meta
+          lobbyDoc.getMeta().set("hostUserId", newHost.id);
+
+          // Update player record
+          const updatedPlayer = { ...newHost.data, isHost: true };
+          lobbyDoc.getPlayers().set(newHost.id, JSON.stringify(updatedPlayer));
+
+          // Demote all other players
+          for (const other of humans.filter((h) => h !== newHost)) {
+            const otherData = { ...other.data, isHost: false };
+            lobbyDoc.getPlayers().set(other.id, JSON.stringify(otherData));
+          }
+        });
+      }
     }
 
     // Always disconnect this client's WebSocket after mutations are sent.

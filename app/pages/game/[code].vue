@@ -210,6 +210,27 @@ watch(
   { immediate: true },
 );
 
+// The host left and no signed-in player could take over, so the lobby is
+// gone (only a signed-in account may host). The leaving host's client wrote
+// this; everyone still here goes home.
+watch(
+  () => reactive.meta.value?.closedAt,
+  (closedAt) => {
+    if (!closedAt || selfLeaving.value) return;
+    selfLeaving.value = true;
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(ACTIVE_GAME_KEY);
+    }
+    notify({
+      title: t("lobby.closed_host_left"),
+      color: "info",
+      icon: "i-mdi-door-closed",
+    });
+    lobbyDoc.disconnect();
+    router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+  },
+);
+
 nuxtApp.payload.state.selfLeaving = false;
 watch(
   () => nuxtApp.payload.state.selfLeaving,
