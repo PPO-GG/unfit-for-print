@@ -80,7 +80,7 @@ Consequence: **game mutations must go through Yjs, not new API routes.** The onl
 
 | Composable | Role |
 |---|---|
-| `useLobbyDoc.ts` | Y.Doc factory + Teleportal provider. Owns `DOC_KEYS` (`meta`, `settings`, `gameState`, `cards`, `hands`, `players`, `chat`) — **import these, never hardcode map names**. Exposes typed `getX()` accessors. |
+| `useLobbyDoc.ts` | Y.Doc factory + Teleportal provider. Owns `DOC_KEYS` (`meta`, `settings`, `gameState`, `submissions`, `cards`, `hands`, `players`, `chat`) — **import these, never hardcode map names**. Exposes typed `getX()` accessors. |
 | `useLobbyReactive.ts` | Observes Y.Maps and exposes Vue refs. Values are stored as **JSON strings** in Y.Maps and parsed here. |
 | `useCardTexts.ts` | Per-client card-text resolution: batch-fetches the white and black texts this client displays from `/api/cards/resolve` and caches them locally. Never writes back to the doc. |
 | `useYjsGameEngine.ts` | The game rules. Each action reads state → validates phase/actor → mutates inside `doc.transact()`. Public API: `playCard`, `revealCard`, `selectWinner`, `nextRound`, `skipPlayer`, `skipJudge`, `setReadAloud`, `convertToPlayer`, `resetGame`, `markReturnedToLobby`, `handlePlayerLeave`, `replenishWhiteDeck`, `drawCards`. |
@@ -89,11 +89,13 @@ Consequence: **game mutations must go through Yjs, not new API routes.** The onl
 
 Game phases (`app/types/game.d.ts`): `waiting → submitting → submitting-complete → judging → roundEnd → complete`.
 
-Two Y.Doc quirks worth knowing before editing the engine:
+Three Y.Doc quirks worth knowing before editing the engine:
 
 - **No card text is stored in the Y.Doc.** The doc carries card *ids* plus one `blackPicks` map (black card id → pick count) in the `cards` map. `pick` has to be there because `nextRound` runs inside a `transact()` and its eligibility loop reads it for candidates it may skip — that is the one lookup that cannot be async. Everything else is resolved per client by `useCardTexts.ts`: `collectVisibleCardIds` for white ids, the current `blackCard.id` for black, both through `POST /api/cards/resolve` (which queries one table per call, hence the split). `useLobby` swaps the result in as `reactive.cardTexts` and overlays `blackCard.text` via `withResolvedBlackText`, so **no component needed changing** — they still read `cardTexts[id]?.text` and `blackCard.text`.
 - **Legacy doc support is deliberate, not vestigial.** Docs created before this change embedded texts under `cardTexts` and chunked `cardTexts_0…N` keys. `mergeCardTextKeys()` in `app/utils/cardTexts.ts` is the single reader for those keys, `readBlackPicks` falls back to the `pick` values inside them, and `withResolvedBlackText` prefers an embedded text when present — so a game in flight across a deploy keeps working. That shared reader also exists because three hand-rolled copies of the merge once hid replenished cards from `UserHand` while the judging table looked fine.
 - **Map values are JSON strings**, so writes need `JSON.stringify` and reads go through the `safeParseJson` helpers. This also means Yjs is acting as a sync channel, not a merge engine — two clients writing different fields of the same object clobber each other rather than merging. The phase guards plus `transact()` are what keep that safe, so don't loosen them.
+- **Submissions are their own Y.Map, keyed by player id — not a blob under `gameState`.** They are the only object in the doc with more than one writer: every submitting player's client writes its own play. While that was one JSON blob under a single `gameState` key, two players tapping submit inside one network round trip both wrote that key from the same starting value, and Yjs resolved it last-writer-wins rather than merging — one submission vanished, while the player's `hands[pid]` write survived because it was a different key. The player was left a card short with nothing on the table, the round stalled waiting on a submission that no longer existed, and the played card leaked out of the game (in no hand, no submission, so never discarded). That is what the `hand-underfilled` watchdog rule was reporting. `app/utils/submissions.ts` is the single reader/writer: `readSubmissions` merges the per-player map over the retired `gameState.submissions` blob so a game in flight across the deploy keeps working, and writes go **only** to the map — dual-writing the blob would put the clobber back, since an old client's whole-object write could erase a new client's entry from the only field an old client can see. The reactive layer overlays the map onto `gameState.submissions`, so components still read it there and none needed changing.
+
 
 ### Server (`server/`)
 

@@ -11,6 +11,7 @@
 //   mutations.initializeLobby({ ... })
 
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import { clearSubmissions } from "~/utils/submissions";
 import {
   chunkEntries,
   splitArrayChunks,
@@ -85,6 +86,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     getMeta,
     getSettings,
     getGameState,
+    getSubmissions,
     getCards,
     getHands,
     getPlayers,
@@ -135,7 +137,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       gameState.set("round", 0);
       gameState.set("judgeId", null);
       gameState.set("blackCard", null);
-      gameState.set("submissions", "{}");
+      clearSubmissions(gameState, getSubmissions());
       gameState.set("scores", "{}");
       gameState.set("roundWinner", null);
       gameState.set("winningCards", "[]");
@@ -338,7 +340,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
       gs.set("round", 1);
       gs.set("judgeId", payload.judgeId);
       gs.set("blackCard", JSON.stringify(payload.blackCard));
-      gs.set("submissions", "{}");
+      clearSubmissions(gs, getSubmissions());
       gs.set("roundWinner", null);
       gs.set("winningCards", "[]");
       gs.set("roundEndStartTime", null);

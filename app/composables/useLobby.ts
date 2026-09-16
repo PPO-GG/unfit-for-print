@@ -10,6 +10,7 @@ import { useCardTexts } from "~/composables/useCardTexts";
 import { useCards } from "~/composables/useCards";
 import { useIssueReporter } from "~/composables/useIssueReporter";
 import { collectVisibleCardIds, withResolvedBlackText } from "~/utils/cardTexts";
+import { clearSubmissions } from "~/utils/submissions";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 
@@ -812,7 +813,7 @@ export const useLobby = () => {
       }
 
       // Reset submissions since hands have changed
-      gs.set("submissions", "{}");
+      clearSubmissions(gs, lobbyDoc.getSubmissions());
     });
 
     return true;
