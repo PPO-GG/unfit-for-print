@@ -33,6 +33,7 @@ function makeStubDoc(): { stub: LobbyDocResult; ydoc: Y.Doc } {
       getMeta: map("meta"),
       getSettings: map("settings"),
       getGameState: map("gameState"),
+      getSubmissions: map("submissions"),
       getCards: map("cards"),
       getHands: map("hands"),
       getPlayers: map("players"),

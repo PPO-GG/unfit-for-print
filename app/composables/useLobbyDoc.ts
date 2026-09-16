@@ -27,6 +27,7 @@ export const DOC_KEYS = {
   META: "meta",
   SETTINGS: "settings",
   GAME_STATE: "gameState",
+  SUBMISSIONS: "submissions",
   CARDS: "cards",
   HANDS: "hands",
   PLAYERS: "players",
@@ -66,8 +67,14 @@ export interface LobbyDocResult {
   getMeta: () => Y.Map<any>;
   /** Y.Map("settings") — maxPoints, cardsPerPlayer, cardPacks, etc. */
   getSettings: () => Y.Map<any>;
-  /** Y.Map("gameState") — phase, round, judgeId, submissions, scores, etc. */
+  /** Y.Map("gameState") — phase, round, judgeId, scores, etc. */
   getGameState: () => Y.Map<any>;
+  /** Y.Map("submissions") — playerId → CardId[] (JSON strings).
+   *  Its own map, not a blob under gameState: every submitting player writes
+   *  from their own client, and one key per player is what keeps two
+   *  simultaneous submissions from overwriting each other. See
+   *  ~/utils/submissions.ts. */
+  getSubmissions: () => Y.Map<any>;
   /** Y.Map("cards") — whiteDeck, blackDeck, discardWhite, discardBlack, blackPicks */
   getCards: () => Y.Map<any>;
   /** Y.Map("hands") — playerId → CardId[] (JSON strings) */
@@ -147,6 +154,7 @@ export function useLobbyDoc(): LobbyDocResult {
   const getMeta = () => requireDoc().getMap(DOC_KEYS.META);
   const getSettings = () => requireDoc().getMap(DOC_KEYS.SETTINGS);
   const getGameState = () => requireDoc().getMap(DOC_KEYS.GAME_STATE);
+  const getSubmissions = () => requireDoc().getMap(DOC_KEYS.SUBMISSIONS);
   const getCards = () => requireDoc().getMap(DOC_KEYS.CARDS);
   const getHands = () => requireDoc().getMap(DOC_KEYS.HANDS);
   const getPlayers = () => requireDoc().getMap(DOC_KEYS.PLAYERS);
@@ -374,6 +382,7 @@ export function useLobbyDoc(): LobbyDocResult {
     getMeta,
     getSettings,
     getGameState,
+    getSubmissions,
     getCards,
     getHands,
     getPlayers,

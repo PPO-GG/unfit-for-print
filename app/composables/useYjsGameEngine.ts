@@ -27,6 +27,12 @@ import {
 } from "~/utils/chunkedDocValue";
 import { shuffle } from "~/utils/shuffle";
 import { drawEligibleBlackCard } from "~/utils/blackCardDraw";
+import {
+  clearSubmissions,
+  readSubmissions,
+  removeSubmission,
+  writeSubmission,
+} from "~/utils/submissions";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -111,6 +117,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
   const {
     doc,
     getGameState,
+    getSubmissions,
     getCards,
     getHands,
     getPlayers,
@@ -140,10 +147,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         pick: number;
         pack?: string;
       } | null>(gs.get("blackCard"), null),
-      submissions: safeParseJson<Record<PlayerId, CardId[]>>(
-        gs.get("submissions"),
-        {},
-      ),
+      // Per-player map overlaid on the retired blob — never the blob alone.
+      submissions: readSubmissions(gs, getSubmissions()),
       scores: safeParseJson<Record<PlayerId, number>>(gs.get("scores"), {}),
       playerOrder: safeParseJson<PlayerId[]>(gs.get("playerOrder"), []),
       skippedPlayers: safeParseJson<PlayerId[]>(gs.get("skippedPlayers"), []),
@@ -524,18 +529,21 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     ydoc.transact(() => {
       const gs = getGameState();
       const hands = getHands();
+      const submissionsMap = getSubmissions();
 
       // Remove played cards from hand
       const newHand = hand.filter((id) => !cardIds.includes(id));
       hands.set(pid, JSON.stringify(newHand));
 
-      // Add submission
-      const submissions = safeParseJson<Record<string, string[]>>(
-        gs.get("submissions"),
-        {},
-      );
-      submissions[pid] = cardIds;
-      gs.set("submissions", JSON.stringify(submissions));
+      // Add submission. One key per player, so a second player submitting
+      // before this update has reached them writes a different key instead of
+      // overwriting this one — see ~/utils/submissions.ts.
+      writeSubmission(submissionsMap, pid, cardIds);
+
+      // Re-read rather than counting our own local copy: this is the only
+      // place that decides the round is over, and the merged view is the one
+      // that includes submissions that arrived while we were deciding.
+      const submissions = readSubmissions(gs, submissionsMap);
 
       // Check if all eligible players have submitted
       const allPlayerIds = getActivePlayerIds();
@@ -753,7 +761,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       }
 
       // Clear round state
-      gs.set("submissions", "{}");
+      clearSubmissions(gs, getSubmissions());
       gs.set("roundWinner", null);
       gs.set("winningCards", "[]");
       gs.set("roundEndStartTime", null);
@@ -895,7 +903,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         handsMap.set(pid, JSON.stringify(hand));
       }
 
-      gs.set("submissions", "{}");
+      clearSubmissions(gs, getSubmissions());
       gs.set("revealedCards", "{}");
       gs.set("readAloudText", "");
 
@@ -1009,7 +1017,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       gs.set("round", 0);
       gs.set("judgeId", null);
       gs.set("blackCard", null);
-      gs.set("submissions", "{}");
+      clearSubmissions(gs, getSubmissions());
       gs.set("scores", "{}");
       gs.set("roundWinner", null);
       gs.set("winningCards", "[]");
@@ -1076,9 +1084,9 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
 
       // Remove leaving player from hands and submissions
       handsMap.delete(leavingUserId);
+      removeSubmission(gs, getSubmissions(), leavingUserId);
       const submissions = { ...state.submissions };
       delete submissions[leavingUserId];
-      gs.set("submissions", JSON.stringify(submissions));
 
       // Remove from skippedPlayers
       const skipped = state.skippedPlayers.filter(
@@ -1123,7 +1131,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         }
 
         // Reset submissions
-        gs.set("submissions", "{}");
+        clearSubmissions(gs, getSubmissions());
 
         // Rotate judge — pick next in order
         const handPlayerIds = [...handsMap.keys()];

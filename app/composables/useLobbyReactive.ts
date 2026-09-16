@@ -28,6 +28,7 @@ import type { GameState, PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 import type { PlayerPayload } from "~/composables/useLobbyMutations";
 import { mergeCardTextKeys } from "~/utils/cardTexts";
+import { mergeSubmissions } from "~/utils/submissions";
 
 // ─── Helper: Observe a Y.Map and expose its contents as a reactive ref ──────
 
@@ -160,6 +161,8 @@ function parseGameState(raw: Record<string, any>): GameState {
     round: raw.round ?? 0,
     judgeId: raw.judgeId ?? null,
     blackCard: safeParseJson(raw.blackCard, null),
+    // The retired blob only. Current submissions live in their own Y.Map
+    // and are overlaid onto this in the `gameState` computed below.
     submissions: safeParseJson(raw.submissions, {}),
     scores: safeParseJson(raw.scores, {}),
     roundWinner: raw.roundWinner ?? undefined,
@@ -317,11 +320,30 @@ export function useLobbyReactive(lobbyDoc: LobbyDocResult) {
     lobbyDoc.getSettings,
     parseSettings,
   );
-  const gameState = useYMapReactive(
+  const rawGameState = useYMapReactive(
     lobbyDoc,
     lobbyDoc.getGameState,
     parseGameState,
   );
+  const submissionsMap = useYMapReactive(
+    lobbyDoc,
+    lobbyDoc.getSubmissions,
+    (raw) => mergeSubmissions(undefined, raw),
+  );
+
+  // Submissions live in their own per-player Y.Map (see ~/utils/submissions.ts
+  // for why), but every component reads them off `gameState.submissions`. The
+  // overlay keeps that contract, so the move cost no component a change — the
+  // same trick the per-client card-text resolution uses for `blackCard.text`.
+  const gameState = computed<GameState | null>(() => {
+    const gs = rawGameState.value;
+    if (!gs) return null;
+    const perPlayer = submissionsMap.value;
+    // Identity is preserved when the map is empty (a legacy doc, or a round
+    // nobody has played into yet) so watchers do not see a new object a tick.
+    if (!perPlayer || Object.keys(perPlayer).length === 0) return gs;
+    return { ...gs, submissions: { ...gs.submissions, ...perPlayer } };
+  });
   const cards = useYMapReactive(lobbyDoc, lobbyDoc.getCards, parseCards);
   const players = useYMapReactive(lobbyDoc, lobbyDoc.getPlayers, parsePlayers);
   const hands = useYMapReactive(lobbyDoc, lobbyDoc.getHands, parseHands);

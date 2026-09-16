@@ -21,6 +21,7 @@ function makeStubDoc(): LobbyDocResult {
     getMeta: () => ydoc.getMap("meta"),
     getSettings: () => ydoc.getMap("settings"),
     getGameState: () => ydoc.getMap("gameState"),
+    getSubmissions: () => ydoc.getMap("submissions"),
     getCards: () => ydoc.getMap("cards"),
     getHands: () => ydoc.getMap("hands"),
     getPlayers: () => ydoc.getMap("players"),
