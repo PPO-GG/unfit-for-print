@@ -50,7 +50,7 @@ docker start unfit-postgres-test
 
 If it needs recreating: `docker run -d --name unfit-postgres-test -p 5433:5432 -e POSTGRES_USER=unfit -e POSTGRES_PASSWORD=unfit -e POSTGRES_DB=unfit postgres:16-alpine`, then apply migrations with `DATABASE_URL=$TEST_DATABASE_URL pnpm db:migrate`.
 
-Known-failing suites as of 2026-09-11, unrelated to card handling: `lobby-detail-admin`, `lobby-prune`, `lobby-registry` (DB), plus `BlackCard`, `UserHand`, `MobileBlackCard`, `MobileCardList`, `MobileGameLayout`, `userPrefsStore` — 9 files. Compare against that baseline rather than expecting green. `AvatarDecoration` and `useVoicePreview` were on this list and pass again, so treat the list as drifting: re-derive it before assuming a failure is yours.
+Known-failing suites as of 2026-09-16, unrelated to card handling: `lobby-detail-admin`, `lobby-prune` (DB), plus `BlackCard`, `UserHand`, `MobileBlackCard`, `MobileCardList`, `MobileGameLayout`, `userPrefsStore` — 8 files. Compare against that baseline rather than expecting green. `AvatarDecoration`, `useVoicePreview` and `lobby-registry` were on this list and pass again, so treat the list as drifting: re-derive it before assuming a failure is yours.
 
 That baseline now also lives in code, as `KNOWN_FAILING` in `vitest.config.ts`. It is skipped only when `VITEST_SKIP_KNOWN_FAILING=1`, which `.github/workflows/ci.yml` sets so a pull request gates on the 1375 tests that do pass. A local `pnpm test` still runs everything, failures included — that is deliberate, so the debt stays visible where you work. Delete entries from the list as suites are repaired; never add one to silence a new failure.
 

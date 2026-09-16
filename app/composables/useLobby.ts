@@ -434,11 +434,13 @@ export const useLobby = () => {
     // Remove the player row on the server, and tear down the lobby
     // registry row too if this was the last human (self-heal logic moved
     // server-side — see /api/lobby/leave).
+    let serverNewHostId: string | null = null;
     try {
-      await $activityFetch("/api/lobby/leave", {
-        method: "POST",
-        body: { lobbyId },
-      });
+      const res = await $activityFetch<{ newHostUserId?: string | null }>(
+        "/api/lobby/leave",
+        { method: "POST", body: { lobbyId } },
+      );
+      serverNewHostId = res?.newHostUserId ?? null;
     } catch (err) {
       console.warn("[useLobby] Failed to leave lobby on server:", err);
     }
@@ -471,7 +473,11 @@ export const useLobby = () => {
     // Host left — promote a new one via Y.Doc
     const hostUserId = meta?.get("hostUserId");
     if (hostUserId === userId && remainingHumans.length > 0) {
-      const newHost = remainingHumans[0]!;
+      // Promote whoever the server just made host, so requireHost and the
+      // Y.Doc agree on who that is. Fall back to the first remaining player
+      // only if the server did not pick one (e.g. the request failed).
+      const newHost =
+        remainingHumans.find((h) => h.id === serverNewHostId) ?? remainingHumans[0]!;
       lobbyDoc.doc.value?.transact(() => {
         // Update meta
         lobbyDoc.getMeta().set("hostUserId", newHost.id);
@@ -481,7 +487,7 @@ export const useLobby = () => {
         lobbyDoc.getPlayers().set(newHost.id, JSON.stringify(updatedPlayer));
 
         // Demote all other players
-        for (const other of remainingHumans.slice(1)) {
+        for (const other of remainingHumans.filter((h) => h !== newHost)) {
           const otherData = { ...other.data, isHost: false };
           lobbyDoc.getPlayers().set(other.id, JSON.stringify(otherData));
         }

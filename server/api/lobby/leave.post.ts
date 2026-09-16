@@ -1,61 +1,71 @@
-import { eq, and, ne, isNull, inArray } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { lobbies, players, users } from "~~/server/db/schema";
+import { lobbies, players } from "~~/server/db/schema";
 import { requireAuth } from "~~/server/utils/session";
+import { deleteUnreferencedGuests } from "~~/server/utils/guestUsers";
 
 export default defineEventHandler(async (event) => {
   const userId = await requireAuth(event);
   const { lobbyId } = await readBody<{ lobbyId: string }>(event);
 
   const db = useDb();
-  await db.delete(players).where(and(eq(players.userId, userId), eq(players.lobbyId, lobbyId)));
 
-  // Clean up the leaving user's account if it's an ephemeral guest
-  const deletedSelf = await db
-    .delete(users)
-    .where(
-      and(
-        eq(users.id, userId),
-        eq(users.isGuest, true),
-        isNull(users.discordUserId),
-      ),
-    )
-    .returning({ id: users.id });
+  // One transaction, so a failure part-way cannot leave the lobby without its
+  // host or delete an account the lobby still points at.
+  const { newHostUserId, deletedSelf } = await db.transaction(async (tx: any) => {
+    await tx.delete(players).where(and(eq(players.userId, userId), eq(players.lobbyId, lobbyId)));
+
+    // Earliest first, which is the order the host role is handed down in.
+    const remaining: Array<{ userId: string; playerType: string }> = await tx
+      .select({ userId: players.userId, playerType: players.playerType })
+      .from(players)
+      .where(eq(players.lobbyId, lobbyId))
+      .orderBy(asc(players.joinedAt));
+    const remainingHumans = remaining.filter((p) => p.playerType !== "bot");
+
+    // Guest accounts to try deleting: the caller's, plus everyone's in a lobby
+    // being torn down (bots have synthetic guest rows too).
+    const guestCandidates = new Set([userId]);
+    let newHostUserId: string | null = null;
+
+    if (remainingHumans.length === 0) {
+      // Players cascade with the lobby.
+      await tx.delete(lobbies).where(eq(lobbies.id, lobbyId));
+      for (const p of remaining) guestCandidates.add(p.userId);
+    } else {
+      // The lobby row has to stop naming the caller as host before their
+      // account can go — and host-only routes (requireHost) read this row, so
+      // without a handoff nobody left could start the game or manage bots.
+      const [lobby] = await tx
+        .select({ hostUserId: lobbies.hostUserId })
+        .from(lobbies)
+        .where(eq(lobbies.id, lobbyId));
+
+      if (lobby?.hostUserId === userId) {
+        // A seated player before a spectator, matching the client, which only
+        // promotes players in the Y.Doc.
+        const next =
+          remainingHumans.find((p) => p.playerType === "player") ?? remainingHumans[0]!;
+        newHostUserId = next.userId;
+
+        await tx.update(lobbies).set({ hostUserId: newHostUserId }).where(eq(lobbies.id, lobbyId));
+        await tx
+          .update(players)
+          .set({ isHost: true })
+          .where(and(eq(players.userId, newHostUserId), eq(players.lobbyId, lobbyId)));
+      }
+    }
+
+    const deleted = await deleteUnreferencedGuests(tx, [...guestCandidates]);
+    return { newHostUserId, deletedSelf: deleted.includes(userId) };
+  });
 
   // Deleting the account without dropping the cookie left the caller holding a
   // session for a user that no longer exists — every later request authenticated
   // as a dead id until something hit a foreign key.
-  if (deletedSelf.length > 0) await clearUserSession(event);
+  if (deletedSelf) await clearUserSession(event);
 
-  const remainingHumans = await db
-    .select({ id: players.id })
-    .from(players)
-    .where(and(eq(players.lobbyId, lobbyId), ne(players.playerType, "bot")));
-
-  if (remainingHumans.length === 0) {
-    // Capture remaining player userIds before deleting the lobby so we can
-    // clean up their ephemeral guest users (including bots and human guests)
-    const lobbyPlayers = await db
-      .select({ userId: players.userId })
-      .from(players)
-      .where(eq(players.lobbyId, lobbyId));
-
-    await db.delete(lobbies).where(eq(lobbies.id, lobbyId));
-
-    if (lobbyPlayers.length > 0) {
-      const userIds = Array.from(new Set(lobbyPlayers.map((p) => p.userId)));
-      await db
-        .delete(users)
-        .where(
-          and(
-            inArray(users.id, userIds),
-            eq(users.isGuest, true),
-            isNull(users.discordUserId),
-          ),
-        );
-    }
-  }
-
-  return { success: true };
+  // `newHostUserId` lets the leaving client promote the same player in the
+  // Y.Doc that was just promoted here.
+  return { success: true, newHostUserId };
 });
-

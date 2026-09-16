@@ -26,7 +26,6 @@ const KNOWN_FAILING = [
   "tests/components/game/mobile/MobileGameLayout.test.ts",
   "tests/server/db/lobby-detail-admin.test.ts",
   "tests/server/db/lobby-prune.test.ts",
-  "tests/server/db/lobby-registry.test.ts",
 ];
 
 const skipKnownFailing = process.env.VITEST_SKIP_KNOWN_FAILING === "1";

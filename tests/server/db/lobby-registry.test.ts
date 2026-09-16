@@ -6,6 +6,10 @@ import { users, lobbies, players } from "~/server/db/schema";
 const db = useDb();
 let currentUserId: string;
 
+// Leaving deletes a guest's own account and drops their session cookie.
+const clearUserSession = vi.fn(async () => true);
+vi.stubGlobal("clearUserSession", clearUserSession);
+
 vi.mock("~/server/utils/session", async (importOriginal) => {
   const actual = await importOriginal<typeof import("~/server/utils/session")>();
   return {
@@ -49,6 +53,7 @@ beforeEach(async () => {
   await db.delete(users);
   const [user] = await db.insert(users).values({ name: "Host" }).returning();
   currentUserId = user.id;
+  clearUserSession.mockClear();
 });
 
 afterEach(async () => {
@@ -59,6 +64,34 @@ afterEach(async () => {
   await db.delete(lobbies);
   await db.delete(users);
 });
+
+/** Adds a guest user to `lobbyId` as `playerType`, joined `secondsAgo` ago. */
+async function addMember(
+  lobbyId: string,
+  name: string,
+  playerType: "player" | "spectator" | "bot" = "player",
+  secondsAgo = 0,
+) {
+  const [user] = await db.insert(users).values({ name }).returning();
+  await db.insert(players).values({
+    userId: user.id,
+    lobbyId,
+    name,
+    playerType,
+    joinedAt: new Date(Date.now() - secondsAgo * 1000),
+  });
+  return user.id;
+}
+
+async function hostOf(lobbyId: string) {
+  const [lobby] = await db.select().from(lobbies).where(eq(lobbies.id, lobbyId));
+  return lobby?.hostUserId;
+}
+
+async function userExists(userId: string) {
+  const rows = await db.select().from(users).where(eq(users.id, userId));
+  return rows.length > 0;
+}
 
 describe("lobby registry", () => {
   it("creates a lobby and its host player row", async () => {
@@ -93,6 +126,97 @@ describe("lobby registry", () => {
 
     const remaining = await db.select().from(lobbies).where(eq(lobbies.id, lobby.id));
     expect(remaining).toHaveLength(0);
+  });
+
+  it("removes the last human's guest account and session along with the lobby", async () => {
+    // Users are guests by default, so this is the ordinary guest host. Their
+    // account used to be deleted while the lobby still named them as host,
+    // which failed on lobbies_host_user_id_users_id_fk before the lobby was
+    // ever removed.
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));
+    const hostId = currentUserId;
+
+    const leave = (await import("~/server/api/lobby/leave.post")).default;
+    await leave(mockEvent({ lobbyId: lobby.id }));
+
+    expect(await hostOf(lobby.id)).toBeUndefined();
+    expect(await userExists(hostId)).toBe(false);
+    expect(clearUserSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands the host role to the earliest-joined player when a guest host leaves", async () => {
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));
+    const hostId = currentUserId;
+    const later = await addMember(lobby.id, "Later", "player", 10);
+    const earlier = await addMember(lobby.id, "Earlier", "player", 60);
+
+    const leave = (await import("~/server/api/lobby/leave.post")).default;
+    const result = await leave(mockEvent({ lobbyId: lobby.id }));
+
+    expect(result.newHostUserId).toBe(earlier);
+    expect(await hostOf(lobby.id)).toBe(earlier);
+    const flags = await db
+      .select({ userId: players.userId, isHost: players.isHost })
+      .from(players)
+      .where(eq(players.lobbyId, lobby.id));
+    expect(flags).toEqual(
+      expect.arrayContaining([
+        { userId: earlier, isHost: true },
+        { userId: later, isHost: false },
+      ]),
+    );
+    expect(await userExists(hostId)).toBe(false);
+    expect(clearUserSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers a player over an earlier spectator or bot for the new host", async () => {
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));
+    await addMember(lobby.id, "Watcher", "spectator", 120);
+    await addMember(lobby.id, "Bot", "bot", 90);
+    const player = await addMember(lobby.id, "Player", "player", 5);
+
+    const leave = (await import("~/server/api/lobby/leave.post")).default;
+    const result = await leave(mockEvent({ lobbyId: lobby.id }));
+
+    expect(result.newHostUserId).toBe(player);
+    expect(await hostOf(lobby.id)).toBe(player);
+  });
+
+  it("leaves the host alone when a non-host leaves", async () => {
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const lobby = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "Test" }));
+    const hostId = currentUserId;
+    currentUserId = await addMember(lobby.id, "Guest", "player");
+
+    const leave = (await import("~/server/api/lobby/leave.post")).default;
+    const result = await leave(mockEvent({ lobbyId: lobby.id }));
+
+    expect(result.newHostUserId).toBeNull();
+    expect(await hostOf(lobby.id)).toBe(hostId);
+  });
+
+  it("keeps a guest's account while another lobby still references it", async () => {
+    // Deleting it would fail on the other lobby's foreign key and error the
+    // whole leave.
+    const create = (await import("~/server/api/lobby/create.post")).default;
+    const first = await create(mockEvent({ hostUserId: currentUserId, lobbyName: "First" }));
+    const [other] = await db.insert(users).values({ name: "Other host" }).returning();
+    const [second] = await db
+      .insert(lobbies)
+      .values({ code: "OTHR", hostUserId: other.id })
+      .returning();
+    await db.insert(players).values({ userId: currentUserId, lobbyId: second.id, name: "Host" });
+    const guestId = currentUserId;
+
+    const leave = (await import("~/server/api/lobby/leave.post")).default;
+    await leave(mockEvent({ lobbyId: first.id }));
+
+    expect(await hostOf(first.id)).toBeUndefined();
+    expect(await userExists(guestId)).toBe(true);
+    expect(clearUserSession).not.toHaveBeenCalled();
   });
 
   it("never persists a client-supplied playerType of 'bot' via join", async () => {
