@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.24.2](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.1...v3.24.2) (2026-09-16)
+
+
+### 🐛 Bug Fixes
+
+* **server:** hand off the host on leave, and never to a guest ([#133](https://github.com/PPO-GG/unfit-for-print/issues/133)) ([f636e21](https://github.com/PPO-GG/unfit-for-print/commit/f636e212703a0bde381645f8b6efb78ea156c6ce))
+* **web:** send a kicked player home ([#134](https://github.com/PPO-GG/unfit-for-print/issues/134)) ([791957d](https://github.com/PPO-GG/unfit-for-print/commit/791957d83e82798a4c21a1943a43d68ef4e2d00d))
+
+
+### ⚡ Performance
+
+* **server:** stop the lobby browser rebuilding every live game per visitor ([#130](https://github.com/PPO-GG/unfit-for-print/issues/130)) ([7431db6](https://github.com/PPO-GG/unfit-for-print/commit/7431db6404dbe5b5dd2f1e59fe034c0d408c6c33))
+
 ## [3.24.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.0...v3.24.1) (2026-09-16)
 
 
