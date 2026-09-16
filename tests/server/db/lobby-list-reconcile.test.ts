@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { users, lobbies, players } from "~/server/db/schema";
+import { reconcileLobbiesForBrowser } from "~/server/utils/reconcileLobbies";
 
 const db = useDb();
 let hostId: string;
@@ -28,6 +29,9 @@ beforeEach(async () => {
   await db.delete(users);
   const [host] = await db.insert(users).values({ name: "Host" }).returning();
   hostId = host.id;
+  // The route reconciles at most once every few seconds; each test here needs
+  // its own run.
+  reconcileLobbiesForBrowser.reset();
   globalThis.useRuntimeConfig = () => ({
     public: { lobbyTeleportalUrl: "ws://localhost:1235" },
   });
@@ -106,6 +110,21 @@ describe("GET /api/lobby/list — reconciliation against live docs", () => {
     // Fail open: a browser that shows slightly stale lobbies beats one that
     // shows an error because a side service is down.
     expect(result.map((l: any) => l.code)).toContain("OPEN");
+  });
+
+  it("does not re-ask Teleportal for a second request moments later", async () => {
+    // Every visitor to the lobby browser hits this route. Reconciling on each
+    // one made Teleportal rebuild every live doc per page view.
+    stubTeleportal([]);
+
+    const handler = (await import("~/server/api/lobby/list.get")).default;
+    await handler(mockEvent());
+    await handler(mockEvent());
+
+    const summaryCalls = vi
+      .mocked(globalThis.$fetch)
+      .mock.calls.filter(([url]) => String(url).endsWith("/lobbies/summary"));
+    expect(summaryCalls).toHaveLength(1);
   });
 
   it("leaves a lobby alone when no live doc reports on it", async () => {

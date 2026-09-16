@@ -1,7 +1,7 @@
 import { inArray, ne, desc, and } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies } from "~~/server/db/schema";
-import { reconcileLobbiesFromLiveDocs } from "~~/server/utils/reconcileLobbies";
+import { reconcileLobbiesForBrowser } from "~~/server/utils/reconcileLobbies";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -11,8 +11,9 @@ export default defineEventHandler(async (event) => {
     .map((s) => s.trim()) as ("waiting" | "playing" | "complete")[];
 
   // Correct rows that drifted from the live Y.Docs first, so the filters below
-  // run on current data. Fails open if Teleportal is unreachable.
-  await reconcileLobbiesFromLiveDocs();
+  // run on current data. Fails open if Teleportal is unreachable. Throttled,
+  // since every visitor to the lobby browser lands here.
+  await reconcileLobbiesForBrowser();
 
   return db
     .select()
