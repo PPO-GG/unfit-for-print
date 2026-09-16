@@ -8,6 +8,7 @@ import {
   readChunkedRecord,
 } from "~/utils/chunkedDocValue";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import { kickedMetaKey } from "~/utils/kickedPlayers";
 
 function makeStubDoc(): LobbyDocResult {
   const ydoc = new Y.Doc();
@@ -211,5 +212,56 @@ describe("useLobbyMutations.startGame card payload", () => {
     mutations.startGame(basePayload as any);
 
     expect(stub.getGameState().get("gameId")).not.toBe(first);
+  });
+});
+
+describe("useLobbyMutations.kickPlayer", () => {
+  const seat = (stub: LobbyDocResult, id: string) =>
+    stub.getPlayers().set(id, JSON.stringify({ userId: id, name: id, playerType: "player" }));
+
+  it("removes the player and leaves a marker that sends their client home", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+    seat(stub, "alice");
+    stub.getHands().set("alice", "[]");
+
+    mutations.kickPlayer("alice", "Alice");
+
+    expect(stub.getPlayers().has("alice")).toBe(false);
+    expect(stub.getHands().has("alice")).toBe(false);
+    expect(stub.getMeta().get(kickedMetaKey("alice"))).toEqual(expect.any(Number));
+  });
+
+  it("gives each kicked player their own marker, so two kicks cannot clobber each other", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+    seat(stub, "alice");
+    seat(stub, "bob");
+
+    mutations.kickPlayer("alice", "Alice");
+    mutations.kickPlayer("bob", "Bob");
+
+    expect(stub.getMeta().has(kickedMetaKey("alice"))).toBe(true);
+    expect(stub.getMeta().has(kickedMetaKey("bob"))).toBe(true);
+  });
+
+  it("clears the marker when the player joins again", () => {
+    const stub = makeStubDoc();
+    const mutations = useLobbyMutations(stub);
+    seat(stub, "alice");
+    mutations.kickPlayer("alice", "Alice");
+
+    mutations.addPlayer({
+      userId: "alice",
+      name: "Alice",
+      avatar: "",
+      isHost: false,
+      joinedAt: new Date().toISOString(),
+      provider: "discord",
+      playerType: "player",
+      activeDecoration: "",
+    });
+
+    expect(stub.getMeta().has(kickedMetaKey("alice"))).toBe(false);
   });
 });

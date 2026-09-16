@@ -51,7 +51,7 @@ const kick = async (player: Player) => {
         },
       });
     } else {
-      await kickPlayer(player.$id);
+      await kickPlayer(props.lobbyId, player.$id);
     }
   } catch (err) {
     console.error("Failed to kick player:", err);

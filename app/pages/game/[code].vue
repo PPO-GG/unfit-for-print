@@ -15,6 +15,7 @@ import GameOver from "~/components/game/GameOver.vue";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import { useI18n } from "vue-i18n";
+import { kickedMetaKey } from "~/utils/kickedPlayers";
 
 // ─── Core Setup ─────────────────────────────────────────────────────────────
 const { t } = useI18n();
@@ -113,6 +114,34 @@ watch(
     }
   },
   { immediate: true },
+);
+
+// ─── Kicked ─────────────────────────────────────────────────────────────────
+// The host's client leaves a marker when it kicks someone (utils/kickedPlayers.ts).
+// Gated on joinedLobby: a marker left from an earlier kick must not bounce a
+// player who is back on the join form, and rejoining clears it anyway.
+function sendHomeKicked() {
+  selfLeaving.value = true;
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.removeItem(ACTIVE_GAME_KEY);
+  }
+  notify({
+    title: t("lobby.you_were_kicked"),
+    color: "warning",
+    icon: "i-mdi-account-remove",
+  });
+  lobbyDoc.disconnect();
+  return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+}
+
+watch(
+  () =>
+    joinedLobby.value && myId.value
+      ? reactive.meta.value?.kickedAt[myId.value]
+      : undefined,
+  (kickedAt) => {
+    if (kickedAt && !selfLeaving.value) sendHomeKicked();
+  },
 );
 
 // The Y.Doc status and isPrivate mirrors that used to live here are gone.
@@ -461,6 +490,12 @@ onMounted(async () => {
       // (happens after HMR reload or page refresh when the Y.Doc player
       // entry was lost but the session record persists)
       if (!inYDoc && lobbyDoc.doc.value) {
+        // Missing because the host kicked them, not because an entry was lost.
+        // A tab that still remembers this game (wasInThisGame) skips the
+        // server check above, so without this it would seat them again.
+        if (lobbyDoc.getMeta().get(kickedMetaKey(user.id))) {
+          return sendHomeKicked();
+        }
         try {
           const meta = lobbyDoc.getMeta();
           const docStatus = meta.get("status") || "waiting";

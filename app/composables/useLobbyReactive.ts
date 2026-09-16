@@ -29,6 +29,7 @@ import type { CardTexts } from "~/types/gamecards";
 import type { PlayerPayload } from "~/composables/useLobbyMutations";
 import { mergeCardTextKeys } from "~/utils/cardTexts";
 import { mergeSubmissions } from "~/utils/submissions";
+import { readKickedAt } from "~/utils/kickedPlayers";
 
 // ─── Helper: Observe a Y.Map and expose its contents as a reactive ref ──────
 
@@ -195,6 +196,8 @@ function parseGameState(raw: Record<string, any>): GameState {
 
 interface LobbyMeta {
   code: string;
+  /** userId → when the host kicked them. See utils/kickedPlayers.ts. */
+  kickedAt: Record<string, number>;
   hostUserId: string;
   status: "waiting" | "playing" | "complete";
   createdAt: number;
@@ -203,6 +206,7 @@ interface LobbyMeta {
 function parseMeta(raw: Record<string, any>): LobbyMeta {
   return {
     code: raw.code ?? "",
+    kickedAt: readKickedAt(raw),
     hostUserId: raw.hostUserId ?? "",
     status: raw.status ?? "waiting",
     createdAt: raw.createdAt ?? 0,
