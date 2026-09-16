@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import { useDb } from "../db/client";
 import { lobbies } from "../db/schema";
 import { getTeleportalHttpUrl } from "./teleportal";
+import { throttleAsync } from "./throttleAsync";
 
 const LOBBY_STATUSES = ["waiting", "playing", "complete"] as const;
 
@@ -161,3 +162,24 @@ export async function reconcileLobbiesFromLiveDocs(): Promise<number> {
   }
   return corrected;
 }
+
+/**
+ * Minimum gap between reconciliations triggered by the lobby browser. Each run
+ * asks Teleportal to summarize every live doc and reads every lobby row, and
+ * `/api/lobby/list` runs on every browser page load — a few seconds of drift
+ * is invisible there, a run per visitor is not.
+ */
+const BROWSER_RECONCILE_INTERVAL_MS = 5 * 1000;
+
+/**
+ * `reconcileLobbiesFromLiveDocs`, run at most once per interval for
+ * `/api/lobby/list`. Callers inside the window get the in-flight run if there
+ * is one, and otherwise skip it (resolving to 0) and read rows at most a few
+ * seconds stale. The sweeper keeps calling the unthrottled version, since it
+ * logs the count and runs only every 30 minutes.
+ */
+export const reconcileLobbiesForBrowser = throttleAsync(
+  reconcileLobbiesFromLiveDocs,
+  BROWSER_RECONCILE_INTERVAL_MS,
+  0,
+);

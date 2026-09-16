@@ -17,6 +17,7 @@ import { createServer } from "http";
 import crossws from "crossws/adapters/node";
 import { config } from "dotenv";
 import { reportTeleportalError } from "./issueReporter.js";
+import { createTtlCache } from "./ttlCache.js";
 
 config();
 
@@ -106,6 +107,8 @@ function forceGcDocument(docId: string) {
   documentStorage.deleteDocument(docId).catch((e: any) => {
     console.error(`[Lobby] GC: failed to delete ${docId}:`, e.message);
   });
+  // A removed lobby should leave the browser now, not after the cache expires.
+  lobbySummaryCache.invalidate();
   // Clean up client entries for this doc
   for (const [clientId, info] of activeClients) {
     if (info.documentId === docId) {
@@ -238,6 +241,67 @@ function getDocumentDetails(docId: string): {
 
   return { clients, idleSec, players, meta, settings, phase, round };
 }
+
+// ─── Lobby Summary ──────────────────────────────────────────────────────────
+
+/**
+ * How long (ms) one /lobbies/summary response is served before rebuilding.
+ * The lobby browser polls every 10s, so a few seconds of staleness is not
+ * visible — while rebuilding per request would hydrate every live doc once
+ * for every open browser tab.
+ */
+const LOBBY_SUMMARY_TTL = 3 * 1000;
+
+/** Builds the /lobbies/summary JSON body from every live document. */
+function buildLobbySummary(): string {
+  const allDocIds = new Set([
+    ...documentClientCount.keys(),
+    ...MemoryDocumentStorage.docs.keys(),
+  ]);
+
+  const lobbies: Array<{
+    code: string;
+    phase: string;
+    round: number;
+    players: number;
+    playerNames: string[];
+    status?: string;
+    lobbyName?: string;
+    isPrivate?: boolean;
+  }> = [];
+
+  for (const docId of allDocIds) {
+    const details = getDocumentDetails(docId);
+    // Extract lobby code from docId (format: "lobby/lobby-CODE")
+    const code = docId.replace(/^lobby\/lobby-/, "");
+    lobbies.push({
+      code,
+      phase: details.phase || "waiting",
+      round: details.round || 0,
+      players: details.players.length,
+      playerNames: details.players.map((p) => p.name),
+      // Authoritative lobby state, for the web app to reconcile its
+      // Postgres row against (see server/utils/reconcileLobbies.ts).
+      status:
+        typeof details.meta.status === "string"
+          ? details.meta.status
+          : undefined,
+      lobbyName:
+        typeof details.settings.lobbyName === "string"
+          ? details.settings.lobbyName
+          : undefined,
+      isPrivate:
+        typeof details.settings.isPrivate === "boolean"
+          ? details.settings.isPrivate
+          : undefined,
+    });
+  }
+
+  // `timestamp` is when the summary was built, not when it was served.
+  return JSON.stringify({ lobbies, timestamp: Date.now() });
+}
+
+const lobbySummaryCache = createTtlCache(LOBBY_SUMMARY_TTL, buildLobbySummary);
 
 // Periodic sweep: remove stale clients (connected but never joined a doc)
 setInterval(() => {
@@ -384,6 +448,7 @@ teleportalServer.on(
         e.message,
       );
     });
+    lobbySummaryCache.invalidate();
     // Clean up client entries referencing this doc
     for (const [clientId, info] of activeClients) {
       if (
@@ -604,51 +669,8 @@ const httpServer = createServer(async (req, res) => {
   // Public lobbies summary — lightweight, unauthenticated endpoint for the
   // lobby browser. Returns only non-sensitive game metadata per lobby.
   if (urlPath === "/lobbies/summary") {
-    const allDocIds = new Set([
-      ...documentClientCount.keys(),
-      ...MemoryDocumentStorage.docs.keys(),
-    ]);
-
-    const lobbies: Array<{
-      code: string;
-      phase: string;
-      round: number;
-      players: number;
-      playerNames: string[];
-      status?: string;
-      lobbyName?: string;
-      isPrivate?: boolean;
-    }> = [];
-
-    for (const docId of allDocIds) {
-      const details = getDocumentDetails(docId);
-      // Extract lobby code from docId (format: "lobby/lobby-CODE")
-      const code = docId.replace(/^lobby\/lobby-/, "");
-      lobbies.push({
-        code,
-        phase: details.phase || "waiting",
-        round: details.round || 0,
-        players: details.players.length,
-        playerNames: details.players.map((p) => p.name),
-        // Authoritative lobby state, for the web app to reconcile its
-        // Postgres row against (see server/utils/reconcileLobbies.ts).
-        status:
-          typeof details.meta.status === "string"
-            ? details.meta.status
-            : undefined,
-        lobbyName:
-          typeof details.settings.lobbyName === "string"
-            ? details.settings.lobbyName
-            : undefined,
-        isPrivate:
-          typeof details.settings.isPrivate === "boolean"
-            ? details.settings.isPrivate
-            : undefined,
-      });
-    }
-
     res.writeHead(200, { "Content-Type": "application/json", ...corsHeaders });
-    res.end(JSON.stringify({ lobbies, timestamp: Date.now() }));
+    res.end(lobbySummaryCache.get());
     return;
   }
 
