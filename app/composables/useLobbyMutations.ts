@@ -18,6 +18,7 @@ import {
   splitRecordChunks,
 } from "~/utils/chunkedDocValue";
 import { uuid } from "~/utils/uuid";
+import { kickedMetaKey } from "~/utils/kickedPlayers";
 import type { PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 
@@ -191,6 +192,8 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     const ydoc = requireDoc();
     ydoc.transact(() => {
       getPlayers().set(player.userId, JSON.stringify(player));
+      // Back in, so a kick from earlier must not send them home again.
+      getMeta().delete(kickedMetaKey(player.userId));
 
       // System chat message
       getChat().push([
@@ -219,6 +222,32 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
             userId: "system",
             name: "System",
             text: `${playerName} left the lobby`,
+            timestamp: Date.now(),
+            isSystem: true,
+          }),
+        ]);
+      }
+    });
+  };
+
+  /**
+   * Removes a player the host kicked, and leaves the marker their own client
+   * watches for to go home (see utils/kickedPlayers.ts).
+   */
+  const kickPlayer = (playerId: string, playerName?: string): void => {
+    const ydoc = requireDoc();
+    ydoc.transact(() => {
+      getMeta().set(kickedMetaKey(playerId), Date.now());
+      getPlayers().delete(playerId);
+      getHands().delete(playerId);
+
+      if (playerName) {
+        getChat().push([
+          JSON.stringify({
+            id: uuid(),
+            userId: "system",
+            name: "System",
+            text: `${playerName} was kicked from the lobby`,
             timestamp: Date.now(),
             isSystem: true,
           }),
@@ -387,6 +416,7 @@ export function useLobbyMutations(lobbyDoc: LobbyDocResult) {
     initializeLobby,
     addPlayer,
     removePlayer,
+    kickPlayer,
     setPlayerReady,
     updateSettings,
     startGame,

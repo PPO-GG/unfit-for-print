@@ -635,7 +635,7 @@ export const useLobby = () => {
 
   // ── Kick Player ───────────────────────────────────────────────────────
 
-  const kickPlayer = async (playerId: string) => {
+  const kickPlayer = async (lobbyId: string, playerId: string) => {
     // Get name for system message
     const raw = lobbyDoc.doc.value ? lobbyDoc.getPlayers().get(playerId) : null;
     let name: string | undefined;
@@ -650,7 +650,22 @@ export const useLobby = () => {
     // Auto-skip before removing so the round can advance if needed
     engine.skipPlayer(playerId);
 
-    mutations.removePlayer(playerId, name);
+    // Removes them and leaves the marker their own client watches for to go
+    // home — see pages/game/[code].vue.
+    mutations.kickPlayer(playerId, name);
+
+    // Remove their player row too, or the game page's rejoin check finds them
+    // still in the lobby on their next refresh and seats them again. The
+    // Y.Doc is the authority for the game itself, so a failure here is logged
+    // rather than undoing the kick.
+    try {
+      await $activityFetch("/api/lobby/kick", {
+        method: "POST",
+        body: { lobbyId, userId: playerId },
+      });
+    } catch (err) {
+      console.warn("[useLobby] Failed to remove kicked player on server:", err);
+    }
   };
 
   // ── Promote to Host ───────────────────────────────────────────────────
