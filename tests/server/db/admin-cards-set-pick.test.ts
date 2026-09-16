@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users, blackCards, players } from "~/server/db/schema";
+import { users, blackCards } from "~/server/db/schema";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 let adminId: string;
@@ -12,8 +13,7 @@ vi.mock("~/server/utils/session", () => ({
 
 beforeEach(async () => {
   await db.delete(blackCards);
-  await db.delete(players);
-  await db.delete(users);
+  await resetUserTables();
   const [admin] = await db.insert(users).values({ name: "Admin", isAdmin: true }).returning();
   adminId = admin.id;
 });

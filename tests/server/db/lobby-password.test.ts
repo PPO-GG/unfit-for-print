@@ -8,10 +8,11 @@
 // "Require password to join" was joinable by anyone holding the 4-character
 // code, with no challenge at all.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { lobbies, lobbyPasswords, players, users } from "~/server/db/schema";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 
@@ -70,6 +71,10 @@ beforeEach(async () => {
     playerType: "player",
   });
 });
+
+// The last test's lobby would otherwise outlive this suite and fail the next
+// one that deletes users.
+afterEach(resetUserTables);
 
 const readStored = async () => {
   const [row] = await db

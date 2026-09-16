@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { useDb } from "~/server/db/client";
 import { whiteCards, blackCards, cardPacks, users } from "~/server/db/schema";
 import { resetCardTables, seedPack, insertCards, packNamesOf } from "./helpers/cards";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 let adminId: string;
@@ -23,7 +24,7 @@ const merge = async (body: unknown) =>
 
 beforeEach(async () => {
   await resetCardTables();
-  await db.delete(users);
+  await resetUserTables();
   const [admin] = await db.insert(users).values({ name: "Admin", isAdmin: true }).returning();
   adminId = admin.id;
 });

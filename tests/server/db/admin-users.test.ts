@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users, players } from "~/server/db/schema";
+import { users } from "~/server/db/schema";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 
@@ -16,8 +17,7 @@ function mockEvent(body?: unknown) {
 }
 
 beforeEach(async () => {
-  await db.delete(players);
-  await db.delete(users);
+  await resetUserTables();
 });
 
 describe("admin users", () => {

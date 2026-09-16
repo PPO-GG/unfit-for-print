@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { whiteCards, blackCards, cardPacks, users } from "~/server/db/schema";
 import { resetCardTables, seedPack, insertCards } from "./helpers/cards";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 let adminId: string;
@@ -18,7 +19,7 @@ function mockEvent(body: unknown) {
 
 beforeEach(async () => {
   await resetCardTables();
-  await db.delete(users);
+  await resetUserTables();
   const [admin] = await db
     .insert(users)
     .values({ name: "Admin", isAdmin: true })
