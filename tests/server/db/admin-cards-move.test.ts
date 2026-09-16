@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { whiteCards, blackCards, cardPacks, users } from "~/server/db/schema";
 import { resetCardTables, seedPack, insertCards, packNamesOf, defaultPackNames } from "./helpers/cards";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 let adminId: string;
@@ -23,7 +24,7 @@ async function callMove(body: unknown) {
 
 beforeEach(async () => {
   await resetCardTables();
-  await db.delete(users);
+  await resetUserTables();
   const [admin] = await db
     .insert(users)
     .values({ name: "Admin", isAdmin: true })

@@ -8,7 +8,7 @@
 // abuse vector and an unplayable game — hands are dealt per player at start,
 // and the round loop waits on every seated player to submit.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { lobbies, lobbyPasswords, players, users } from "~/server/db/schema";
@@ -16,6 +16,7 @@ import {
   MAX_ACTIVE_PLAYERS,
   MAX_LOBBY_SEATS,
 } from "~/server/utils/lobbyCapacity";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 
@@ -92,6 +93,10 @@ beforeEach(async () => {
     playerType: "player",
   });
 });
+
+// The last test's lobby would otherwise outlive this suite and fail the next
+// one that deletes users.
+afterEach(resetUserTables);
 
 describe("POST /api/lobby/join — capacity", () => {
   it("seats a player normally when there is room", async () => {

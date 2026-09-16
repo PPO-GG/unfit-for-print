@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
-import { users, whiteCards, blackCards, players } from "~/server/db/schema";
+import { users, whiteCards, blackCards } from "~/server/db/schema";
 import { resetCardTables, insertCards, seedPack, packNamesOf, defaultPackNames } from "./helpers/cards";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 let adminId: string;
@@ -13,8 +14,7 @@ vi.mock("~/server/utils/session", () => ({
 
 beforeEach(async () => {
   await resetCardTables();
-  await db.delete(players);
-  await db.delete(users);
+  await resetUserTables();
   const [admin] = await db.insert(users).values({ name: "Admin", isAdmin: true }).returning();
   adminId = admin.id;
 });

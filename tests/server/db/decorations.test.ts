@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq, and } from "drizzle-orm";
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { useDb } from "~/server/db/client";
-import { users, decorations, userDecorations, players } from "~/server/db/schema";
+import { users, decorations, userDecorations } from "~/server/db/schema";
+import { resetUserTables } from "./helpers/users";
 
 const db = useDb();
 let currentUserId: string;
@@ -41,8 +42,7 @@ beforeEach(async () => {
   r2Send.mockResolvedValue({});
   await db.delete(userDecorations);
   await db.delete(decorations);
-  await db.delete(players);
-  await db.delete(users);
+  await resetUserTables();
   const [user] = await db.insert(users).values({ name: "U" }).returning();
   currentUserId = user.id;
 });
