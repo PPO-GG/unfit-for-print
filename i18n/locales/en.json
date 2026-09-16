@@ -229,6 +229,7 @@
   "lobby.username_taken": "That username is already taken in this lobby. Please choose a different one.",
   "lobby.no_name": "Unnamed Lobby",
   "lobby.not_found": "Lobby Not Found",
+  "lobby.closed_host_left": "The host left and nobody signed in could take over, so the lobby closed.",
   "lobby.player_joined": "{name} joined the lobby",
   "lobby.player_left": "{name} left the Lobby.",
   "lobby.players_needed": "We need at least 3 players to start the game!",

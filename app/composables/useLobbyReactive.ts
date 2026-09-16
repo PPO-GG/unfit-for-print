@@ -198,6 +198,11 @@ interface LobbyMeta {
   hostUserId: string;
   status: "waiting" | "playing" | "complete";
   createdAt: number;
+  /**
+   * Set when the host left and no signed-in player could take over. Every
+   * client goes home when it appears; the Postgres row is already gone.
+   */
+  closedAt: number | null;
 }
 
 function parseMeta(raw: Record<string, any>): LobbyMeta {
@@ -206,6 +211,7 @@ function parseMeta(raw: Record<string, any>): LobbyMeta {
     hostUserId: raw.hostUserId ?? "",
     status: raw.status ?? "waiting",
     createdAt: raw.createdAt ?? 0,
+    closedAt: typeof raw.closedAt === "number" ? raw.closedAt : null,
   };
 }
 
