@@ -31,20 +31,55 @@ const KNOWN_FAILING = [
 
 const skipKnownFailing = process.env.VITEST_SKIP_KNOWN_FAILING === "1";
 
+// Project-level `exclude` replaces this rather than merging with it, so both
+// projects below have to spell out the full list.
+const exclude = (...extra: string[]) => [
+  "node_modules",
+  "dist",
+  ".nuxt",
+  ".output",
+  ...(skipKnownFailing ? KNOWN_FAILING : []),
+  ...extra,
+];
+
+// Two projects, because `tests/server/db/*` cannot share the parallel pool.
+// Those suites all point at one database and `TRUNCATE` its tables in
+// `beforeEach`, so running two of them at once deadlocks in Postgres
+// ("deadlock detected", 40P01) — and the locks a deadlocked run leaves behind
+// go on to fail unrelated card/pack suites on the next pass, which reads as a
+// change having broken something it never touched.
+//
+// CI already sidestepped this by running two steps: `vitest run --exclude
+// 'tests/server/db/**'` and then `pnpm test:db`. That knowledge lived only in
+// the workflow file, so a plain `pnpm test` — the command AGENTS.md points at —
+// still deadlocked locally. It lives here now, so a single `vitest run` does
+// the right thing everywhere, and CI is back to one step.
 export default defineConfig({
   plugins: [vue()],
   test: {
     globals: true,
     environment: "jsdom",
-    include: ["tests/**/*.test.ts"],
-    exclude: [
-      "node_modules",
-      "dist",
-      ".nuxt",
-      ".output",
-      ...(skipKnownFailing ? KNOWN_FAILING : []),
-    ],
     setupFiles: ["tests/server/setup.ts"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["tests/**/*.test.ts"],
+          exclude: exclude("tests/server/db/**"),
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "db",
+          include: ["tests/server/db/**/*.test.ts"],
+          exclude: exclude(),
+          // The whole point of the split.
+          fileParallelism: false,
+        },
+      },
+    ],
   },
   resolve: {
     alias: {

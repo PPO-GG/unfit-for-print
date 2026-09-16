@@ -40,6 +40,8 @@ There is **no linter** in this project (no ESLint/Prettier/Biome) — don't inve
 
 `tests/server/setup.ts` runs for every suite and hard-fails unless `TEST_DATABASE_URL` is set **and differs from `DATABASE_URL`**. This guardrail exists because `tests/server/db/*.test.ts` unconditionally `db.delete(...)` real tables in `beforeEach` — on 2026-08-27 that wiped the live dev database. Never repoint it at the real DB to "make tests pass".
 
+`vitest.config.ts` splits the run into two projects — `unit` and `db` — because the `tests/server/db/*` suites all point at one database and `TRUNCATE` its tables in `beforeEach`. Running two of them at once deadlocks Postgres (`40P01`), and the locks a deadlocked run leaves behind then fail unrelated card/pack suites on the *next* pass, which reads convincingly as a change having broken something it never touched. The `db` project sets `fileParallelism: false`, so a plain `vitest run` is safe; `pnpm test:db` still exists and does the same thing for that subset alone.
+
 `vitest.config.ts` loads `.env` (plain vitest, unlike `nuxt dev`, does not), so a `TEST_DATABASE_URL` line there is all that's needed — and the guardrail can now actually compare the two URLs instead of seeing an undefined `DATABASE_URL`. The disposable instance is a local container:
 
 ```bash
@@ -52,7 +54,18 @@ Known-failing suites as of 2026-09-11, unrelated to card handling: `lobby-detail
 
 That baseline now also lives in code, as `KNOWN_FAILING` in `vitest.config.ts`. It is skipped only when `VITEST_SKIP_KNOWN_FAILING=1`, which `.github/workflows/ci.yml` sets so a pull request gates on the 1375 tests that do pass. A local `pnpm test` still runs everything, failures included — that is deliberate, so the debt stays visible where you work. Delete entries from the list as suites are repaired; never add one to silence a new failure.
 
-**Windows-only, added 2026-09-09 with the Vitest 4.1.11 security bump (GHSA-82fw-gwwq-j7x9):** `WhiteCard` and `AdminCardPreview` fail suite collection on Windows with `TypeError: The argument 'filename' must be a file URL object, ...`. Root cause is upstream, not app code — confirmed via `@vue/compiler-sfc`'s own `compileTemplate()` that neither component's plain `<img src="/img/...">` markup ever gets turned into an import, and via Vite's debug log that Vite itself resolves the asset fine; the crash is Vitest 4's new `vm.runInContext`-based module evaluator mishandling a non-drive-letter `file://` URL when it tries to load that resolved asset as a module. Matches a Vitest PR closed without merging (vitest-dev/vitest#9310, "Use `meta.url` as the argument to `createRequire()`... can cause bugs on Windows"). Does not reproduce on Linux (a non-drive-letter `file://` URL is valid POSIX) and does not affect this project's CI, which runs on `ubuntu-latest` (`.github/workflows/ci.yml`). Does not affect the built app (`pnpm build` is clean). If you're on Windows, expect these two on top of the baseline above.
+**Windows-only, added 2026-09-09 with the Vitest 4.1.11 security bump (GHSA-82fw-gwwq-j7x9):** six suites fail collection on Windows with `TypeError: The argument 'filename' must be a file URL object, ...`. Root cause is upstream, not app code — confirmed via `@vue/compiler-sfc`'s own `compileTemplate()` that neither component's plain `<img src="/img/...">` markup ever gets turned into an import, and via Vite's debug log that Vite itself resolves the asset fine; the crash is Vitest 4's new `vm.runInContext`-based module evaluator mishandling a non-drive-letter `file://` URL when it tries to load that resolved asset as a module. Matches a Vitest PR closed without merging (vitest-dev/vitest#9310, "Use `meta.url` as the argument to `createRequire()`... can cause bugs on Windows"). Does not reproduce on Linux (a non-drive-letter `file://` URL is valid POSIX) and does not affect this project's CI, which runs on `ubuntu-latest` (`.github/workflows/ci.yml`). Does not affect the built app (`pnpm build` is clean). If you're on Windows, expect these on top of the baseline above:
+
+```
+tests/components/AdminCardPreview.test.ts
+tests/components/AdminDecoContextStrip.test.ts
+tests/components/AdminDecoStage.test.ts
+tests/components/game/WhiteCard.test.ts
+tests/pages/adminDecorationCatalog.test.ts
+tests/pages/adminDecorationStudio.test.ts
+```
+
+This list drifts as components gain and lose plain `<img src="/...">` markup — it was two suites when first written and is six now. Re-derive it (`vitest run 2>&1 | grep "(0 test)"`) before assuming a collection failure is yours. They report as `0 test`, not as failing assertions, which is how you tell them apart from a real break.
 
 The same setup file stubs Nitro/H3 globals (`defineEventHandler`, `createError`, …) so server route modules can be imported directly in unit tests without a running server.
 
