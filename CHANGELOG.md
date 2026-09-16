@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.24.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.0...v3.24.1) (2026-09-16)
+
+
+### 🐛 Bug Fixes
+
+* **web:** stop simultaneous submissions from erasing each other ([#127](https://github.com/PPO-GG/unfit-for-print/issues/127)) ([29f6e9a](https://github.com/PPO-GG/unfit-for-print/commit/29f6e9ab32dc3bd95d63ac02c14427f2a5e6832c))
+
 ## [3.24.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.23.0...v3.24.0) (2026-09-14)
 
 
