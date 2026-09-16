@@ -78,12 +78,11 @@ jobs:
         env:
           DATABASE_URL: postgres://unfit:unfit@localhost:5432/unfit
 
-      - name: Unit and component tests
-        run: pnpm vitest run --exclude 'tests/server/db/**'
-
-      # Serial: these suites share one database and truncate it between tests.
-      - name: Database tests
-        run: pnpm test:db
+      # One step: vitest.config.ts splits the run into a parallel `unit`
+      # project and a `db` project with fileParallelism disabled, so the
+      # database suites no longer need their own invocation to stay serial.
+      - name: Tests
+        run: pnpm vitest run
 
   # ── Build ───────────────────────────────────────────────────────────────
   build:
