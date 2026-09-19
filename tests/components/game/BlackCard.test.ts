@@ -1,12 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import * as Vue from "vue";
 
 Object.assign(globalThis, Vue);
 vi.unmock("vue");
 
+const gsapSet = vi.fn();
 vi.mock("gsap", () => ({
-  gsap: { killTweensOf: vi.fn(), timeline: vi.fn(() => ({ to: vi.fn() })) },
+  gsap: {
+    killTweensOf: vi.fn(),
+    timeline: vi.fn(() => ({ to: vi.fn() })),
+    set: (...args: unknown[]) => gsapSet(...args),
+  },
 }));
 
 (globalThis as any).useCrypto = () => ({ getRandomInRange: (a: number) => a });
@@ -58,6 +63,34 @@ describe("BlackCard.vue — picture cards", () => {
       imageUrl: "/api/cards/images/caption-this.webp",
       numPick: 2,
     });
-    expect(wrapper.find(".card-footer-pick").text()).toBe("PICK 2");
+    expect(wrapper.find(".card-footer-pick").text()).toBe("2");
+  });
+});
+
+describe("BlackCard.vue — initial flip state", () => {
+  const mountCard = (props: Record<string, any> = {}) =>
+    mount(BlackCard, {
+      props: { text: "A prompt with _ blank.", numPick: 1, ...props },
+      global: { stubs: { UPopover: true, UModal: true, UButton: true, ReportCard: true, Icon: true } },
+    });
+
+  beforeEach(() => gsapSet.mockClear());
+
+  // The bug this guards: the flip used to be declared only as a CSS class on
+  // `.card` and animated only by a watcher that fires on *change*. `.card`
+  // carries an inline transform from the hover tilt, which outranks any class
+  // rule on it, so a card mounted with flipped=true rendered front-side-up.
+  it("presents its back face when mounted already flipped", () => {
+    const wrapper = mountCard({ flipped: true });
+
+    const inner = wrapper.find(".card__inner").element;
+    expect(gsapSet).toHaveBeenCalledWith(inner, { rotateY: 180 });
+  });
+
+  it("presents its front face when mounted unflipped", () => {
+    const wrapper = mountCard({ flipped: false });
+
+    const inner = wrapper.find(".card__inner").element;
+    expect(gsapSet).toHaveBeenCalledWith(inner, { rotateY: 0 });
   });
 });

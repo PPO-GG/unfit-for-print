@@ -446,11 +446,24 @@ function resetTransform() {
   }
 }
 
+/** Snaps the flip to `flipped` with no animation. Mount-time only. */
+function applyFlip(flipped: boolean) {
+  if (props.flat) return;
+  const innerEl = card.value?.querySelector(".card__inner");
+  if (!innerEl) return;
+  gsap.set(innerEl, { rotateY: flipped ? 180 : 0 });
+}
+
 watch(
   () => props.flipped,
   (flipped) => {
     const innerEl = card.value?.querySelector(".card__inner");
     if (!innerEl || !card.value) return;
+    // Flat mode shows the other face by rendering it (v-if on the two faces
+    // above), so rotating it here would mirror the card rather than flip it.
+    // No caller toggles `flipped` on a flat card today, which is why that has
+    // never shown up on screen; the guard keeps it that way.
+    if (props.flat) return;
 
     // Kill any in-progress flip to prevent jitter on rapid clicks
     gsap.killTweensOf(innerEl);
@@ -520,6 +533,14 @@ watch(
 );
 
 onMounted(async () => {
+  // Seed the flip before anything can await: the watcher above only fires on
+  // *change*, so a card mounted with flipped=true would otherwise never be
+  // rotated at all. applyFlip writes the rotation immediately (no tween, no
+  // flip sound) and, just as importantly, records it as GSAP's own starting
+  // value, so the first real flip tweens from the right angle instead of
+  // decomposing an ambiguous 180deg matrix off computed style.
+  applyFlip(props.flipped ?? false);
+
   if (!props.text && !props.imageUrl) {
     try {
       if (!props.cardId) {
@@ -606,7 +627,16 @@ onMounted(async () => {
   transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.card--flipped:not(.card--flat) {
+/* The flipped state has to render on `.card__inner--3d`, not on `.card`:
+   applyTransform() writes an inline transform onto `.card` for the hover tilt,
+   and an inline style outranks any class rule, so a flip declared there is
+   silently dropped the moment the tilt runs. `.card__inner` is also what the
+   GSAP flip in the watcher above animates, so the class and the animation now
+   drive the same element instead of composing into a 360deg no-op. Flat mode is excluded by the selector rather than by
+   `:not(.card--flat)`: it has no rotation at all, and swaps the two faces with
+   v-if instead. This rule covers the pre-hydration frame; the gsap.set() in
+   onMounted takes over after that. */
+.card--flipped .card__inner--3d {
   transform: rotateY(180deg);
 }
 

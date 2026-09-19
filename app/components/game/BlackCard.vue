@@ -465,6 +465,13 @@ function resetTransform() {
   }
 }
 
+/** Snaps the flip to `flipped` with no animation. Mount-time only. */
+function applyFlip(flipped: boolean) {
+  const innerEl = card.value?.querySelector(".card__inner");
+  if (!innerEl) return;
+  gsap.set(innerEl, { rotateY: flipped ? 180 : 0 });
+}
+
 watch(
   () => props.flipped,
   (flipped) => {
@@ -539,6 +546,14 @@ watch(
 );
 
 onMounted(async () => {
+  // Seed the flip before anything can await: the watcher below only fires on
+  // *change*, so a card mounted with flipped=true would otherwise never be
+  // rotated at all. applyFlip writes the rotation immediately (no tween, no
+  // flip sound) and, just as importantly, records it as GSAP's own starting
+  // value, so the first real flip tweens from the right angle instead of
+  // decomposing an ambiguous 180deg matrix off computed style.
+  applyFlip(props.flipped ?? false);
+
   // Fetch card data only if text/image AND numPick are not provided, but cardId is.
   if (
     ((!props.text && !props.imageUrl) || props.numPick === undefined) &&
@@ -608,7 +623,14 @@ onMounted(async () => {
   will-change: transform;
 }
 
-.card--flipped {
+/* The flipped state has to render on `.card__inner`, not on `.card`:
+   applyTransform() writes an inline transform onto `.card` for the hover tilt,
+   and an inline style outranks any class rule, so a flip declared there was
+   silently dropped and the card mounted face-up. `.card__inner` is also what
+   the GSAP flip in the watcher above animates, so the class and the animation now drive the
+   same element instead of composing into a 360deg no-op. This rule covers the
+   pre-hydration frame; the gsap.set() in onMounted takes over after that. */
+.card--flipped .card__inner {
   transform: rotateY(180deg);
 }
 
