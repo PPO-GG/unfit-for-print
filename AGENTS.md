@@ -50,7 +50,7 @@ docker start unfit-postgres-test
 
 If it needs recreating: `docker run -d --name unfit-postgres-test -p 5433:5432 -e POSTGRES_USER=unfit -e POSTGRES_PASSWORD=unfit -e POSTGRES_DB=unfit postgres:16-alpine`, then apply migrations with `DATABASE_URL=$TEST_DATABASE_URL pnpm db:migrate`.
 
-Known-failing suites as of 2026-09-16, unrelated to card handling: `lobby-detail-admin`, `lobby-prune` (DB), plus `BlackCard`, `UserHand`, `MobileBlackCard`, `MobileCardList`, `MobileGameLayout`, `userPrefsStore` — 8 files. Compare against that baseline rather than expecting green. `AvatarDecoration`, `useVoicePreview` and `lobby-registry` were on this list and pass again, so treat the list as drifting: re-derive it before assuming a failure is yours.
+Known-failing suites as of 2026-09-18, unrelated to card handling: `lobby-detail-admin`, `lobby-prune` (DB), plus `UserHand`, `MobileBlackCard`, `MobileCardList`, `MobileGameLayout`, `userPrefsStore` — 7 files. Compare against that baseline rather than expecting green. `AvatarDecoration`, `useVoicePreview`, `lobby-registry` and `BlackCard` were on this list and pass again, so treat the list as drifting: re-derive it before assuming a failure is yours.
 
 That baseline now also lives in code, as `KNOWN_FAILING` in `vitest.config.ts`. It is skipped only when `VITEST_SKIP_KNOWN_FAILING=1`, which `.github/workflows/ci.yml` sets so a pull request gates on the 1375 tests that do pass. A local `pnpm test` still runs everything, failures included — that is deliberate, so the debt stays visible where you work. Delete entries from the list as suites are repaired; never add one to silence a new failure.
 
@@ -60,12 +60,13 @@ That baseline now also lives in code, as `KNOWN_FAILING` in `vitest.config.ts`. 
 tests/components/AdminCardPreview.test.ts
 tests/components/AdminDecoContextStrip.test.ts
 tests/components/AdminDecoStage.test.ts
+tests/components/game/BlackCard.test.ts
 tests/components/game/WhiteCard.test.ts
 tests/pages/adminDecorationCatalog.test.ts
 tests/pages/adminDecorationStudio.test.ts
 ```
 
-This list drifts as components gain and lose plain `<img src="/...">` markup — it was two suites when first written and is six now. Re-derive it (`vitest run 2>&1 | grep "(0 test)"`) before assuming a collection failure is yours. They report as `0 test`, not as failing assertions, which is how you tell them apart from a real break.
+This list drifts as components gain and lose plain `<img src="/...">` markup — it was two suites when first written and is seven now (`BlackCard` joined it on 2026-09-18, when it came off the `KNOWN_FAILING` ledger and started running again). Re-derive it (`vitest run 2>&1 | grep "(0 test)"`) before assuming a collection failure is yours. They report as `0 test`, not as failing assertions, which is how you tell them apart from a real break.
 
 The same setup file stubs Nitro/H3 globals (`defineEventHandler`, `createError`, …) so server route modules can be imported directly in unit tests without a running server.
 
