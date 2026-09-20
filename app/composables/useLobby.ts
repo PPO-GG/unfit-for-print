@@ -11,6 +11,10 @@ import { useCards } from "~/composables/useCards";
 import { useIssueReporter } from "~/composables/useIssueReporter";
 import { collectVisibleCardIds, withResolvedBlackText } from "~/utils/cardTexts";
 import { clearSubmissions } from "~/utils/submissions";
+import {
+  buildWatchdogSnapshot,
+  detectingRuleIds,
+} from "~/utils/watchdogSnapshot";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 
@@ -68,6 +72,20 @@ export const useLobby = () => {
   // useLobbyDoc's disconnect(), which every teardown path funnels through.
   const { registerContextProvider } = useIssueReporter();
   if (import.meta.client) {
+    // How long the game has sat in its current phase, as this tab saw it.
+    // Client-observed on purpose: nothing in the doc stamps a phase change,
+    // and adding one would be a doc-format change every client has to agree
+    // on. The cost is that it restarts at zero on reload or on joining late,
+    // so a small number means "this tab has not been here long", never "the
+    // game just moved". A large one is the load-bearing case, and is true.
+    let phaseSince = Date.now();
+    watch(
+      () => reactive.gameState.value?.phase,
+      () => {
+        phaseSince = Date.now();
+      },
+    );
+
     registerContextProvider(() => {
       // reactive.hands is Record<PlayerId, CardId[]> (useLobbyReactive's
       // parseHands) — reduce to id -> length so no card ids ever leave the
@@ -80,6 +98,15 @@ export const useLobby = () => {
           Array.isArray(hand) ? hand.length : 0,
         ]),
       );
+
+      // The watchdog's own verdict on this moment. A player report says
+      // "cards stuck"; this says which rules agreed, so triage starts from a
+      // named state rather than from a screenshot. Detection only — the
+      // watchdog's thresholds are about not crying wolf on a live game, which
+      // is a different question from what was true when the report was filed.
+      const snapshot = buildWatchdogSnapshot(reactive);
+
+      const diagnostics = lobbyDoc.getConnectionDiagnostics?.() ?? null;
 
       return {
         lobbyCode: lobbyDoc.lobbyCode.value ?? undefined,
@@ -99,6 +126,30 @@ export const useLobby = () => {
         whiteDeckCount: reactive.cards.value?.whiteDeck?.length,
         blackDeckCount: reactive.cards.value?.blackDeck?.length,
         isHost: reactive.isHost.value,
+
+        // Who, exactly. `submissionCount` alone forced the reader to infer
+        // who had played from hand sizes, which only works while every card
+        // costs one play — a pick-2 prompt or manualDraw breaks the
+        // inference silently. Skips were not reported at all, and every
+        // eligibility question in the engine turns on them.
+        submittedPlayerIds: snapshot?.submittedPlayerIds,
+        skippedPlayerIds: snapshot?.skippedPlayerIds,
+
+        // Sent empty as well as populated, and only when there is a game to
+        // judge. An empty list is the useful half of the signal on a player
+        // report: the watchdog looked and saw nothing, so whatever they are
+        // complaining about is not a state it models. Omitting it would make
+        // that indistinguishable from "no snapshot was taken".
+        activeRuleIds: snapshot ? detectingRuleIds(snapshot) : undefined,
+        phaseAgeMs: snapshot ? Date.now() - phaseSince : undefined,
+
+        // Whether the link was healthy separates a logic fault from an
+        // undelivered update — the two look identical in a doc snapshot, and
+        // the round-settling code is timing-sensitive by construction.
+        wsState: lobbyDoc.connectionState?.value,
+        wsSynced: lobbyDoc.synced.value,
+        reconnectCount: lobbyDoc.reconnectCount?.value,
+        bufferedMessages: diagnostics?.bufferedMessageCount,
       };
     });
   }

@@ -10,6 +10,7 @@ import {
   ROUTE_MAX,
   STACK_MAX,
   TITLE_MAX,
+  WS_STATES,
 } from "./issueConstants";
 import { computeFingerprint } from "./issueFingerprint";
 
@@ -61,6 +62,30 @@ const isHttpStatusCode = (v: unknown): boolean =>
  *  through a value. `handSizes` is not populated by any client today, so
  *  without this an unauthenticated caller was the only thing that could ever
  *  reach here. */
+/** A bounded list of player ids. Same reasoning as `isHandSizes`: without a
+ *  per-element guard an unauthenticated caller can smuggle prose through a
+ *  field named for ids, and without a length cap they can make one report as
+ *  large as they like. 32 is the roster cap `isHandSizes` already uses. */
+const isIdList = (v: unknown): boolean =>
+  Array.isArray(v) && v.length <= 32 && v.every(isShortString);
+
+/** Rule ids, and only ones this build knows. Unlike `ruleId` a mismatch does
+ *  not refuse the report — `activeRuleIds` is context, not the fingerprint,
+ *  and a report from a client one deploy ahead is still worth keeping. It is
+ *  dropped as a field rather than taken on trust. */
+const isKnownRuleIdList = (v: unknown): boolean =>
+  Array.isArray(v) &&
+  v.length <= ANOMALY_RULE_IDS.length &&
+  v.every((id) => ANOMALY_RULE_IDS.includes(id as never));
+
+/** Elapsed milliseconds. Negative is a clock that moved; absurdly large is
+ *  noise. A week is longer than any lobby survives. */
+const isDurationMs = (v: unknown): boolean =>
+  isFiniteNumber(v) && (v as number) >= 0 && (v as number) <= 7 * 24 * 3600_000;
+
+const isCount = (v: unknown): boolean =>
+  isFiniteNumber(v) && (v as number) >= 0 && (v as number) <= 1_000_000;
+
 const isHandSizes = (v: unknown): boolean =>
   !!v &&
   typeof v === "object" &&
@@ -93,6 +118,14 @@ const CONTEXT_VALUE_GUARDS: Record<
   whiteDeckCount: isFiniteNumber,
   blackDeckCount: isFiniteNumber,
   isHost: (v) => typeof v === "boolean",
+  submittedPlayerIds: isIdList,
+  skippedPlayerIds: isIdList,
+  activeRuleIds: isKnownRuleIdList,
+  phaseAgeMs: isDurationMs,
+  wsState: (v) => WS_STATES.includes(v as never),
+  wsSynced: (v) => typeof v === "boolean",
+  reconnectCount: isCount,
+  bufferedMessages: isCount,
   ruleId: isShortString,
   category: isShortString,
   method: isShortString,

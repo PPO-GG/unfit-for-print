@@ -48,6 +48,21 @@ export const ANOMALY_RULE_IDS = [
   "hand-underfilled",
 ] as const;
 
+/**
+ * Values `wsState` may carry, mirroring the transport's own ConnectionState
+ * union plus the "idle" this app uses before a connect. Bounded for the same
+ * reason every other enum here is: the ingest route is unauthenticated, and a
+ * free string is a free index entry.
+ */
+export const WS_STATES = [
+  "idle",
+  "connecting",
+  "connected",
+  "disconnected",
+  "errored",
+  "unknown",
+] as const;
+
 export const GAME_PHASES = [
   "waiting",
   "submitting",
@@ -68,6 +83,14 @@ export const ISSUE_CONTEXT_KEYS = [
   "whiteDeckCount",
   "blackDeckCount",
   "isHost",
+  "submittedPlayerIds",
+  "skippedPlayerIds",
+  "activeRuleIds",
+  "phaseAgeMs",
+  "wsState",
+  "wsSynced",
+  "reconnectCount",
+  "bufferedMessages",
   "ruleId",
   "category",
   "method",
