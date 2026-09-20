@@ -83,6 +83,7 @@ import { computed, ref } from "vue";
 import { useFitText } from "~/composables/useFitText";
 import type { CardAttachmentConfig } from "~/types/card";
 import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
+import { escapeHtml, formatCardTextHtml } from "~/utils/cardTextHtml";
 
 const props = withDefaults(
   defineProps<{
@@ -124,14 +125,11 @@ const imageStyle = computed(() => {
   return { transform: `translate(${a.offsetX * 100}%, ${a.offsetY * 100}%) scale(${a.scale})` };
 });
 
-const formattedText = computed(() => {
-  if (!isBlack.value) return props.text;
-  // Replace underscores with blank fill lines (matching the real BlackCard component)
-  return props.text.replace(
-    /_/g,
-    '<span style="display:inline-block;width:38%;height:0.75em;vertical-align:-2px;border-bottom:2px solid rgba(255,255,255,.75);margin:0 4px;"></span>',
-  );
-});
+const formattedText = computed(() =>
+  // Blanks only mean something on a black card, but both kinds reach v-html,
+  // so both get escaped.
+  isBlack.value ? formatCardTextHtml(props.text) : escapeHtml(props.text),
+);
 </script>
 
 <style scoped>

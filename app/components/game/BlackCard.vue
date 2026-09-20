@@ -156,6 +156,7 @@ import { SFX } from "~/config/sfx.config";
 import type { CardAttachmentConfig } from "~/types/card";
 import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
 import { getCardImageUrl } from "~/utils/cardImage";
+import { formatCardTextHtml } from "~/utils/cardTextHtml";
 import { packLabel } from "~/utils/packName";
 
 // Define emits to fix the warning about extraneous non-emits event listeners
@@ -278,12 +279,7 @@ useFitText(cardBodyEl, cardTextEl, displayText, {
   },
 });
 
-const formattedCardText = computed(() => {
-  return displayText.value.replace(
-    /_/g,
-    '<span style="display:inline-block;width:38%;height:0.75em;vertical-align:-2px;border-bottom:2px solid rgba(255,255,255,.75);margin:0 4px;"></span>',
-  );
-});
+const formattedCardText = computed(() => formatCardTextHtml(displayText.value));
 
 const resolvedImageUrl = computed(
   () => props.imageUrl || fallbackImageUrl.value || null,
