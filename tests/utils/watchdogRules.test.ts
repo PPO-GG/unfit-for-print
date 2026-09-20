@@ -110,6 +110,47 @@ describe("too-few-players", () => {
   });
 });
 
+describe("submitting-settled", () => {
+  const r = rule("submitting-settled");
+
+  // The reported state: five players, four plays, phase never moved.
+  it("fires when every eligible player has played and the phase has not moved", () => {
+    expect(
+      r.detect(snapshot({ submittedPlayerIds: ["alice", "bob"] })),
+    ).toBe(true);
+  });
+
+  it("counts a skipped player as settled rather than as still out", () => {
+    expect(
+      r.detect(
+        snapshot({
+          submittedPlayerIds: ["alice"],
+          skippedPlayerIds: ["bob"],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("stays quiet while anyone is still holding their play", () => {
+    expect(r.detect(snapshot({ submittedPlayerIds: ["alice"] }))).toBe(false);
+  });
+
+  it("stays quiet once the round has moved on", () => {
+    expect(
+      r.detect(
+        snapshot({ phase: "judging", submittedPlayerIds: ["alice", "bob"] }),
+      ),
+    ).toBe(false);
+  });
+
+  // Everyone but the judge having left is `too-few-players`, not this.
+  it("stays quiet when nobody is eligible to play", () => {
+    expect(
+      r.detect(snapshot({ activePlayerIds: ["judge"], submittedPlayerIds: [] })),
+    ).toBe(false);
+  });
+});
+
 describe("hand-underfilled", () => {
   const r = rule("hand-underfilled");
 

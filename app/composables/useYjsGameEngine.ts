@@ -467,6 +467,22 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
   // ── Play Card ──────────────────────────────────────────────────────────
   // Replaces: POST /api/game/play-card
 
+  /** Whether every player still owed a play this round has made one.
+   *
+   *  The one definition of "the round is over", shared by every site that can
+   *  end it. Each used to carry its own copy, and they had drifted — the copy
+   *  in `skipPlayer` was still counting the retired `gameState.submissions`
+   *  blob, which current clients never write, so skipping the last player the
+   *  round was waiting on left it waiting forever.
+   */
+  const roundIsComplete = (state: ReturnType<typeof readGameState>): boolean => {
+    const eligible = getActivePlayerIds().filter(
+      (id) => id !== state.judgeId && !state.skippedPlayers.includes(id),
+    );
+    const submitted = Object.keys(state.submissions).length;
+    return submitted > 0 && submitted >= eligible.length;
+  };
+
   /** How long `submitting-complete` is held so the "all cards in" animation
    *  can play before the judging table appears. */
   const SUBMIT_ANIMATION_MS = 500;
@@ -493,15 +509,58 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     const state = readGameState();
     if (state.phase !== "submitting-complete") return;
 
-    const eligible = getActivePlayerIds().filter(
-      (id) => id !== state.judgeId && !state.skippedPlayers.includes(id),
-    );
-    const submitted = Object.keys(state.submissions).length;
-    const stillComplete = submitted > 0 && submitted >= eligible.length;
+    const stillComplete = roundIsComplete(state);
 
     doc.value.transact(() => {
       getGameState().set("phase", stillComplete ? "judging" : "submitting");
     });
+
+    // The downgrade is a guess about a round that was moving underneath us,
+    // and it is the one branch that can strand a finished round: if the thing
+    // it was reacting to has already resolved, every card is in and nothing
+    // else is coming to notice. Hand it to the resync check.
+    if (!stillComplete) scheduleSubmittingResync();
+  };
+
+  /** How long to wait before re-deriving a round that nobody found complete.
+   *  Has to outlast a round trip through Teleportal, since the whole point is
+   *  to look again once the updates that were in flight have landed. */
+  const SUBMIT_RESYNC_MS = 1_500;
+
+  /**
+   * The safety net under the submitting -> judging transition.
+   *
+   * `playCard` decides the round is over from the doc as its own client sees
+   * it mid-transaction, and that view can be one update short. Two players
+   * tapping submit inside the same round trip each count the other as still
+   * out, so neither flips the phase — and then nothing ever looks again. The
+   * round sits in `submitting` with every card already on the table, which is
+   * what players report as "cards stuck". The same hole swallows a stale
+   * roster (an eligible player who has since left) and settle's own downgrade.
+   *
+   * So every submission also schedules this, and it re-derives the round from
+   * whatever the doc holds by then. It is idempotent: the normal path has
+   * already reached `judging` by the time it runs, and two clients recovering
+   * the same round both write the same phase.
+   *
+   * It goes straight to `judging` rather than back through
+   * `submitting-complete`. The "all cards in" animation belongs to the moment
+   * the last card lands; a second and a half later the moment has passed, and
+   * routing through the settle timer would let a downgrade and a recovery
+   * chase each other.
+   */
+  const scheduleSubmittingResync = (): void => {
+    setTimeout(() => {
+      if (!doc.value) return;
+
+      const state = readGameState();
+      if (state.phase !== "submitting") return;
+      if (!roundIsComplete(state)) return;
+
+      doc.value.transact(() => {
+        getGameState().set("phase", "judging");
+      });
+    }, SUBMIT_RESYNC_MS);
   };
 
   const playCard = (
@@ -546,11 +605,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       const submissions = readSubmissions(gs, submissionsMap);
 
       // Check if all eligible players have submitted
-      const allPlayerIds = getActivePlayerIds();
-      const eligiblePlayers = allPlayerIds.filter(
-        (id) => id !== state.judgeId && !state.skippedPlayers.includes(id),
-      );
-      if (Object.keys(submissions).length >= eligiblePlayers.length) {
+      if (roundIsComplete({ ...state, submissions })) {
         gs.set("phase", "submitting-complete");
         // Short delay then transition to judging — let the UI animate.
         // settleSubmittingComplete re-checks the round before committing,
@@ -558,6 +613,11 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         setTimeout(settleSubmittingComplete, SUBMIT_ANIMATION_MS);
       }
     });
+
+    // Unconditionally, including when the count above came up short: that
+    // count is this client's view of the doc, and a submission still in
+    // flight makes it wrong in the one direction that strands the round.
+    scheduleSubmittingResync();
 
     return { success: true };
   };
@@ -801,16 +861,21 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       const skipped = [...state.skippedPlayers, playerId];
       gs.set("skippedPlayers", JSON.stringify(skipped));
 
-      // Check if all remaining players have submitted
-      const allPlayerIds = getActivePlayerIds();
-      const eligible = allPlayerIds.filter(
-        (id) => id !== state.judgeId && !skipped.includes(id),
-      );
-      const submissions = safeParseJson<Record<string, any>>(
-        gs.get("submissions"),
-        {},
-      );
-      if (Object.keys(submissions).length >= eligible.length) {
+      // Check if all remaining players have submitted. Skipping the player a
+      // round was waiting on is one of the two ways it ends, so it has to
+      // read submissions the way everything else does — the merged view, not
+      // the retired blob.
+      const nobodyLeftToPlay =
+        getActivePlayerIds().filter(
+          (id) => id !== state.judgeId && !skipped.includes(id),
+        ).length === 0;
+
+      // `roundIsComplete` will not call an empty round finished, because
+      // dropping the table into judging with nothing on it is its own bug.
+      // But a round where every eligible player has been skipped has no other
+      // way out either — `skipJudge` lives in `judging` — so it still has to
+      // land there, and the judge skips from there.
+      if (roundIsComplete({ ...state, skippedPlayers: skipped }) || nobodyLeftToPlay) {
         gs.set("phase", "judging");
       }
     });

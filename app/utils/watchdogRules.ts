@@ -60,6 +60,24 @@ export const WATCHDOG_RULES: WatchdogRule[] = [
     describe: () => "Phase stuck at submitting-complete; the settle timer never fired",
   },
   {
+    // The bug behind the "cards stuck" player reports: every eligible player
+    // has played, every card is on the table, and the phase never moved.
+    // `scheduleSubmittingResync` is supposed to catch this within ~1.5s, so
+    // anything still here after twenty seconds is a path it does not cover.
+    id: "submitting-settled",
+    thresholdMs: 20_000,
+    detect: (s) => {
+      if (s.phase !== "submitting") return false;
+      const eligible = s.activePlayerIds.filter(
+        (id) => id !== s.judgeId && !s.skippedPlayerIds.includes(id),
+      );
+      if (eligible.length === 0) return false;
+      return eligible.every((id) => s.submittedPlayerIds.includes(id));
+    },
+    describe: (s) =>
+      `Still submitting with all ${s.submittedPlayerIds.length} eligible play(s) in`,
+  },
+  {
     id: "judge-missing",
     thresholdMs: 15_000,
     detect: (s) =>
