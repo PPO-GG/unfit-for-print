@@ -37,6 +37,11 @@ minimumReleaseAgeExclude:
 # does not even warn about that one, it just silently stops hoisting. Left
 # unset, node_modules/ went from a fully hoisted tree to 63 entries.
 #
+# .npmrc is deleted rather than left holding a comment. It had no other
+# contents, nothing reads it any more (teleportal-server has never had one),
+# and a file that looks like package-manager configuration while being inert
+# is the exact trap this whole change is about.
+#
 # Preserved as-is rather than reconsidered: this upgrade should change the
 # package manager and nothing else. Whether this project still needs hoisting
 # is a separate question worth asking on its own.
