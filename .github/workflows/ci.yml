@@ -115,3 +115,36 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+
+  # ── Semgrep ─────────────────────────────────────────────────────────────
+  # Advisory, not gating: `continue-on-error` means a finding annotates the
+  # run without blocking a merge while the rulesets settle. To make it gate,
+  # delete that line and add "Semgrep" to main's required checks.
+  #
+  # `.semgrep/` carries repo-local rules. The community packs do not parse
+  # .vue templates -- verified by running them against the stored-XSS sink
+  # fixed in #141, which they did not flag -- so the packs cover server/ and
+  # the local rules cover the template sinks.
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan
+        run: |
+          semgrep scan \
+            --config=p/typescript \
+            --config=p/javascript \
+            --config=p/owasp-top-ten \
+            --config=p/nodejs \
+            --config=p/secrets \
+            --config=.semgrep/ \
+            --error \
+            --metrics=off \
+            --exclude=node_modules \
+            --exclude=.nuxt \
+            --exclude=.output

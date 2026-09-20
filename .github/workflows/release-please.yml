@@ -188,3 +188,24 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      # Advisory (`exit-code: 0`): report OS-layer CVEs without failing a
+      # release. Nothing else looks at what is inside these images -- CodeQL
+      # and Semgrep both only ever see source.
+      #
+      # This runs after the push, so a finding names an image that is already
+      # published. Scanning before would mean building twice (or `load: true`
+      # plus a second push), which is not worth it while the result is
+      # advisory. Revisit if this is ever made gating.
+      #
+      # --ignore-unfixed matters: both images are Debian-based (node:*-slim),
+      # and the base layer carries a standing set of CVEs with no fix
+      # available. Without it the report is noise.
+      - name: Scan ${{ matrix.name }} image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "0"
