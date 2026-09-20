@@ -1,0 +1,23 @@
+# teleportal-server is deliberately not part of the root pnpm workspace: its
+# own package.json, its own lockfile, its own Dockerfile, its own deploy. So
+# it needs its own copy of the settings pnpm 12 no longer accepts elsewhere.
+#
+# Two things forced this file:
+#
+#   shamefullyHoist  was the `--shamefully-hoist` CLI flag on the install line
+#                    in the Dockerfile. pnpm 12 no longer lists it in
+#                    `pnpm install --help`. Expressing it as configuration is
+#                    both supported and harder to lose in a Dockerfile edit.
+#
+#   allowBuilds      pnpm 12 turns an ignored build script into a hard
+#                    ERR_PNPM_IGNORED_BUILDS failure where pnpm 10 only
+#                    warned, so the image build fails outright without this.
+#                    esbuild is `false`, matching what already happened: pnpm
+#                    10 blocked dependency build scripts by default and this
+#                    package never listed any. esbuild ships prebuilt binaries
+#                    through its optional platform packages and does not need
+#                    a postinstall.
+shamefullyHoist: true
+
+allowBuilds:
+  esbuild: false

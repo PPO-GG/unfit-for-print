@@ -2,15 +2,20 @@
 FROM node:20-slim AS builder
 
 # Install pnpm
-RUN npm install -g pnpm@10
+# Pinned exactly rather than `pnpm@12`, so an image rebuilt months from now
+# installs the same package manager it was tested with.
+RUN npm install -g pnpm@12.5.1
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml* ./
+# pnpm-workspace.yaml carries shamefullyHoist (which Teleportal's module
+# resolution needs) and the allowBuilds decisions pnpm 12 requires. Without it
+# here the install fails ERR_PNPM_IGNORED_BUILDS.
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 
-# Install dependencies with shamefully-hoist for Teleportal module resolution
-RUN pnpm install --shamefully-hoist
+# Hoisting now comes from pnpm-workspace.yaml rather than the --shamefully-hoist
+# flag, which pnpm 12 no longer documents.
+RUN pnpm install
 
 # Copy source and build
 COPY . .
