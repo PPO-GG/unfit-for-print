@@ -1,0 +1,36 @@
+# Repo-local Semgrep rules.
+#
+# These exist because the community packs do not parse .vue templates. That
+# was verified, not assumed: running p/typescript, p/javascript, p/xss and
+# p/owasp-top-ten against the stored-XSS sink fixed in #141 produced zero
+# findings, and the scan summary showed the .vue file was matched only by the
+# five <multilang> rules. CodeQL has the same blind spot for the same reason.
+#
+# Generic mode does match template attributes, so that is what these use.
+
+rules:
+  - id: vue-v-html-unreviewed
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include:
+        - "*.vue"
+    message: >-
+      v-html writes raw HTML to the DOM. If this binding can carry
+      user-submitted text (card text, chat, player names, submissions), run it
+      through formatCardTextHtml() or escapeHtml() from ~/utils/cardTextHtml
+      first. If it is a trusted source, add the binding to the allowlist in
+      .semgrep/vue-v-html.yml with a note saying why.
+    patterns:
+      - pattern: v-html="$EXPR"
+      # Allowlist of bindings reviewed as of this rule landing. Matching by
+      # name is a regression guard, not a proof -- it catches a NEW v-html
+      # appearing in review, which is the point. Revisit an entry if the
+      # component it names changes what it feeds the sink.
+      #
+      #   formattedCardText  BlackCard.vue        escaped via cardTextHtml (#141)
+      #   formattedText      AdminCardPreview.vue escaped via cardTextHtml (#141)
+      #   policy             AppFooter.vue        content/ markdown, ours
+      #   content            legal/*.vue          content/ markdown, ours
+      #   renderInline(...)  changelog.vue        CHANGELOG.md, release-please
+      - pattern-not-regex: v-html="(formattedCardText|formattedText|policy|content|renderInline\(entry\.text\))"
