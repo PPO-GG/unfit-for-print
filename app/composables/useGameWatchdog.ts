@@ -7,6 +7,7 @@ import {
   type WatchdogSnapshot,
   type WatchdogState,
 } from "~/utils/watchdogRules";
+import { buildWatchdogSnapshot } from "~/utils/watchdogSnapshot";
 
 /** Slow on purpose. Every rule's threshold is 10s or more, so a faster tick
  *  would only burn work to reach the same conclusions later. */
@@ -33,35 +34,10 @@ export function useGameWatchdog(reactive: LobbyReactive) {
 
   let state: WatchdogState = {};
 
-  const readSnapshot = (): WatchdogSnapshot | null => {
-    const gs = reactive.gameState.value;
-    if (!gs) return null;
-
-    // playerList carries spectators too; the engine counts only non-spectators
-    // as players, so the rules have to use the same definition or
-    // too-few-players and judge-missing both read the wrong roster.
-    const activePlayerIds = (reactive.playerList.value ?? [])
-      .filter((p) => p.playerType !== "spectator")
-      .map((p) => p.$id);
-
-    // Card ids never leave the client — only how many each player holds.
-    const handSizes = Object.fromEntries(
-      Object.entries(reactive.hands.value ?? {}).map(([playerId, hand]) => [
-        playerId,
-        Array.isArray(hand) ? hand.length : 0,
-      ]),
-    );
-
-    return {
-      phase: gs.phase,
-      judgeId: gs.judgeId ?? null,
-      activePlayerIds,
-      submittedPlayerIds: Object.keys(gs.submissions ?? {}),
-      skippedPlayerIds: Array.isArray(gs.skippedPlayers) ? gs.skippedPlayers : [],
-      handSizes,
-      cardsPerPlayer: reactive.settings.value?.cardsPerPlayer ?? 10,
-    };
-  };
+  // Shared with the issue reporter's context provider, so a report and an
+  // anomaly can never disagree about what the game looked like.
+  const readSnapshot = (): WatchdogSnapshot | null =>
+    buildWatchdogSnapshot(reactive);
 
   const tick = () => {
     // Losing host (or the doc going away) resets the timers, so a rule that was

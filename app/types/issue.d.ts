@@ -23,6 +23,21 @@ export interface IssueContext {
   whiteDeckCount?: number;
   blackDeckCount?: number;
   isHost?: boolean;
+  /** Who has played and who was skipped this round. Ids, like `judgeId` —
+   *  pseudonymous, and already the shape `handSizes` is keyed by. */
+  submittedPlayerIds?: string[];
+  skippedPlayerIds?: string[];
+  /** Watchdog rules detecting at the moment of the report. Detection, not a
+   *  firing: no threshold has to have elapsed. */
+  activeRuleIds?: string[];
+  /** Milliseconds this tab has seen the game sit in `phase`. */
+  phaseAgeMs?: number;
+  /** Transport state: connected / connecting / disconnected / errored / idle. */
+  wsState?: string;
+  wsSynced?: boolean;
+  reconnectCount?: number;
+  /** Updates the transport is holding because it has nowhere to send them. */
+  bufferedMessages?: number;
   /** anomaly only */
   ruleId?: string;
   /** player-report only */

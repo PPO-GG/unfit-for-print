@@ -18,6 +18,7 @@ import {
   websocketTransport,
 } from "teleportal/providers";
 import { teleportalHttpBase } from "~/utils/teleportalHttp";
+import { trackConnectionHealth } from "~/utils/connectionHealth";
 
 
 // ─── Y.Doc Map Keys ─────────────────────────────────────────────────────────
@@ -54,6 +55,24 @@ export interface LobbyDocResult {
 
   /** Whether the WebSocket is currently connected */
   connected: Ref<boolean>;
+
+  /**
+   * The transport's own view of the link: "connected", "connecting",
+   * "disconnected", "errored", or "idle" before a connect.
+   *
+   * `connected` above only records that connect() ran and disconnect() has
+   * not — it never changes when the socket actually drops. This does, because
+   * it is driven by the connection's `update` event. A bug report that has to
+   * distinguish a logic fault from a slow or broken link needs the second one.
+   */
+  connectionState: Ref<string>;
+
+  /** Times the link has come back after dropping, this connection. */
+  reconnectCount: Ref<number>;
+
+  /** The transport's point-in-time internals, or null when there is no live
+   *  connection. Values change constantly — read on demand, never cache. */
+  getConnectionDiagnostics: () => { bufferedMessageCount?: number } | null;
 
   /** Current lobby code (null if not connected) */
   lobbyCode: Ref<string | null>;
@@ -109,6 +128,10 @@ interface LobbyDocState {
   awareness: ShallowRef<any | null>;
   synced: Ref<boolean>;
   connected: Ref<boolean>;
+  connectionState: Ref<string>;
+  reconnectCount: Ref<number>;
+  /** Detaches the connection-health listeners from the current connection. */
+  untrackConnection: (() => void) | null;
   lobbyCode: Ref<string | null>;
 }
 
@@ -123,6 +146,9 @@ const _state: LobbyDocState = _prev ?? {
   awareness: shallowRef<any | null>(null),
   synced: ref(false),
   connected: ref(false),
+  connectionState: ref("idle"),
+  reconnectCount: ref(0),
+  untrackConnection: null,
   lobbyCode: ref<string | null>(null),
 };
 
@@ -138,6 +164,8 @@ const doc = _state.doc;
 const awareness = _state.awareness;
 const synced = _state.synced;
 const connected = _state.connected;
+const connectionState = _state.connectionState;
+const reconnectCount = _state.reconnectCount;
 const lobbyCode = _state.lobbyCode;
 
 export function useLobbyDoc(): LobbyDocResult {
@@ -267,6 +295,21 @@ export function useLobbyDoc(): LobbyDocResult {
     _state.activeProvider = provider;
     _state.activeConnection = connection;
 
+    // Link health, for bug reports — see ~/utils/connectionHealth.
+    _state.untrackConnection?.();
+    _state.untrackConnection = trackConnectionHealth(
+      connection,
+      {
+        setState: (value) => {
+          connectionState.value = value;
+        },
+        setReconnectCount: (count) => {
+          reconnectCount.value = count;
+        },
+      },
+      () => _state.activeConnection === connection,
+    );
+
     // Expose to composable consumers
     doc.value = ydoc;
     awareness.value = provider.awareness;
@@ -351,6 +394,10 @@ export function useLobbyDoc(): LobbyDocResult {
       }
       _state.activeProvider = null;
     }
+    if (_state.untrackConnection) {
+      _state.untrackConnection();
+      _state.untrackConnection = null;
+    }
     if (_state.activeConnection) {
       try {
         _state.activeConnection.destroy?.();
@@ -368,7 +415,19 @@ export function useLobbyDoc(): LobbyDocResult {
     awareness.value = null;
     synced.value = false;
     connected.value = false;
+    connectionState.value = "idle";
+    reconnectCount.value = 0;
     lobbyCode.value = null;
+  };
+
+  /** Best-effort: the transport exposes this, but it is a third-party getter
+   *  on an object that may already be torn down. */
+  const getConnectionDiagnostics = () => {
+    try {
+      return _state.activeConnection?.diagnostics ?? null;
+    } catch {
+      return null;
+    }
   };
 
   return {
@@ -378,6 +437,9 @@ export function useLobbyDoc(): LobbyDocResult {
     awareness,
     synced: readonly(synced),
     connected: readonly(connected),
+    connectionState: readonly(connectionState),
+    reconnectCount: readonly(reconnectCount),
+    getConnectionDiagnostics,
     lobbyCode: readonly(lobbyCode),
     getMeta,
     getSettings,
