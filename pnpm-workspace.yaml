@@ -1,0 +1,112 @@
+# Do not install a version published in the last week. This is the setting
+# Semgrep's npm-missing-minimum-release-age rule asks for; on pnpm it is
+# `minimumReleaseAge` and it counts MINUTES, not days, so 10080 is the week.
+# pnpm 12 already defaults to 1440 (one day) -- this widens that window, it
+# does not introduce it.
+#
+# Most npm supply-chain attacks work by publishing a compromised version and
+# waiting for installs to pick it up, so the delay is the mitigation. It pairs
+# with the Dependabot `cooldown` in .github/dependabot.yml, which does the
+# same job for the other route versions take into this repo.
+#
+# Strict is set explicitly rather than left implicit. When nothing in a
+# dependency's range is old enough, resolution FAILS instead of quietly
+# installing the too-new version, which is the point -- a silent fallback
+# would defeat the setting. (Setting minimumReleaseAge at all turns this on
+# by default; writing it down is documentation, not a change.)
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+
+# One exclusion, and it should not be permanent. brace-expansion@1.1.21 was
+# published 2026-09-14 and so sits inside the window as of this commit. It is
+# in the tree only because of our own `brace-expansion@<2: >=1.1.13` override
+# above -- we pulled it in deliberately to clear an advisory.
+#
+# The alternative was `pnpm clean --lockfile` as pnpm suggests, which
+# re-resolves from scratch: that moved 295 packages, including eslint 9 -> 10
+# and srvx 0.11 -> 1.0. That is a dependency upgrade, not a pnpm upgrade, and
+# it does not belong in the same change.
+#
+# Remove this entry once the lockfile is next re-resolved for its own reasons;
+# by then 1.1.21 is long past the window and the exclusion does nothing but
+# hide future ones.
+minimumReleaseAgeExclude:
+  - brace-expansion
+
+# Was `shamefully-hoist=true` in .npmrc, which pnpm 12 no longer reads -- it
+# does not even warn about that one, it just silently stops hoisting. Left
+# unset, node_modules/ went from a fully hoisted tree to 63 entries.
+#
+# .npmrc is deleted rather than left holding a comment. It had no other
+# contents, nothing reads it any more (teleportal-server has never had one),
+# and a file that looks like package-manager configuration while being inert
+# is the exact trap this whole change is about.
+#
+# Preserved as-is rather than reconsidered: this upgrade should change the
+# package manager and nothing else. Whether this project still needs hoisting
+# is a separate question worth asking on its own.
+shamefullyHoist: true
+
+# pnpm 12 stopped reading the `pnpm` field in package.json and the settings
+# that used to live in .npmrc. Both now live here. See https://pnpm.io/settings
+#
+# This file is load-bearing, not boilerplate: when `pnpm.overrides` sat in
+# package.json under pnpm 12, pnpm ignored it with a single WARN line and
+# resolved the tree without any of it -- esbuild came back as 0.18.20 next to
+# 0.28.2, picomatch 2.3.2 reappeared, and an h3 2.0.1-rc landed in the tree.
+# Tests and Build both pass in that state. Do not move these back.
+
+# Every entry is a floor for a transitive dependency with a known advisory.
+# They are ranges rather than pins so a patched release is picked up without
+# an edit here.
+overrides:
+  devalue: ">=5.6.4"
+  h3: ">=1.15.9"
+  srvx: ">=0.11.13"
+  picomatch: ">=4.0.4"
+  flatted: ">=3.4.2"
+  yaml: ">=2.8.3"
+  node-forge: ">=1.4.0"
+  js-yaml: ">=4.1.1"
+  "glob@>=10": ">=10.5.0"
+  vite: ">=7.3.2"
+  defu: ">=6.1.5"
+  lodash: ">=4.18.0"
+  lodash-es: ">=4.18.0"
+  "brace-expansion@<2": ">=1.1.13"
+  unhead: ">=2.1.11"
+  simple-git: ">=3.32.3"
+  tar: ">=7.5.11"
+  svgo: ">=4.0.1"
+  serialize-javascript: ">=7.0.3"
+  "minimatch@<4": ">=3.1.5 <4"
+  "minimatch@>=5 <6": ">=5.1.8 <6"
+  "minimatch@>=9 <10": ">=9.0.7 <10"
+  "minimatch@>=10": ">=10.2.3"
+  rollup: ">=4.59.0"
+  esbuild: ">=0.28.1"
+  qs: ">=6.16.0"
+  "@tiptap/core": ">=3.30.5"
+  "@tiptap/pm": ">=3.30.5"
+
+# pnpm 12 asks for an explicit decision on every dependency that wants to run
+# a build script, and scaffolds this block with placeholder strings.
+#
+# All three are `false`, which is not a new restriction -- it is what was
+# already happening. pnpm 10 blocks dependency build scripts unless listed in
+# `onlyBuiltDependencies`, this project never had that list, and the build has
+# been green throughout. So none of these have ever run here.
+#
+#   esbuild         ships prebuilt binaries through optional platform packages
+#                   (@esbuild/linux-x64 and friends); it has no need of a
+#                   postinstall, which is why Nuxt builds fine today.
+#   better-sqlite3  a transitive native module, not a direct dependency.
+#   vue-demi        its postinstall picks a Vue 2 or Vue 3 shim; on a Vue 3
+#                   project the shipped default is already correct.
+#
+# Flipping one to `true` changes what executes at install time, so it wants
+# its own commit and a reason.
+allowBuilds:
+  better-sqlite3: false
+  esbuild: false
+  vue-demi: false

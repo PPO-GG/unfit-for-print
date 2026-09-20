@@ -36,6 +36,12 @@ pnpm typecheck      # vue-tsc --noEmit
 
 There is **no linter** in this project (no ESLint/Prettier/Biome) — don't invent `pnpm lint`. `pnpm typecheck` is **clean** and CI's `Typecheck` job fails on any error, so keep it at zero. It is the only check that catches a property read off something that no longer exists — Tests and Build both passed while the home page 500'd on a removed TTS provider. If it reports an error inside `node_modules` or references a package you removed, run `pnpm nuxt prepare` first: `.nuxt/tsconfig.json` is generated and goes stale.
 
+**pnpm settings live in `pnpm-workspace.yaml` — not `package.json`, not `.npmrc`.** pnpm 12 stopped reading the `pnpm` field from `package.json` and `shamefully-hoist` from `.npmrc`, and moving a setting back to either place does not error. The `overrides` emit one `[WARN]` line and are then ignored; the hoisting setting is dropped with no warning at all. With the overrides inert, resolution pulled `esbuild` 0.18.20 in beside the pinned 0.28.2 and put an `h3` 2.0.1-rc in the tree — and `typecheck`, `test` and `build` all passed, so CI will not catch it. That file holds the 28 security `overrides`, `shamefullyHoist`, the `allowBuilds` decisions pnpm 12 demands, and `minimumReleaseAge`.
+
+`Dockerfile` must `COPY` `pnpm-workspace.yaml` alongside `package.json` and the lockfile, or the image build fails `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`. CI checks out the whole repo and so never sees that failure.
+
+Do **not** reach for `pnpm clean --lockfile` when a supply-chain policy check fails, even though pnpm suggests it — it re-resolves from scratch, which moved 295 packages when tried (`eslint` 9 → 10, `srvx` 0.11 → 1.0). Exclude the one flagged package with `minimumReleaseAgeExclude` instead.
+
 ## Testing rules (important)
 
 `tests/server/setup.ts` runs for every suite and hard-fails unless `TEST_DATABASE_URL` is set **and differs from `DATABASE_URL`**. This guardrail exists because `tests/server/db/*.test.ts` unconditionally `db.delete(...)` real tables in `beforeEach` — on 2026-08-27 that wiped the live dev database. Never repoint it at the real DB to "make tests pass".
