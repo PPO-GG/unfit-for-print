@@ -3,10 +3,14 @@ import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
-import { expectNoWedgedState } from "../helpers/gameInvariants";
+import {
+  watchDoc,
+  allowWedged,
+  expectTrackedDocsUnwedged,
+} from "../helpers/gameInvariants";
 
 function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
-  return {
+  return watchDoc({
     doc: shallowRef(ydoc),
     connect: async () => {},
     disconnect: () => {},
@@ -22,7 +26,7 @@ function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
     getHands: () => ydoc.getMap("hands"),
     getPlayers: () => ydoc.getMap("players"),
     getChat: () => ydoc.getArray("chat"),
-  } as unknown as LobbyDocResult;
+  } as unknown as LobbyDocResult);
 }
 
 /** A round sitting in `submitting`, every hand full, nobody submitted yet. */
@@ -94,6 +98,10 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
+// Every test in this suite: whatever it was checking, the doc it leaves
+// behind must not be one the watchdog would report as a wedged game.
+afterEach(expectTrackedDocsUnwedged);
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -126,8 +134,6 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
 
     expect(phase(stubA)).toBe("judging");
     expect(phase(stubB)).toBe("judging");
-    expectNoWedgedState(stubA);
-    expectNoWedgedState(stubB);
   });
 
   it("recovers when a settle downgrade lands after the round was complete", () => {
@@ -146,7 +152,6 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
     vi.advanceTimersByTime(5_000);
 
     expect(phase(stub)).toBe("judging");
-    expectNoWedgedState(stub);
   });
 
   it("still lets the judge out when every eligible player was skipped", () => {
@@ -159,7 +164,10 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
     engine.skipPlayer("bob");
 
     // Nothing to judge, but `skipJudge` only exists in `judging` — leaving the
-    // round in `submitting` would have no exit at all.
+    // round in `submitting` would have no exit at all. So this lands in the
+    // state `judging-empty` exists to report, on purpose: the rule is right
+    // that it is a bad place to be, and it is still the least bad one.
+    allowWedged("judging-empty");
     expect(phase(stub)).toBe("judging");
   });
 
@@ -176,6 +184,5 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
     engineFor(stub, "judge-1").skipPlayer("carol");
 
     expect(phase(stub)).toBe("judging");
-    expectNoWedgedState(stub);
   });
 });

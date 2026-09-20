@@ -1,28 +1,37 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import {
+  watchDoc,
+  expectTrackedDocsUnwedged,
+} from "../helpers/gameInvariants";
 
 function makeStubDoc(): LobbyDocResult {
   const ydoc = new Y.Doc();
-  return {
-    doc: shallowRef(ydoc),
-    connect: async () => {},
-    disconnect: () => {},
-    awareness: shallowRef(null),
-    synced: ref(false),
-    connected: ref(false),
-    lobbyCode: ref("ABCD"),
-    getMeta: () => ydoc.getMap("meta"),
-    getSettings: () => ydoc.getMap("settings"),
-    getGameState: () => ydoc.getMap("gameState"),
-    getSubmissions: () => ydoc.getMap("submissions"),
-    getCards: () => ydoc.getMap("cards"),
-    getHands: () => ydoc.getMap("hands"),
-    getPlayers: () => ydoc.getMap("players"),
-    getChat: () => ydoc.getArray("chat"),
-  } as unknown as LobbyDocResult;
+  // Several fixtures here are a judge plus one submitter — enough to report a
+  // round's stats, fewer than a real game allows.
+  return watchDoc(
+    {
+      doc: shallowRef(ydoc),
+      connect: async () => {},
+      disconnect: () => {},
+      awareness: shallowRef(null),
+      synced: ref(false),
+      connected: ref(false),
+      lobbyCode: ref("ABCD"),
+      getMeta: () => ydoc.getMap("meta"),
+      getSettings: () => ydoc.getMap("settings"),
+      getGameState: () => ydoc.getMap("gameState"),
+      getSubmissions: () => ydoc.getMap("submissions"),
+      getCards: () => ydoc.getMap("cards"),
+      getHands: () => ydoc.getMap("hands"),
+      getPlayers: () => ydoc.getMap("players"),
+      getChat: () => ydoc.getArray("chat"),
+    } as unknown as LobbyDocResult,
+    { except: ["too-few-players"] },
+  );
 }
 
 type RoundStats = {
@@ -123,6 +132,10 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   vi.stubGlobal("useUserStore", () => ({ user: { id: "judge-1" } }));
 });
+
+// Every test in this suite: whatever it was checking, the doc it leaves
+// behind must not be one the watchdog would report as a wedged game.
+afterEach(expectTrackedDocsUnwedged);
 
 describe("useYjsGameEngine round stats reporting", () => {
   it("reports every submitted card as played and the winner's as won", async () => {

@@ -4,10 +4,13 @@ import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import { readSubmissions } from "~/utils/submissions";
-import { expectNoWedgedState } from "../helpers/gameInvariants";
+import {
+  watchDoc,
+  expectTrackedDocsUnwedged,
+} from "../helpers/gameInvariants";
 
 function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
-  return {
+  return watchDoc({
     doc: shallowRef(ydoc),
     connect: async () => {},
     disconnect: () => {},
@@ -23,7 +26,7 @@ function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
     getHands: () => ydoc.getMap("hands"),
     getPlayers: () => ydoc.getMap("players"),
     getChat: () => ydoc.getArray("chat"),
-  } as unknown as LobbyDocResult;
+  } as unknown as LobbyDocResult);
 }
 
 const PLAYERS = ["judge-1", "alice", "bob"];
@@ -100,6 +103,10 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
+// Every test in this suite: whatever it was checking, the doc it leaves
+// behind must not be one the watchdog would report as a wedged game.
+afterEach(expectTrackedDocsUnwedged);
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -122,12 +129,6 @@ describe("useYjsGameEngine.playCard — two players submitting at once", () => {
     sync(docA, docB);
 
     expect(Object.keys(readSubs(stubA)).sort()).toEqual(["alice", "bob"]);
-
-    // Both plays landing is not the same as the round being able to move.
-    // This assertion is what the original version of this test was missing.
-    vi.advanceTimersByTime(5_000);
-    sync(docA, docB);
-    expectNoWedgedState(stubA);
   });
 
   it("never leaves a player short a card with no submission to show for it", () => {

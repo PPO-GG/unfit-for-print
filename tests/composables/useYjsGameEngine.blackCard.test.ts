@@ -1,28 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import {
+  watchDoc,
+  expectTrackedDocsUnwedged,
+} from "../helpers/gameInvariants";
 
 function makeStubDoc(): LobbyDocResult {
   const ydoc = new Y.Doc();
-  return {
-    doc: shallowRef(ydoc),
-    connect: async () => {},
-    disconnect: () => {},
-    awareness: shallowRef(null),
-    synced: ref(false),
-    connected: ref(false),
-    lobbyCode: ref("ABCD"),
-    getMeta: () => ydoc.getMap("meta"),
-    getSettings: () => ydoc.getMap("settings"),
-    getGameState: () => ydoc.getMap("gameState"),
-    getSubmissions: () => ydoc.getMap("submissions"),
-    getCards: () => ydoc.getMap("cards"),
-    getHands: () => ydoc.getMap("hands"),
-    getPlayers: () => ydoc.getMap("players"),
-    getChat: () => ydoc.getArray("chat"),
-  } as unknown as LobbyDocResult;
+  // The fixture is two players holding nothing: this suite is about which
+  // black card comes next, so the roster and hand rules describe the seed
+  // rather than anything the engine did.
+  return watchDoc(
+    {
+      doc: shallowRef(ydoc),
+      connect: async () => {},
+      disconnect: () => {},
+      awareness: shallowRef(null),
+      synced: ref(false),
+      connected: ref(false),
+      lobbyCode: ref("ABCD"),
+      getMeta: () => ydoc.getMap("meta"),
+      getSettings: () => ydoc.getMap("settings"),
+      getGameState: () => ydoc.getMap("gameState"),
+      getSubmissions: () => ydoc.getMap("submissions"),
+      getCards: () => ydoc.getMap("cards"),
+      getHands: () => ydoc.getMap("hands"),
+      getPlayers: () => ydoc.getMap("players"),
+      getChat: () => ydoc.getArray("chat"),
+    } as unknown as LobbyDocResult,
+    { except: ["too-few-players", "hand-underfilled"] },
+  );
 }
 
 /** A game sitting in roundEnd, ready for nextRound() to advance it. */
@@ -78,6 +88,10 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   vi.stubGlobal("useUserStore", () => ({ user: { id: "host-1" } }));
 });
+
+// Every test in this suite: whatever it was checking, the doc it leaves
+// behind must not be one the watchdog would report as a wedged game.
+afterEach(expectTrackedDocsUnwedged);
 
 describe("useYjsGameEngine.nextRound black card selection", () => {
   it("selects the next black card and records its pick count", () => {
