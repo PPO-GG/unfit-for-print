@@ -1,12 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import { readSubmissions } from "~/utils/submissions";
+import {
+  watchDoc,
+  expectTrackedDocsUnwedged,
+} from "../helpers/gameInvariants";
 
 function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
-  return {
+  return watchDoc({
     doc: shallowRef(ydoc),
     connect: async () => {},
     disconnect: () => {},
@@ -22,7 +26,7 @@ function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
     getHands: () => ydoc.getMap("hands"),
     getPlayers: () => ydoc.getMap("players"),
     getChat: () => ydoc.getArray("chat"),
-  } as unknown as LobbyDocResult;
+  } as unknown as LobbyDocResult);
 }
 
 const PLAYERS = ["judge-1", "alice", "bob"];
@@ -96,6 +100,15 @@ function handSize(stub: LobbyDocResult, id: string): number {
 
 beforeEach(() => {
   vi.unstubAllGlobals();
+  vi.useFakeTimers();
+});
+
+// Every test in this suite: whatever it was checking, the doc it leaves
+// behind must not be one the watchdog would report as a wedged game.
+afterEach(expectTrackedDocsUnwedged);
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("useYjsGameEngine.playCard — two players submitting at once", () => {

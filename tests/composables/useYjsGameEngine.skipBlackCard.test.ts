@@ -1,8 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import {
+  watchDoc,
+  expectTrackedDocsUnwedged,
+} from "../helpers/gameInvariants";
 
 // The production shuffle is an unseedable CSPRNG, which made the draw-pool
 // regression test below a coin flip: a revert only failed it about half the
@@ -17,23 +21,28 @@ vi.mock("~/utils/shuffle", () => ({
 
 function makeStubDoc(): LobbyDocResult {
   const ydoc = new Y.Doc();
-  return {
-    doc: shallowRef(ydoc),
-    connect: async () => {},
-    disconnect: () => {},
-    awareness: shallowRef(null),
-    synced: ref(false),
-    connected: ref(false),
-    lobbyCode: ref("ABCD"),
-    getMeta: () => ydoc.getMap("meta"),
-    getSettings: () => ydoc.getMap("settings"),
-    getGameState: () => ydoc.getMap("gameState"),
-    getSubmissions: () => ydoc.getMap("submissions"),
-    getCards: () => ydoc.getMap("cards"),
-    getHands: () => ydoc.getMap("hands"),
-    getPlayers: () => ydoc.getMap("players"),
-    getChat: () => ydoc.getArray("chat"),
-  } as unknown as LobbyDocResult;
+  // Hands are seeded at a single card so the returned submissions are easy to
+  // see, which reads as underfilled the moment the skip hands them back.
+  return watchDoc(
+    {
+      doc: shallowRef(ydoc),
+      connect: async () => {},
+      disconnect: () => {},
+      awareness: shallowRef(null),
+      synced: ref(false),
+      connected: ref(false),
+      lobbyCode: ref("ABCD"),
+      getMeta: () => ydoc.getMap("meta"),
+      getSettings: () => ydoc.getMap("settings"),
+      getGameState: () => ydoc.getMap("gameState"),
+      getSubmissions: () => ydoc.getMap("submissions"),
+      getCards: () => ydoc.getMap("cards"),
+      getHands: () => ydoc.getMap("hands"),
+      getPlayers: () => ydoc.getMap("players"),
+      getChat: () => ydoc.getArray("chat"),
+    } as unknown as LobbyDocResult,
+    { except: ["hand-underfilled"] },
+  );
 }
 
 function stubFetch(): { calls: { lobbyId: string; blackCardId: string }[] } {
@@ -128,6 +137,10 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   vi.stubGlobal("useUserStore", () => ({ user: { id: "judge-1" } }));
 });
+
+// Every test in this suite: whatever it was checking, the doc it leaves
+// behind must not be one the watchdog would report as a wedged game.
+afterEach(expectTrackedDocsUnwedged);
 
 describe("useYjsGameEngine.skipBlackCard", () => {
   it("swaps in the next eligible black card", () => {

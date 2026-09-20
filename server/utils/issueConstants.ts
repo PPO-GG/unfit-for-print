@@ -42,6 +42,7 @@ export const ISSUE_KINDS = [
 export const ANOMALY_RULE_IDS = [
   "judging-empty",
   "settle-stalled",
+  "submitting-settled",
   "judge-missing",
   "too-few-players",
   "hand-underfilled",
