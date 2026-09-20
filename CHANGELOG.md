@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.24.3](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.2...v3.24.3) (2026-09-20)
+
+
+### 🐛 Bug Fixes
+
+* **web:** honour flipped on a card's first render ([#135](https://github.com/PPO-GG/unfit-for-print/issues/135)) ([c49a35f](https://github.com/PPO-GG/unfit-for-print/commit/c49a35fda55f051dfa933c4f263a53016d065ba8))
+* **web:** stop a fully-played round from sitting in submitting ([#136](https://github.com/PPO-GG/unfit-for-print/issues/136)) ([b647e6d](https://github.com/PPO-GG/unfit-for-print/commit/b647e6d6754033ac6eed6d745ac2fe62e1f3c4ec))
+
 ## [3.24.2](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.1...v3.24.2) (2026-09-16)
 
 
