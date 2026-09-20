@@ -25,9 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf 
 WORKDIR /app
 
 # Copy built files and production dependencies
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/package.json ./
 
 # The server itself falls back to 1235 when PORT is unset, which would leave
 # the container listening on a port nothing is mapped to while still looking
@@ -36,6 +36,11 @@ ENV PORT=3000
 
 # Expose default port
 EXPOSE 3000
+
+# The node images ship an unprivileged `node` user (uid 1000). The server
+# holds Y.Docs in memory and persists nothing, so it has no reason to run as
+# root. apt-get above is build-time and still runs as root.
+USER node
 
 # Start the server
 CMD ["node", "dist/src/server.js"]

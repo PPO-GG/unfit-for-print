@@ -4,9 +4,15 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+# This workflow runs a third-party action maintained by an individual, so it
+# gets the narrowest token the job can do its work with rather than the repo
+# default. Reading the commits on a PR is all it needs.
+permissions:
+  contents: read
+
 jobs:
   commitlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: wagoid/commitlint-github-action@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6.2.1
