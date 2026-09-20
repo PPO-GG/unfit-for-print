@@ -24,6 +24,12 @@ updates:
       # these out of the release-please changelog, which is where they belong
       # -- nobody playing the game cares that an action got bumped.
       prefix: ci
+    # Do not adopt a release in its first week. Pinning to a SHA is worth
+    # little if a bot bumps that SHA to a compromised release the day it
+    # ships, which is the shape of most action and package supply-chain
+    # attacks -- publish, wait for the bots, collect secrets.
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns:
