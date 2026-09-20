@@ -117,9 +117,17 @@ jobs:
       - run: pnpm typecheck
 
   # ── Semgrep ─────────────────────────────────────────────────────────────
-  # Advisory, not gating: `continue-on-error` means a finding annotates the
-  # run without blocking a merge while the rulesets settle. To make it gate,
-  # delete that line and add "Semgrep" to main's required checks.
+  # Advisory: findings are reported, not enforced. Semgrep exits 0 when it
+  # finds something unless `--error` is passed, so the job goes green on
+  # findings and red only when Semgrep itself fails (bad config, bad rule).
+  # That is the distinction worth keeping -- a broken scanner should be loud,
+  # a list of findings should not cry wolf on every PR.
+  #
+  # The findings land in the job summary rather than only the log, so they
+  # are one click from the PR instead of buried in a green job nobody opens.
+  #
+  # To make this gate instead: add `--error` below, and add "Semgrep" to
+  # main's required checks.
   #
   # `.semgrep/` carries repo-local rules. The community packs do not parse
   # .vue templates -- verified by running them against the stored-XSS sink
@@ -128,7 +136,6 @@ jobs:
   semgrep:
     name: Semgrep
     runs-on: ubuntu-latest
-    continue-on-error: true
     container:
       image: semgrep/semgrep
     steps:
@@ -143,8 +150,25 @@ jobs:
             --config=p/nodejs \
             --config=p/secrets \
             --config=.semgrep/ \
-            --error \
             --metrics=off \
             --exclude=node_modules \
             --exclude=.nuxt \
-            --exclude=.output
+            --exclude=.output \
+            --text --output=semgrep.txt
+          cat semgrep.txt
+
+      - name: Report findings
+        if: always()
+        run: |
+          {
+            echo "## Semgrep"
+            echo
+            if [ -s semgrep.txt ]; then
+              echo '```'
+              # The step summary caps at 1 MiB; keep well inside it.
+              tail -c 500000 semgrep.txt
+              echo '```'
+            else
+              echo "No output — the scan did not produce a report."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
