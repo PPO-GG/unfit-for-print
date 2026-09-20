@@ -522,10 +522,23 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     if (!stillComplete) scheduleSubmittingResync();
   };
 
-  /** How long to wait before re-deriving a round that nobody found complete.
-   *  Has to outlast a round trip through Teleportal, since the whole point is
-   *  to look again once the updates that were in flight have landed. */
-  const SUBMIT_RESYNC_MS = 1_500;
+  /**
+   * When to re-derive a round that nobody found complete, in milliseconds
+   * after the submission that prompted it.
+   *
+   * Spread rather than single, because the first entry is a guess about how
+   * long a round trip through Teleportal takes and a wrong guess used to be
+   * unrecoverable: every client looked once, too early, and the round stayed
+   * wedged with all its cards on the table. The last entry is past any
+   * plausible WebSocket latency, and `setTimeout` is throttled in backgrounded
+   * mobile tabs — where a Discord Activity spends much of its life — so the
+   * early attempts may not run anywhere near when they were scheduled.
+   *
+   * Each attempt is independent and idempotent, so this is a list rather than
+   * a chain: nothing carries state between them, and an attempt that finds the
+   * round already resolved simply returns.
+   */
+  const SUBMIT_RESYNC_DELAYS_MS = [1_500, 4_000, 10_000];
 
   /**
    * The safety net under the submitting -> judging transition.
@@ -538,19 +551,20 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
    * what players report as "cards stuck". The same hole swallows a stale
    * roster (an eligible player who has since left) and settle's own downgrade.
    *
-   * So every submission also schedules this, and it re-derives the round from
-   * whatever the doc holds by then. It is idempotent: the normal path has
-   * already reached `judging` by the time it runs, and two clients recovering
-   * the same round both write the same phase.
+   * So every submission also schedules these, and each re-derives the round
+   * from whatever the doc holds by then. They are idempotent: the normal path
+   * has already reached `judging` before the first one runs, two clients
+   * recovering the same round both write the same phase, and an attempt that
+   * finds a round still genuinely waiting on someone does nothing.
    *
-   * It goes straight to `judging` rather than back through
+   * A recovery goes straight to `judging` rather than back through
    * `submitting-complete`. The "all cards in" animation belongs to the moment
-   * the last card lands; a second and a half later the moment has passed, and
-   * routing through the settle timer would let a downgrade and a recovery
-   * chase each other.
+   * the last card lands; seconds later the moment has passed, and routing
+   * through the settle timer would let a downgrade and a recovery chase each
+   * other.
    */
   const scheduleSubmittingResync = (): void => {
-    setTimeout(() => {
+    const attempt = () => {
       if (!doc.value) return;
 
       const state = readGameState();
@@ -560,7 +574,9 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       doc.value.transact(() => {
         getGameState().set("phase", "judging");
       });
-    }, SUBMIT_RESYNC_MS);
+    };
+
+    for (const delay of SUBMIT_RESYNC_DELAYS_MS) setTimeout(attempt, delay);
   };
 
   const playCard = (

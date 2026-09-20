@@ -136,6 +136,50 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
     expect(phase(stubB)).toBe("judging");
   });
 
+  // The hole the one-shot resync left: it re-checked once, and a delivery
+  // slower than that window meant every client had already looked by the time
+  // the plays arrived.
+  it("advances when the plays converge after the first re-check has passed", () => {
+    const docA = new Y.Doc();
+    const docB = new Y.Doc();
+    const stubA = wrapDoc(docA);
+    const stubB = wrapDoc(docB);
+
+    seedSubmitting(stubA, ["judge-1", "alice", "bob"]);
+    sync(docA, docB);
+
+    engineFor(stubA, "alice").playCard(["alice-c0"]);
+    engineFor(stubB, "bob").playCard(["bob-c0"]);
+
+    // A slow link: the first re-check runs while each client still sees only
+    // its own play, and finds nothing to do.
+    vi.advanceTimersByTime(2_000);
+    expect(phase(stubA)).toBe("submitting");
+    expect(phase(stubB)).toBe("submitting");
+
+    // Teleportal finally delivers, with no further click to trigger anything.
+    sync(docA, docB);
+    vi.advanceTimersByTime(5_000);
+    sync(docA, docB);
+
+    expect(phase(stubA)).toBe("judging");
+    expect(phase(stubB)).toBe("judging");
+  });
+
+  it("gives up re-checking a round that is genuinely still waiting", () => {
+    const doc = new Y.Doc();
+    const stub = wrapDoc(doc);
+    seedSubmitting(stub, ["judge-1", "alice", "bob"]);
+
+    engineFor(stub, "alice").playCard(["alice-c0"]);
+
+    // Bob never plays. No amount of waiting should move the round.
+    vi.advanceTimersByTime(60_000);
+
+    expect(phase(stub)).toBe("submitting");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("recovers when a settle downgrade lands after the round was complete", () => {
     const doc = new Y.Doc();
     const stub = wrapDoc(doc);
