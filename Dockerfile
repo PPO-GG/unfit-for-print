@@ -1,11 +1,16 @@
 # Dockerfile
 FROM node:22-slim AS builder
 
-RUN corepack enable && corepack prepare pnpm@10.12.1 --activate
+RUN corepack enable && corepack prepare pnpm@12.5.1 --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml carries the overrides and settings that used to live in
+# package.json and .npmrc. The lockfile records that config and pnpm refuses a
+# --frozen-lockfile install when it cannot see it, which is the only reason
+# this was caught -- without the check the image would have built with all 28
+# security overrides silently absent.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
