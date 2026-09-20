@@ -1,0 +1,36 @@
+# Actions in .github/workflows/ are pinned to commit SHAs, because a mutable
+# tag can be repointed at new code by whoever controls it -- which is how
+# tj-actions/changed-files leaked secrets out of thousands of repositories in
+# March 2025. release-please.yml is the one that matters here: it runs with
+# `packages: write` and pushes to GHCR.
+#
+# A SHA pin that nobody updates is just an old action, so Dependabot owns the
+# bumps. It rewrites both the SHA and the trailing `# vX.Y.Z` comment, so the
+# pins stay readable.
+#
+# Only github-actions is enabled. npm version updates are deliberately left
+# off: Dependabot *alerts* already cover vulnerable packages (and stay free if
+# this repo goes private), while version updates across a Nuxt dependency tree
+# this size would open more PRs than they are worth.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      # Matches the Conventional Commits that commitlint enforces. `ci` keeps
+      # these out of the release-please changelog, which is where they belong
+      # -- nobody playing the game cares that an action got bumped.
+      prefix: ci
+    # Do not adopt a release in its first week. Pinning to a SHA is worth
+    # little if a bot bumps that SHA to a compromised release the day it
+    # ships, which is the shape of most action and package supply-chain
+    # attacks -- publish, wait for the bots, collect secrets.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
