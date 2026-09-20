@@ -1,12 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import * as Vue from "vue";
 
 Object.assign(globalThis, Vue);
 vi.unmock("vue");
 
+const gsapSet = vi.fn();
 vi.mock("gsap", () => ({
-  gsap: { killTweensOf: vi.fn(), timeline: vi.fn(() => ({ to: vi.fn() })) },
+  gsap: {
+    killTweensOf: vi.fn(),
+    timeline: vi.fn(() => ({ to: vi.fn() })),
+    set: (...args: unknown[]) => gsapSet(...args),
+  },
 }));
 
 (globalThis as any).useCrypto = () => ({ getRandomInRange: (a: number) => a });
@@ -54,5 +59,44 @@ describe("WhiteCard.vue — picture cards", () => {
     expect(wrapper.find(".card-image").attributes("style")).toContain(
       "translate(0%, 0%) scale(1)",
     );
+  });
+});
+
+describe("WhiteCard.vue — initial flip state", () => {
+  const mountCard = (props: Record<string, any> = {}) =>
+    mount(WhiteCard, {
+      props: { text: "A funny answer.", disableHover: true, ...props },
+      global: { stubs: { UPopover: true, UModal: true, UButton: true, ReportCard: true, Icon: true } },
+    });
+
+  beforeEach(() => gsapSet.mockClear());
+
+  // The 3D path had the same split BlackCard was mounting face-up from: the
+  // flip was a CSS class on `.card`, which the hover tilt's inline transform
+  // outranks, plus a watcher that only fires on *change*. It survived only
+  // because resetTransform() here bails on disableHover and the one unflatted
+  // caller pairs the two props — coupling nothing enforces.
+  it("presents its back face when mounted already flipped in 3D mode", () => {
+    const wrapper = mountCard({ flipped: true });
+
+    const inner = wrapper.find(".card__inner").element;
+    expect(gsapSet).toHaveBeenCalledWith(inner, { rotateY: 180 });
+  });
+
+  it("presents its front face when mounted unflipped in 3D mode", () => {
+    const wrapper = mountCard({ flipped: false });
+
+    const inner = wrapper.find(".card__inner").element;
+    expect(gsapSet).toHaveBeenCalledWith(inner, { rotateY: 0 });
+  });
+
+  // Flat mode swaps the faces by rendering them, so it must stay unrotated —
+  // a transform there mirrors the card instead of flipping it.
+  it("renders the back face directly in flat mode, with no rotation", () => {
+    const wrapper = mountCard({ flipped: true, flat: true });
+
+    expect(wrapper.find(".card__back").exists()).toBe(true);
+    expect(wrapper.find(".card__front").exists()).toBe(false);
+    expect(gsapSet).not.toHaveBeenCalled();
   });
 });
