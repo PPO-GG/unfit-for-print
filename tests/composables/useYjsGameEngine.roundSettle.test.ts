@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
+import { expectNoWedgedState } from "../helpers/gameInvariants";
 
 function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
   return {
@@ -125,6 +126,8 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
 
     expect(phase(stubA)).toBe("judging");
     expect(phase(stubB)).toBe("judging");
+    expectNoWedgedState(stubA);
+    expectNoWedgedState(stubB);
   });
 
   it("recovers when a settle downgrade lands after the round was complete", () => {
@@ -143,6 +146,7 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
     vi.advanceTimersByTime(5_000);
 
     expect(phase(stub)).toBe("judging");
+    expectNoWedgedState(stub);
   });
 
   it("still lets the judge out when every eligible player was skipped", () => {
@@ -172,5 +176,6 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
     engineFor(stub, "judge-1").skipPlayer("carol");
 
     expect(phase(stub)).toBe("judging");
+    expectNoWedgedState(stub);
   });
 });

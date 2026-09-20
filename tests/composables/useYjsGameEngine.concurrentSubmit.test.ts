@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as Y from "yjs";
 import { shallowRef, ref } from "vue";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import { readSubmissions } from "~/utils/submissions";
+import { expectNoWedgedState } from "../helpers/gameInvariants";
 
 function wrapDoc(ydoc: Y.Doc): LobbyDocResult {
   return {
@@ -96,6 +97,11 @@ function handSize(stub: LobbyDocResult, id: string): number {
 
 beforeEach(() => {
   vi.unstubAllGlobals();
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("useYjsGameEngine.playCard — two players submitting at once", () => {
@@ -116,6 +122,12 @@ describe("useYjsGameEngine.playCard — two players submitting at once", () => {
     sync(docA, docB);
 
     expect(Object.keys(readSubs(stubA)).sort()).toEqual(["alice", "bob"]);
+
+    // Both plays landing is not the same as the round being able to move.
+    // This assertion is what the original version of this test was missing.
+    vi.advanceTimersByTime(5_000);
+    sync(docA, docB);
+    expectNoWedgedState(stubA);
   });
 
   it("never leaves a player short a card with no submission to show for it", () => {

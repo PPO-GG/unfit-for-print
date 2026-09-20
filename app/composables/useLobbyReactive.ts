@@ -28,6 +28,7 @@ import type { GameState, PlayerId, CardId } from "~/types/game";
 import type { CardTexts } from "~/types/gamecards";
 import type { PlayerPayload } from "~/composables/useLobbyMutations";
 import { mergeCardTextKeys } from "~/utils/cardTexts";
+import { readChunkedArray } from "~/utils/chunkedDocValue";
 import { mergeSubmissions } from "~/utils/submissions";
 import { readKickedAt } from "~/utils/kickedPlayers";
 
@@ -263,7 +264,11 @@ function parseCards(raw: Record<string, any>): LobbyCards {
 
   return {
     whiteDeck: safeParseJson(raw.whiteDeck, []),
-    blackDeck: safeParseJson(raw.blackDeck, []),
+    // Chunked, like cardTexts above. Both writers — startGame and the engine's
+    // writeBlackDeck — blank the plain `blackDeck` key on purpose once chunks
+    // are authoritative, so reading it directly reports an empty deck for
+    // every game since chunking shipped.
+    blackDeck: readChunkedArray<CardId>(raw, "blackDeck"),
     discardWhite: safeParseJson(raw.discardWhite, []),
     discardBlack: safeParseJson(raw.discardBlack, []),
     cardTexts,
