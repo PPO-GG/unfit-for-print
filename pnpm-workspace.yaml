@@ -1,3 +1,38 @@
+# Do not install a version published in the last week. This is the setting
+# Semgrep's npm-missing-minimum-release-age rule asks for; on pnpm it is
+# `minimumReleaseAge` and it counts MINUTES, not days, so 10080 is the week.
+# pnpm 12 already defaults to 1440 (one day) -- this widens that window, it
+# does not introduce it.
+#
+# Most npm supply-chain attacks work by publishing a compromised version and
+# waiting for installs to pick it up, so the delay is the mitigation. It pairs
+# with the Dependabot `cooldown` in .github/dependabot.yml, which does the
+# same job for the other route versions take into this repo.
+#
+# Strict is set explicitly rather than left implicit. When nothing in a
+# dependency's range is old enough, resolution FAILS instead of quietly
+# installing the too-new version, which is the point -- a silent fallback
+# would defeat the setting. (Setting minimumReleaseAge at all turns this on
+# by default; writing it down is documentation, not a change.)
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+
+# One exclusion, and it should not be permanent. brace-expansion@1.1.21 was
+# published 2026-09-14 and so sits inside the window as of this commit. It is
+# in the tree only because of our own `brace-expansion@<2: >=1.1.13` override
+# above -- we pulled it in deliberately to clear an advisory.
+#
+# The alternative was `pnpm clean --lockfile` as pnpm suggests, which
+# re-resolves from scratch: that moved 295 packages, including eslint 9 -> 10
+# and srvx 0.11 -> 1.0. That is a dependency upgrade, not a pnpm upgrade, and
+# it does not belong in the same change.
+#
+# Remove this entry once the lockfile is next re-resolved for its own reasons;
+# by then 1.1.21 is long past the window and the exclusion does nothing but
+# hide future ones.
+minimumReleaseAgeExclude:
+  - brace-expansion
+
 # Was `shamefully-hoist=true` in .npmrc, which pnpm 12 no longer reads -- it
 # does not even warn about that one, it just silently stops hoisting. Left
 # unset, node_modules/ went from a fully hoisted tree to 63 entries.
