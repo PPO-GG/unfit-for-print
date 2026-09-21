@@ -42,6 +42,15 @@ There is **no linter** in this project (no ESLint/Prettier/Biome) — don't inve
 
 Do **not** reach for `pnpm clean --lockfile` when a supply-chain policy check fails, even though pnpm suggests it — it re-resolves from scratch, which moved 295 packages when tried (`eslint` 9 → 10, `srvx` 0.11 → 1.0). Exclude the one flagged package with `minimumReleaseAgeExclude` instead.
 
+**A pre-12 pnpm launcher cannot install the `packageManager` pin.** On Windows, every pnpm command fails with:
+
+```
+ERR_PNPM_NO_MATCHING_VERSION  No matching version found for @pnpm/win-x64@12.5.1
+The latest release of @pnpm/win-x64 is "11.27.1".
+```
+
+The pin is fine and 12.5.1 is a real release — pnpm 12 renamed its platform binary packages from `@pnpm/win-x64` to `@pnpm/exe.win32-x64` (see `pnpm@12.5.1`'s own `optionalDependencies`), so the old name genuinely stops at 11.27.1. A pnpm 10/11 launcher left in `%LOCALAPPDATA%\pnpm` reads `packageManager` and fetches the pre-12 name, so it can never install a pnpm 12. Fix the launcher, don't downgrade the pin: `pnpm self-update 12.5.1`, run from **outside** a project, because `self-update` rewrites `packageManager` in whatever project it is run in. The corepack shim (`C:\Program Files\nodejs\pnpm`) already resolves the pin correctly, so whether you hit this depends on which entry wins on `PATH` — `%LOCALAPPDATA%\pnpm\bin` or Node's directory. CI runs on `ubuntu-latest` through `pnpm/action-setup`, and both Dockerfiles install pnpm fresh, so none of them can reproduce it.
+
 ## Testing rules (important)
 
 `tests/server/setup.ts` runs for every suite and hard-fails unless `TEST_DATABASE_URL` is set **and differs from `DATABASE_URL`**. This guardrail exists because `tests/server/db/*.test.ts` unconditionally `db.delete(...)` real tables in `beforeEach` — on 2026-08-27 that wiped the live dev database. Never repoint it at the real DB to "make tests pass".
