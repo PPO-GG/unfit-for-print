@@ -7,6 +7,15 @@ export const useUserStore = defineStore("user", {
     isLoggedIn: false,
     isActivitySession: false,
     playerDocId: "" as string,
+    /**
+     * False until the session has actually been resolved one way or the other.
+     * The session is fetched client-side and asynchronously
+     * (plugins/init-session.client.ts), so `user === null` means "logged out"
+     * and "not asked yet" alike. Server-rendered UI that gates on auth needs to
+     * tell those apart, or it asserts "logged out" at a returning user for the
+     * half-second before their session lands.
+     */
+    sessionReady: false,
   }),
 
   actions: {
@@ -33,12 +42,20 @@ export const useUserStore = defineStore("user", {
       };
       this.isLoggedIn = true;
       this.isActivitySession = true;
+      this.sessionReady = true;
     },
 
     async fetchSession() {
-      const { user } = await $fetch("/api/auth/session");
-      this.user = user as AuthUser | null;
-      this.isLoggedIn = !!user;
+      try {
+        const { user } = await $fetch("/api/auth/session");
+        this.user = user as AuthUser | null;
+        this.isLoggedIn = !!user;
+      } finally {
+        // Set even on failure: a session we could not fetch is still a session
+        // we are done waiting on, and leaving this false parks the UI in its
+        // indeterminate state forever.
+        this.sessionReady = true;
+      }
     },
 
     loginWithDiscord() {
@@ -53,6 +70,7 @@ export const useUserStore = defineStore("user", {
       });
       this.user = user as AuthUser;
       this.isLoggedIn = true;
+      this.sessionReady = true;
     },
 
     async logout() {

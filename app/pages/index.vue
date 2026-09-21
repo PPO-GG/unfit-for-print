@@ -99,6 +99,16 @@
           </UButton>
         </template>
       </div>
+
+      <!-- The session is fetched client-side (plugins/init-session.client.ts),
+           so the server cannot know whether to draw the avatar menu or the
+           login button. A neutral pill of roughly the right size holds the
+           corner instead of flashing the wrong one. -->
+      <template #fallback>
+        <div class="fixed top-4 right-4 z-20 scale-125 origin-top-right">
+          <USkeleton class="h-8 w-32 rounded-md bg-slate-500/15" />
+        </div>
+      </template>
     </ClientOnly>
 
     <div
@@ -187,141 +197,149 @@
             </div>
           </div>
 
-          <!-- Draw + Speak buttons -->
-          <ClientOnly>
-            <div class="flex gap-2">
-              <UButton
-                :loading="isFetching"
-                class="font-display tracking-wider cursor-pointer"
-                color="neutral"
-                icon="i-solar-layers-minimalistic-bold-duotone"
-                variant="subtle"
-                size="lg"
-                @click="fetchNewCards"
-              >
-                DRAW NEW CARDS
-              </UButton>
-              <UButton
-                class="cursor-pointer"
-                color="neutral"
-                :icon="
-                  isSpeaking
-                    ? 'i-solar-stop-bold'
-                    : 'i-solar-user-speak-bold-duotone'
-                "
-                variant="subtle"
-                size="lg"
-                @click="handleSpeakClick"
-              />
-            </div>
-          </ClientOnly>
-        </div>
-      </div>
-
-      <!-- Menu tiles -->
-      <ClientOnly>
-        <div class="flex-1 w-full">
-          <div class="grid grid-cols-6 gap-3 sm:gap-4">
-            <MenuTile
-              v-if="!isDiscordActivity"
-              featured
-              accent="primary"
-              icon="i-lucide-gamepad-2"
-              :label="t('nav.creategame')"
-              :description="createGameDescription"
-              shortcut="N"
-              :loading="isCreating"
-              :disabled="!isAuthenticatedUser(userStore.user)"
-              class="col-span-6 sm:col-span-3 sm:row-span-2"
-              @click="checkForActiveLobbyAndCreate"
-            />
-
-            <MenuTile
-              v-if="!isDiscordActivity"
-              accent="secondary"
-              icon="i-lucide-user-round-plus"
-              :label="t('nav.joingame')"
-              description="Enter a lobby code"
-              shortcut="J"
-              :loading="isJoining"
-              class="col-span-6 sm:col-span-3"
-              @click="checkForActiveLobbyAndJoin"
+          <!-- Draw + Speak buttons. Not client-only: isFetching and isSpeaking
+               are both false on the server and on the client's first tick, so
+               these render identically in both passes. They are inert until
+               hydration, which beats having them pop in afterwards. -->
+          <div class="flex gap-2">
+            <UButton
+              :loading="isFetching"
+              class="font-display tracking-wider cursor-pointer"
+              color="neutral"
+              icon="i-solar-layers-minimalistic-bold-duotone"
+              variant="subtle"
+              size="lg"
+              @click="fetchNewCards"
             >
-              <template #extra>
-                <div class="flex gap-1 mt-2">
-                  <div
-                    v-for="i in 4"
-                    :key="i"
-                    class="w-6 h-7 rounded border-2 border-slate-950/25 bg-slate-950/10"
-                  />
-                </div>
-              </template>
-            </MenuTile>
-
-            <MenuTile
-              v-if="!isDiscordActivity"
-              accent="info"
-              icon="i-lucide-gamepad-2"
-              :label="t('nav.games')"
-              description="Resume or browse games"
-              shortcut="G"
-              to="/game"
-              class="col-span-6 sm:col-span-3"
-            />
-
-            <MenuTile
-              accent="success"
-              icon="i-lucide-dna"
-              :label="t('nav.labs')"
-              badge="Beta"
-              description="Explore experimental decks"
-              shortcut="L"
-              to="/labs"
-              class="col-span-6 sm:col-span-3"
-            />
-
-            <MenuTile
-              accent="warning"
-              icon="i-lucide-circle-question-mark"
-              :label="t('nav.howtoplay')"
-              description="Learn the rules"
-              shortcut="?"
-              to="/about"
-              class="col-span-6 sm:col-span-3"
-            />
-
-            <MenuTile
-              accent="dark"
-              icon="i-solar-settings-bold-duotone"
-              :label="t('nav.settings')"
-              description="Adjust volume & preferences"
-              shortcut="ESC"
-              class="col-span-6 sm:col-span-3"
-              @click="uiStore.showSettings = true"
-            />
-
-            <MenuTile
-              v-if="isAdmin"
-              accent="error"
-              icon="i-lucide-shield-cog-corner"
-              :label="t('nav.admin')"
-              description="Use with caution"
-              shortcut="A"
-              to="/admin"
-              class="col-span-6 sm:col-span-3"
-            />
-
-            <MenuTile
-              v-if="isDiscordActivity"
-              accent="discord"
-              icon="i-ic-baseline-discord"
-              :label="t('nav.hub')"
-              to="/activity/hub"
-              class="col-span-6 sm:col-span-3"
+              DRAW NEW CARDS
+            </UButton>
+            <UButton
+              class="cursor-pointer"
+              color="neutral"
+              :icon="
+                isSpeaking
+                  ? 'i-solar-stop-bold'
+                  : 'i-solar-user-speak-bold-duotone'
+              "
+              variant="subtle"
+              size="lg"
+              @click="handleSpeakClick"
             />
           </div>
         </div>
-      </ClientOnly>
+      </div>
+
+      <!-- Menu tiles. Deliberately NOT wrapped in <ClientOnly>: this is the
+           whole right-hand column, and behind ClientOnly it rendered as blank
+           space until hydration finished — roughly 700ms on a fast connection,
+           since the bundle is ~85 chunks. Every v-if below now resolves the
+           same on the server as on the client's first tick (see the
+           isDiscordActivity computed, and sessionReady for the auth-gated
+           bits), so the grid can be server-rendered without a mismatch. Don't
+           re-wrap it; give a new tile an SSR-safe condition instead. -->
+      <div class="flex-1 w-full">
+        <div class="grid grid-cols-6 gap-3 sm:gap-4">
+          <!-- Held in the loading state rather than the disabled one until the
+               session resolves, so a returning user is not told to log in. -->
+          <MenuTile
+            v-if="!isDiscordActivity"
+            featured
+            accent="primary"
+            icon="i-lucide-gamepad-2"
+            :label="t('nav.creategame')"
+            :description="createGameDescription"
+            shortcut="N"
+            :loading="isCreating || !authKnown"
+            :disabled="authKnown && !canHostLobby"
+            class="col-span-6 sm:col-span-3 sm:row-span-2"
+            @click="checkForActiveLobbyAndCreate"
+          />
+
+          <MenuTile
+            v-if="!isDiscordActivity"
+            accent="secondary"
+            icon="i-lucide-user-round-plus"
+            :label="t('nav.joingame')"
+            description="Enter a lobby code"
+            shortcut="J"
+            :loading="isJoining"
+            class="col-span-6 sm:col-span-3"
+            @click="checkForActiveLobbyAndJoin"
+          >
+            <template #extra>
+              <div class="flex gap-1 mt-2">
+                <div
+                  v-for="i in 4"
+                  :key="i"
+                  class="w-6 h-7 rounded border-2 border-slate-950/25 bg-slate-950/10"
+                />
+              </div>
+            </template>
+          </MenuTile>
+
+          <MenuTile
+            v-if="!isDiscordActivity"
+            accent="info"
+            icon="i-lucide-gamepad-2"
+            :label="t('nav.games')"
+            description="Resume or browse games"
+            shortcut="G"
+            to="/game"
+            class="col-span-6 sm:col-span-3"
+          />
+
+          <MenuTile
+            accent="success"
+            icon="i-lucide-dna"
+            :label="t('nav.labs')"
+            badge="Beta"
+            description="Explore experimental decks"
+            shortcut="L"
+            to="/labs"
+            class="col-span-6 sm:col-span-3"
+          />
+
+          <MenuTile
+            accent="warning"
+            icon="i-lucide-circle-question-mark"
+            :label="t('nav.howtoplay')"
+            description="Learn the rules"
+            shortcut="?"
+            to="/about"
+            class="col-span-6 sm:col-span-3"
+          />
+
+          <MenuTile
+            accent="dark"
+            icon="i-solar-settings-bold-duotone"
+            :label="t('nav.settings')"
+            description="Adjust volume & preferences"
+            shortcut="ESC"
+            class="col-span-6 sm:col-span-3"
+            @click="uiStore.showSettings = true"
+          />
+
+          <MenuTile
+            v-if="isHydrated && isAdmin"
+            accent="error"
+            icon="i-lucide-shield-cog-corner"
+            :label="t('nav.admin')"
+            description="Use with caution"
+            shortcut="A"
+            to="/admin"
+            class="col-span-6 sm:col-span-3"
+          />
+
+          <MenuTile
+            v-if="isDiscordActivity"
+            accent="discord"
+            icon="i-ic-baseline-discord"
+            :label="t('nav.hub')"
+            to="/activity/hub"
+            class="col-span-6 sm:col-span-3"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- Footer links -->
@@ -391,10 +409,23 @@ const userStore = useUserStore();
 const uiStore = useUiStore();
 const { notify } = useNotifications();
 const { open: openReport } = useReportProblem();
-const { isDiscordActivity } = useDiscordSDK();
+const { isDiscordActivity: sdkIsDiscordActivity } = useDiscordSDK();
 const isAdmin = useIsAdmin();
 const router = useRouter();
 const route = useRoute();
+
+// The menu tiles are server-rendered (see the template), so this has to answer
+// the same on the server as it does on the client's first tick — otherwise the
+// three web-only tiles hydrate into a mismatch inside Discord. useDiscordSDK's
+// own ref is a module-level singleton seeded from window.location.search, so it
+// is false during SSR and true by hydration. Discord passes frame_id and
+// instance_id as query params, which the server can read just as well, so
+// checking the route alongside the ref makes both passes agree.
+const isDiscordActivity = computed(
+  () =>
+    sdkIsDiscordActivity.value ||
+    (!!route.query.frame_id && !!route.query.instance_id),
+);
 
 // ─── User Menu ───────────────────────────────────────────────────────
 const userMenuOpen = ref(false);
@@ -403,9 +434,26 @@ onClickOutside(userMenuRef, () => {
   userMenuOpen.value = false;
 });
 
-const createGameDescription = computed(() =>
-  isAuthenticatedUser(userStore.user) ? "Start a fresh lobby" : "Log in to host a lobby",
+// The New Game tile is server-rendered, and its auth state is not known until
+// plugins/init-session.client.ts resolves the session. Reading sessionReady
+// directly is not enough: that fetch is fired from a plugin and can land either
+// side of hydration (on localhost it usually beats it), so the tile renders one
+// way on the server and the other on the client's first pass, at random. This
+// ref only flips in onMounted, which is strictly after hydration, so both
+// passes agree and the real state is picked up on the tick after.
+const isHydrated = ref(false);
+
+const authKnown = computed(() => isHydrated.value && userStore.sessionReady);
+const canHostLobby = computed(
+  () => authKnown.value && isAuthenticatedUser(userStore.user),
 );
+
+const createGameDescription = computed(() => {
+  // Neutral while indeterminate, rather than accusing a returning user of
+  // being logged out for the half-second before their session lands.
+  if (!authKnown.value) return "Start a fresh lobby";
+  return canHostLobby.value ? "Start a fresh lobby" : "Log in to host a lobby";
+});
 
 const avatarUrl = computed(() => {
   const user = userStore.user;
@@ -474,9 +522,7 @@ const handleMenuHotkey = createMenuHotkeyHandler({
     uiStore.showSettings = true;
   },
   canCreate: () =>
-    !isDiscordActivity.value &&
-    isAuthenticatedUser(userStore.user) &&
-    !isCreating.value,
+    !isDiscordActivity.value && canHostLobby.value && !isCreating.value,
   canJoin: () => !isDiscordActivity.value && !isJoining.value,
   isJoinOpen: () => showJoin.value,
 });
@@ -595,6 +641,7 @@ const fetchNewCards = async () => {
 };
 
 onMounted(() => {
+  isHydrated.value = true;
   fetchNewCards();
   window.addEventListener("keydown", handleMenuHotkey);
 });

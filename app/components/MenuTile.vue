@@ -6,7 +6,10 @@
     :disabled="!isLink ? disabled || loading : undefined"
     :aria-disabled="disabled || loading || undefined"
     class="menu-tile"
-    :class="[accentClasses[accent], { 'menu-tile--featured': featured }]"
+    :class="[
+      accentClasses[accent],
+      { 'menu-tile--featured': featured, 'menu-tile--loading': loading && !disabled },
+    ]"
     @click="onClick"
   >
     <div class="flex items-start justify-between">
@@ -131,12 +134,20 @@ function onClick(e: MouseEvent) {
   box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.55);
 }
 
+/* Loading is inert too, so it carries the same disabled attribute — but it is
+   not the same message. The hatching reads as "you may not do this"; a tile
+   waiting on the session or on a lobby being created is only "not yet", and
+   should keep its normal weight behind the spinner. */
+.menu-tile:disabled:not(.menu-tile--loading),
+.menu-tile[aria-disabled="true"]:not(.menu-tile--loading) {
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.12) 0 8px, transparent 8px 18px);
+}
+
 .menu-tile:disabled,
 .menu-tile[aria-disabled="true"] {
-  opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
-  background-image: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.12) 0 8px, transparent 8px 18px);
 }
 
 .menu-tile__icon {
