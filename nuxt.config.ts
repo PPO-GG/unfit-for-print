@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PREFS_COOKIE_OPTIONS } from "./app/constants/persistence";
 
 const pkg = JSON.parse(
   readFileSync(join(import.meta.dirname, "package.json"), "utf-8"),
@@ -64,6 +65,13 @@ export default defineNuxtConfig({
     "@nuxtjs/mdc",
     "nuxt-auth-utils",
   ],
+
+  // The persistedstate module defaults to a cookie with no expiry, i.e. a
+  // session cookie -- see app/constants/persistence.ts. Give it a real
+  // lifetime so the userPrefs store survives closing the browser.
+  piniaPluginPersistedstate: {
+    cookieOptions: PREFS_COOKIE_OPTIONS,
+  },
 
   // ─── PWA ──────────────────────────────────────────────────────────────
   pwa: {
