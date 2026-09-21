@@ -59,11 +59,64 @@ beforeEach(() => {
 });
 
 describe("useCardShine", () => {
-  it("runs an animation frame loop while the card is mounted", () => {
-    mountShine();
+  it("runs an animation frame loop while the shine is still chasing", () => {
+    const { rotation } = mountShine();
+    rotation.value = { x: 100, y: 0 };
+
     expect(raf.pendingCount).toBe(1);
     raf.advance();
     expect(raf.pendingCount).toBe(1);
+  });
+
+  // The ease is asymptotic, so the loop only ever stops if something declares
+  // it close enough. Without that it kept writing to a deep-reactive ref every
+  // frame, for every mounted card, forever — a full hand idling at a high
+  // refresh rate was thousands of pointless reactive writes a second.
+  it("idles without a loop when the card is never hovered", () => {
+    mountShine();
+
+    raf.advance();
+
+    expect(raf.pendingCount).toBe(0);
+  });
+
+  it("stops the loop once the shine has caught up with the rotation", () => {
+    const { rotation } = mountShine();
+    rotation.value = { x: 1, y: 0 };
+
+    // 5%/frame from 1 degree crosses the settle threshold in ~90 frames.
+    for (let i = 0; i < 200; i++) raf.advance();
+
+    expect(raf.pendingCount).toBe(0);
+  });
+
+  it("snaps exactly onto the rotation when it settles", () => {
+    const { rotation, shine } = mountShine();
+    rotation.value = { x: 1, y: -1 };
+
+    for (let i = 0; i < 200; i++) raf.advance();
+
+    expect(shine.shineOffset.value.x).toBe(1);
+    expect(shine.shineOffset.value.y).toBe(-1);
+  });
+
+  it("restarts the loop when the rotation changes after settling", () => {
+    const { rotation } = mountShine();
+    raf.advance();
+    expect(raf.pendingCount).toBe(0);
+
+    rotation.value = { x: 10, y: 10 };
+
+    expect(raf.pendingCount).toBe(1);
+  });
+
+  it("does not restart a settled loop when the effect is disabled", () => {
+    const { rotation } = mountShine(false);
+    expect(raf.pendingCount).toBe(0);
+
+    rotation.value = { x: 10, y: 10 };
+
+    expect(raf.pendingCount).toBe(0);
   });
 
   it("cancels its pending frame when the card unmounts", () => {
