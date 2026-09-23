@@ -201,10 +201,18 @@ jobs:
       # --ignore-unfixed matters: both images are Debian-based (node:*-slim),
       # and the base layer carries a standing set of CVEs with no fix
       # available. Without it the report is noise.
+      #
+      # image-ref comes from metadata-action's output, not from
+      # `github.repository_owner`: the owner is "PPO-GG" and image references
+      # must be lowercase, which metadata-action handles and a hand-built ref
+      # does not (release 3.25.0 died on exactly that). continue-on-error
+      # because exit-code only covers findings -- a Trivy error of its own
+      # still failed the job, and fail-fast then cancelled the other image.
       - name: Scan ${{ matrix.name }} image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        continue-on-error: true
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}:latest
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           format: table
