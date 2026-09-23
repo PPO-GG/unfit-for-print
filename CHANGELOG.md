@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.25.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.3...v3.25.0) (2026-09-21)
+
+
+### ✨ Features
+
+* **web:** report what the game and the link were doing ([#138](https://github.com/PPO-GG/unfit-for-print/issues/138)) ([72d5ba9](https://github.com/PPO-GG/unfit-for-print/commit/72d5ba98dc5637dd430865f6a6f0db97fbdc396e))
+
+
+### 🐛 Bug Fixes
+
+* **web:** escape card text before it reaches v-html ([#141](https://github.com/PPO-GG/unfit-for-print/issues/141)) ([921884e](https://github.com/PPO-GG/unfit-for-print/commit/921884e6c3cdef6e613fb8e6b3aa559ba0dd2d76))
+* **web:** give the persisted prefs cookie a one-year expiry ([#147](https://github.com/PPO-GG/unfit-for-print/issues/147)) ([e8ea47c](https://github.com/PPO-GG/unfit-for-print/commit/e8ea47c3593d22bbaefe167ae711aba1b93d68e0))
+* **web:** re-check a stalled round more than once ([#139](https://github.com/PPO-GG/unfit-for-print/issues/139)) ([45c45de](https://github.com/PPO-GG/unfit-for-print/commit/45c45de5da64aff69089cb7f41d350da77e82fe7))
+
+
+### ⚡ Performance
+
+* **web:** server-render the home page menu instead of deferring it ([#148](https://github.com/PPO-GG/unfit-for-print/issues/148)) ([6af2315](https://github.com/PPO-GG/unfit-for-print/commit/6af2315d79c7586b944ac530c2ee32f6a7a84823))
+* **web:** stop the card shine loop when it has settled ([#150](https://github.com/PPO-GG/unfit-for-print/issues/150)) ([be505a6](https://github.com/PPO-GG/unfit-for-print/commit/be505a6d37a4b08e9bff1205ddc5b08b7a516621))
+
+
+### 📖 Documentation
+
+* explain the pnpm 12 Windows launcher failure ([#149](https://github.com/PPO-GG/unfit-for-print/issues/149)) ([7bc4d37](https://github.com/PPO-GG/unfit-for-print/commit/7bc4d37e41800ef622e917fb0b3b6c21b031ecfa))
+
 ## [3.24.3](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.2...v3.24.3) (2026-09-20)
 
 
