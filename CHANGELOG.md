@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.26.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.25.0...v3.26.0) (2026-09-24)
+
+
+### ✨ Features
+
+* **web:** show 24h lobby and player counts on the lobby monitor ([#152](https://github.com/PPO-GG/unfit-for-print/issues/152)) ([198f42c](https://github.com/PPO-GG/unfit-for-print/commit/198f42c569e500ade146d1d1d216b7a683386a57))
+
+
+### 🐛 Bug Fixes
+
+* **web:** remove unused @nuxtjs/mdc module ([#153](https://github.com/PPO-GG/unfit-for-print/issues/153)) ([c32df89](https://github.com/PPO-GG/unfit-for-print/commit/c32df8911ccf3eb3dc17659e1e21db8a959928c3))
+
 ## [3.25.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.24.3...v3.25.0) (2026-09-21)
 
 
