@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, players, users } from "~~/server/db/schema";
+import { recordActivity } from "~~/server/utils/activity";
 import { requireNonGuest } from "~~/server/utils/session";
 
 function randomCode(): string {
@@ -58,6 +59,9 @@ export default defineEventHandler(async (event) => {
     isHost: true,
     playerType: "player",
   });
+
+  await recordActivity("lobby_created", lobby.id, userId);
+  await recordActivity("player_joined", lobby.id, userId);
 
   return lobby;
 });

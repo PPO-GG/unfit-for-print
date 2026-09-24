@@ -2,6 +2,7 @@
 // Automated background sweeper for stale/orphaned lobbies.
 // Runs every 30 minutes in server runtime.
 
+import { pruneActivity } from "~~/server/utils/activity";
 import { pruneStaleLobbies } from "~~/server/utils/pruneLobbies";
 import { reconcileLobbiesFromLiveDocs } from "~~/server/utils/reconcileLobbies";
 
@@ -33,6 +34,11 @@ export default defineNitroPlugin((nitroApp) => {
         console.log(
           `[LobbySweeper] Pruned ${result.prunedCount} stale lobbies (${result.orphanedCount} orphaned >2h, ${result.completedCount} completed >1h)`,
         );
+      }
+
+      const agedOut = await pruneActivity();
+      if (agedOut > 0) {
+        console.log(`[LobbySweeper] Pruned ${agedOut} activity row(s) >30d`);
       }
     } catch (err: any) {
       console.warn("[LobbySweeper] Periodic sweep failed:", err?.message || err);

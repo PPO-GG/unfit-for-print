@@ -92,6 +92,13 @@
       "when": 1789339366281,
       "tag": "0012_pack_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790276832996,
+      "tag": "0013_activity_events",
+      "breakpoints": true
     }
   ]
 }

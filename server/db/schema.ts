@@ -333,3 +333,29 @@ export const issueEvents = pgTable(
     index("issue_events_lobby_code_idx").on(table.lobbyCode),
   ],
 );
+
+/**
+ * Append-only activity log behind the admin "last 24 hours" counts. It exists
+ * because nothing else can answer that: the sweeper deletes lobbies 1–2 hours
+ * after they go stale, players cascade with them, and orphaned guest users go
+ * after 15 minutes. So both ids are bare uuids with no .references() — an FK
+ * would either block the prune or cascade the history away with it.
+ *
+ * One row per lobby created and per seat taken by a human (bots are not
+ * logged). Rows age out after 30 days, in the lobby sweeper.
+ */
+export const activityEvents = pgTable(
+  "activity_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind", { enum: ["lobby_created", "player_joined"] }).notNull(),
+    lobbyId: uuid("lobby_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("activity_events_kind_created_idx").on(table.kind, table.createdAt),
+  ],
+);
