@@ -62,7 +62,6 @@ export default defineNuxtConfig({
     "@nuxtjs/device",
     "@nuxt/scripts",
     "@vite-pwa/nuxt",
-    "@nuxtjs/mdc",
     "nuxt-auth-utils",
   ],
 
