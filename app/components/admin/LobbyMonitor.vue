@@ -5,6 +5,7 @@ import { getPaginationRowModel, type SortingState } from "@tanstack/vue-table";
 import { useNotifications } from "~/composables/useNotifications";
 import type { UnifiedLobby } from "~~/server/utils/mergeLobbies";
 import type { UnifiedStatusResponse } from "~~/server/api/admin/teleportal/status.get";
+import type { ActivityStats } from "~~/server/utils/activity";
 
 const { notify } = useNotifications();
 const { confirm } = useConfirm();
@@ -12,6 +13,7 @@ const { $activityFetch } = useNuxtApp();
 
 // ── State ─────────────────────────────────────────────────────────────────
 const status = ref<UnifiedStatusResponse | null>(null);
+const activity = ref<ActivityStats | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const searchTerm = ref("");
@@ -98,9 +100,22 @@ function lobbyName(lobby: UnifiedLobby): string {
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────
+// Fetched beside the status call but failing on its own: the counters are
+// history, and an outage there must not blank the live lobby table.
+const fetchActivity = async () => {
+  try {
+    activity.value = await $activityFetch<ActivityStats>(
+      "/api/admin/stats/activity",
+    );
+  } catch (err: any) {
+    console.warn("[LobbyMonitor] Activity stats fetch failed:", err);
+  }
+};
+
 const fetchStatus = async () => {
   loading.value = true;
   error.value = null;
+  fetchActivity();
   try {
     status.value = await $activityFetch<UnifiedStatusResponse>(
       "/api/admin/teleportal/status",
@@ -398,6 +413,26 @@ onUnmounted(() => {
         >
           Refresh
         </UButton>
+      </div>
+    </div>
+
+    <!-- ═══ LAST 24 HOURS ════════════════════════════════════════════════ -->
+    <div v-if="activity" class="grid grid-cols-2 gap-3 sm:max-w-md">
+      <div class="bg-slate-800/40 border border-slate-700/60 rounded-lg px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-slate-400">
+          Lobbies · last {{ activity.windowHours }}h
+        </p>
+        <p class="text-2xl font-semibold text-white tabular-nums">
+          {{ activity.lobbiesCreated }}
+        </p>
+      </div>
+      <div class="bg-slate-800/40 border border-slate-700/60 rounded-lg px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-slate-400">
+          Players · last {{ activity.windowHours }}h
+        </p>
+        <p class="text-2xl font-semibold text-white tabular-nums">
+          {{ activity.uniquePlayers }}
+        </p>
       </div>
     </div>
 
