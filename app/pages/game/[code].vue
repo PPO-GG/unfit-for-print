@@ -734,6 +734,8 @@ function handleResetGame() {
       </div>
     </Transition>
 
+    <ConnectionBanner />
+
     <!-- Join modal -->
     <div
       v-if="showJoinModal"

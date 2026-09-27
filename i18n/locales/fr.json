@@ -47,6 +47,7 @@
   "game.player_submitted": "Soumis",
   "game.points": "Points",
   "game.refresh_page": "Actualiser la page",
+  "game.reconnecting": "Connexion perdue — reconnexion…",
   "game.retry": "Réessayer",
   "game.round": "Rond",
   "game.round_over": "Arrondir",

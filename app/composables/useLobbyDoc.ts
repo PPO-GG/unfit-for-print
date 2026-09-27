@@ -19,6 +19,7 @@ import {
 } from "teleportal/providers";
 import { teleportalHttpBase } from "~/utils/teleportalHttp";
 import { trackConnectionHealth } from "~/utils/connectionHealth";
+import { reviveConnectionOnReturn } from "~/utils/connectionRevival";
 
 
 // ─── Y.Doc Map Keys ─────────────────────────────────────────────────────────
@@ -132,6 +133,8 @@ interface LobbyDocState {
   reconnectCount: Ref<number>;
   /** Detaches the connection-health listeners from the current connection. */
   untrackConnection: (() => void) | null;
+  /** Detaches the online / visibility listeners that revive a dead link. */
+  stopRevival: (() => void) | null;
   lobbyCode: Ref<string | null>;
 }
 
@@ -149,6 +152,7 @@ const _state: LobbyDocState = _prev ?? {
   connectionState: ref("idle"),
   reconnectCount: ref(0),
   untrackConnection: null,
+  stopRevival: null,
   lobbyCode: ref<string | null>(null),
 };
 
@@ -274,6 +278,12 @@ export function useLobbyDoc(): LobbyDocResult {
       transports: [websocketTransport({ timeout: 5_000 })],
       heartbeatInterval: 15_000, // Ping every 15s to keep alive
       messageReconnectTimeout: 60_000, // 60s timeout (more generous than Rundown's 45s — games have idle phases)
+      // Never give up. The default is 10 attempts, which at 100ms × 1.3ⁿ
+      // spends its whole budget in ~5s of outage and then sits in `errored`
+      // for good — the game simply stops updating, with nothing to say why.
+      // The backoff already caps each wait at 30s, so retrying forever costs
+      // one handshake per half-minute.
+      maxReconnectAttempts: Number.POSITIVE_INFINITY,
     });
 
     const provider = await Provider.create({
@@ -309,6 +319,17 @@ export function useLobbyDoc(): LobbyDocResult {
       },
       () => _state.activeConnection === connection,
     );
+
+    // Covers what infinite retries can't — see ~/utils/connectionRevival.
+    _state.stopRevival?.();
+    _state.stopRevival =
+      typeof window !== "undefined"
+        ? reviveConnectionOnReturn(connection, {
+            window,
+            document,
+            isCurrent: () => _state.activeConnection === connection,
+          })
+        : null;
 
     // Expose to composable consumers
     doc.value = ydoc;
@@ -397,6 +418,10 @@ export function useLobbyDoc(): LobbyDocResult {
     if (_state.untrackConnection) {
       _state.untrackConnection();
       _state.untrackConnection = null;
+    }
+    if (_state.stopRevival) {
+      _state.stopRevival();
+      _state.stopRevival = null;
     }
     if (_state.activeConnection) {
       try {

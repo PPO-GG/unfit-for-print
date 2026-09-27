@@ -47,6 +47,7 @@
   "game.player_submitted": "已提交",
   "game.points": "积分",
   "game.refresh_page": "刷新页面",
+  "game.reconnecting": "连接已断开 — 正在重新连接…",
   "game.retry": "重试",
   "game.round": "圆形的",
   "game.round_over": "四舍五入",

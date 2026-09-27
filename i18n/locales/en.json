@@ -54,6 +54,7 @@
   "game.player_was_skipped": "{name} was skipped",
   "game.points": "Points",
   "game.refresh_page": "Refresh Page",
+  "game.reconnecting": "Connection lost — reconnecting…",
   "game.retry": "Retry",
   "game.first_to": "First to",
   "game.locked": "Locked",
