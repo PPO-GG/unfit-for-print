@@ -47,6 +47,7 @@
   "game.player_submitted": "제출된",
   "game.points": "전철기",
   "game.refresh_page": "페이지 새로 고침",
+  "game.reconnecting": "연결이 끊겼습니다 — 다시 연결하는 중…",
   "game.retry": "다시 해 보다",
   "game.round": "둥근",
   "game.round_over": "라운드 오버",

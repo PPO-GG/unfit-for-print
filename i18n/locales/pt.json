@@ -47,6 +47,7 @@
   "game.player_submitted": "Enviado",
   "game.points": "Pontos",
   "game.refresh_page": "Atualizar página",
+  "game.reconnecting": "Conexão perdida — reconectando…",
   "game.retry": "Tentar novamente",
   "game.round": "Redondo",
   "game.round_over": "Arredondar para cima",

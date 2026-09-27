@@ -47,6 +47,7 @@
   "game.player_submitted": "Enviado",
   "game.points": "Agujas",
   "game.refresh_page": "Actualizar página",
+  "game.reconnecting": "Conexión perdida: reconectando…",
   "game.retry": "Rever",
   "game.round": "Redondo",
   "game.round_over": "Redondeo",

@@ -47,6 +47,7 @@
   "game.player_submitted": "提出済み",
   "game.points": "ポイント",
   "game.refresh_page": "ページを更新",
+  "game.reconnecting": "接続が切れました — 再接続中…",
   "game.retry": "リトライ",
   "game.round": "ラウンド",
   "game.round_over": "ラウンドオーバー",
