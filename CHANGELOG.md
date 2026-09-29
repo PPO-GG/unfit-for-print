@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.26.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.26.0...v3.26.1) (2026-09-29)
+
+
+### 🐛 Bug Fixes
+
+* **web:** let leaveLobby finish when the Y.Doc is already gone ([#157](https://github.com/PPO-GG/unfit-for-print/issues/157)) ([89625b2](https://github.com/PPO-GG/unfit-for-print/commit/89625b207b1450b4400f273e33df85d76803d722))
+* **web:** recover lobby link after it gives up reconnecting ([#155](https://github.com/PPO-GG/unfit-for-print/issues/155)) ([ee06bd4](https://github.com/PPO-GG/unfit-for-print/commit/ee06bd409a49d50b1abcb473d2d3e60350ee7856))
+
 ## [3.26.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.25.0...v3.26.0) (2026-09-24)
 
 
