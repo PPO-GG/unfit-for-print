@@ -479,8 +479,12 @@ export const useLobby = () => {
       }
     }
 
-    // Remove from Y.Doc
-    mutations.removePlayer(userId, playerName);
+    // Remove from Y.Doc. The doc can already be gone (dropped socket, torn-down
+    // provider, double click) — the server call below must still run, or the
+    // player row lingers and the user never leaves the game page.
+    if (lobbyDoc.doc.value) {
+      mutations.removePlayer(userId, playerName);
+    }
 
     // Remove the player row on the server, and tear down the lobby
     // registry row too if this was the last human (self-heal logic moved
