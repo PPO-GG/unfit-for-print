@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   players: new Map<string, string>(),
   activityFetch: vi.fn(),
   disconnect: vi.fn(),
+  hasDoc: true,
 }));
 
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: state.activityFetch }));
@@ -17,7 +18,11 @@ vi.mock("~/composables/useLobbyDoc", () => ({
   useLobbyDoc: () => ({
     connect: async () => {},
     disconnect: state.disconnect,
-    doc: { value: { transact: (fn: () => void) => fn() } },
+    doc: {
+      get value() {
+        return state.hasDoc ? { transact: (fn: () => void) => fn() } : null;
+      },
+    },
     getMeta: () => state.meta,
     getPlayers: () => state.players,
     lobbyCode: { value: "ABCD" },
@@ -27,7 +32,11 @@ vi.mock("~/composables/useLobbyDoc", () => ({
 
 vi.mock("~/composables/useLobbyMutations", () => ({
   useLobbyMutations: () => ({
-    removePlayer: (userId: string) => state.players.delete(userId),
+    removePlayer: (userId: string) => {
+      // Mirrors the real mutation, which throws when there is no doc.
+      if (!state.hasDoc) throw new Error("[LobbyMutations] No active Y.Doc");
+      return state.players.delete(userId);
+    },
   }),
 }));
 
@@ -69,6 +78,7 @@ describe("useLobby.leaveLobby host handoff", () => {
     setActivePinia(createPinia());
     vi.stubGlobal("useDiscordSDK", () => ({ isDiscordActivity: { value: false } }));
     vi.clearAllMocks();
+    state.hasDoc = true;
     state.meta.clear();
     state.meta.set("status", "waiting");
     state.meta.set("hostUserId", "host");
@@ -118,5 +128,17 @@ describe("useLobby.leaveLobby host handoff", () => {
 
     expect(state.meta.get("closedAt")).toEqual(expect.any(Number));
     expect(state.meta.get("hostUserId")).toBe("host");
+  });
+
+  it("still leaves on the server when the Y.Doc is already gone", async () => {
+    state.hasDoc = false;
+    serverAnswers({ success: true, newHostUserId: null, lobbyClosed: false });
+
+    await expect(useLobby().leaveLobby("lobby-1", "host")).resolves.toBeUndefined();
+
+    expect(state.activityFetch).toHaveBeenCalledWith(
+      "/api/lobby/leave",
+      expect.objectContaining({ method: "POST", body: { lobbyId: "lobby-1" } }),
+    );
   });
 });
