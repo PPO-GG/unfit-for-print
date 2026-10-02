@@ -3,6 +3,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PREFS_COOKIE_OPTIONS } from "./app/constants/persistence";
 
+// Canonical origin. Also feeds runtimeConfig.public.baseUrl below. The SEO
+// modules bake this in at build time (override at runtime with NUXT_SITE_URL),
+// so the default must be the real origin -- docker-compose only
+// provides NUXT_PUBLIC_BASE_URL at runtime, and a localhost default here would
+// put localhost in every canonical, og:url and sitemap entry.
+const siteUrl =
+  process.env.NUXT_PUBLIC_BASE_URL ||
+  process.env.DEPLOY_URL ||
+  "https://unfit.cards";
+
 const pkg = JSON.parse(
   readFileSync(join(import.meta.dirname, "package.json"), "utf-8"),
 );
@@ -63,7 +73,48 @@ export default defineNuxtConfig({
     "@nuxt/scripts",
     "@vite-pwa/nuxt",
     "nuxt-auth-utils",
+    "@nuxtjs/seo",
   ],
+
+  // ─── SEO ──────────────────────────────────────────────────────────────
+  // @nuxtjs/seo bundles robots, sitemap, schema.org, canonical/og:url
+  // generation and site-config. Per-page canonicals now come from the route,
+  // not a global useHead() (which used to point every page at the homepage).
+  site: {
+    url: siteUrl,
+    name: "Unfit for Print",
+    description:
+      "Unfit for Print is a free online party card game in the style of Cards Against Humanity. Create a lobby, share the code and play with friends in your browser.",
+    defaultLocale: "en",
+  },
+
+  // We ship a hand-made 1200x630 /img/og.png; runtime image generation would
+  // pull satori/chromium into the Docker image for no gain.
+  ogImage: { enabled: false },
+  // Dev-time crawler of our own pages; noisy for an SSR app with dynamic routes.
+  linkChecker: { enabled: false },
+
+  robots: {
+    // Crawl-blocked outright: nothing here is content. Lobbies (/game/**) are
+    // left crawlable-but-noindex via routeRules so the noindex is actually seen.
+    disallow: ["/api/", "/admin", "/auth/", "/activity"],
+  },
+
+  sitemap: {
+    // Only the public marketing/doc pages. Everything else is noindex below.
+    exclude: ["/game/**", "/activity/**", "/admin/**", "/auth/**", "/profile"],
+  },
+
+  // `robots: false` sets noindex (meta + X-Robots-Tag) and a robots.txt
+  // Disallow for the matching routes.
+  routeRules: {
+    "/game": { robots: false },
+    "/game/**": { robots: false },
+    "/activity/**": { robots: false },
+    "/admin/**": { robots: false },
+    "/auth/**": { robots: false },
+    "/profile": { robots: false },
+  },
 
   // The persistedstate module defaults to a cookie with no expiry, i.e. a
   // session cookie -- see app/constants/persistence.ts. Give it a real
@@ -181,10 +232,7 @@ export default defineNuxtConfig({
     },
 
     public: {
-      baseUrl:
-        process.env.NUXT_PUBLIC_BASE_URL ||
-        process.env.DEPLOY_URL ||
-        "http://localhost:3000",
+      baseUrl: siteUrl,
       appVersion: pkg.version,
 
       // Yjs lobby Teleportal server

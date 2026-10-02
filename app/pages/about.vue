@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { useLobbyActions } from "~/composables/useLobbyActions";
 
-useHead({ title: "About · Unfit for Print" });
+useSeoMeta({
+  title: "How to Play",
+  description:
+    "How to play Unfit for Print, a free online Cards Against Humanity-style party game: setup, the Judge role, game phases, scoring and FAQ.",
+});
 
 const {
   isJoining,
@@ -108,6 +112,13 @@ const faqItems = [
       "Every Card has a little card icon in the bottom left corner. Click it to bring up a popup to report the issue.",
   },
 ];
+
+useSchemaOrg([
+  defineWebPage({ "@type": "FAQPage" }),
+  ...faqItems.map((q) =>
+    defineQuestion({ name: q.label, acceptedAnswer: q.content }),
+  ),
+]);
 
 const navLinks = [
   { label: "How to Play", to: "#how-to-play" },

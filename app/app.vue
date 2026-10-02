@@ -164,28 +164,19 @@ const pageTransition = {
   mode: "out-in" as const,
 };
 
-// Default SEO meta — individual pages (e.g. game/[code].vue) override via useHead()
+// Site-wide defaults. Title template, canonical, og:url, og:title and
+// og:description are generated per route by @nuxtjs/seo (see nuxt.config.ts
+// `site`); pages override with useSeoMeta(). Don't set canonical/og:url here --
+// that once made every page canonicalise to the homepage.
+useSeoMeta({
+  ogImage: `${config.public.baseUrl}/img/og.png`,
+  ogImageWidth: 1200,
+  ogImageHeight: 630,
+  ogImageAlt: "Unfit for Print - a party game for hideous people",
+  twitterCard: "summary_large_image",
+});
 useHead({
-  title: "Unfit for Print",
-  meta: [
-    {
-      name: "description",
-      content:
-        "Join the chaos in Unfit for Print – a Cards Against Humanity-inspired party game!",
-    },
-    { property: "og:site_name", content: "Unfit for Print" },
-    { property: "og:title", content: "Unfit for Print" },
-    {
-      property: "og:description",
-      content:
-        "Join or create your own card game lobbies and cause chaos with friends.",
-    },
-    { property: "og:type", content: "website" },
-    { property: "og:url", content: config.public.baseUrl },
-    { property: "og:image", content: `${config.public.baseUrl}/img/og.png` },
-  ],
   link: [
-    { rel: "canonical", href: config.public.baseUrl },
     {
       rel: "icon",
       type: "image/svg+xml",

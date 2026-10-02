@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="min-h-screen flex flex-col items-center justify-center px-4 py-8 select-none"
-  >
+  <div class="flex flex-col items-center px-4 select-none">
     <!-- Avatar / User Menu (top-right corner) -->
     <ClientOnly>
       <div class="fixed top-4 right-4 z-20 scale-125 origin-top-right">
@@ -111,6 +109,12 @@
       </template>
     </ClientOnly>
 
+    <!-- First screen: the game menu. Positioned so the footer pins to its
+         bottom rather than to the end of the page, now that the crawlable
+         intro below makes the page taller than one screen. -->
+    <div
+      class="relative w-full min-h-screen flex flex-col items-center justify-center py-8"
+    >
     <div
       class="w-full max-w-6xl flex-1 flex flex-col justify-center gap-10 lg:flex-row lg:items-center py-8"
     >
@@ -123,11 +127,11 @@
           alt="Unfit For Print Logo"
           class="w-28 sm:w-36 lg:w-40 h-auto drop-shadow-xl pointer-events-none"
         />
-        <p
-          class="font-display text-sm sm:text-base tracking-[0.08em] text-slate-400 max-w-xs"
+        <h1
+          class="font-display text-sm sm:text-base tracking-[0.08em] text-slate-400 max-w-xs font-normal"
         >
           {{ t("tagline") }}
-        </p>
+        </h1>
 
         <div
           class="bg-slate-700/20 backdrop-blur-md outline-2 outline-offset-2 dark:outline-slate-500/20 outline-slate-900/20 rounded-2xl p-4 flex flex-col items-center gap-4 w-full max-w-sm"
@@ -379,6 +383,38 @@
       >
     </div>
 
+    </div>
+
+    <!-- Crawlable copy. The menu above is almost all labels, so without this
+         the homepage has nothing for a search engine to read. -->
+    <section
+      class="w-full max-w-3xl py-16 text-center text-slate-400 space-y-4"
+      aria-labelledby="home-intro-title"
+    >
+      <h2
+        id="home-intro-title"
+        class="font-display text-xl tracking-wider text-slate-200"
+      >
+        A free online party card game for 3+ players
+      </h2>
+      <p>
+        Unfit for Print is a Cards Against Humanity-style game that runs in your
+        browser. Nothing to download: create a lobby, share the four-letter
+        code, and your friends can join from any phone or computer.
+      </p>
+      <p>
+        Each round a Judge reads a black prompt card, everyone else secretly
+        plays their funniest white card, and the Judge picks a winner. Mix and
+        match card packs, play with voice read-aloud, or run it as a Discord
+        Activity.
+      </p>
+      <p>
+        <NuxtLink to="/about" class="underline hover:text-slate-200"
+          >Read the full rules and FAQ</NuxtLink
+        >
+      </p>
+    </section>
+
     <JoinTakeover v-model:open="showJoin" @joined="handleJoined" />
   </div>
 </template>
@@ -585,9 +621,24 @@ const handleSpeakClick = () => {
 
 const { vibrate } = useVibrate({ pattern: [10, 7, 5], interval: 0 });
 
+// titleTemplate "%s": the home title carries the brand itself.
 useHead({
-  title: "Unfit for Print",
+  title: "Unfit for Print – Free Online Cards Against Humanity-Style Party Game",
+  titleTemplate: "%s",
 });
+useSeoMeta({
+  description:
+    "Play Unfit for Print free in your browser: a Cards Against Humanity-style party game for 3+ players. Create a lobby, share the code, no download needed.",
+});
+useSchemaOrg([
+  defineWebSite({ inLanguage: "en" }),
+  defineSoftwareApp({
+    name: "Unfit for Print",
+    applicationCategory: "GameApplication",
+    operatingSystem: "Any (web browser)",
+    offers: { price: 0, priceCurrency: "USD" },
+  }),
+]);
 
 // How long to hold the cards face-down before swapping in the new ones. The
 // flip is a 1.5s elastic tween in WhiteCard/BlackCard, but that duration is

@@ -2,7 +2,11 @@
 import markdownit from "markdown-it";
 import privacypolicy from "../../../content/privacypolicy.md?raw";
 
-useHead({ title: "Privacy Policy · Unfit for Print" });
+useSeoMeta({
+  title: "Privacy Policy",
+  description:
+    "How Unfit for Print collects, uses and protects your data.",
+});
 
 const md = new markdownit({
   html: true,

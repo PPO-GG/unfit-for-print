@@ -2,7 +2,10 @@
 import markdownit from "markdown-it";
 import termsofservice from "../../../content/termsofservice.md?raw";
 
-useHead({ title: "Terms of Service · Unfit for Print" });
+useSeoMeta({
+  title: "Terms of Service",
+  description: "The terms of service for playing Unfit for Print.",
+});
 
 const md = new markdownit({
   html: true,
