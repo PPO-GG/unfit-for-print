@@ -1,5 +1,7 @@
 <template>
-  <div class="flex flex-col items-center px-4 select-none">
+  <div
+    class="min-h-screen flex flex-col items-center justify-center px-4 py-8 select-none"
+  >
     <!-- Avatar / User Menu (top-right corner) -->
     <ClientOnly>
       <div class="fixed top-4 right-4 z-20 scale-125 origin-top-right">
@@ -109,12 +111,6 @@
       </template>
     </ClientOnly>
 
-    <!-- First screen: the game menu. Positioned so the footer pins to its
-         bottom rather than to the end of the page, now that the crawlable
-         intro below makes the page taller than one screen. -->
-    <div
-      class="relative w-full min-h-screen flex flex-col items-center justify-center py-8"
-    >
     <div
       class="w-full max-w-6xl flex-1 flex flex-col justify-center gap-10 lg:flex-row lg:items-center py-8"
     >
@@ -383,20 +379,11 @@
       >
     </div>
 
-    </div>
-
-    <!-- Crawlable copy. The menu above is almost all labels, so without this
-         the homepage has nothing for a search engine to read. -->
-    <section
-      class="w-full max-w-3xl py-16 text-center text-slate-400 space-y-4"
-      aria-labelledby="home-intro-title"
-    >
-      <h2
-        id="home-intro-title"
-        class="font-display text-xl tracking-wider text-slate-200"
-      >
-        A free online party card game for 3+ players
-      </h2>
+    <!-- Crawlable copy, visually hidden: the page is the game's main menu and
+         should stay one screen, but the menu is almost all labels, so without
+         this a search engine has nothing to read. -->
+    <section class="sr-only" aria-labelledby="home-intro-title">
+      <h2 id="home-intro-title">A free online party card game for 3+ players</h2>
       <p>
         Unfit for Print is a Cards Against Humanity-style game that runs in your
         browser. Nothing to download: create a lobby, share the four-letter
@@ -408,11 +395,7 @@
         match card packs, play with voice read-aloud, or run it as a Discord
         Activity.
       </p>
-      <p>
-        <NuxtLink to="/about" class="underline hover:text-slate-200"
-          >Read the full rules and FAQ</NuxtLink
-        >
-      </p>
+      <NuxtLink to="/about">Read the full rules and FAQ</NuxtLink>
     </section>
 
     <JoinTakeover v-model:open="showJoin" @joined="handleJoined" />
