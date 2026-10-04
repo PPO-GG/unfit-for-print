@@ -13,6 +13,9 @@ describe("headlineFit", () => {
     expect(wordWidth(["M", "M", "M", "M"])).toBeGreaterThanOrEqual(5);
     expect(wordWidth(["W"])).toBeGreaterThan(1.2);
     expect(wordWidth(["👍🏽"])).toBeGreaterThan(1.2);
+    // Flags and keycaps aren't Extended_Pictographic but render emoji-wide too.
+    expect(wordWidth(["🇺🇸"])).toBeGreaterThan(1.2);
+    expect(wordWidth(["1️⃣"])).toBeGreaterThan(1.2);
   });
 
   it("is case-blind (the headline is uppercased)", () => {

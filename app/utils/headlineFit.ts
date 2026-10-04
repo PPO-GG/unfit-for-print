@@ -8,9 +8,11 @@
 export const LONG_WORD = 20;
 
 // Archivo Black's M and W are about 1em, not 0.78em; emoji render about as wide.
+// Flags (regional-indicator pairs) and keycaps (U+20E3) aren't
+// Extended_Pictographic, so they are matched separately.
 const WIDE = 1.3;
 const WIDE_LETTER = /^[MW]$/i;
-const EMOJI = /\p{Extended_Pictographic}/u;
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}|⃣/u;
 
 /** A word's width in average characters, from its grapheme clusters. */
 export function wordWidth(chars: string[]): number {
