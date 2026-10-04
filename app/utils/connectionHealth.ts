@@ -14,6 +14,9 @@
 /** The slice of Teleportal's connection this needs. `on` returns its own
  *  unsubscribe, which is what makes teardown exact. */
 export interface ObservableConnection {
+  /** Teleportal's current state. Events fire only on transitions, so a link
+   *  that connected before `on` was called is visible here and nowhere else. */
+  readonly state?: { type?: string };
   // Loosely typed on purpose. Teleportal's own `on` is generic over a hook-key
   // map, and a `string` event parameter here does not structurally satisfy it
   // — the alternative is a cast at the call site, which would hide a real
@@ -41,7 +44,10 @@ export function trackConnectionHealth(
   sink: ConnectionHealthSink,
   isCurrent: () => boolean,
 ): () => void {
-  let opens = 0;
+  const initial = connection.state?.type;
+  // Joining a link that is already up: that open is the connection, not a
+  // reconnection, so count it now or the first real drop is under-reported.
+  let opens = initial === "connected" ? 1 : 0;
   const unsubscribes: Array<() => void> = [];
 
   const listen = (event: string, handler: (...args: any[]) => void) => {
@@ -49,7 +55,11 @@ export function trackConnectionHealth(
     if (typeof off === "function") unsubscribes.push(off);
   };
 
-  sink.setState("connecting");
+  // Seed from the connection itself. Provider.create resolves with the link
+  // usually already up, so its "update" fired before anything was listening;
+  // assuming "connecting" here pinned the state there and left the
+  // reconnecting banner on screen for the whole session.
+  sink.setState(initial ?? "connecting");
   sink.setReconnectCount(0);
 
   listen("update", (state: { type?: string } | undefined) => {

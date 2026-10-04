@@ -5,9 +5,10 @@ import { trackConnectionHealth } from "~/utils/connectionHealth";
 
 /** Stands in for Teleportal's connection: an event emitter whose `on`
  *  returns its own unsubscribe, which is the part teardown relies on. */
-function fakeConnection() {
+function fakeConnection(initial?: { type: string }) {
   const handlers = new Map<string, Set<(...args: any[]) => void>>();
   return {
+    state: initial,
     on(event: string, handler: (...args: any[]) => void) {
       const set = handlers.get(event) ?? new Set();
       set.add(handler);
@@ -45,6 +46,27 @@ describe("trackConnectionHealth", () => {
     trackConnectionHealth(fakeConnection(), s, () => true);
 
     expect(s.state).toEqual({ state: "connecting", reconnects: 0 });
+  });
+
+  // Provider.create resolves with the link already up, so the "update" that
+  // announced it fired before anything was listening. Hard-coding "connecting"
+  // left the state there for good and the reconnecting banner never went away.
+  it("starts from a link that connected before tracking began", () => {
+    const s = sink();
+    trackConnectionHealth(fakeConnection({ type: "connected" }), s, () => true);
+
+    expect(s.state).toEqual({ state: "connected", reconnects: 0 });
+  });
+
+  it("does not count the connection it joined as a reconnection", () => {
+    const conn = fakeConnection({ type: "connected" });
+    const s = sink();
+    trackConnectionHealth(conn, s, () => true);
+
+    conn.emit("update", { type: "disconnected" });
+    conn.emit("connected");
+
+    expect(s.state.reconnects).toBe(1);
   });
 
   it("mirrors the transport's own state", () => {
