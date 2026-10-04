@@ -38,7 +38,18 @@ const winnerNames = computed(
   () => podium.value.steps[0]?.entries.map((e) => e.name).join(" & ") ?? "",
 );
 const headline = computed(() => t("gameover.wins", { name: winnerNames.value }));
-const headlineChars = computed(() => Array.from(headline.value));
+// One wrapper per word so the headline only ever wraps between words; each word
+// is split into grapheme clusters (not code points) so emoji stay whole.
+const segmenter =
+  typeof Intl !== "undefined" && "Segmenter" in Intl
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
+function splitChars(word: string): string[] {
+  return segmenter ? Array.from(segmenter.segment(word), (s) => s.segment) : Array.from(word);
+}
+const headlineWords = computed(() =>
+  headline.value.split(" ").map((word) => ({ word, chars: splitChars(word) })),
+);
 
 function playerFor(id: string): Player | undefined {
   return props.players.find((p) => p.userId === id) ?? props.players.find((p) => p.$id === id);
@@ -84,37 +95,49 @@ async function handleContinue() {
 // ── Entrance ──
 const rootEl = ref<HTMLElement | null>(null);
 
+let entrance: { kill: () => void } | null = null;
+let unmounted = false;
+
 function runEntrance() {
   const root = rootEl.value;
-  if (!root) return;
+  if (!root || unmounted) return;
   if (reducedMotion.value === "reduce") {
-    gsap.fromTo(root, { opacity: 0 }, { opacity: 1, duration: 0.3 });
+    entrance = gsap.fromTo(root, { opacity: 0 }, { opacity: 1, duration: 0.3 });
     return;
   }
   const q = (sel: string) => Array.from(root.querySelectorAll(sel));
   const stepFor = (place: number) => root.querySelector(`.go-step[data-place="${place}"] .go-block`);
   const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-  tl.fromTo(root, { opacity: 0 }, { opacity: 1, duration: 0.25 })
-    .fromTo(q(".go-char"), { opacity: 0, scale: 2.2, y: -20 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "back.out(2)", stagger: 0.035 }, 0.1)
-    .fromTo(q(".go-kicker"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 }, "-=0.2");
+  entrance = tl;
+  // GSAP warns on empty target lists, so only add a tween when there is something to animate.
+  const addIf = (
+    targets: Element[] | Element | null,
+    from: gsap.TweenVars,
+    to: gsap.TweenVars,
+    position?: gsap.Position,
+  ) => {
+    if (!targets || (Array.isArray(targets) && targets.length === 0)) return;
+    tl.fromTo(targets, from, to, position);
+  };
+  tl.fromTo(root, { opacity: 0 }, { opacity: 1, duration: 0.25 });
+  addIf(q(".go-char"), { opacity: 0, scale: 2.2, y: -20 }, { opacity: 1, scale: 1, y: 0, duration: 0.45, ease: "back.out(2)", stagger: 0.035 }, 0.1);
+  addIf(q(".go-kicker"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 }, "-=0.2");
   for (const place of [3, 2, 1]) {
-    const block = stepFor(place);
-    if (block) {
-      tl.fromTo(block, { scaleY: 0, transformOrigin: "bottom center" }, { scaleY: 1, duration: 0.5, ease: "back.out(1.4)" }, "-=0.25");
-    }
+    addIf(stepFor(place), { scaleY: 0, transformOrigin: "bottom center" }, { scaleY: 1, duration: 0.5, ease: "back.out(1.4)" }, "-=0.25");
   }
-  tl.fromTo(q(".go-person"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.06 }, "-=0.3")
-    .fromTo(q(".go-crown"), { y: -140, opacity: 0, rotation: -25 }, { y: 0, opacity: 1, rotation: 0, duration: 0.8, ease: "bounce.out" }, "-=0.1")
-    .call(celebrate)
-    .fromTo(q(".go-row"), { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.06 }, "-=0.4")
-    .fromTo(q(".go-actions"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.4)" }, "-=0.2");
+  addIf(q(".go-person"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.06 }, "-=0.3");
+  addIf(q(".go-crown"), { y: -140, opacity: 0, rotation: -25 }, { y: 0, opacity: 1, rotation: 0, duration: 0.8, ease: "bounce.out" }, "-=0.1");
+  tl.call(celebrate);
+  addIf(q(".go-row"), { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.06 }, "-=0.4");
+  addIf(q(".go-actions"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.4)" }, "-=0.2");
 }
 
 async function celebrate() {
-  if (reducedMotion.value === "reduce") return;
+  if (unmounted || reducedMotion.value === "reduce") return;
   const iWon = podium.value.steps[0]?.entries.some((e) => e.playerId === myId.value);
   try {
     const { burstConfetti } = await import("~/utils/confetti");
+    if (unmounted) return;
     burstConfetti({ particleCount: iWon ? 160 : 60, spread: iWon ? 110 : 70, origin: { x: 0.5, y: 0.3 } });
   } catch {
     // confetti unavailable — the podium is celebration enough
@@ -127,6 +150,9 @@ onMounted(() => {
   nextTick(runEntrance);
 });
 onUnmounted(() => {
+  unmounted = true;
+  entrance?.kill();
+  entrance = null;
   if (autoReturnInterval) window.clearInterval(autoReturnInterval);
 });
 </script>
@@ -135,7 +161,10 @@ onUnmounted(() => {
   <div ref="rootEl" class="go lobby-tokens" :class="{ 'go--compact': isCompact }">
     <p class="go-kicker">🎉 {{ t("gameover.subtitle", { round, goal }) }}</p>
     <h1 class="go-title" :aria-label="headline">
-      <span v-for="(ch, i) in headlineChars" :key="i" class="go-char" aria-hidden="true">{{ ch === " " ? " " : ch }}</span>
+      <template v-for="(w, wi) in headlineWords" :key="wi">
+        <span class="go-word" aria-hidden="true"><span v-for="(ch, ci) in w.chars" :key="ci" class="go-char">{{ ch }}</span></span>
+        <template v-if="wi < headlineWords.length - 1">{{ " " }}</template>
+      </template>
     </h1>
 
     <div class="go-podium">
@@ -182,7 +211,7 @@ onUnmounted(() => {
         class="go-row"
         :class="{ 'is-me': e.playerId === myId }"
       >
-        <span>{{ e.rank }} · {{ e.name }}</span>
+        <span class="go-row-name">{{ e.rank }} · {{ e.name }}</span>
         <span>{{ e.points }}</span>
       </li>
     </ol>
@@ -221,6 +250,8 @@ onUnmounted(() => {
 .go-title {
   margin: 0;
   text-align: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-family: "Archivo Black", sans-serif;
   font-size: clamp(2.4rem, 9vw, 6rem);
   line-height: 0.95;
@@ -228,6 +259,7 @@ onUnmounted(() => {
   color: var(--lb-accent-yellow);
   text-shadow: 0 3px 0 #6b5a10, 0 0 30px rgba(245, 212, 66, 0.35);
 }
+.go-word { display: inline-block; white-space: nowrap; }
 .go-char { display: inline-block; }
 .go-podium {
   width: 100%;
@@ -241,6 +273,7 @@ onUnmounted(() => {
 .go-step {
   flex: 1 1 0;
   max-width: 14rem;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -278,6 +311,10 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px var(--lb-accent-yellow), 0 0 24px rgba(245, 212, 66, 0.5);
 }
 .go-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: "Archivo Black", sans-serif;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -320,6 +357,12 @@ onUnmounted(() => {
   background: rgba(10, 13, 28, 0.7);
   font-weight: 600;
   font-size: 1.05rem;
+}
+.go-row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .go-row.is-me { border-color: var(--lb-accent-shadow); color: var(--lb-accent); }
 .go-actions {

@@ -14,7 +14,7 @@ vi.mock("~/composables/useNotifications", () => ({ useNotifications: () => ({ no
 vi.mock("~/composables/useSfx", () => ({ useSfx: () => ({ playSfx: vi.fn() }) }));
 vi.mock("~/utils/confetti", () => ({ burstConfetti: vi.fn() }));
 vi.mock("gsap", () => {
-  const tl = { fromTo: vi.fn().mockReturnThis(), to: vi.fn().mockReturnThis(), call: vi.fn().mockReturnThis() };
+  const tl = { fromTo: vi.fn().mockReturnThis(), to: vi.fn().mockReturnThis(), call: vi.fn().mockReturnThis(), kill: vi.fn() };
   return { gsap: { timeline: vi.fn(() => tl), fromTo: vi.fn(), set: vi.fn() } };
 });
 vi.mock("~/composables/useCompactLayout", () => ({
@@ -52,6 +52,21 @@ describe("GameOver (podium)", () => {
     const w = mk();
     expect(w.get(".go-title").attributes("aria-label")).toBe('gameover.wins|{"name":"Mynd"}');
     expect(w.get(".go-kicker").text()).toContain('gameover.subtitle|{"round":15,"goal":10}');
+  });
+
+  it("wraps the headline by word, never splitting a word's characters across wrappers", () => {
+    const w = mk({ leaderboard: [{ playerId: "b", points: 7 }, { playerId: "a", points: 7 }] });
+    const label = w.get(".go-title").attributes("aria-label")!;
+    const words = w.findAll(".go-title .go-word");
+    expect(words).toHaveLength(label.split(" ").length);
+    expect(words.length).toBeGreaterThan(1);
+    expect(words.map((x) => x.findAll(".go-char").map((c) => c.text()).join(""))).toEqual(label.split(" "));
+    for (const c of w.findAll(".go-char")) expect(c.text()).not.toMatch(/\s/);
+  });
+
+  it("keeps an emoji as one character", () => {
+    const w = mk({ players: [pl("a", "Mynd 👍🏽"), ...players.slice(1)] });
+    expect(w.findAll(".go-char").map((c) => c.text())).toContain("👍🏽");
   });
 
   it("lays the podium out 2-1-3 and lists the rest with my row highlighted", () => {
