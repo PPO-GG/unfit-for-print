@@ -12,7 +12,7 @@ import SettingsSlideover from "~/components/SettingsSlideover.vue";
 // tests/components/game/GameBoard.test.ts.
 Object.assign(globalThis, Vue);
 
-function mountSlideover() {
+function mountSlideover({ compact = false } = {}) {
   const prefs = reactive({
     uiScale: 100,
     sfxVolume: 70,
@@ -49,12 +49,22 @@ function mountSlideover() {
   vi.stubGlobal("useNotifications", () => ({
     notify: notifyMock,
   }));
+  vi.stubGlobal("useCompactLayout", () => ({
+    isCompact: Vue.ref(compact),
+  }));
 
   const wrapper = mount(SettingsSlideover, {
     props: { open: true },
     global: {
       stubs: {
-        USlideover: { template: "<div><slot name='content' /></div>" },
+        USlideover: {
+          template: "<div data-testid='slideover'><slot name='content' /></div>",
+        },
+        UDrawer: {
+          props: { close: Boolean },
+          template:
+            "<div data-testid='drawer' :data-close='String(close)'><slot name='body' /></div>",
+        },
         UButton: { template: "<button v-bind=\"$attrs\"><slot /></button>" },
         UIcon: true,
         VoiceSwitcher: true,
@@ -86,5 +96,27 @@ describe("SettingsSlideover", () => {
     await wrapper.get("[data-testid='music-toggle-button']").trigger("click");
 
     expect(toggleMock).toHaveBeenCalledOnce();
+  });
+
+  it("uses the slideover on desktop", () => {
+    const { wrapper } = mountSlideover();
+
+    expect(wrapper.find("[data-testid='slideover']").exists()).toBe(true);
+    expect(wrapper.find("[data-testid='drawer']").exists()).toBe(false);
+  });
+
+  it("uses a closable bottom sheet on a phone", async () => {
+    const { wrapper } = mountSlideover({ compact: true });
+    // The sheet is gated on mount so SSR and hydration agree.
+    await Vue.nextTick();
+
+    const drawer = wrapper.get("[data-testid='drawer']");
+    expect(drawer.attributes("data-close")).toBe("true");
+    expect(wrapper.find("[data-testid='slideover']").exists()).toBe(false);
+
+    await drawer.get("[data-testid='sfx-volume-slider']").setValue(25);
+    expect(wrapper.find("[data-testid='music-toggle-button']").exists()).toBe(
+      true,
+    );
   });
 });
