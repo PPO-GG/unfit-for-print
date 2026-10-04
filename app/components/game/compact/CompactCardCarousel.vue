@@ -181,7 +181,10 @@ function onScroll() {
   overflow-y: visible;
   scroll-snap-type: x mandatory;
   scroll-padding-inline: 16px;
-  padding: 14px 16px 10px;
+  /* Headroom for the selected card: 8px lift + 6px outline + the 10px
+     "Yours"/order badges that sit above it. overflow-x: auto forces
+     overflow-y to clip, so anything above this padding is cut off. */
+  padding: 24px 16px 10px;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
@@ -200,6 +203,7 @@ function onScroll() {
   cursor: pointer;
 }
 .compact-slide.is-ringed {
+  z-index: 1;
   transform: translateY(-8px);
   outline: 3px solid var(--lb-accent);
   outline-offset: 3px;

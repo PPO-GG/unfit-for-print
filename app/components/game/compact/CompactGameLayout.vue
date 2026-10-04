@@ -184,9 +184,10 @@ const baseWidth = computed(() => {
 const promptScale = computed(() =>
   fitCardScale(promptW.value - 16, promptH.value - 8, baseWidth.value, { max: 170 }),
 );
-// The slot also holds the label row 44 + track padding 24 + dots 10 + ring lift ~6.
+// The slot also holds the label row 44 + track padding 34 (24 top for the
+// selected card's lift and badges, 10 bottom) + dots 10.
 const cardScale = computed(() =>
-  fitCardScale(Number.POSITIVE_INFINITY, carouselH.value - 84, baseWidth.value, { max: 150 }),
+  fitCardScale(Number.POSITIVE_INFINITY, carouselH.value - 88, baseWidth.value, { max: 150 }),
 );
 const judgeScale = computed(() =>
   pick.value > 1 ? Math.max(50, Math.round(cardScale.value * 0.8)) : cardScale.value,
