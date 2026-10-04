@@ -85,7 +85,10 @@ function initials(p: Player): string {
   color: var(--lb-ink);
 }
 .ctb-pill {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border: 1px solid var(--lb-line-strong);
   border-radius: 999px;
   padding: 4px 10px;
@@ -103,7 +106,7 @@ function initials(p: Player): string {
   flex: 1;
   min-width: 0;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
   overflow: hidden;
   padding: 5px;
