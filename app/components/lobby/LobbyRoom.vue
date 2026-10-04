@@ -38,7 +38,13 @@
           <LobbyChat class="lobby-room-chat" :messages="reactive.chat.value" />
 
           <div class="lobby-room-table-wrap lobby-panel lobby-panel-striped">
+            <!-- Sits above the table rather than centred in the start bar, where
+                 it ran into the buttons on narrower windows. -->
+            <h1 class="lobby-room-title">
+              {{ reactive.settings.value?.lobbyName || "UNTITLED LOBBY" }}
+            </h1>
             <LobbyTable
+              class="lobby-room-table"
               :players="players"
               :max-seats="maxSeats"
               :is-host-user="isHost"
@@ -74,7 +80,6 @@
       </main>
 
       <LobbyStartBar
-        :lobby-name="reactive.settings.value?.lobbyName ?? ''"
         :players="players"
         :my-id="myId ?? ''"
         :is-host="isHost"
@@ -295,6 +300,26 @@ onBeforeUnmount(() => {
     gap: 12px;
     overflow: hidden;
   }
+}
+
+.lobby-room-title {
+  flex: none;
+  margin: 0 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--lb-ink);
+}
+
+.lobby-room-table {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .lobby-room-table-wrap {

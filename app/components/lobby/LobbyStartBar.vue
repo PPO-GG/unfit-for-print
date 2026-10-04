@@ -26,8 +26,6 @@
       </div>
     </div>
 
-    <div class="lsb-lobby-name">{{ lobbyName || "UNTITLED LOBBY" }}</div>
-
     <div class="lsb-spacer" />
 
     <div class="lsb-actions">
@@ -86,7 +84,6 @@ import type { Player } from "~/types/player";
 import { useLobbyStart, MIN_PLAYERS } from "~/composables/useLobbyStart";
 
 const props = defineProps<{
-  lobbyName: string;
   players: Player[];
   myId: string;
   isHost: boolean;
@@ -242,23 +239,6 @@ const panelStyle = computed(() => {
 
 .lsb-spacer { flex: 1; }
 
-.lsb-lobby-name {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(32vw, 460px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: 'Archivo Black', sans-serif;
-  font-size: 16px;
-  letter-spacing: 0.03em;
-  color: var(--lb-ink);
-  line-height: 1;
-  text-align: center;
-  pointer-events: none;
-}
-
 .lsb-actions {
   display: flex;
   align-items: center;
@@ -283,13 +263,4 @@ const panelStyle = computed(() => {
   color: var(--lb-ink-muted);
 }
 
-@media (max-width: 900px) {
-  .lsb-lobby-name {
-    position: static;
-    order: -1;
-    flex-basis: 100%;
-    max-width: none;
-    transform: none;
-  }
-}
 </style>
