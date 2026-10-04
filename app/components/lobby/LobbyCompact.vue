@@ -59,6 +59,7 @@ const start = useLobbyStart({
   onStart: () => emit("start"),
 });
 const startLabel = computed(() => {
+  if (props.isStarting) return t("lobby.compact.starting");
   if (!start.enoughPlayers.value) {
     return t("lobby.compact.need_more", { count: MIN_PLAYERS - props.players.length });
   }
@@ -73,6 +74,15 @@ const startLabel = computed(() => {
   }
   return t("lobby.compact.start", { count: props.players.length });
 });
+
+const guestHint = computed(() =>
+  start.allNonBotsReady.value && start.enoughPlayers.value
+    ? t("lobby.compact.waiting_host")
+    : t("lobby.compact.ready_count", {
+        ready: start.readyCount.value,
+        total: props.players.length,
+      }),
+);
 
 // ── Share ──
 async function share() {
@@ -155,6 +165,8 @@ watch(start.canStart, (ok) => {
         role="tab"
         class="lc-tab"
         :class="{ on: tab === name }"
+        :id="`lc-tab-${name}`"
+        :aria-controls="`lc-panel-${name}`"
         :aria-selected="tab === name"
         :data-tab="name"
         @click="tab = name"
@@ -164,7 +176,7 @@ watch(start.canStart, (ok) => {
       </button>
     </nav>
 
-    <section class="lc-panel" role="tabpanel">
+    <section class="lc-panel" role="tabpanel" :id="`lc-panel-${tab}`" :aria-labelledby="`lc-tab-${tab}`">
       <LobbyPlayerList
         v-if="tab === 'players'"
         :players="players"
@@ -192,6 +204,7 @@ watch(start.canStart, (ok) => {
     </section>
 
     <footer class="lc-bar">
+      <p v-if="!isHost" class="lc-hint">{{ guestHint }}</p>
       <button type="button" class="lc-btn lc-more" :aria-label="t('lobby.compact.more')" @click="moreOpen = true">⋯</button>
       <button
         type="button"
@@ -314,14 +327,27 @@ watch(start.canStart, (ok) => {
   padding: 10px 12px;
   -webkit-overflow-scrolling: touch;
 }
+.lc-panel :deep(.lpl-kick) { min-width: 44px; min-height: 44px; }
+.lc-panel :deep(.lpl-add-bot-link) { min-height: 44px; padding: 0 12px; }
 .lc-chat { height: 100% !important; }
 .lc-settings { display: flex; flex-direction: column; gap: 10px; }
 .lc-bar {
   grid-area: bar;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 12px max(14px, env(safe-area-inset-bottom));
   background: linear-gradient(transparent, var(--lb-bg-0) 30%);
+}
+.lc-hint {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lb-ink-dim);
 }
 .lc-btn {
   min-height: 48px;

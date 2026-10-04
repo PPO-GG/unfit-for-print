@@ -299,6 +299,7 @@
   "lobby.compact.share": "Tap to share invite",
   "lobby.compact.share_copied": "Invite link copied",
   "lobby.compact.start": "Start game · {count}",
+  "lobby.compact.starting": "Starting…",
   "lobby.compact.starting_in": "Starting in {seconds}",
   "lobby.compact.untitled": "Untitled lobby",
   "lobby.compact.waiting_host": "Waiting for host…",

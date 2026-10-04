@@ -194,6 +194,7 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 function handleEsc(e: KeyboardEvent) {
+  if (isCompact.value) return;
   if (e.key !== "Escape" || isTypingTarget(e.target)) return;
   if (settingsOpen.value || uiStore.showSettings) return;
   uiStore.showSettings = true;

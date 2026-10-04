@@ -93,6 +93,19 @@ describe("LobbyCompact", () => {
     expect(start.text()).toBe('lobby.compact.ready_count|{"ready":2,"total":3}');
   });
 
+  it("host start button reads Starting while the game is starting", () => {
+    const w = mk({ isStarting: true, players: [p("u1", true), p("u2", true), p("b1", false, "bot")] });
+    expect(w.get(".lc-start").text()).toBe("lobby.compact.starting");
+  });
+
+  it("guests see what they are waiting for", async () => {
+    const w = mk({ isHost: false, myId: "u2" });
+    expect(w.get(".lc-hint").text()).toBe('lobby.compact.ready_count|{"ready":2,"total":3}');
+    await w.setProps({ players: [p("u1", true), p("u2", true), p("b1", false, "bot")] });
+    expect(w.get(".lc-hint").text()).toBe("lobby.compact.waiting_host");
+    expect(mk().find(".lc-hint").exists()).toBe(false);
+  });
+
   it("guests get ready toggle and no start button", async () => {
     const w = mk({ isHost: false, myId: "u2" });
     expect(w.find(".lc-start").exists()).toBe(false);
