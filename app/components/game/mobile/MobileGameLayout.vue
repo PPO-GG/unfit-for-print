@@ -8,9 +8,9 @@ import MobileBlackCard from "~/components/game/mobile/MobileBlackCard.vue";
 import MobileSelectionSlots from "~/components/game/mobile/MobileSelectionSlots.vue";
 import MobileCardList from "~/components/game/mobile/MobileCardList.vue";
 import MobileActionBar from "~/components/game/mobile/MobileActionBar.vue";
-import { mergeCardText } from "~/composables/useMergeCards";
 import { SFX } from "~/config/sfx.config";
 import { isNewPrompt } from "~/utils/roundBoundary";
+import { buildReadAloudText, resolveWhiteTextsViaApi } from "~/utils/readAloud";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -151,29 +151,12 @@ async function handleReadAloud(playerId: string) {
   if (!import.meta.client) return;
   const sub = props.submissions[playerId];
   if (!sub || !props.blackCard) return;
-
-  // Resolve any card texts missing from the shared cardTexts map
-  const missingIds = sub.filter((cardId) => !props.cardTexts[cardId]?.text);
-  const resolvedTexts: Record<string, { text: string; pack: string }> = {};
-  if (missingIds.length > 0) {
-    try {
-      const resolved = await $fetch<{ id: string; text: string; pack: string }[]>(
-        "/api/cards/resolve",
-        { method: "POST", body: { ids: missingIds } },
-      );
-      for (const card of resolved) {
-        resolvedTexts[card.id] = { text: card.text, pack: card.pack };
-      }
-    } catch (err) {
-      console.error("[ReadAloud] Failed to resolve card texts:", err);
-    }
-  }
-
-  const whiteTexts = sub.map(
-    (cardId) =>
-      props.cardTexts[cardId]?.text ?? resolvedTexts[cardId]?.text ?? "",
+  const merged = await buildReadAloudText(
+    props.blackCard.text,
+    sub,
+    props.cardTexts,
+    resolveWhiteTextsViaApi,
   );
-  const merged = mergeCardText(props.blackCard.text, whiteTexts);
   if (merged) emit("read-aloud", merged);
 }
 

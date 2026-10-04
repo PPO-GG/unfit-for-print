@@ -186,7 +186,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overscroll-behavior: none;
   position: relative;
   overflow: hidden;
 }

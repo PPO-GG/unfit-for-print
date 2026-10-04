@@ -14,6 +14,7 @@ import { useCardPlayPreferences } from "@/composables/useCardPlayPreferences";
 import { useCardGesture } from "@/composables/useCardGesture";
 import { useWhiteDeckPosition } from "@/composables/useWhiteDeckPosition";
 import { useTouchDevice } from "@/composables/useTouchDevice";
+import { useCompactLayout } from "~/composables/useCompactLayout";
 import { SFX } from "~/config/sfx.config";
 import { isWithinFanFootprint } from "~/utils/fanFootprint";
 import { applyHoverTransform } from "~/utils/fanTransform";
@@ -81,10 +82,9 @@ const allSelected = computed(
 );
 
 // ── Responsive fan parameters ──────────────────────────────────────────────
-const windowWidth = ref(
-  typeof window !== "undefined" ? window.innerWidth : 1024,
-);
-const isMobile = computed(() => windowWidth.value < 768);
+// `width` still feeds the fan geometry below; `isCompact` replaces the old
+// width-only check so a landscape phone counts as mobile too.
+const { isCompact: isMobile, width: windowWidth } = useCompactLayout();
 
 const { isTouchDevice } = useTouchDevice();
 const isTabletTouch = computed(
@@ -521,16 +521,10 @@ const ringDashoffset = computed(() => {
 });
 
 // ── Window resize ──────────────────────────────────────────────────────────
-const handleResize = () => {
-  windowWidth.value = window.innerWidth;
-  animateCards();
-};
+// `useCompactLayout` owns the resize listener; re-fan when the width changes.
+watch(windowWidth, () => animateCards());
 
 onMounted(() => {
-  if (typeof window !== "undefined") {
-    window.addEventListener("resize", handleResize);
-  }
-
   // Detect which cards are genuinely new (not in previous hand)
   const hasReturnedCards = previousHandIds.size > 0;
   const newCardIds = hasReturnedCards
@@ -629,9 +623,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   cancelAutoSubmit();
-  if (typeof window !== "undefined") {
-    window.removeEventListener("resize", handleResize);
-  }
 });
 </script>
 

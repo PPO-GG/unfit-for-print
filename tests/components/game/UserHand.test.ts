@@ -1,7 +1,22 @@
 // tests/components/game/UserHand.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
+import { ref } from "vue";
 import UserHand from "~/components/game/UserHand.vue";
+
+(globalThis as any).useI18n = () => ({ t: (key: string) => key });
+// jsdom has no matchMedia, which the real composable calls on setup.
+vi.mock("~/composables/useTouchDevice", () => ({
+  useTouchDevice: () => ({ isTouchDevice: ref(false) }),
+}));
+vi.mock("~/composables/useCompactLayout", () => ({
+  useCompactLayout: () => ({
+    isCompact: ref(false),
+    orientation: ref("landscape"),
+    width: ref(1280),
+    height: ref(800),
+  }),
+}));
 
 // Mock the useSfx composable
 vi.mock("~/composables/useSfx", () => ({

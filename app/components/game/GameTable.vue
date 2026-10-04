@@ -3,7 +3,6 @@ import { ref, computed, watch, onMounted } from "vue";
 import type { Player } from "~/types/player";
 import type { CardTexts } from "~/types/gamecards";
 import { gsap } from "gsap";
-import { mergeCardText } from "~/composables/useMergeCards";
 import { getJudgingCardScale } from "~/composables/useJudgingDensity";
 import { useCardPlayPreferences } from "~/composables/useCardPlayPreferences";
 import { useCardPileChoreography } from "~/composables/useCardPileChoreography";
@@ -12,6 +11,7 @@ import { useWinnerTableCelebration } from "~/composables/useWinnerTableCelebrati
 import { useSfx } from "~/composables/useSfx";
 import { SFX } from "~/config/sfx.config";
 import { isNewPrompt, isLegacyRoundStart } from "~/utils/roundBoundary";
+import { buildReadAloudText, resolveWhiteTextsViaApi } from "~/utils/readAloud";
 import ScoreFlyBadge from "./ScoreFlyBadge.vue";
 
 interface BlackCard {
@@ -301,36 +301,13 @@ async function readAloud(playerId: string) {
   if (!import.meta.client) return;
   const sub = props.submissions[playerId];
   if (!sub || !props.blackCard) return;
-
-  // Check which card IDs are missing from the cardTexts map
-  const missingIds = sub.filter((cardId) => !props.cardTexts?.[cardId]?.text);
-
-  // Resolve missing texts on-demand (submitted cards aren't always in cardTexts)
-  const resolvedTexts: Record<string, { text: string; pack: string }> = {};
-  if (missingIds.length > 0) {
-    try {
-      const resolved = await $fetch<{ id: string; text: string; pack: string }[]>(
-        "/api/cards/resolve",
-        { method: "POST", body: { ids: missingIds } },
-      );
-      for (const card of resolved) {
-        resolvedTexts[card.id] = { text: card.text, pack: card.pack };
-      }
-    } catch (err) {
-      console.error("[ReadAloud] Failed to resolve card texts:", err);
-    }
-  }
-
-  // Merge cardTexts prop + freshly resolved texts
-  const whiteTexts = sub.map(
-    (cardId) =>
-      props.cardTexts?.[cardId]?.text ?? resolvedTexts[cardId]?.text ?? "",
+  const merged = await buildReadAloudText(
+    props.blackCard.text,
+    sub,
+    props.cardTexts ?? {},
+    resolveWhiteTextsViaApi,
   );
-
-  const merged = mergeCardText(props.blackCard.text, whiteTexts);
-  if (!merged) return;
-
-  emit("read-aloud", merged);
+  if (merged) emit("read-aloud", merged);
 }
 
 // ── Handlers ────────────────────────────────────────────────────

@@ -29,16 +29,16 @@ vi.mock("~/utils/confetti", () => ({
 }));
 vi.mock("gsap", () => ({ gsap: { to: vi.fn(), set: vi.fn(), fromTo: vi.fn() } }));
 
-vi.mock("@vueuse/core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@vueuse/core")>();
-  return {
-    ...actual,
-    // Force desktop layout so we exercise the WinnerCelebration/GameTable
-    // path (gated on winnerSelected) rather than the mobile action bar,
-    // which already has a phase-based "Continue" fallback.
-    useBreakpoints: () => ({ smaller: () => ref(false) }),
-  };
-});
+vi.mock("~/composables/useCompactLayout", () => ({
+  // Force desktop layout so we exercise the WinnerCelebration/GameTable
+  // path (gated on winnerSelected) rather than the compact action bar.
+  useCompactLayout: () => ({
+    isCompact: ref(false),
+    orientation: ref("landscape"),
+    width: ref(1280),
+    height: ref(800),
+  }),
+}));
 
 // GameBoard.vue calls useI18n()/useSfx() as bare Nuxt auto-imports (no
 // explicit import statements), so they must exist as globals under plain

@@ -176,6 +176,14 @@ useSeoMeta({
   twitterCard: "summary_large_image",
 });
 useHead({
+  meta: [
+    // viewport-fit=cover lets env(safe-area-inset-*) report real notch/home
+    // indicator insets; without it they are always 0.
+    {
+      name: "viewport",
+      content: "width=device-width, initial-scale=1, viewport-fit=cover",
+    },
+  ],
   link: [
     {
       rel: "icon",

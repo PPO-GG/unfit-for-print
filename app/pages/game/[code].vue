@@ -327,7 +327,13 @@ const ogTitleStatic = computed(() => {
 
 // Lobbies are noindex (routeRules in nuxt.config.ts) but still get link
 // previews, so the OG tags stay. The titles already carry the site name.
-useHead({ title: ogTitle, titleTemplate: "%s" });
+useHead({
+  title: ogTitle,
+  titleTemplate: "%s",
+  // A pull-to-refresh mid-game drops the Yjs connection. Element-level
+  // overscroll-behavior does nothing on overflow:hidden roots, so set it on <html>.
+  htmlAttrs: { style: "overscroll-behavior: none" },
+});
 useSeoMeta({
   description: ogDescription,
   ogTitle: ogTitleStatic,
@@ -407,11 +413,6 @@ function getPlayerName(playerId: string | null): string {
 
 // ─── Page Lifecycle ─────────────────────────────────────────────────────────
 onMounted(async () => {
-  const { isMobile } = useDevice();
-  const { isSizeMobile } = useDeviceType();
-  if ((isSizeMobile || isMobile) && isWaiting) {
-    isSidebarOpen.value = true;
-  }
   loading.value = true;
 
   try {
@@ -729,7 +730,7 @@ function handleResetGame() {
     <!-- Join modal -->
     <div
       v-if="showJoinModal"
-      class="flex flex-col justify-center items-center min-h-screen"
+      class="flex flex-col justify-center items-center min-h-dvh"
     >
       <JoinLobbyForm :initial-code="code" @joined="handleJoinSuccess" />
     </div>
@@ -737,7 +738,7 @@ function handleResetGame() {
     <!-- Main game layout -->
     <div
       v-if="!showJoinModal && lobby && players"
-      class="flex h-screen overflow-hidden"
+      class="flex h-dvh overflow-hidden"
     >
       <!-- Mobile menu button (hidden during active gameplay — mobile has its own controls) -->
       <UButton
@@ -918,6 +919,7 @@ function handleResetGame() {
   left: 0;
   z-index: 70;
   height: 100vh;
+  height: 100dvh;
   width: 21.25rem;
   max-width: 90vw;
   padding: 0;
