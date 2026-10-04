@@ -586,6 +586,18 @@ const handleJoinSuccess = async (joinedCode: string) => {
   joinedLobby.value = true;
 };
 
+// The card closes itself shortly after a join; only a close without one means
+// the visitor backed out, and there is nothing on this page for them then.
+let joinedFromCard = false;
+function onJoinCardJoined(joinedCode: string) {
+  joinedFromCard = true;
+  handleJoinSuccess(joinedCode);
+}
+function onJoinCardOpen(open: boolean) {
+  if (open || joinedFromCard) return;
+  router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+}
+
 const handleLeave = async () => {
   if (!lobby.value || !userStore.user?.id) return;
   selfLeaving.value = true;
@@ -727,12 +739,15 @@ function handleResetGame() {
 
     <ConnectionBanner />
 
-    <!-- Join modal -->
-    <div
-      v-if="showJoinModal"
-      class="flex flex-col justify-center items-center min-h-dvh"
-    >
-      <JoinLobbyForm :initial-code="code" @joined="handleJoinSuccess" />
+    <!-- Join card: a visitor without a seat here (usually an invite link)
+         only adds a name — the code comes from the URL. -->
+    <div v-if="showJoinModal" class="min-h-dvh">
+      <JoinTakeover
+        :open="showJoinModal"
+        :initial-code="code"
+        @joined="onJoinCardJoined"
+        @update:open="onJoinCardOpen"
+      />
     </div>
 
     <!-- Main game layout -->

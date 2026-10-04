@@ -9,60 +9,90 @@
       />
     </div>
 
-    <main class="lobby-room-main">
-      <div class="lobby-room-grid">
-        <LobbyChat class="lobby-room-chat" :messages="reactive.chat.value" />
-
-        <div class="lobby-room-table-wrap lobby-panel lobby-panel-striped">
-          <LobbyTable
-            :players="players"
-            :max-seats="maxSeats"
-            :is-host-user="isHost"
-            @add-bot="addBot"
-          />
-        </div>
-        <LobbyRoundPreview
-          class="lobby-room-preview"
-          :cards-per-player="reactive.settings.value?.cardsPerPlayer ?? 0"
-          :max-pick="reactive.settings.value?.maxPick ?? 0"
-          :active-packs-count="(reactive.settings.value?.cardPacks ?? []).length"
-        />
-
-        <aside class="lobby-room-sidebar">
-          <LobbyCodePanel :code="lobby.code" />
-          <LobbyPlayerList
-            :players="players"
-            :max-seats="maxSeats"
-            :is-host-user="isHost"
-            @add-bot="addBot"
-            @kick="handleKick"
-          />
-          <LobbySettingsSummary
-            :settings="reactive.settings.value"
-            :is-host="isHost"
-            :shuffling="shufflePending"
-            :pack-names="packNames"
-            @edit="settingsOpen = true"
-            @shuffle="shufflePacks"
-          />
-        </aside>
-      </div>
-    </main>
-
-    <LobbyStartBar
+    <LobbyCompact
+      v-if="isCompact"
+      :code="lobby.code"
       :lobby-name="reactive.settings.value?.lobbyName ?? ''"
       :players="players"
       :my-id="myId ?? ''"
       :is-host="isHost"
       :is-starting="isStarting"
       :max-seats="maxSeats"
+      :settings="reactive.settings.value ?? null"
+      :pack-names="packNames"
+      :shuffling="shufflePending"
+      :chat-messages="reactive.chat.value"
       @toggle-ready="handleToggleReady"
       @start="startGameWrapper"
       @add-bot="addBot"
+      @kick="handleKick"
       @leave="$emit('leave')"
-      @open-settings="settingsOpen = !settingsOpen"
+      @edit-settings="settingsOpen = true"
       @open-app-settings="uiStore.showSettings = true"
+      @shuffle="shufflePacks"
     />
+
+    <template v-else>
+      <main class="lobby-room-main">
+        <div class="lobby-room-grid">
+          <LobbyChat class="lobby-room-chat" :messages="reactive.chat.value" />
+
+          <div class="lobby-room-table-wrap lobby-panel lobby-panel-striped">
+            <!-- Sits above the table rather than centred in the start bar, where
+                 it ran into the buttons on narrower windows. -->
+            <h1 class="lobby-room-title">
+              {{ reactive.settings.value?.lobbyName || "UNTITLED LOBBY" }}
+            </h1>
+            <LobbyTable
+              class="lobby-room-table"
+              :players="players"
+              :max-seats="maxSeats"
+              :is-host-user="isHost"
+              @add-bot="addBot"
+            />
+          </div>
+          <LobbyRoundPreview
+            class="lobby-room-preview"
+            :cards-per-player="reactive.settings.value?.cardsPerPlayer ?? 0"
+            :max-pick="reactive.settings.value?.maxPick ?? 0"
+            :active-packs-count="(reactive.settings.value?.cardPacks ?? []).length"
+          />
+
+          <aside class="lobby-room-sidebar">
+            <LobbyCodePanel :code="lobby.code" />
+            <LobbyPlayerList
+              :players="players"
+              :max-seats="maxSeats"
+              :is-host-user="isHost"
+              @add-bot="addBot"
+              @kick="handleKick"
+            />
+            <LobbySettingsSummary
+              :settings="reactive.settings.value"
+              :is-host="isHost"
+              :shuffling="shufflePending"
+              :pack-names="packNames"
+              @edit="settingsOpen = true"
+              @shuffle="shufflePacks"
+            />
+          </aside>
+        </div>
+      </main>
+
+      <LobbyStartBar
+        :players="players"
+        :my-id="myId ?? ''"
+        :is-host="isHost"
+        :is-starting="isStarting"
+        :max-seats="maxSeats"
+        @toggle-ready="handleToggleReady"
+        @start="startGameWrapper"
+        @add-bot="addBot"
+        @leave="$emit('leave')"
+        @open-settings="settingsOpen = !settingsOpen"
+        @open-app-settings="uiStore.showSettings = true"
+      />
+    </template>
 
     <LobbySettingsDrawer
       :open="settingsOpen"
@@ -80,6 +110,8 @@
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import { useUiStore } from "~/stores/uiStore";
+import { useCompactLayout } from "~/composables/useCompactLayout";
+import { useRemovePlayer } from "~/composables/useRemovePlayer";
 
 const props = defineProps<{
   lobby: Lobby;
@@ -90,7 +122,10 @@ defineEmits<{ (e: "leave"): void }>();
 
 const userStore = useUserStore();
 const uiStore = useUiStore();
+const { isCompact } = useCompactLayout();
 const { startGame, reactive, mutations } = useLobby();
+const { notify } = useNotifications();
+const { t } = useI18n();
 
 const isHost = computed(
   () => reactive.isHost.value || props.lobby.hostUserId === userStore.user?.id,
@@ -142,6 +177,9 @@ async function startGameWrapper() {
       isPrivate: s.isPrivate,
       lobbyName: s.lobbyName,
     } : null);
+  } catch (err) {
+    console.error("Failed to start game:", err);
+    notify({ title: t("lobby.start_failed"), color: "error", icon: "i-mdi-alert-circle" });
   } finally {
     isStarting.value = false;
   }
@@ -153,10 +191,15 @@ function handleToggleReady() {
   mutations.setPlayerReady(myId.value, !(me?.ready ?? false));
 }
 
+// Anyone but the host. A person goes through the server kick, so their row
+// goes too and their client is sent home; removing them from the doc alone
+// let them straight back in on refresh.
+const { removePlayer } = useRemovePlayer();
 function handleKick(playerId: string) {
   if (!isHost.value) return;
   const target = props.players.find((p) => p.$id === playerId);
-  mutations.removePlayer(playerId, target?.name);
+  if (!target || target.isHost) return;
+  removePlayer(props.lobby.id, target);
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -167,6 +210,7 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 function handleEsc(e: KeyboardEvent) {
+  if (isCompact.value) return;
   if (e.key !== "Escape" || isTypingTarget(e.target)) return;
   if (settingsOpen.value || uiStore.showSettings) return;
   uiStore.showSettings = true;
@@ -262,6 +306,26 @@ onBeforeUnmount(() => {
     gap: 12px;
     overflow: hidden;
   }
+}
+
+.lobby-room-title {
+  flex: none;
+  margin: 0 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--lb-ink);
+}
+
+.lobby-room-table {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .lobby-room-table-wrap {

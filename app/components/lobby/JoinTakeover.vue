@@ -53,7 +53,7 @@
             placeholder="RizzMaster69"
             class="join-username-input"
             @keydown.stop
-            @keydown.enter.prevent="cardRef?.focus()"
+            @keydown.enter.prevent="codeRef?.focus()"
           />
         </div>
 
@@ -78,11 +78,32 @@
             autocomplete="off"
             class="join-username-input"
             @keydown.stop
-            @keydown.enter.prevent="cardRef?.focus()"
+            @keydown.enter.prevent="canJoin ? attemptJoin() : codeRef?.focus()"
           />
         </div>
 
-        <div class="flex justify-center gap-3 mt-6">
+        <div class="join-slots flex justify-center gap-3 mt-6">
+          <!-- A real input over the slots: phones only open a keyboard for an
+               editable field, and Android keyboards don't report letters as
+               keydown events, so the card-level key handler alone left the
+               code unenterable on mobile. Invisible; the slots render it. -->
+          <input
+            ref="codeRef"
+            class="join-code-input"
+            type="text"
+            inputmode="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="go"
+            :aria-label="t('lobby.lobby_code')"
+            :value="fullCode"
+            :readonly="status !== 'entering'"
+            @input="onCodeInput"
+            @keydown.stop
+            @keydown.enter.prevent="attemptJoin"
+          />
           <div
             v-for="i in 4"
             :key="i"
@@ -176,7 +197,11 @@ import { requiresJoinUsername } from "~/composables/useUserUtils";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useUserStore } from "~/stores/userStore";
 
-const props = defineProps<{ open: boolean }>();
+const props = defineProps<{
+  open: boolean;
+  /** A code that is already known (an invite link) — fills the slots. */
+  initialCode?: string;
+}>();
 const emit = defineEmits<{
   "update:open": [boolean];
   joined: [string];
@@ -199,6 +224,7 @@ const errorMessage = ref("");
 const cardRef = ref<HTMLElement | null>(null);
 const usernameRef = ref<HTMLInputElement | null>(null);
 const passwordRef = ref<HTMLInputElement | null>(null);
+const codeRef = ref<HTMLInputElement | null>(null);
 
 const fullCode = computed(() => code.value.join(""));
 const needsUsername = computed(() => requiresJoinUsername(userStore.user));
@@ -232,10 +258,16 @@ watch(fullCode, async (code) => {
   }
 });
 
+/** Letters and digits, uppercased, at most four. */
+function cleanCode(raw: string) {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+}
+
 function resetCode() {
+  const initial = cleanCode(props.initialCode ?? "");
   status.value = "entering";
-  code.value = ["", "", "", ""];
-  caretIndex.value = 0;
+  code.value = [0, 1, 2, 3].map((i) => initial[i] ?? "");
+  caretIndex.value = initial.length;
   errorMessage.value = "";
 }
 
@@ -252,9 +284,11 @@ watch(
     if (needsUsername.value) {
       usernameRef.value?.focus();
     } else {
-      cardRef.value?.focus();
+      codeRef.value?.focus();
     }
   },
+  // A page can mount the card already open (/game/[code]).
+  { immediate: true },
 );
 
 const authenticatedUsername = computed(() => {
@@ -339,6 +373,15 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+/** Typed or pasted code. */
+function onCodeInput(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const clean = cleanCode(input.value);
+  input.value = clean;
+  code.value = [0, 1, 2, 3].map((i) => clean[i] ?? "");
+  caretIndex.value = clean.length;
+}
+
 function close() {
   emit("update:open", false);
 }
@@ -346,7 +389,7 @@ function close() {
 function onCardAreaClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   if (target.tagName === "INPUT" || target.tagName === "BUTTON") return;
-  cardRef.value?.focus();
+  codeRef.value?.focus();
 }
 
 function browsePublicLobbies() {
@@ -357,7 +400,7 @@ function browsePublicLobbies() {
 const statusEyebrow = computed(() => {
   switch (status.value) {
     case "entering":
-      return "Enter the room code";
+      return props.initialCode ? "You're invited to room" : "Enter the room code";
     case "joining":
       return "Connecting to lobby…";
     case "joined":
@@ -537,6 +580,25 @@ function confettiStyle(i: number) {
   outline: none;
   border-color: var(--join-accent);
   box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.12);
+}
+
+.join-slots {
+  position: relative;
+}
+/* Covers the slots so a tap anywhere on them focuses it (and opens the
+   phone keyboard). 16px keeps iOS from zooming on focus. */
+.join-code-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  font-size: 16px;
+  color: transparent;
+  caret-color: transparent;
+  background: transparent;
+  border: 0;
+  z-index: 1;
 }
 
 .join-slot {

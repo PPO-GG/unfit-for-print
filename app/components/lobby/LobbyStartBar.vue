@@ -26,8 +26,6 @@
       </div>
     </div>
 
-    <div class="lsb-lobby-name">{{ lobbyName || "UNTITLED LOBBY" }}</div>
-
     <div class="lsb-spacer" />
 
     <div class="lsb-actions">
@@ -81,10 +79,11 @@
 </template>
 
 <script lang="ts" setup>
+import { toRef } from "vue";
 import type { Player } from "~/types/player";
+import { useLobbyStart, MIN_PLAYERS } from "~/composables/useLobbyStart";
 
 const props = defineProps<{
-  lobbyName: string;
   players: Player[];
   myId: string;
   isHost: boolean;
@@ -101,91 +100,26 @@ const emit = defineEmits<{
   (e: "add-bot"): void;
 }>();
 
-const COUNTDOWN_SECONDS = 5;
-
-const nonBotPlayers = computed(() =>
-  props.players.filter((p) => p.playerType !== "bot"),
-);
-
-const readyCount = computed(
-  () => props.players.filter((p) => p.playerType === "bot" || p.ready).length,
-);
-
-const allNonBotsReady = computed(() =>
-  nonBotPlayers.value.length > 0 &&
-  nonBotPlayers.value.every((p) => p.ready),
-);
-
-const canStart = computed(
-  () => props.players.length >= 3 && allNonBotsReady.value,
-);
-
-const enoughPlayers = computed(() => props.players.length >= 3);
-
-const myReady = computed(() => {
-  const me = props.players.find((p) => p.userId === props.myId);
-  return me?.ready ?? false;
-});
-
-// ── Countdown logic ─────────────────────────────────────────────
-const countdown = ref<number | null>(null);
-let timer: ReturnType<typeof setInterval> | null = null;
-let startFired = false;
-
-function clearTimer() {
-  if (timer !== null) {
-    clearInterval(timer);
-    timer = null;
-  }
-}
-
-function startCountdown() {
-  clearTimer();
-  startFired = false;
-  countdown.value = COUNTDOWN_SECONDS;
-  timer = setInterval(() => {
-    if (countdown.value === null) {
-      clearTimer();
-      return;
-    }
-    countdown.value -= 1;
-    if (countdown.value <= 0) {
-      clearTimer();
-      if (!startFired && props.isHost) {
-        startFired = true;
-        emit("start");
-      }
-    }
-  }, 1000);
-}
-
-function handleStart() {
-  if (!canStart.value || props.isStarting) return;
-  clearTimer();
-  if (!startFired) {
-    startFired = true;
-    emit("start");
-  }
-}
-
-watch(canStart, (now) => {
-  if (now) {
-    startCountdown();
-  } else {
-    clearTimer();
-    countdown.value = null;
-    startFired = false;
-  }
-});
-
-onBeforeUnmount(() => {
-  clearTimer();
+const {
+  enoughPlayers,
+  allNonBotsReady,
+  readyCount,
+  canStart,
+  myReady,
+  countdown,
+  handleStart,
+} = useLobbyStart({
+  players: toRef(props, "players"),
+  myId: toRef(props, "myId"),
+  isHost: toRef(props, "isHost"),
+  isStarting: toRef(props, "isStarting"),
+  onStart: () => emit("start"),
 });
 
 // ── State labels + visual treatment ─────────────────────────────
 const stateLabel = computed(() => {
   if (!enoughPlayers.value) {
-    const need = Math.max(0, 3 - props.players.length);
+    const need = Math.max(0, MIN_PLAYERS - props.players.length);
     return `NEED ${need} MORE`;
   }
   if (!allNonBotsReady.value) return "WAITING FOR READY";
@@ -305,23 +239,6 @@ const panelStyle = computed(() => {
 
 .lsb-spacer { flex: 1; }
 
-.lsb-lobby-name {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(32vw, 460px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: 'Archivo Black', sans-serif;
-  font-size: 16px;
-  letter-spacing: 0.03em;
-  color: var(--lb-ink);
-  line-height: 1;
-  text-align: center;
-  pointer-events: none;
-}
-
 .lsb-actions {
   display: flex;
   align-items: center;
@@ -346,13 +263,4 @@ const panelStyle = computed(() => {
   color: var(--lb-ink-muted);
 }
 
-@media (max-width: 900px) {
-  .lsb-lobby-name {
-    position: static;
-    order: -1;
-    flex-basis: 100%;
-    max-width: none;
-    transform: none;
-  }
-}
 </style>

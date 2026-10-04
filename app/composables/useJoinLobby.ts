@@ -56,7 +56,14 @@ export const useJoinLobby = () => {
       // session yet — replaces the old separate initSessionIfNeeded pass
       // (which used Appwrite's createAnonymousSession) for the join flow
       // specifically, since we already have the username here.
-      if (!userStore.isLoggedIn) {
+      //
+      // A guest already in memory goes through it too. Leaving a lobby, or
+      // its host closing it, deletes the guest's account, and a tab that never
+      // reloads still holds that guest — the join would then be refused. The
+      // route renames a live guest in place (to the name just typed) and mints
+      // a fresh one when the account is gone.
+      const isGuest = userStore.user?.isGuest && !userStore.isActivitySession;
+      if (!userStore.isLoggedIn || isGuest) {
         await userStore.loginAsGuest(username);
       }
 
