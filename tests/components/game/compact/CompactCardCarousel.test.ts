@@ -106,4 +106,12 @@ describe("CompactCardCarousel — judge", () => {
     expect(w.emitted("read-aloud")).toEqual([["p1"]]);
     expect(w.emitted("pick")).toBeUndefined();
   });
+
+  it("face-down cards have no text", () => {
+    const w = mount(CompactCardCarousel, {
+      props: { ...judgeProps, revealed: { p1: true } },
+      global: { stubs },
+    });
+    expect(w.get('[data-slide="p2"] .wc').text()).toBe("");
+  });
 });

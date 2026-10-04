@@ -122,7 +122,7 @@ function onScroll() {
         :tabindex="interactive ? 0 : -1"
         :aria-pressed="slide.ringed"
         @click="onTap(slide)"
-        @keydown.enter.prevent="onTap(slide)"
+        @keydown.enter.self.prevent="onTap(slide)"
       >
         <div class="compact-slide-stack">
           <WhiteCard
@@ -131,12 +131,11 @@ function onScroll() {
             class="compact-slide-card"
             :class="{ 'is-loading': !slide.faceDown && !cardTexts[cardId]?.text }"
             :card-id="cardId"
-            :text="cardTexts[cardId]?.text"
+            :text="slide.faceDown ? undefined : cardTexts[cardId]?.text"
             :card-pack="cardTexts[cardId]?.pack"
             :flipped="slide.faceDown"
             :flat="mode === 'select'"
             :disable-hover="true"
-            :is-winner="mode === 'judge' && slide.ringed"
             :scale="scale"
           />
         </div>
@@ -284,11 +283,12 @@ function onScroll() {
   height: 6px;
   border-radius: 3px;
   background: var(--lb-ink-muted);
-  transition: width 0.2s ease, background-color 0.2s ease;
+  transform-origin: center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 .compact-carousel-dots i.on {
-  width: 16px;
   background: var(--lb-accent);
+  transform: scaleX(2.6);
 }
 .compact-carousel--judge .compact-carousel-dots i.on {
   background: var(--lb-accent-yellow);
@@ -296,5 +296,6 @@ function onScroll() {
 @media (prefers-reduced-motion: reduce) {
   .compact-slide { transition: none; }
   .compact-slide-card.is-loading { animation: none; }
+  .compact-carousel-dots i { transition: none; }
 }
 </style>
