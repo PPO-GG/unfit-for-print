@@ -229,6 +229,11 @@ export default defineNuxtConfig({
     session: {
       maxAge: 60 * 60 * 24 * 30, // 30 days
       password: "",
+      // h3 marks the session cookie Secure by default. Browsers keep Secure
+      // cookies on http://localhost but drop them on plain-http LAN addresses,
+      // so testing on a phone via http://<lan-ip>:3000 signed you in as a new
+      // guest on every request (new id, empty hand). Production stays Secure.
+      cookie: { secure: process.env.NODE_ENV === "production" },
     },
 
     public: {

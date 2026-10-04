@@ -730,7 +730,7 @@ function handleResetGame() {
     <!-- Join modal -->
     <div
       v-if="showJoinModal"
-      class="flex flex-col justify-center items-center min-h-screen"
+      class="flex flex-col justify-center items-center min-h-dvh"
     >
       <JoinLobbyForm :initial-code="code" @joined="handleJoinSuccess" />
     </div>
