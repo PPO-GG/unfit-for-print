@@ -156,7 +156,10 @@ import { SFX } from "~/config/sfx.config";
 import type { CardAttachmentConfig } from "~/types/card";
 import { DEFAULT_CARD_ATTACHMENT } from "~/utils/cardAttachmentDefaults";
 import { getCardImageUrl } from "~/utils/cardImage";
-import { formatCardTextHtml } from "~/utils/cardTextHtml";
+import {
+  formatCardTextHtml,
+  formatFilledCardTextHtml,
+} from "~/utils/cardTextHtml";
 import { packLabel } from "~/utils/packName";
 
 // Define emits to fix the warning about extraneous non-emits event listeners
@@ -185,6 +188,9 @@ const props = withDefaults(
     packDisplayName?: string | null;
     packSeries?: string | null;
     numPick?: number;
+    /** Answers to show in the blanks (live pick preview, round-end card).
+     *  Omitted or empty = plain blanks, exactly as before. */
+    fills?: string[];
     flipped?: boolean;
     threeDeffect?: boolean;
     shine?: boolean;
@@ -270,7 +276,13 @@ function readCardSupersample() {
   if (!el) return 1;
   return parseFloat(getComputedStyle(el).getPropertyValue("--card-ss"));
 }
-useFitText(cardBodyEl, cardTextEl, displayText, {
+// Re-fit when the fills change too: a filled prompt is longer than its blanks.
+const fitContent = computed(() =>
+  props.fills?.length
+    ? `${displayText.value}\u0000${props.fills.join("\u0000")}`
+    : displayText.value,
+);
+useFitText(cardBodyEl, cardTextEl, fitContent, {
   remScale: readCardSupersample,
   onEmergencyBreaks: () => {
     if (hasEmergencyBreaks.value) return false;
@@ -279,7 +291,11 @@ useFitText(cardBodyEl, cardTextEl, displayText, {
   },
 });
 
-const formattedCardText = computed(() => formatCardTextHtml(displayText.value));
+const formattedCardText = computed(() =>
+  props.fills?.length
+    ? formatFilledCardTextHtml(displayText.value, props.fills)
+    : formatCardTextHtml(displayText.value),
+);
 
 const resolvedImageUrl = computed(
   () => props.imageUrl || fallbackImageUrl.value || null,
@@ -822,6 +838,13 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   overflow: hidden;
+}
+
+.card-body-text :deep(.card-fill) {
+  color: #f5d442;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .card-body-text {

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { formatCardTextHtml } from "~/utils/cardTextHtml";
+import {
+  BLANK_SPAN,
+  formatCardTextHtml,
+  formatFilledCardTextHtml,
+} from "~/utils/cardTextHtml";
 
 describe("formatCardTextHtml", () => {
   it("escapes markup so card text cannot inject nodes", () => {
@@ -32,5 +36,32 @@ describe("formatCardTextHtml", () => {
 
   it("preserves the soft hyphens hyphenateCardText inserts", () => {
     expect(formatCardTextHtml("anti­bacterial")).toContain("anti­bacterial");
+  });
+});
+
+describe("formatFilledCardTextHtml", () => {
+  it("puts each fill into the next run of underscores", () => {
+    expect(formatFilledCardTextHtml("_ and ___.", ["Brunch", "Roombas"])).toBe(
+      '<span class="card-fill">Brunch</span> and <span class="card-fill">Roombas</span>.',
+    );
+  });
+
+  it("leaves unfilled blanks as the normal blank", () => {
+    expect(formatFilledCardTextHtml("_ and _.", ["Brunch"])).toBe(
+      `<span class="card-fill">Brunch</span> and ${BLANK_SPAN}.`,
+    );
+  });
+
+  it("escapes both the prompt and the fill", () => {
+    const html = formatFilledCardTextHtml("<b>_</b>", ['<img src=x onerror="alert(1)">']);
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("<b>");
+    expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+  });
+
+  it("does not append fills to a prompt with no blanks", () => {
+    expect(formatFilledCardTextHtml("Why am I sticky?", ["Brunch"])).toBe(
+      "Why am I sticky?",
+    );
   });
 });

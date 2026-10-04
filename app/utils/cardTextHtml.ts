@@ -28,3 +28,19 @@ export const BLANK_SPAN =
 export function formatCardTextHtml(text: string): string {
   return escapeHtml(text).replace(/_/g, BLANK_SPAN);
 }
+
+/**
+ * A black card with chosen answers dropped into its blanks, for the live
+ * preview while a player picks and for the round-end card. Each run of
+ * underscores takes the next fill; blanks without a fill stay blank. Both the
+ * prompt and the fills are escaped — fills are user-submitted card text too.
+ */
+export function formatFilledCardTextHtml(text: string, fills: string[]): string {
+  let next = 0;
+  return escapeHtml(text).replace(/_+/g, () => {
+    const fill = fills[next++];
+    return fill
+      ? `<span class="card-fill">${escapeHtml(fill)}</span>`
+      : BLANK_SPAN;
+  });
+}
