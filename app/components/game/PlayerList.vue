@@ -636,12 +636,17 @@ function getPlayerStatus(
   gap: 0.1rem;
   flex-shrink: 0;
 }
-/* Tablets reach this list by touch; a 24px icon button is too small a target. */
+/* Tablets reach this list by touch; a 24px icon button is too small a target.
+   The tap area grows invisibly rather than the button itself: three 44px
+   buttons squeezed the player's name to a few letters in the 340px sidebar. */
 @media (pointer: coarse) {
   .admin-actions :deep(button) {
-    min-width: 44px;
-    min-height: 44px;
-    justify-content: center;
+    position: relative;
+  }
+  .admin-actions :deep(button)::after {
+    content: "";
+    position: absolute;
+    inset: -10px -3px;
   }
 }
 </style>
