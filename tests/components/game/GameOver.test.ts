@@ -64,6 +64,20 @@ describe("GameOver (podium)", () => {
     for (const c of w.findAll(".go-char")) expect(c.text()).not.toMatch(/\s/);
   });
 
+  it("flags a very long one-word name and exposes the longest word length for fitting", () => {
+    const longName = "A".repeat(32);
+    const w = mk({ players: [pl("a", longName), ...players.slice(1)] });
+    const long = w.findAll(".go-word--long");
+    expect(long).toHaveLength(1);
+    expect(long[0]!.text()).toContain(longName);
+    // The i18n stub glues the key and params into one unbroken word, so the longest
+    // word is the whole label; the property must equal its length.
+    const label = w.get(".go-title").attributes("aria-label")!;
+    const longest = Math.max(...label.split(" ").map((x) => x.length));
+    expect(longest).toBeGreaterThan(32);
+    expect(w.get(".go-title").attributes("style")).toContain(`--go-longest: ${longest}`);
+  });
+
   it("keeps an emoji as one character", () => {
     const w = mk({ players: [pl("a", "Mynd 👍🏽"), ...players.slice(1)] });
     expect(w.findAll(".go-char").map((c) => c.text())).toContain("👍🏽");

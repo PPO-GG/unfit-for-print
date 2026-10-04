@@ -47,9 +47,16 @@ const segmenter =
 function splitChars(word: string): string[] {
   return segmenter ? Array.from(segmenter.segment(word), (s) => s.segment) : Array.from(word);
 }
+// Past this many graphemes a word may break mid-word as a last resort.
+const LONG_WORD = 20;
 const headlineWords = computed(() =>
-  headline.value.split(" ").map((word) => ({ word, chars: splitChars(word) })),
+  headline.value.split(" ").map((word) => {
+    const chars = splitChars(word);
+    return { word, chars, long: chars.length > LONG_WORD };
+  }),
 );
+// Longest word in graphemes; the title's font-size shrinks to fit it (see .go-title).
+const longestWord = computed(() => Math.max(1, ...headlineWords.value.map((w) => w.chars.length)));
 
 function playerFor(id: string): Player | undefined {
   return props.players.find((p) => p.userId === id) ?? props.players.find((p) => p.$id === id);
@@ -160,9 +167,9 @@ onUnmounted(() => {
 <template>
   <div ref="rootEl" class="go lobby-tokens" :class="{ 'go--compact': isCompact }">
     <p class="go-kicker">🎉 {{ t("gameover.subtitle", { round, goal }) }}</p>
-    <h1 class="go-title" :aria-label="headline">
+    <h1 class="go-title" :aria-label="headline" :style="{ '--go-longest': longestWord }">
       <template v-for="(w, wi) in headlineWords" :key="wi">
-        <span class="go-word" aria-hidden="true"><span v-for="(ch, ci) in w.chars" :key="ci" class="go-char">{{ ch }}</span></span>
+        <span class="go-word" :class="{ 'go-word--long': w.long }" aria-hidden="true"><span v-for="(ch, ci) in w.chars" :key="ci" class="go-char">{{ ch }}</span></span>
         <template v-if="wi < headlineWords.length - 1">{{ " " }}</template>
       </template>
     </h1>
@@ -227,6 +234,7 @@ onUnmounted(() => {
 
 <style scoped>
 .go {
+  container-type: inline-size;
   height: 100vh;
   height: 100dvh;
   overflow-y: auto;
@@ -253,13 +261,16 @@ onUnmounted(() => {
   max-width: 100%;
   overflow-wrap: anywhere;
   font-family: "Archivo Black", sans-serif;
-  font-size: clamp(2.4rem, 9vw, 6rem);
+  /* The 0.78em-per-character factor fits Archivo Black uppercase, so the longest word
+     always fits the container's width instead of overflowing sideways. */
+  font-size: min(clamp(2.4rem, 9vw, 6rem), 14dvh, calc(100cqi / (var(--go-longest, 10) * 0.78)));
   line-height: 0.95;
   text-transform: uppercase;
   color: var(--lb-accent-yellow);
   text-shadow: 0 3px 0 #6b5a10, 0 0 30px rgba(245, 212, 66, 0.35);
 }
 .go-word { display: inline-block; white-space: nowrap; }
+.go-word--long { white-space: normal; word-break: break-all; }
 .go-char { display: inline-block; }
 .go-podium {
   width: 100%;
@@ -280,6 +291,7 @@ onUnmounted(() => {
 }
 .go-people {
   position: relative;
+  max-width: 100%;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
