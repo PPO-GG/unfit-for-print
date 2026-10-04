@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.28.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.27.0...v3.28.0) (2026-10-04)
+
+
+### ✨ Features
+
+* **web:** compact phone game view on the new design (mobile overhaul 2/4) ([#162](https://github.com/PPO-GG/unfit-for-print/issues/162)) ([9757d65](https://github.com/PPO-GG/unfit-for-print/commit/9757d651f488db92ce237710cd4497c65f567f22))
+* **web:** phone lobby, invite-link join card and host removal (mobile overhaul 3/4) ([#163](https://github.com/PPO-GG/unfit-for-print/issues/163)) ([6901d02](https://github.com/PPO-GG/unfit-for-print/commit/6901d02072546f6f1386c21d7b8902bcd3dcaf94))
+* **web:** podium game-over screen (mobile overhaul 4/4) ([#164](https://github.com/PPO-GG/unfit-for-print/issues/164)) ([f34d28d](https://github.com/PPO-GG/unfit-for-print/commit/f34d28dcbbe3ecde5e36f32e902c74dc6981b333))
+
+
+### 🐛 Bug Fixes
+
+* **web:** phone polish after the mobile overhaul ([#166](https://github.com/PPO-GG/unfit-for-print/issues/166)) ([4f5d11e](https://github.com/PPO-GG/unfit-for-print/commit/4f5d11e2a4c0df2541d64740da091134f8a4cfb4))
+
+
+### ♻️ Refactors
+
+* **web:** one phone-layout rule and real viewport sizing (mobile overhaul 1/4) ([#161](https://github.com/PPO-GG/unfit-for-print/issues/161)) ([f98bd91](https://github.com/PPO-GG/unfit-for-print/commit/f98bd917adca7b7887139c3af4cef31da7db9b28))
+
 ## [3.27.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.26.1...v3.27.0) (2026-10-04)
 
 
