@@ -12,11 +12,19 @@ const markPlayerReturnedToLobby = vi.fn(async () => {});
 vi.mock("~/composables/useLobby", () => ({ useLobby: () => ({ markPlayerReturnedToLobby }) }));
 vi.mock("~/composables/useNotifications", () => ({ useNotifications: () => ({ notify: vi.fn() }) }));
 vi.mock("~/composables/useSfx", () => ({ useSfx: () => ({ playSfx: vi.fn() }) }));
-vi.mock("~/utils/confetti", () => ({ burstConfetti: vi.fn() }));
-vi.mock("gsap", () => {
-  const tl = { fromTo: vi.fn().mockReturnThis(), to: vi.fn().mockReturnThis(), call: vi.fn().mockReturnThis(), kill: vi.fn() };
-  return { gsap: { timeline: vi.fn(() => tl), fromTo: vi.fn(), set: vi.fn() } };
-});
+const motion = vi.hoisted(() => ({ value: "no-preference" }));
+vi.mock("@vueuse/core", async (orig) => ({
+  ...(await orig<typeof import("@vueuse/core")>()),
+  usePreferredReducedMotion: () => motion,
+}));
+vi.mock("~/utils/confetti", () => ({ burstConfetti: vi.fn(), resetConfetti: vi.fn() }));
+const tl = vi.hoisted(() => ({
+  fromTo: vi.fn().mockReturnThis(),
+  to: vi.fn().mockReturnThis(),
+  call: vi.fn().mockReturnThis(),
+  kill: vi.fn(),
+}));
+vi.mock("gsap", () => ({ gsap: { timeline: vi.fn(() => tl), fromTo: vi.fn(() => tl), set: vi.fn() } }));
 vi.mock("~/composables/useCompactLayout", () => ({
   useCompactLayout: () => ({ isCompact: Vue.ref(true), orientation: Vue.ref("portrait"), width: Vue.ref(375), height: Vue.ref(812) }),
 }));
@@ -24,6 +32,8 @@ vi.unmock("vue");
 
 import GameOver from "~/components/game/GameOver.vue";
 import { useUserStore } from "~/stores/userStore";
+import { gsap } from "gsap";
+import { resetConfetti } from "~/utils/confetti";
 
 const pl = (userId: string, name: string) =>
   ({ $id: `row-${userId}`, userId, name, lobbyId: "lobby-1", avatar: "", playerType: "player" }) as any;
@@ -45,6 +55,11 @@ describe("GameOver (podium)", () => {
     // Leave setImmediate real: flushPromises schedules through it.
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"] });
     markPlayerReturnedToLobby.mockClear();
+    motion.value = "no-preference";
+    vi.mocked(gsap.timeline).mockClear();
+    vi.mocked(gsap.fromTo).mockClear();
+    tl.kill.mockClear();
+    vi.mocked(resetConfetti).mockClear();
   });
   afterEach(() => vi.useRealTimers());
 
@@ -89,7 +104,7 @@ describe("GameOver (podium)", () => {
     const rest = w.findAll(".go-row");
     expect(rest).toHaveLength(1);
     expect(rest[0]!.classes()).toContain("is-me");
-    expect(rest[0]!.text()).toContain("4 · Leo");
+    expect(rest[0]!.text()).toContain("4 · gameover.you (Leo)");
   });
 
   it("names joint winners together", () => {
@@ -111,5 +126,50 @@ describe("GameOver (podium)", () => {
     await flushPromises();
     expect(markPlayerReturnedToLobby).toHaveBeenCalledTimes(1);
     expect(w.emitted("continue")).toHaveLength(1);
+  });
+
+  it("caps a crowded step at three people, shows +N, and lists the overflow as rows", () => {
+    const crowd = ["e", "f", "g", "h", "i", "j"].map((id, i) => pl(id, `Tied${i + 1}`));
+    const w = mk({
+      players: [...players, ...crowd],
+      leaderboard: [{ playerId: "a", points: 10 }, ...crowd.map((c) => ({ playerId: c.userId, points: 0 }))],
+    });
+    const second = w.get('.go-step[data-place="2"]');
+    expect(second.findAll(".go-person")).toHaveLength(3);
+    expect(second.get(".go-more").text()).toBe("+3");
+    expect(w.get('.go-step[data-place="1"]').findAll(".go-more")).toHaveLength(0);
+    const rows = w.findAll(".go-row");
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.text())).toEqual(["2 · Tied4", "2 · Tied5", "2 · Tied6"].map((x) => expect.stringContaining(x)));
+  });
+
+  it("keeps emoji whole in avatar initials", () => {
+    const w = mk({ players: [{ ...pl("a", "👍🏽🔥 Mynd"), playerType: "bot" }, ...players.slice(1)] });
+    expect(w.get(".go-avatar span").text()).toBe("👍🏽🔥");
+  });
+
+  it("falls back to the generic title when there is no leaderboard", () => {
+    const w = mk({ leaderboard: [] });
+    expect(w.get(".go-title").attributes("aria-label")).toBe("game.game_over");
+  });
+
+  it("stops confetti and the timeline on unmount, and never auto-returns afterwards", async () => {
+    const w = mk();
+    await flushPromises();
+    w.unmount();
+    expect(tl.kill).toHaveBeenCalled();
+    expect(resetConfetti).toHaveBeenCalled();
+    vi.advanceTimersByTime(60_000);
+    await flushPromises();
+    expect(markPlayerReturnedToLobby).not.toHaveBeenCalled();
+  });
+
+  it("under reduced motion only fades the root in (no timeline)", async () => {
+    motion.value = "reduce";
+    const w = mk();
+    await flushPromises();
+    expect(gsap.timeline).not.toHaveBeenCalled();
+    expect(gsap.fromTo).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(gsap.fromTo).mock.calls[0]![0]).toBe(w.element);
   });
 });

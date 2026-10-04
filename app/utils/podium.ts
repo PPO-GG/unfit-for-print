@@ -8,7 +8,7 @@ export interface PodiumEntry {
   playerId: string;
   name: string;
   points: number;
-  /** Competition rank: two players tied for first are both 1, the next is 3. */
+  /** Dense rank: two players tied for first are both 1, the next is 2. */
   rank: number;
 }
 export interface PodiumStep {
@@ -29,7 +29,7 @@ function nameFor(players: Player[], id: string, fallback: string): string {
 /**
  * Final standings as a podium. The three highest distinct scores get a step
  * each (everyone tied on a score shares its step); everyone else is listed
- * below with their competition rank.
+ * below with their dense rank (ties share a rank, the next score is rank + 1).
  */
 export function buildPodium(
   leaderboard: LeaderboardEntry[],
@@ -45,15 +45,13 @@ export function buildPodium(
     .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
 
   const groups: PodiumEntry[][] = [];
-  let seen = 0;
   for (const e of entries) {
     const last = groups[groups.length - 1];
     if (last && last[0]!.points === e.points) {
       last.push({ ...e, rank: last[0]!.rank });
     } else {
-      groups.push([{ ...e, rank: seen + 1 }]);
+      groups.push([{ ...e, rank: groups.length + 1 }]);
     }
-    seen += 1;
   }
 
   const steps = groups.slice(0, 3).map((g, i) => ({

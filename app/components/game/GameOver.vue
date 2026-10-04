@@ -7,9 +7,10 @@ import { useSfx } from "~/composables/useSfx";
 import { useCompactLayout } from "~/composables/useCompactLayout";
 import { getPlayerAvatarUrl } from "~/composables/usePlayerAvatar";
 import { SFX } from "~/config/sfx.config";
-import { buildPodium, podiumDisplayOrder, type LeaderboardEntry } from "~/utils/podium";
+import { buildPodium, podiumDisplayOrder, type LeaderboardEntry, type PodiumStep } from "~/utils/podium";
 import { gsap } from "gsap";
 import { usePreferredReducedMotion } from "@vueuse/core";
+import { burstConfetti, resetConfetti } from "~/utils/confetti";
 
 const props = defineProps<{
   leaderboard: LeaderboardEntry[];
@@ -37,7 +38,18 @@ const displaySteps = computed(() => podiumDisplayOrder(podium.value.steps));
 const winnerNames = computed(
   () => podium.value.steps[0]?.entries.map((e) => e.name).join(" & ") ?? "",
 );
-const headline = computed(() => t("gameover.wins", { name: winnerNames.value }));
+// An empty leaderboard has no winner to name, so fall back to the generic title.
+const headline = computed(() =>
+  podium.value.steps.length ? t("gameover.wins", { name: winnerNames.value }) : t("game.game_over"),
+);
+// A step shows at most this many people; the rest move down into the rows list.
+const MAX_PER_STEP = 3;
+const visibleEntries = (step: PodiumStep) => step.entries.slice(0, MAX_PER_STEP);
+const hiddenCount = (step: PodiumStep) => Math.max(0, step.entries.length - MAX_PER_STEP);
+const displayRest = computed(() => [
+  ...podium.value.steps.flatMap((s) => s.entries.slice(MAX_PER_STEP)),
+  ...podium.value.rest,
+]);
 // One wrapper per word so the headline only ever wraps between words; each word
 // is split into grapheme clusters (not code points) so emoji stay whole.
 const segmenter =
@@ -62,7 +74,7 @@ function playerFor(id: string): Player | undefined {
   return props.players.find((p) => p.userId === id) ?? props.players.find((p) => p.$id === id);
 }
 function initials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
+  return splitChars(name).slice(0, 2).join("").toUpperCase();
 }
 
 // ── Auto-return (unchanged behaviour: 60s, then back to the lobby) ──
@@ -139,12 +151,10 @@ function runEntrance() {
   addIf(q(".go-actions"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "back.out(1.4)" }, "-=0.2");
 }
 
-async function celebrate() {
+function celebrate() {
   if (unmounted || reducedMotion.value === "reduce") return;
   const iWon = podium.value.steps[0]?.entries.some((e) => e.playerId === myId.value);
   try {
-    const { burstConfetti } = await import("~/utils/confetti");
-    if (unmounted) return;
     burstConfetti({ particleCount: iWon ? 160 : 60, spread: iWon ? 110 : 70, origin: { x: 0.5, y: 0.3 } });
   } catch {
     // confetti unavailable — the podium is celebration enough
@@ -160,6 +170,7 @@ onUnmounted(() => {
   unmounted = true;
   entrance?.kill();
   entrance = null;
+  resetConfetti();
   if (autoReturnInterval) window.clearInterval(autoReturnInterval);
 });
 </script>
@@ -185,7 +196,7 @@ onUnmounted(() => {
         <div class="go-people">
           <span v-if="step.place === 1" class="go-crown" aria-hidden="true">👑</span>
           <div
-            v-for="e in step.entries"
+            v-for="e in visibleEntries(step)"
             :key="e.playerId"
             class="go-person"
             :class="{ 'is-me': e.playerId === myId }"
@@ -203,6 +214,7 @@ onUnmounted(() => {
             </AvatarDecoration>
             <span class="go-name">{{ e.playerId === myId ? t("gameover.you") : e.name }}</span>
           </div>
+          <span v-if="hiddenCount(step)" class="go-more">+{{ hiddenCount(step) }}</span>
         </div>
         <div class="go-block">
           <span class="go-place">{{ step.place }}</span>
@@ -211,14 +223,14 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <ol v-if="podium.rest.length" class="go-rest">
+    <ol v-if="displayRest.length" class="go-rest">
       <li
-        v-for="e in podium.rest"
+        v-for="e in displayRest"
         :key="e.playerId"
         class="go-row"
         :class="{ 'is-me': e.playerId === myId }"
       >
-        <span class="go-row-name">{{ e.rank }} · {{ e.name }}</span>
+        <span class="go-row-name">{{ e.rank }} · {{ e.playerId === myId ? `${t("gameover.you")} (${e.name})` : e.name }}</span>
         <span>{{ e.points }}</span>
       </li>
     </ol>
@@ -316,6 +328,18 @@ onUnmounted(() => {
   background: var(--lb-bg-2);
   font-family: "Archivo Black", sans-serif;
 }
+.go-more {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--lb-bg-2);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--lb-ink-dim);
+}
+.go--compact .go-more { width: 2.75rem; height: 2.75rem; }
 .go-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .go-step--1 .go-avatar {
   width: 4.25rem;

@@ -24,7 +24,7 @@ describe("buildPodium", () => {
     expect(rest).toEqual([{ playerId: "d", name: "Leo", points: 1, rank: 4 }]);
   });
 
-  it("ties share a step and push competition ranks down", () => {
+  it("ties share a step and ranks stay dense (no gaps)", () => {
     const { steps, rest } = buildPodium(
       [
         { playerId: "a", points: 7 },
@@ -38,9 +38,9 @@ describe("buildPodium", () => {
     );
     expect(steps[0]!.entries.map((e) => e.name)).toEqual(["Maxwell", "Mynd"]); // alphabetical within a tie
     expect(steps[0]!.entries.every((e) => e.rank === 1)).toBe(true);
-    expect(steps[1]!.entries[0]!.rank).toBe(3);
-    expect(steps[2]!.entries[0]!.rank).toBe(4);
-    expect(rest).toEqual([{ playerId: "e", name: "Player", points: 1, rank: 5 }]);
+    expect(steps[1]!.entries[0]!.rank).toBe(2);
+    expect(steps[2]!.entries[0]!.rank).toBe(3);
+    expect(rest).toEqual([{ playerId: "e", name: "Player", points: 1, rank: 4 }]);
   });
 
   it("resolves names by userId, then $id, then the fallback", () => {
