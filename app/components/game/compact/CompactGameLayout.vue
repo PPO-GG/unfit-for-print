@@ -67,6 +67,7 @@ const ui = useRoundUi({
   isHost: toRef(props, "isHost"),
   submissions: toRef(props, "submissions"),
   revealedCards: toRef(props, "revealedCards"),
+  seed: computed(() => `${props.round}|${props.blackCard?.id ?? ""}`),
 });
 
 // ── Who's who ──

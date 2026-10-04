@@ -10,6 +10,7 @@ function setup(overrides: Partial<Record<string, unknown>> = {}) {
     isHost: ref(false),
     submissions: ref<Record<string, string[]>>({}),
     revealedCards: ref<Record<string, boolean>>({}),
+    seed: ref("s1"),
     ...overrides,
   } as any;
   return { src, ui: useRoundUi(src) };
@@ -48,7 +49,7 @@ describe("useRoundUi — judging", () => {
       submissions: ref({ p2: ["w2"], p1: ["w1"] }),
       revealedCards: ref({ p1: true }),
     });
-    expect(ui.submissionIds.value).toEqual(["p1", "p2"]);
+    expect([...ui.submissionIds.value].sort()).toEqual(["p1", "p2"]);
     expect(ui.revealedCount.value).toBe(1);
     ui.choosePendingWinner("p1");
     expect(ui.pendingWinner.value).toBeNull();
@@ -74,6 +75,27 @@ describe("useRoundUi — judging", () => {
     src.submissions.value = { p1: ["w1"] };
     await nextTick();
     expect(ui.pendingWinner.value).toBeNull();
+  });
+});
+
+describe("useRoundUi — judging order", () => {
+  const subs = () =>
+    ref<Record<string, string[]>>({
+      p1: ["a"], p2: ["b"], p3: ["c"], p4: ["d"], p5: ["e"],
+    });
+
+  it("is deterministic for a seed across independent instances", () => {
+    const a = setup({ submissions: subs(), seed: ref("3|b9") });
+    const b = setup({ submissions: subs(), seed: ref("3|b9") });
+    expect(a.ui.submissionIds.value).toEqual(b.ui.submissionIds.value);
+    expect([...a.ui.submissionIds.value].sort()).toEqual(["p1", "p2", "p3", "p4", "p5"]);
+  });
+
+  it("changes with the seed so a player's slot is not fixed round to round", () => {
+    const orders = ["1|a", "2|a", "3|b", "4|c", "5|d"].map((seed) =>
+      setup({ submissions: subs(), seed: ref(seed) }).ui.submissionIds.value.join(","),
+    );
+    expect(new Set(orders).size).toBeGreaterThan(1);
   });
 });
 

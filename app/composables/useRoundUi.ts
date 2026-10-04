@@ -8,6 +8,18 @@ export interface RoundUiSource {
   isHost: Ref<boolean>;
   submissions: Ref<Record<string, string[]>>;
   revealedCards: Ref<Record<string, boolean>>;
+  /** Changes every round/prompt, so the judging order does too. */
+  seed: Ref<string>;
+}
+
+/** 32-bit FNV-1a, unsigned. */
+function fnv1a(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 /**
@@ -47,10 +59,16 @@ export function useRoundUi(src: RoundUiSource) {
     () => src.pick.value > 0 && selected.value.length === src.pick.value,
   );
 
-  // Sorted so every client shows submissions in the same, player-agnostic order.
-  const submissionIds = computed(() =>
-    Object.keys(src.submissions.value).sort(),
-  );
+  // Every client shows the same order, but it is reshuffled by the seed each
+  // round — sorting by player id would park each player's card in the same slot
+  // every round and tell the judge whose it is.
+  const submissionIds = computed(() => {
+    const seed = src.seed.value;
+    return Object.keys(src.submissions.value)
+      .map((pid) => ({ pid, h: fnv1a(`${pid}|${seed}`) }))
+      .sort((a, b) => a.h - b.h || (a.pid < b.pid ? -1 : a.pid > b.pid ? 1 : 0))
+      .map((e) => e.pid);
+  });
   const revealedCount = computed(
     () => submissionIds.value.filter((id) => src.revealedCards.value[id]).length,
   );

@@ -36,7 +36,7 @@ const emit = defineEmits<{
 
 // ─── Y.Doc Reactive State ───────────────────────────────────────────────────
 // All game state derived from useLobbyReactive — no Appwrite subscriptions.
-const { leaveLobby, reactive: lobbyReactive, engine } = useLobby();
+const { reactive: lobbyReactive, engine } = useLobby();
 
 const state = computed(() => lobbyReactive.gameState.value);
 const isSubmitting = lobbyReactive.isSubmitting;
@@ -483,13 +483,6 @@ function convertToPlayer(playerId: string) {
   }
 }
 
-function handleLeave() {
-  const nuxtApp = useNuxtApp();
-  nuxtApp.payload.state.selfLeaving = true;
-  leaveLobby(props.lobby.id, myId);
-  emit("leave");
-}
-
 /** Compact "Next round" — host skips the 5s auto-advance wait. */
 function handleNextRound() {
   if (!isHost.value || isComplete.value) return;
@@ -587,7 +580,7 @@ function handleNextRound() {
         :settings="lobbyReactive.settings.value ?? null"
         :is-host="isHost"
         :my-id="myId"
-        @leave="handleLeave"
+        @leave="emit('leave')"
         @skip-judge="emit('skip-judge')"
         @skip-player="emit('skip-player', $event)"
         @reset-game="emit('reset-game')"
