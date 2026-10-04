@@ -83,7 +83,7 @@
 <script lang="ts" setup>
 import { toRef } from "vue";
 import type { Player } from "~/types/player";
-import { useLobbyStart } from "~/composables/useLobbyStart";
+import { useLobbyStart, MIN_PLAYERS } from "~/composables/useLobbyStart";
 
 const props = defineProps<{
   lobbyName: string;
@@ -122,7 +122,7 @@ const {
 // ── State labels + visual treatment ─────────────────────────────
 const stateLabel = computed(() => {
   if (!enoughPlayers.value) {
-    const need = Math.max(0, 3 - props.players.length);
+    const need = Math.max(0, MIN_PLAYERS - props.players.length);
     return `NEED ${need} MORE`;
   }
   if (!allNonBotsReady.value) return "WAITING FOR READY";

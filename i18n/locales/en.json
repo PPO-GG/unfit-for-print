@@ -250,6 +250,7 @@
   "lobby.code_copied": "The Lobby Code was copied to your Clipboard",
   "lobby.copy_lobby_code": "Copy Lobby Code",
   "lobby.copy_to_clipboard": "Copy to clipboard",
+  "lobby.start_failed": "Couldn't start the game — try again",
   "lobby.error_code_copied": "Failed to copy the Lobby Code",
   "lobby.error_failed_to_kick": "Failed to kick player {name}",
   "lobby.error_failed_to_promote": "Failed to promote {name} to Host",

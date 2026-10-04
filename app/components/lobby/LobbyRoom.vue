@@ -118,6 +118,8 @@ const userStore = useUserStore();
 const uiStore = useUiStore();
 const { isCompact } = useCompactLayout();
 const { startGame, reactive, mutations } = useLobby();
+const { notify } = useNotifications();
+const { t } = useI18n();
 
 const isHost = computed(
   () => reactive.isHost.value || props.lobby.hostUserId === userStore.user?.id,
@@ -169,6 +171,9 @@ async function startGameWrapper() {
       isPrivate: s.isPrivate,
       lobbyName: s.lobbyName,
     } : null);
+  } catch (err) {
+    console.error("Failed to start game:", err);
+    notify({ title: t("lobby.start_failed"), color: "error", icon: "i-mdi-alert-circle" });
   } finally {
     isStarting.value = false;
   }

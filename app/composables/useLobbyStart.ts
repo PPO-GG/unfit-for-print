@@ -78,6 +78,12 @@ export function useLobbyStart(opts: {
     }
   });
 
+  // A start that fails flips isStarting back to false; re-arm so the host's
+  // Start button (and a re-formed countdown) can fire again.
+  watch(opts.isStarting, (now, before) => {
+    if (before && !now) startFired = false;
+  });
+
   onScopeDispose(clearTimer);
 
   return {
