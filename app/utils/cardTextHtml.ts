@@ -45,10 +45,13 @@ export function formatFilledCardTextHtml(text: string, fills: string[]): string 
     return spans.length ? `${escaped} ${spans.join(", ")}` : escaped;
   }
   let next = 0;
-  return escaped.replace(/_+/g, () => {
-    const fill = fills[next++];
-    return fill
-      ? `<span class="card-fill">${escapeHtml(fill)}</span>`
-      : BLANK_SPAN;
+  return escaped.replace(/_+/g, (blank: string, offset: number) => {
+    let fill = fills[next++];
+    if (!fill) return BLANK_SPAN;
+    // "think about _." + "Brunch." would read "Brunch..": when the prompt
+    // already punctuates the blank, the answer's own ending gives way.
+    const after = escaped[offset + blank.length];
+    if (after && /[.,!?;:]/.test(after)) fill = fill.replace(/[.!?]+$/, "");
+    return `<span class="card-fill">${escapeHtml(fill)}</span>`;
   });
 }

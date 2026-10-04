@@ -104,6 +104,11 @@ function copyInvite() {
 </template>
 
 <style scoped>
+/* The drawer already has a title and closes by swipe, tap-outside or ESC;
+   the sidebar's own mobile header would be a second "Game menu" bar. */
+:deep(.sidebar-mobile-header) {
+  display: none;
+}
 .cms-quick {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -125,7 +125,7 @@
   "compact.chat": "Chat",
   "compact.crown": "Crown it",
   "compact.draw": "Draw {count}",
-  "compact.judging_other": "{name} is judging",
+  "compact.judging": "Judging",
   "compact.judging_you": "You're judging",
   "compact.locked_in": "{done} of {total} locked in",
   "compact.menu": "Menu",

@@ -121,9 +121,14 @@ describe("CompactGameLayout", () => {
     expect(w.get(".act").attributes("data-label")).toBe("compact.all_in");
   });
 
-  it("skipped round shows a muted skipped pill, not a win", () => {
+  it("round end keeps the pill neutral — the screen itself states the outcome", () => {
     const w = mk({ phase: "roundEnd", isHost: true });
-    expect(w.get(".topbar").text()).toBe("game.prompt_skipped");
+    expect(w.get(".topbar").text()).toBe('compact.round_label|{"round":4}');
+  });
+
+  it("watchers see a short judging pill, not the judge's name", () => {
+    const w = mk({ phase: "judging", submissions: { u2: ["w1"] }, revealedCards: {} });
+    expect(w.get(".topbar").text()).toBe("compact.judging");
   });
 
   it("judge waits with a skip-prompt control", async () => {

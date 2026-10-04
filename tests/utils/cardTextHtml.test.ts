@@ -46,6 +46,21 @@ describe("formatFilledCardTextHtml", () => {
     );
   });
 
+  it("drops a fill's own ending punctuation when the prompt supplies it", () => {
+    expect(
+      formatFilledCardTextHtml("I like to think about _.", ["Shooting protestors."]),
+    ).toBe('I like to think about <span class="card-fill">Shooting protestors</span>.');
+    expect(formatFilledCardTextHtml("Get ready for _!", ["Roombas!"])).toBe(
+      'Get ready for <span class="card-fill">Roombas</span>!',
+    );
+  });
+
+  it("keeps a fill's punctuation when the blank is not followed by any", () => {
+    expect(formatFilledCardTextHtml("_ is why I cry", ["Brunch."])).toBe(
+      '<span class="card-fill">Brunch.</span> is why I cry',
+    );
+  });
+
   it("leaves unfilled blanks as the normal blank", () => {
     expect(formatFilledCardTextHtml("_ and _.", ["Brunch"])).toBe(
       `<span class="card-fill">Brunch</span> and ${BLANK_SPAN}.`,

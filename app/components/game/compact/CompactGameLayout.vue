@@ -270,15 +270,15 @@ async function onReadAloud(playerId: string) {
 
 // ── Top bar pill ──
 const pill = computed<{ label: string; tone: "cyan" | "yellow" | "lime" | "muted" }>(() => {
-  if (view.value === "round-end" && skippedRound.value) {
-    return { label: t("game.prompt_skipped"), tone: "muted" };
-  }
+  // The round-end screen states the outcome itself, so the pill stays neutral.
   if (view.value === "round-end") {
-    return { label: t("compact.round_won", { round: props.round }), tone: "lime" };
+    return { label: t("compact.round_label", { round: props.round }), tone: "lime" };
   }
   if (props.isJudge) return { label: t("compact.judging_you"), tone: "yellow" };
+  // The judge's avatar carries the yellow ring; naming them here pushed the
+  // avatars off a narrow bar.
   if (props.phase === "judging") {
-    return { label: t("compact.judging_other", { name: judgeName.value }), tone: "muted" };
+    return { label: t("compact.judging"), tone: "muted" };
   }
   return { label: t("compact.round_label", { round: props.round }), tone: "cyan" };
 });
@@ -482,7 +482,9 @@ onMounted(() => {
 .cgl--landscape {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas: "top main" "prompt main" "prompt action";
+  /* The top bar spans both columns so the avatars aren't squeezed into the
+     prompt column. */
+  grid-template-areas: "top top" "prompt main" "prompt action";
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
