@@ -380,7 +380,7 @@
     "cat_other": "Something else"
   },
   "lobby.remove_confirm_title": "Remove {name}?",
-  "lobby.remove_confirm_body": "They leave the game straight away and their cards go with them.",
+  "lobby.remove_confirm_body": "They are sent back to the main menu.",
   "lobby.remove_player": "Remove",
   "lobby.remove_cancel": "Keep them"
 }
