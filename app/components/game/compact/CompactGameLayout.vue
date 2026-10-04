@@ -11,6 +11,7 @@ import { useCompactLayout } from "~/composables/useCompactLayout";
 import { useCompactMotion } from "~/composables/useCompactMotion";
 import { useRoundUi } from "~/composables/useRoundUi";
 import { SFX } from "~/config/sfx.config";
+import { useUserPrefsStore } from "~/stores/userPrefsStore";
 
 const props = defineProps<{
   phase: string;
@@ -52,10 +53,12 @@ const emit = defineEmits<{
   "skip-prompt": [];
   draw: [];
   "open-menu": [];
+  "open-chat": [];
 }>();
 
 const { t } = useI18n();
 const { playSfx } = useSfx();
+const prefs = useUserPrefsStore();
 const { orientation, width: viewportWidth } = useCompactLayout();
 const motion = useCompactMotion();
 
@@ -95,10 +98,11 @@ const lockedIds = computed(() =>
   props.phase === "submitting" ? Object.keys(props.submissions) : [],
 );
 const hasSubmitted = computed(() => props.mySubmission !== null);
+const isSkipped = computed(() => skippedIds.value.includes(props.myId));
 
 // ── Which screen ──
 type View =
-  | "hand" | "submitted" | "judge-wait" | "spectating"
+  | "hand" | "submitted" | "judge-wait" | "spectating" | "skipped"
   | "shuffling" | "judging" | "round-end" | "empty";
 
 // A winner gets ~2s of highlight on the judging carousel before GameBoard
@@ -106,10 +110,27 @@ type View =
 const roundEndReady = computed(
   () => props.winnerSelected || !props.effectiveRoundWinner,
 );
+// GameBoard resets winnerSelected ~5s into roundEnd on non-hosts while the
+// phase is still roundEnd; without the latch the screen would fall back to
+// the judging carousel. Held until the phase leaves roundEnd/complete.
+const inRoundEnd = computed(
+  () => props.phase === "roundEnd" || props.phase === "complete",
+);
+const roundEndLatched = ref(false);
+watch(
+  [inRoundEnd, roundEndReady],
+  ([inEnd, ready]) => {
+    if (!inEnd) roundEndLatched.value = false;
+    else if (ready) roundEndLatched.value = true;
+  },
+  { immediate: true },
+);
+const roundEndShown = computed(() => roundEndReady.value || roundEndLatched.value);
 const view = computed<View>(() => {
   switch (props.phase) {
     case "submitting":
       if (props.isSpectator) return "spectating";
+      if (isSkipped.value) return "skipped";
       if (props.isJudge) return "judge-wait";
       return hasSubmitted.value ? "submitted" : "hand";
     case "submitting-complete":
@@ -118,7 +139,7 @@ const view = computed<View>(() => {
       return "judging";
     case "roundEnd":
     case "complete":
-      return roundEndReady.value ? "round-end" : "judging";
+      return roundEndShown.value ? "round-end" : "judging";
     default:
       return "empty";
   }
@@ -153,6 +174,8 @@ const carouselSlot = ref<HTMLElement | null>(null);
 const { width: promptW, height: promptH } = useElementSize(promptSlot);
 const { height: carouselH } = useElementSize(carouselSlot);
 const baseWidth = computed(() => {
+  // Read the pref so a UI-scale change (which moves the root font size) re-measures.
+  void prefs.uiScale;
   const rem = import.meta.client
     ? parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
     : 16;
@@ -176,13 +199,14 @@ const actionState = computed(() =>
     phase: props.phase,
     isJudge: props.isJudge,
     isSpectator: props.isSpectator,
+    isSkipped: isSkipped.value,
     hasSubmitted: hasSubmitted.value,
     selectedCount: ui.selected.value.length,
     pick: pick.value,
     allRevealed: ui.allRevealed.value,
     pendingWinner: ui.pendingWinner.value,
     // No early advance during the winner highlight.
-    canAdvance: ui.canAdvance.value && roundEndReady.value,
+    canAdvance: ui.canAdvance.value && roundEndShown.value,
     judgeName: judgeName.value,
     waitingOn: waitingOn.value,
   }),
@@ -193,6 +217,13 @@ const slideEls = (keys?: string[]) =>
   Array.from(rootEl.value?.querySelectorAll<HTMLElement>("[data-slide]") ?? []).filter(
     (el) => !keys || keys.includes(el.dataset.slide ?? ""),
   );
+
+// GSAP leaves an inline transform on whatever it animates, which would beat
+// `.is-ringed { transform: translateY(-8px) }`. Animate the inner stack instead.
+const stackEls = (keys?: string[]) =>
+  slideEls(keys)
+    .map((el) => el.querySelector<HTMLElement>(".compact-slide-stack"))
+    .filter((el): el is HTMLElement => !!el);
 
 function onAct(action: CompactAction) {
   if (action === "submit") {
@@ -217,11 +248,11 @@ function onAct(action: CompactAction) {
 function onSelect(cardId: string) {
   ui.toggleCard(cardId);
   playSfx(SFX.cardSelect);
-  nextTick(() => motion.popSelect(slideEls([cardId])));
+  nextTick(() => motion.popSelect(stackEls([cardId])));
 }
 
 function onReveal(playerId: string) {
-  playSfx(SFX.cardFlip, { volume: 0.75, pitch: [0.95, 1.05] });
+  // WhiteCard plays the flip sound itself.
   emit("reveal-card", playerId);
 }
 
@@ -264,7 +295,7 @@ watch(
     // Deal in on entering the hand, and again when a skip swaps the prompt
     // (the view stays "hand" but the serial moves).
     if (v === "hand" && (prev !== "hand" || serial !== prevSerial)) {
-      nextTick(() => motion.dealIn(slideEls()));
+      nextTick(() => motion.dealIn(stackEls()));
     }
     if (v === "round-end" && prev !== "round-end") {
       nextTick(() => {
@@ -295,7 +326,7 @@ watch(
   },
 );
 onMounted(() => {
-  if (view.value === "hand") nextTick(() => motion.dealIn(slideEls()));
+  if (view.value === "hand") nextTick(() => motion.dealIn(stackEls()));
 });
 </script>
 
@@ -314,7 +345,7 @@ onMounted(() => {
       :pill-tone="pill.tone"
       :unread="chatUnread"
       @menu="emit('open-menu')"
-      @chat="emit('open-menu')"
+      @chat="emit('open-chat')"
     />
 
     <div ref="promptSlot" class="cgl-prompt">
@@ -384,6 +415,10 @@ onMounted(() => {
 
       <div v-else-if="view === 'spectating'" class="cgl-status">
         <p class="cgl-status-title">{{ t("compact.spectating") }}</p>
+      </div>
+
+      <div v-else-if="view === 'skipped'" class="cgl-status">
+        <p class="cgl-status-title">{{ t("compact.skipped") }}</p>
       </div>
 
       <div v-else-if="view === 'shuffling'" class="cgl-status">

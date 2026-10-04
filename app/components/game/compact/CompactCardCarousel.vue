@@ -131,7 +131,7 @@ function onScroll() {
             class="compact-slide-card"
             :class="{ 'is-loading': !slide.faceDown && !cardTexts[cardId]?.text }"
             :card-id="cardId"
-            :text="slide.faceDown ? undefined : cardTexts[cardId]?.text"
+            :text="cardTexts[cardId]?.text"
             :card-pack="cardTexts[cardId]?.pack"
             :flipped="slide.faceDown"
             :flat="mode === 'select'"

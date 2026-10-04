@@ -33,6 +33,7 @@ vi.mock("~/utils/readAloud", () => ({
   resolveWhiteTextsViaApi: vi.fn(),
 }));
 vi.mock("~/utils/confetti", () => ({ burstConfetti: vi.fn() }));
+vi.mock("~/stores/userPrefsStore", () => ({ useUserPrefsStore: () => ({ uiScale: 100 }) }));
 
 import CompactGameLayout from "~/components/game/compact/CompactGameLayout.vue";
 
@@ -40,12 +41,16 @@ const pl = (userId: string, name: string, playerType = "player") =>
   ({ $id: userId, userId, name, avatar: "", playerType, provider: "anonymous" }) as any;
 
 const stubs = {
-  CompactTopBar: { props: ["pillLabel"], template: "<div class=\"topbar\" @click=\"$emit('menu')\">{{ pillLabel }}</div>" },
+  CompactTopBar: {
+    props: ["pillLabel"],
+    template: "<div class=\"topbar\" @click=\"$emit('menu')\">{{ pillLabel }}<button class=\"tb-chat\" @click.stop=\"$emit('chat')\" /></div>",
+  },
   BlackCard: { props: ["fills", "scale"], template: '<div class="black" :data-fills="JSON.stringify(fills)" />' },
   CompactCardCarousel: {
     props: ["mode", "cards", "interactive", "order"],
     template:
       "<div class=\"carousel\" :data-mode=\"mode\" :data-interactive=\"String(interactive)\">" +
+      "<div v-for=\"c in (cards || [])\" :key=\"c\" class=\"slide\" :data-slide=\"c\"><div class=\"compact-slide-stack\" /></div>" +
       "<button class=\"c-select\" @click=\"$emit('select', cards[0])\" />" +
       "<button class=\"c-reveal\" @click=\"$emit('reveal', 'p2')\" />" +
       "<button class=\"c-pick\" @click=\"$emit('pick', 'p2')\" />" +
@@ -202,9 +207,50 @@ describe("CompactGameLayout", () => {
     expect(w.emitted("draw")).toHaveLength(1);
   });
 
-  it("menu button opens the menu", async () => {
+  it("menu button opens the menu; the chat button asks for chat instead", async () => {
     const w = mk();
     await w.get(".topbar").trigger("click");
     expect(w.emitted("open-menu")).toHaveLength(1);
+    await w.get(".tb-chat").trigger("click");
+    expect(w.emitted("open-chat")).toHaveLength(1);
+    expect(w.emitted("open-menu")).toHaveLength(1);
+  });
+
+  it("holds the round-end screen if winnerSelected drops while the phase is still roundEnd", async () => {
+    const w = mk({
+      phase: "roundEnd", isHost: true, effectiveRoundWinner: "p2",
+      submissions: { p2: ["w2"] }, revealedCards: { p2: true }, winnerSelected: true,
+      winningCards: ["w2"],
+    });
+    expect(w.find(".round-end").exists()).toBe(true);
+    await w.setProps({ winnerSelected: false }); // non-host reset ~5s into roundEnd
+    expect(w.find(".round-end").exists()).toBe(true);
+    expect(w.get(".act").attributes("data-label")).toBe("compact.next_round");
+    await w.setProps({ phase: "submitting", effectiveRoundWinner: null, submissions: {}, revealedCards: {} });
+    expect(w.find(".round-end").exists()).toBe(false);
+    expect(w.get(".carousel").attributes("data-mode")).toBe("select");
+  });
+
+  it("a skipped player gets a status message and a muted button, not a hand", () => {
+    const w = mk({ skippedPlayers: ["u2"] });
+    expect(w.find(".carousel").exists()).toBe(false);
+    expect(w.text()).toContain("compact.skipped");
+    expect(w.get(".act").attributes("data-label")).toBe("compact.skipped");
+  });
+
+  it("animates the inner stacks, not the slides, so the selected-card lift survives", async () => {
+    motion.dealIn.mockClear();
+    motion.popSelect.mockClear();
+    const w = mk();
+    await Vue.nextTick();
+    await Vue.nextTick();
+    const dealt = motion.dealIn.mock.calls[0]![0] as HTMLElement[];
+    expect(dealt.length).toBeGreaterThan(0);
+    expect(dealt.every((el) => el.classList.contains("compact-slide-stack"))).toBe(true);
+    await w.get(".c-select").trigger("click");
+    await Vue.nextTick();
+    const popped = motion.popSelect.mock.calls[0]![0] as HTMLElement[];
+    expect(popped).toHaveLength(1);
+    expect(popped[0]!.classList.contains("compact-slide-stack")).toBe(true);
   });
 });

@@ -115,6 +115,7 @@ const race = computed(() =>
 }
 .cre-row.is-winner .cre-bar i { background: var(--lb-accent-yellow); }
 .cre-plus {
+  display: inline-block;
   font-family: "JetBrains Mono", monospace;
   font-size: 11px;
   font-style: normal;
@@ -140,6 +141,6 @@ const race = computed(() =>
   to { transform: scaleX(0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .cre-timer i { animation: none; }
+  .cre-timer { display: none; }
 }
 </style>

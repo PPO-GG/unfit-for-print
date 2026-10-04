@@ -48,6 +48,7 @@ vi.mock("~/composables/useCompactLayout", () => ({
 const playSfx = vi.fn();
 (globalThis as any).useSfx = () => ({ playSfx });
 
+const leaveLobbyMock = vi.fn();
 const nextRound = vi.fn(() => ({ success: true }));
 const skipBlackCard = vi.fn(() => ({ success: true }));
 const engineMock = {
@@ -77,10 +78,11 @@ const gameState = ref<TestGameState>({
 
 // Controllable so the judge-only skip control can be exercised.
 const isJudgeRef = ref(false);
+const isHostRef = ref(true);
 
 vi.mock("~/composables/useLobby", () => ({
   useLobby: () => ({
-    leaveLobby: vi.fn(),
+    leaveLobby: leaveLobbyMock,
     engine: engineMock,
     reactive: {
       gameState,
@@ -89,7 +91,7 @@ vi.mock("~/composables/useLobby", () => ({
       isRoundEnd: computed(() => gameState.value.phase === "roundEnd"),
       isComplete: computed(() => gameState.value.phase === "complete"),
       isJudge: computed(() => isJudgeRef.value),
-      isHost: computed(() => true),
+      isHost: computed(() => isHostRef.value),
       myHand: computed(() => []),
       mySubmission: computed(() => null),
       leaderboard: computed(() => []),
@@ -118,9 +120,12 @@ const GLOBAL_STUBS = {
   CornerControls: true,
   GameEscMenu: true,
   CompactGameLayout: {
-    template: "<div class=\"cgl-stub\"><button class=\"next\" @click=\"$emit('next-round')\" /><button class=\"menu\" @click=\"$emit('open-menu')\" /></div>",
+    template: "<div class=\"cgl-stub\"><button class=\"next\" @click=\"$emit('next-round')\" /><button class=\"menu\" @click=\"$emit('open-menu')\" /><button class=\"chat\" @click=\"$emit('open-chat')\" /></div>",
   },
-  CompactMenuSheet: { props: ["open"], template: '<div class="sheet-stub" :data-open="String(open)" />' },
+  CompactMenuSheet: {
+    props: ["open", "focusChat"],
+    template: "<div class=\"sheet-stub\" :data-open=\"String(open)\" :data-focus-chat=\"String(!!focusChat)\"><button class=\"sheet-close\" @click=\"$emit('update:open', false)\" /><button class=\"sheet-leave\" @click=\"$emit('leave')\" /></div>",
+  },
   GameHeader: true,
   BlackCardDeck: true,
   WhiteCardDeck: true,
@@ -284,6 +289,7 @@ describe("GameBoard.vue — compact layout", () => {
     (useUserStore() as any).user = { $id: "host-1" };
     vi.clearAllMocks();
     compactFlag.value = false;
+    isHostRef.value = true;
   });
 
   it("advances on next-round only as host, and opens the menu sheet", async () => {
@@ -297,6 +303,65 @@ describe("GameBoard.vue — compact layout", () => {
     expect(nextRound).toHaveBeenCalledTimes(1);
     await w.get(".cgl-stub .menu").trigger("click");
     expect(w.get(".sheet-stub").attributes("data-open")).toBe("true");
+    w.unmount();
+  });
+
+  it("does not advance on next-round for a non-host", async () => {
+    compactFlag.value = true;
+    isHostRef.value = false;
+    gameState.value = { phase: "roundEnd", roundWinner: null, round: 1 };
+    const w = mount(GameBoard, {
+      props: { lobby: { id: "l1", code: "ABC" } as any, players: [] },
+      global: { stubs: GLOBAL_STUBS },
+    });
+    await w.get(".cgl-stub .next").trigger("click");
+    expect(nextRound).not.toHaveBeenCalled();
+    w.unmount();
+  });
+
+  it("open-chat opens the menu sheet focused on chat, and clears the focus on close", async () => {
+    compactFlag.value = true;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mount(GameBoard, {
+      props: { lobby: { id: "l1", code: "ABC" } as any, players: [] },
+      global: { stubs: GLOBAL_STUBS },
+    });
+    await w.get(".cgl-stub .chat").trigger("click");
+    const sheet = w.get(".sheet-stub");
+    expect(sheet.attributes("data-open")).toBe("true");
+    expect(sheet.attributes("data-focus-chat")).toBe("true");
+    await w.get(".sheet-close").trigger("click");
+    expect(w.get(".sheet-stub").attributes("data-open")).toBe("false");
+    expect(w.get(".sheet-stub").attributes("data-focus-chat")).toBe("false");
+    w.unmount();
+  });
+
+  it("Escape toggles the compact menu sheet, not the desktop ESC menu", async () => {
+    compactFlag.value = true;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mount(GameBoard, {
+      props: { lobby: { id: "l1", code: "ABC" } as any, players: [] },
+      global: { stubs: GLOBAL_STUBS },
+    });
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await w.vm.$nextTick();
+    expect(w.get(".sheet-stub").attributes("data-open")).toBe("true");
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await w.vm.$nextTick();
+    expect(w.get(".sheet-stub").attributes("data-open")).toBe("false");
+    w.unmount();
+  });
+
+  it("Leave from the sheet emits leave once and does not run its own leave flow", async () => {
+    compactFlag.value = true;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mount(GameBoard, {
+      props: { lobby: { id: "l1", code: "ABC" } as any, players: [] },
+      global: { stubs: GLOBAL_STUBS },
+    });
+    await w.get(".sheet-leave").trigger("click");
+    expect(w.emitted("leave")).toHaveLength(1);
+    expect(leaveLobbyMock).not.toHaveBeenCalled();
     w.unmount();
   });
 });

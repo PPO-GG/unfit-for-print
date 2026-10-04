@@ -107,11 +107,14 @@ describe("CompactCardCarousel — judge", () => {
     expect(w.emitted("pick")).toBeUndefined();
   });
 
-  it("face-down cards have no text", () => {
+  it("face-down cards still receive their text so WhiteCard does not fetch it per card", () => {
     const w = mount(CompactCardCarousel, {
       props: { ...judgeProps, revealed: { p1: true } },
       global: { stubs },
     });
-    expect(w.get('[data-slide="p2"] .wc').text()).toBe("");
+    const down = w.get('[data-slide="p2"] .wc');
+    expect(down.attributes("data-flipped")).toBe("true");
+    // WhiteCard fetches /api/cards/resolve on mount when `text` is missing.
+    expect(down.text()).toBe("Unsupervised brunch");
   });
 });

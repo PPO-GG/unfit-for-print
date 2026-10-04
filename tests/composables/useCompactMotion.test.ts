@@ -85,6 +85,20 @@ describe("useCompactMotion", () => {
     expect(document.body.children.length).toBe(before);
   });
 
+  it("flyToPrompt ghosts are hidden from AT and out of the tab order", () => {
+    const a = el();
+    a.setAttribute("tabindex", "0");
+    const inner = document.createElement("button");
+    inner.setAttribute("tabindex", "0");
+    a.appendChild(inner);
+    useCompactMotion().flyToPrompt([a], document.createElement("div"));
+    const ghost = gsap.to.mock.calls[0]![0] as HTMLElement;
+    expect(ghost.getAttribute("aria-hidden")).toBe("true");
+    expect(ghost.hasAttribute("tabindex")).toBe(false);
+    expect(ghost.querySelectorAll("[tabindex]")).toHaveLength(0);
+    expect(a.getAttribute("tabindex")).toBe("0"); // the original is untouched
+  });
+
   it("flyToPrompt fades the ghosts under reduced motion, then cleans up", () => {
     preference.value = "reduce";
     const done = vi.fn();

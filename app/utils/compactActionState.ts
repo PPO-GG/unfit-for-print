@@ -11,6 +11,8 @@ export interface CompactActionInput {
   phase: string;
   isJudge: boolean;
   isSpectator: boolean;
+  /** The engine skipped this player for the round; they cannot submit. */
+  isSkipped: boolean;
   hasSubmitted: boolean;
   selectedCount: number;
   pick: number;
@@ -48,6 +50,7 @@ export function compactActionState(i: CompactActionInput): CompactActionState {
   switch (i.phase) {
     case "submitting":
       if (i.isSpectator) return muted("compact.spectating");
+      if (i.isSkipped) return muted("compact.skipped");
       if (i.isJudge || i.hasSubmitted) return waiting(i.waitingOn);
       if (i.selectedCount < i.pick) {
         return muted("compact.select_more", { count: i.pick - i.selectedCount });

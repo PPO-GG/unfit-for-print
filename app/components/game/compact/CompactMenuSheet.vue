@@ -13,6 +13,8 @@ const props = defineProps<{
   settings: LobbySettings | null;
   isHost: boolean;
   myId: string;
+  /** Scroll the sheet down to the chat panel when it opens. */
+  focusChat?: boolean;
 }>();
 const emit = defineEmits<{
   leave: [];
@@ -28,6 +30,18 @@ const { open: openReport } = useReportProblem();
 // the compact menu owns an instance for "My settings".
 const settingsOpen = ref(false);
 const copied = ref(false);
+
+// The drawer slides up before its content can be scrolled into view.
+watch(open, (isOpen) => {
+  if (!isOpen || !props.focusChat) return;
+  nextTick(() => {
+    setTimeout(() => {
+      document
+        .querySelector(".chat-panel")
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 350);
+  });
+});
 
 function report() {
   open.value = false;

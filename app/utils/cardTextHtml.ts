@@ -36,8 +36,16 @@ export function formatCardTextHtml(text: string): string {
  * prompt and the fills are escaped — fills are user-submitted card text too.
  */
 export function formatFilledCardTextHtml(text: string, fills: string[]): string {
+  const escaped = escapeHtml(text);
+  if (!escaped.includes("_")) {
+    // A question prompt has nowhere to put the answer; show it after the prompt.
+    const spans = fills
+      .filter(Boolean)
+      .map((f) => `<span class="card-fill">${escapeHtml(f)}</span>`);
+    return spans.length ? `${escaped} ${spans.join(", ")}` : escaped;
+  }
   let next = 0;
-  return escapeHtml(text).replace(/_+/g, () => {
+  return escaped.replace(/_+/g, () => {
     const fill = fills[next++];
     return fill
       ? `<span class="card-fill">${escapeHtml(fill)}</span>`

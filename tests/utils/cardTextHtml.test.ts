@@ -59,9 +59,23 @@ describe("formatFilledCardTextHtml", () => {
     expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
   });
 
-  it("does not append fills to a prompt with no blanks", () => {
+  it("appends fills after a prompt with no blanks", () => {
     expect(formatFilledCardTextHtml("Why am I sticky?", ["Brunch"])).toBe(
-      "Why am I sticky?",
+      'Why am I sticky? <span class="card-fill">Brunch</span>',
+    );
+  });
+
+  it("joins several fills after a blank-less prompt and escapes them", () => {
+    expect(
+      formatFilledCardTextHtml("Why am I sticky?", ["Brunch", "", "<b>x</b>"]),
+    ).toBe(
+      'Why am I sticky? <span class="card-fill">Brunch</span>, <span class="card-fill">&lt;b&gt;x&lt;/b&gt;</span>',
+    );
+  });
+
+  it("returns just the escaped prompt for a blank-less prompt with no fills", () => {
+    expect(formatFilledCardTextHtml("Why <am> I sticky?", [])).toBe(
+      "Why &lt;am&gt; I sticky?",
     );
   });
 });

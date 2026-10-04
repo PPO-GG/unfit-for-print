@@ -139,6 +139,7 @@
   "compact.round_label": "Round {round}",
   "compact.round_won": "Round {round} · won",
   "compact.select_more": "Select {count} more",
+  "compact.skipped": "You were skipped this round",
   "compact.spectating": "Spectating — you'll be dealt in next round",
   "compact.submit": "Submit card",
   "compact.submit_plural": "Submit cards",

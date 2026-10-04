@@ -55,6 +55,10 @@ export function useCompactMotion() {
       const r = el.getBoundingClientRect();
       const clone = el.cloneNode(true) as HTMLElement;
       clone.classList.add("lobby-tokens");
+      // A ghost is decoration: hide it from AT and take it (and its children) out of the tab order.
+      clone.setAttribute("aria-hidden", "true");
+      clone.removeAttribute("tabindex");
+      clone.querySelectorAll("[tabindex]").forEach((n) => n.removeAttribute("tabindex"));
       Object.assign(clone.style, {
         position: "fixed",
         left: `${r.left}px`,

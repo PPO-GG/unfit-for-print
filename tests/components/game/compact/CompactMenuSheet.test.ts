@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import * as Vue from "vue";
 
@@ -44,6 +44,42 @@ const props = {
 };
 
 describe("CompactMenuSheet", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = "";
+  });
+
+  it("scrolls to the chat panel once the drawer has opened when focusChat is set", async () => {
+    vi.useFakeTimers();
+    const panel = document.createElement("div");
+    panel.className = "chat-panel";
+    const scrollIntoView = vi.fn();
+    panel.scrollIntoView = scrollIntoView;
+    document.body.appendChild(panel);
+
+    const w = mount(CompactMenuSheet, { props: { ...props, open: false, focusChat: true }, global: { stubs } });
+    await w.setProps({ open: true });
+    await Vue.nextTick();
+    expect(scrollIntoView).not.toHaveBeenCalled(); // waits out the drawer animation
+    vi.advanceTimersByTime(350);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
+  });
+
+  it("does not scroll when opened without focusChat", async () => {
+    vi.useFakeTimers();
+    const panel = document.createElement("div");
+    panel.className = "chat-panel";
+    const scrollIntoView = vi.fn();
+    panel.scrollIntoView = scrollIntoView;
+    document.body.appendChild(panel);
+
+    const w = mount(CompactMenuSheet, { props: { ...props, open: false }, global: { stubs } });
+    await w.setProps({ open: true });
+    await Vue.nextTick();
+    vi.advanceTimersByTime(500);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
   it("opens the report modal and closes itself", async () => {
     const w = mount(CompactMenuSheet, { props, global: { stubs } });
     await w.get(".cms-report").trigger("click");

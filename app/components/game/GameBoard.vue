@@ -152,6 +152,15 @@ const gameChatRef = ref<InstanceType<typeof GameChatOverlay> | null>(null);
 
 // ── Compact menu sheet + chat badge ──
 const menuOpen = ref(false);
+// The chat button opens the same sheet, then scrolls it down to the chat.
+const menuFocusChat = ref(false);
+watch(menuOpen, (open) => {
+  if (!open) menuFocusChat.value = false;
+});
+function openChat() {
+  menuFocusChat.value = true;
+  menuOpen.value = true;
+}
 const { unread: chatUnread } = useChatUnread(
   computed(() => lobbyReactive.chat.value.length),
   menuOpen,
@@ -166,7 +175,8 @@ const drawCount = computed(() =>
 // ESC key toggles the menu (chat overlay handles its own ESC via capture phase)
 function handleGlobalEsc(e: KeyboardEvent) {
   if (e.key === "Escape") {
-    escMenuOpen.value = !escMenuOpen.value;
+    if (isCompact.value) menuOpen.value = !menuOpen.value;
+    else escMenuOpen.value = !escMenuOpen.value;
   }
 }
 
@@ -571,9 +581,11 @@ function handleNextRound() {
         @skip-prompt="handleSkipPrompt"
         @draw="handleDeckDraw"
         @open-menu="menuOpen = true"
+        @open-chat="openChat"
       />
       <CompactMenuSheet
         v-model:open="menuOpen"
+        :focus-chat="menuFocusChat"
         :lobby="props.lobby"
         :players="props.players"
         :state="state ?? null"
