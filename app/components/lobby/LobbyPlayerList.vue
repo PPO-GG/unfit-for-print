@@ -31,7 +31,7 @@
           <div :class="['lpl-status', statusClass(p)]">{{ statusLabel(p) }}</div>
         </div>
         <button
-          v-if="p.playerType === 'bot' && isHostUser"
+          v-if="isHostUser && !p.isHost"
           class="lpl-kick"
           :aria-label="`Remove ${p.name}`"
           @click="$emit('kick', p.$id)"

@@ -111,6 +111,7 @@ import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import { useUiStore } from "~/stores/uiStore";
 import { useCompactLayout } from "~/composables/useCompactLayout";
+import { useRemovePlayer } from "~/composables/useRemovePlayer";
 
 const props = defineProps<{
   lobby: Lobby;
@@ -190,10 +191,15 @@ function handleToggleReady() {
   mutations.setPlayerReady(myId.value, !(me?.ready ?? false));
 }
 
+// Anyone but the host. A person goes through the server kick, so their row
+// goes too and their client is sent home; removing them from the doc alone
+// let them straight back in on refresh.
+const { removePlayer } = useRemovePlayer();
 function handleKick(playerId: string) {
   if (!isHost.value) return;
   const target = props.players.find((p) => p.$id === playerId);
-  mutations.removePlayer(playerId, target?.name);
+  if (!target || target.isHost) return;
+  removePlayer(props.lobby.id, target);
 }
 
 function isTypingTarget(target: EventTarget | null) {
