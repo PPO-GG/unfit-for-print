@@ -18,7 +18,7 @@ export function useCompactMotion() {
   const reduced = () => preference.value === "reduce";
 
   function fade(els: Element[]) {
-    gsap.fromTo(els, { opacity: 0 }, { opacity: 1, duration: 0.2, overwrite: "auto" });
+    gsap.fromTo(els, { opacity: 0 }, { opacity: 1, duration: 0.2, overwrite: "auto", clearProps: "opacity" });
   }
 
   function dealIn(t: Targets) {
@@ -51,9 +51,11 @@ export function useCompactMotion() {
     const to = target.getBoundingClientRect();
     els.forEach((el, i) => {
       const from = el.getBoundingClientRect();
+      const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+      const dy = to.top + to.height / 2 - (from.top + from.height / 2);
       gsap.to(el, {
-        x: to.left + to.width / 2 - (from.left + from.width / 2),
-        y: to.top + to.height / 2 - (from.top + from.height / 2),
+        x: `+=${dx}`,
+        y: `+=${dy}`,
         scale: 0.3,
         rotation: i % 2 ? 10 : -10,
         opacity: 0,
@@ -90,7 +92,7 @@ export function useCompactMotion() {
     gsap.fromTo(
       els,
       { y: -80, rotation: -6, opacity: 0 },
-      { y: 0, rotation: -1.5, opacity: 1, duration: 0.6, ease: "back.out(1.4)" },
+      { y: 0, rotation: 0, opacity: 1, duration: 0.6, ease: "back.out(1.4)", clearProps: "transform,opacity" },
     );
   }
 

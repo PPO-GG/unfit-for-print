@@ -52,4 +52,25 @@ describe("useCompactMotion", () => {
     m.crown(null, undefined);
     expect(gsap.fromTo).not.toHaveBeenCalled();
   });
+
+  it("dropIn settles the card with rotation 0 and clears transforms", () => {
+    useCompactMotion().dropIn([el()]);
+    const [, , to] = gsap.fromTo.mock.calls[0]!;
+    expect(to).toMatchObject({ rotation: 0, clearProps: "transform,opacity" });
+  });
+
+  it("flyToPrompt uses relative offsets and onComplete only on last card", () => {
+    const target = document.createElement("div");
+    const done = vi.fn();
+    useCompactMotion().flyToPrompt([el(), el()], target, done);
+    expect(gsap.to).toHaveBeenCalledTimes(2);
+    const [, call0] = gsap.to.mock.calls[0]!;
+    const [, call1] = gsap.to.mock.calls[1]!;
+    expect(typeof call0.x).toBe("string");
+    expect(typeof call0.y).toBe("string");
+    expect(call0.x).toMatch(/^\+=/);
+    expect(call0.y).toMatch(/^\+=/);
+    expect(call0.onComplete).toBeUndefined();
+    expect(call1.onComplete).toBe(done);
+  });
 });
