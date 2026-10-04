@@ -32,7 +32,7 @@ export const useLobby = () => {
   // Card texts: black cards come embedded in the Y.Doc, white cards are
   // resolved per client for just the ids this client can display. Swapping
   // `cardTexts` here means every consumer of useLobby().reactive.cardTexts
-  // (GameBoard, and through it GameTable/UserHand/MobileGameLayout) gets
+  // (GameBoard, and through it GameTable/UserHand/CompactGameLayout) gets
   // resolution for free, with no prop changes.
   const { cardTexts } = useCardTexts(
     lobbyDoc,

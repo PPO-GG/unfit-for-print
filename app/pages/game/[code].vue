@@ -868,7 +868,6 @@ function handleResetGame() {
             :lobby="lobby || {}"
             :players="players"
             @leave="handleLeave"
-            @toggle-sidebar="isSidebarOpen = true"
             @skip-judge="handleSkipJudge"
             @skip-player="handleSkipPlayer"
             @reset-game="handleResetGame"

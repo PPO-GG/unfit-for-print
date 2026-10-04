@@ -93,4 +93,14 @@ describe("BlackCard.vue — initial flip state", () => {
     const inner = wrapper.find(".card__inner").element;
     expect(gsapSet).toHaveBeenCalledWith(inner, { rotateY: 0 });
   });
+
+  it("renders fills into the blanks, escaped", () => {
+    const wrapper = mountCard({
+      text: "What ruined Friday night? _.",
+      fills: ["<b>Brunch</b>"],
+    });
+    const html = wrapper.find(".card-body-text").html();
+    expect(html).toContain('class="card-fill"');
+    expect(html).toContain("&lt;b&gt;Brunch&lt;/b&gt;");
+  });
 });
