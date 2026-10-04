@@ -197,7 +197,11 @@ import { requiresJoinUsername } from "~/composables/useUserUtils";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useUserStore } from "~/stores/userStore";
 
-const props = defineProps<{ open: boolean }>();
+const props = defineProps<{
+  open: boolean;
+  /** A code that is already known (an invite link) — fills the slots. */
+  initialCode?: string;
+}>();
 const emit = defineEmits<{
   "update:open": [boolean];
   joined: [string];
@@ -254,10 +258,16 @@ watch(fullCode, async (code) => {
   }
 });
 
+/** Letters and digits, uppercased, at most four. */
+function cleanCode(raw: string) {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+}
+
 function resetCode() {
+  const initial = cleanCode(props.initialCode ?? "");
   status.value = "entering";
-  code.value = ["", "", "", ""];
-  caretIndex.value = 0;
+  code.value = [0, 1, 2, 3].map((i) => initial[i] ?? "");
+  caretIndex.value = initial.length;
   errorMessage.value = "";
 }
 
@@ -277,6 +287,8 @@ watch(
       codeRef.value?.focus();
     }
   },
+  // A page can mount the card already open (/game/[code]).
+  { immediate: true },
 );
 
 const authenticatedUsername = computed(() => {
@@ -361,10 +373,10 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-/** Typed or pasted code: keep letters and digits, uppercase, at most four. */
+/** Typed or pasted code. */
 function onCodeInput(e: Event) {
   const input = e.target as HTMLInputElement;
-  const clean = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  const clean = cleanCode(input.value);
   input.value = clean;
   code.value = [0, 1, 2, 3].map((i) => clean[i] ?? "");
   caretIndex.value = clean.length;
@@ -388,7 +400,7 @@ function browsePublicLobbies() {
 const statusEyebrow = computed(() => {
   switch (status.value) {
     case "entering":
-      return "Enter the room code";
+      return props.initialCode ? "You're invited to room" : "Enter the room code";
     case "joining":
       return "Connecting to lobby…";
     case "joined":
