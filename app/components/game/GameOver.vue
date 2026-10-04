@@ -11,6 +11,7 @@ import { buildPodium, podiumDisplayOrder, type LeaderboardEntry, type PodiumStep
 import { gsap } from "gsap";
 import { usePreferredReducedMotion } from "@vueuse/core";
 import { burstConfetti, resetConfetti } from "~/utils/confetti";
+import { LONG_WORD, fitWidth, wordWidth } from "~/utils/headlineFit";
 
 const props = defineProps<{
   leaderboard: LeaderboardEntry[];
@@ -59,16 +60,15 @@ const segmenter =
 function splitChars(word: string): string[] {
   return segmenter ? Array.from(segmenter.segment(word), (s) => s.segment) : Array.from(word);
 }
-// Past this many graphemes a word may break mid-word as a last resort.
-const LONG_WORD = 20;
+// A word wider than LONG_WORD average characters may break mid-word as a last resort.
 const headlineWords = computed(() =>
   headline.value.split(" ").map((word) => {
     const chars = splitChars(word);
-    return { word, chars, long: chars.length > LONG_WORD };
+    return { word, chars, long: wordWidth(chars) > LONG_WORD };
   }),
 );
-// Longest word in graphemes; the title's font-size shrinks to fit it (see .go-title).
-const longestWord = computed(() => Math.max(1, ...headlineWords.value.map((w) => w.chars.length)));
+// The title's font-size shrinks to fit the widest word (see .go-title).
+const longestWord = computed(() => fitWidth(headlineWords.value.map((w) => w.chars)));
 
 function playerFor(id: string): Player | undefined {
   return props.players.find((p) => p.userId === id) ?? props.players.find((p) => p.$id === id);
@@ -144,7 +144,7 @@ function runEntrance() {
   for (const place of [3, 2, 1]) {
     addIf(stepFor(place), { scaleY: 0, transformOrigin: "bottom center" }, { scaleY: 1, duration: 0.5, ease: "back.out(1.4)" }, "-=0.25");
   }
-  addIf(q(".go-person"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.06 }, "-=0.3");
+  addIf(q(".go-person, .go-more"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.06 }, "-=0.3");
   addIf(q(".go-crown"), { y: -140, opacity: 0, rotation: -25 }, { y: 0, opacity: 1, rotation: 0, duration: 0.8, ease: "bounce.out" }, "-=0.1");
   tl.call(celebrate);
   addIf(q(".go-row"), { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.06 }, "-=0.4");
