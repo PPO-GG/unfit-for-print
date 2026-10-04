@@ -636,4 +636,12 @@ function getPlayerStatus(
   gap: 0.1rem;
   flex-shrink: 0;
 }
+/* Tablets reach this list by touch; a 24px icon button is too small a target. */
+@media (pointer: coarse) {
+  .admin-actions :deep(button) {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
 </style>
