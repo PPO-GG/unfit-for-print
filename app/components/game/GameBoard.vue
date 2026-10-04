@@ -11,6 +11,7 @@ import GameOver from "~/components/game/GameOver.vue";
 import GameHeader from "~/components/game/GameHeader.vue";
 import { SFX } from "~/config/sfx.config";
 import { useSpeech } from "~/composables/useSpeech";
+import { useCompactLayout } from "~/composables/useCompactLayout";
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
 import {
   getProviderFromVoiceId,
@@ -20,7 +21,6 @@ import MobileGameLayout from "~/components/game/mobile/MobileGameLayout.vue";
 import CornerControls from "~/components/game/CornerControls.vue";
 import GameEscMenu from "~/components/game/GameEscMenu.vue";
 import GameChatOverlay from "~/components/game/GameChatOverlay.vue";
-import { useBreakpoints } from "@vueuse/core";
 import { gsap } from "gsap";
 
 const { t } = useI18n();
@@ -142,9 +142,8 @@ function handleDeckDraw() {
   }
 }
 
-// ── Mobile breakpoint detection ──
-const breakpoints = useBreakpoints({ md: 768 });
-const isMobile = breakpoints.smaller("md");
+// ── Compact (phone) layout: narrow OR short, so landscape phones count ──
+const { isCompact: isMobile } = useCompactLayout();
 const myAvatar = computed(() => currentPlayer.value?.avatar || "");
 
 // ── Immersion: ESC menu & chat ──
