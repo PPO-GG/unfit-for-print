@@ -75,14 +75,16 @@ const startLabel = computed(() => {
   return t("lobby.compact.start", { count: props.players.length });
 });
 
-const guestHint = computed(() =>
-  start.allNonBotsReady.value && start.enoughPlayers.value
-    ? t("lobby.compact.waiting_host")
-    : t("lobby.compact.ready_count", {
-        ready: start.readyCount.value,
-        total: props.players.length,
-      }),
-);
+const guestHint = computed(() => {
+  if (!start.enoughPlayers.value) {
+    return t("lobby.compact.need_more", { count: MIN_PLAYERS - props.players.length });
+  }
+  if (start.allNonBotsReady.value) return t("lobby.compact.waiting_host");
+  return t("lobby.compact.ready_count", {
+    ready: start.readyCount.value,
+    total: props.players.length,
+  });
+});
 
 // ── Share ──
 async function share() {
@@ -106,13 +108,36 @@ function sheet(action: () => void) {
 
 // ── Keyboard-aware height: iOS keeps 100dvh when the keyboard opens, so
 // track the visual viewport and size the lobby to it. ──
-const vvHeight = ref<string | null>(null);
-if (import.meta.client && window.visualViewport) {
+// iOS also pans the visual viewport instead of resizing the layout viewport,
+// so follow its offsetTop with a transform.
+const KEYBOARD_MIN_PX = 120;
+const vvHeight = ref<number | null>(null);
+const vvOffsetTop = ref(0);
+const windowHeight = ref(0);
+onMounted(() => {
+  if (typeof window === "undefined" || !window.visualViewport) return;
   const vv = window.visualViewport;
-  const update = () => (vvHeight.value = `${vv.height}px`);
+  const update = () => {
+    vvHeight.value = vv.height;
+    vvOffsetTop.value = vv.offsetTop;
+    windowHeight.value = window.innerHeight;
+  };
   update();
   useEventListener(vv, "resize", update);
-}
+  useEventListener(vv, "scroll", update);
+});
+const keyboardOpen = computed(
+  () =>
+    tab.value === "chat" &&
+    vvHeight.value !== null &&
+    windowHeight.value - vvHeight.value >= KEYBOARD_MIN_PX,
+);
+const rootStyle = computed(() => {
+  const style: Record<string, string> = {};
+  if (vvHeight.value !== null) style.height = `${vvHeight.value}px`;
+  if (vvOffsetTop.value > 0) style.transform = `translateY(${vvOffsetTop.value}px)`;
+  return Object.keys(style).length ? style : undefined;
+});
 
 // ── Motion ──
 const rootEl = ref<HTMLElement | null>(null);
@@ -143,8 +168,8 @@ watch(start.canStart, (ok) => {
   <div
     ref="rootEl"
     class="lc"
-    :class="`lc--${orientation}`"
-    :style="vvHeight ? { height: vvHeight } : undefined"
+    :class="[`lc--${orientation}`, { 'lc--kb': keyboardOpen }]"
+    :style="rootStyle"
   >
     <header class="lc-head">
       <p class="lc-meta">
@@ -176,30 +201,40 @@ watch(start.canStart, (ok) => {
       </button>
     </nav>
 
-    <section class="lc-panel" role="tabpanel" :id="`lc-panel-${tab}`" :aria-labelledby="`lc-tab-${tab}`">
-      <LobbyPlayerList
-        v-if="tab === 'players'"
-        :players="players"
-        :max-seats="maxSeats"
-        :is-host-user="isHost"
-        @add-bot="emit('add-bot')"
-        @kick="(id: string) => emit('kick', id)"
-      />
-      <LobbyChat v-else-if="tab === 'chat'" class="lc-chat" :messages="chatMessages" />
-      <div v-else class="lc-settings">
-        <LobbySettingsSummary
-          :settings="settings"
-          :is-host="isHost"
-          :shuffling="shuffling"
-          :pack-names="packNames"
-          @edit="emit('edit-settings')"
-          @shuffle="emit('shuffle')"
+    <section class="lc-panel">
+      <div
+        v-for="name in tabs"
+        v-show="tab === name"
+        :key="name"
+        role="tabpanel"
+        :id="`lc-panel-${name}`"
+        :aria-labelledby="`lc-tab-${name}`"
+        :class="{ 'lc-chat-panel': name === 'chat' }"
+      >
+        <LobbyPlayerList
+          v-if="name === 'players'"
+          :players="players"
+          :max-seats="maxSeats"
+          :is-host-user="isHost"
+          @add-bot="emit('add-bot')"
+          @kick="(id: string) => emit('kick', id)"
         />
-        <LobbyRoundPreview
-          :cards-per-player="settings?.cardsPerPlayer ?? 0"
-          :max-pick="settings?.maxPick ?? 0"
-          :active-packs-count="(settings?.cardPacks ?? []).length"
-        />
+        <LobbyChat v-else-if="name === 'chat'" class="lc-chat" :messages="chatMessages" />
+        <div v-else class="lc-settings">
+          <LobbySettingsSummary
+            :settings="settings"
+            :is-host="isHost"
+            :shuffling="shuffling"
+            :pack-names="packNames"
+            @edit="emit('edit-settings')"
+            @shuffle="emit('shuffle')"
+          />
+          <LobbyRoundPreview
+            :cards-per-player="settings?.cardsPerPlayer ?? 0"
+            :max-pick="settings?.maxPick ?? 0"
+            :active-packs-count="(settings?.cardPacks ?? []).length"
+          />
+        </div>
       </div>
     </section>
 
@@ -262,6 +297,9 @@ watch(start.canStart, (ok) => {
 .lc-head { grid-area: head; text-align: center; padding: 10px 16px 4px; }
 .lc-meta {
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: "JetBrains Mono", monospace;
   font-size: 11px;
   letter-spacing: 0.12em;
@@ -329,6 +367,15 @@ watch(start.canStart, (ok) => {
 }
 .lc-panel :deep(.lpl-kick) { min-width: 44px; min-height: 44px; }
 .lc-panel :deep(.lpl-add-bot-link) { min-height: 44px; padding: 0 12px; }
+.lc-panel :deep(.lobby-chat-toggle) { display: none; }
+.lc-panel :deep(.lss-edit-link),
+.lc-panel :deep(.lss-shuffle-link),
+.lc-panel :deep(.lobby-chat-send) {
+  min-height: 44px;
+  min-width: 44px;
+  padding-inline: 12px;
+}
+.lc-chat-panel { height: 100%; }
 .lc-chat { height: 100% !important; }
 .lc-settings { display: flex; flex-direction: column; gap: 10px; }
 .lc-bar {
@@ -374,6 +421,11 @@ watch(start.canStart, (ok) => {
   box-shadow: none;
   border-color: var(--lb-line);
 }
+/* Keyboard up on the Chat tab: give the message list every pixel. */
+.lc--kb .lc-bar { display: none; }
+.lc--kb .lc-meta,
+.lc--kb .lc-share { display: none; }
+.lc--kb .lc-code { font-size: 1.25rem; }
 .lc-sheet { display: flex; flex-direction: column; gap: 8px; }
 .lc-sheet-btn {
   min-height: 48px;
