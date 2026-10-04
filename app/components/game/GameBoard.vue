@@ -669,6 +669,8 @@ function handleMobileContinue() {
   position: relative;
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -407,11 +407,6 @@ function getPlayerName(playerId: string | null): string {
 
 // ─── Page Lifecycle ─────────────────────────────────────────────────────────
 onMounted(async () => {
-  const { isMobile } = useDevice();
-  const { isSizeMobile } = useDeviceType();
-  if ((isSizeMobile || isMobile) && isWaiting) {
-    isSidebarOpen.value = true;
-  }
   loading.value = true;
 
   try {
@@ -737,7 +732,7 @@ function handleResetGame() {
     <!-- Main game layout -->
     <div
       v-if="!showJoinModal && lobby && players"
-      class="flex h-screen overflow-hidden"
+      class="flex h-dvh overflow-hidden"
     >
       <!-- Mobile menu button (hidden during active gameplay — mobile has its own controls) -->
       <UButton
@@ -918,6 +913,7 @@ function handleResetGame() {
   left: 0;
   z-index: 70;
   height: 100vh;
+  height: 100dvh;
   width: 21.25rem;
   max-width: 90vw;
   padding: 0;
