@@ -1,5 +1,8 @@
 <script setup lang="ts">
-useHead({ title: "Legal · Unfit for Print" });
+useSeoMeta({
+  title: "Legal",
+  description: "Terms of service and privacy policy for Unfit for Print.",
+});
 
 const links = [
   {

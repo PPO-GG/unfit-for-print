@@ -183,7 +183,11 @@ import { useIsAdmin } from "~/composables/useAdminCheck";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useUserStore } from "~/stores/userStore";
 const { t } = useI18n();
-useHead({ title: "Unfit Labs" });
+useSeoMeta({
+  title: "Unfit Labs",
+  description:
+    "Try experimental card decks and features for Unfit for Print before they ship.",
+});
 const submitCardOpen = ref(false);
 const activeTab = ref<"submissions" | "packs">("submissions");
 // Loaded up front so the hero's card count is right before anyone opens the

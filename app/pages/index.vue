@@ -123,11 +123,11 @@
           alt="Unfit For Print Logo"
           class="w-28 sm:w-36 lg:w-40 h-auto drop-shadow-xl pointer-events-none"
         />
-        <p
-          class="font-display text-sm sm:text-base tracking-[0.08em] text-slate-400 max-w-xs"
+        <h1
+          class="font-display text-sm sm:text-base tracking-[0.08em] text-slate-400 max-w-xs font-normal"
         >
           {{ t("tagline") }}
-        </p>
+        </h1>
 
         <div
           class="bg-slate-700/20 backdrop-blur-md outline-2 outline-offset-2 dark:outline-slate-500/20 outline-slate-900/20 rounded-2xl p-4 flex flex-col items-center gap-4 w-full max-w-sm"
@@ -379,6 +379,25 @@
       >
     </div>
 
+    <!-- Crawlable copy, visually hidden: the page is the game's main menu and
+         should stay one screen, but the menu is almost all labels, so without
+         this a search engine has nothing to read. -->
+    <section class="sr-only" aria-labelledby="home-intro-title">
+      <h2 id="home-intro-title">A free online party card game for 3+ players</h2>
+      <p>
+        Unfit for Print is a Cards Against Humanity-style game that runs in your
+        browser. Nothing to download: create a lobby, share the four-letter
+        code, and your friends can join from any phone or computer.
+      </p>
+      <p>
+        Each round a Judge reads a black prompt card, everyone else secretly
+        plays their funniest white card, and the Judge picks a winner. Mix and
+        match card packs, play with voice read-aloud, or run it as a Discord
+        Activity.
+      </p>
+      <NuxtLink to="/about">Read the full rules and FAQ</NuxtLink>
+    </section>
+
     <JoinTakeover v-model:open="showJoin" @joined="handleJoined" />
   </div>
 </template>
@@ -585,9 +604,24 @@ const handleSpeakClick = () => {
 
 const { vibrate } = useVibrate({ pattern: [10, 7, 5], interval: 0 });
 
+// titleTemplate "%s": the home title carries the brand itself.
 useHead({
-  title: "Unfit for Print",
+  title: "Unfit for Print – Free Online Cards Against Humanity-Style Party Game",
+  titleTemplate: "%s",
 });
+useSeoMeta({
+  description:
+    "Play Unfit for Print free in your browser: a Cards Against Humanity-style party game for 3+ players. Create a lobby, share the code, no download needed.",
+});
+useSchemaOrg([
+  defineWebSite({ inLanguage: "en" }),
+  defineSoftwareApp({
+    name: "Unfit for Print",
+    applicationCategory: "GameApplication",
+    operatingSystem: "Any (web browser)",
+    offers: { price: 0, priceCurrency: "USD" },
+  }),
+]);
 
 // How long to hold the cards face-down before swapping in the new ones. The
 // flip is a 1.5s elastic tween in WhiteCard/BlackCard, but that duration is

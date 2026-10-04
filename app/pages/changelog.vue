@@ -1,5 +1,9 @@
 <script setup lang="ts">
-useHead({ title: "Changelog · Unfit for Print" });
+useSeoMeta({
+  title: "Changelog",
+  description:
+    "Every update to Unfit for Print: new cards, features and fixes, release by release.",
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

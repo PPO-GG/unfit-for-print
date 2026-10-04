@@ -325,23 +325,13 @@ const ogTitleStatic = computed(() => {
   return name ? `${name} | Unfit for Print` : `Unfit for Print – Game ${code}`;
 });
 
-useHead({
-  title: ogTitle,
-  meta: [
-    {
-      name: "description",
-      content: ogDescription,
-    },
-    { property: "og:site_name", content: "Unfit for Print" },
-    { property: "og:title", content: ogTitleStatic },
-    {
-      property: "og:description",
-      content: ogDescription,
-    },
-    { property: "og:type", content: "website" },
-    { property: "og:url", content: `${config.public.baseUrl}/game/${code}` },
-  ],
-  link: [{ rel: "canonical", href: `${config.public.baseUrl}/game/${code}` }],
+// Lobbies are noindex (routeRules in nuxt.config.ts) but still get link
+// previews, so the OG tags stay. The titles already carry the site name.
+useHead({ title: ogTitle, titleTemplate: "%s" });
+useSeoMeta({
+  description: ogDescription,
+  ogTitle: ogTitleStatic,
+  ogDescription,
 });
 // ─── Sidebar Watcher ────────────────────────────────────────────────────────
 // Desktop sidebar can be toggled. Auto-collapse when game starts, but allow user to re-open.
