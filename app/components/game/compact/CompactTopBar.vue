@@ -14,10 +14,16 @@ const props = defineProps<{
 const emit = defineEmits<{ menu: []; chat: [] }>();
 const { t } = useI18n();
 
-const MAX_AVATARS = 6;
-const active = computed(() =>
-  props.players.filter((p) => p.playerType !== "spectator"),
-);
+const MAX_AVATARS = 5;
+const active = computed(() => {
+  const nonSpectators = props.players.filter((p) => p.playerType !== "spectator");
+  // Sort so judge comes first, stable otherwise
+  return nonSpectators.sort((a, b) => {
+    if (a.userId === props.judgeId) return -1;
+    if (b.userId === props.judgeId) return 1;
+    return 0;
+  });
+});
 const shown = computed(() => active.value.slice(0, MAX_AVATARS));
 const overflow = computed(() => Math.max(0, active.value.length - MAX_AVATARS));
 
@@ -25,7 +31,7 @@ function displayName(p: Player): string {
   return p.name?.trim() || t("compact.player_fallback");
 }
 function initials(p: Player): string {
-  return displayName(p).slice(0, 2).toUpperCase();
+  return Array.from(displayName(p)).slice(0, 2).join("").toUpperCase();
 }
 </script>
 
@@ -43,6 +49,7 @@ function initials(p: Player): string {
         :class="{ 'is-judge': p.userId === judgeId }"
         :data-player="p.userId"
         :title="displayName(p)"
+        :aria-label="displayName(p)"
       >
         <img v-if="getPlayerAvatarUrl(p)" :src="getPlayerAvatarUrl(p)!" alt="" />
         <span v-else>{{ initials(p) }}</span>
@@ -99,6 +106,8 @@ function initials(p: Player): string {
   justify-content: flex-end;
   gap: 4px;
   overflow: hidden;
+  padding: 5px;
+  margin: -5px 0;
 }
 .ctb-av {
   position: relative;

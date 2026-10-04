@@ -53,4 +53,42 @@ describe("CompactTopBar", () => {
     const w = mount(CompactTopBar, { props: base, global: { stubs: { Icon: true } } });
     expect(w.find(".ctb-badge").exists()).toBe(false);
   });
+
+  it("renders the judge first even when listed last", () => {
+    const w = mount(CompactTopBar, {
+      props: {
+        ...base,
+        players: [player("u2", ""), player("u1", "Mynd")],
+        judgeId: "u1",
+      },
+      global: { stubs: { Icon: true } },
+    });
+    const avs = w.findAll("[data-player]");
+    expect(avs[0]!.attributes("data-player")).toBe("u1");
+  });
+
+  it("renders 5 avatars and overflow chip for 7 active players", () => {
+    const w = mount(CompactTopBar, {
+      props: {
+        ...base,
+        players: [
+          player("u1", "Judge"),
+          player("u2", "P2"),
+          player("u3", "P3"),
+          player("u4", "P4"),
+          player("u5", "P5"),
+          player("u6", "P6"),
+          player("u7", "P7"),
+        ],
+        judgeId: "u1",
+        lockedIds: [],
+      },
+      global: { stubs: { Icon: true } },
+    });
+    const avs = w.findAll("[data-player]");
+    expect(avs).toHaveLength(5); // 5 avatars
+    const overflow = w.find(".ctb-av--more");
+    expect(overflow.exists()).toBe(true);
+    expect(overflow.text()).toBe("+2");
+  });
 });
