@@ -9,60 +9,85 @@
       />
     </div>
 
-    <main class="lobby-room-main">
-      <div class="lobby-room-grid">
-        <LobbyChat class="lobby-room-chat" :messages="reactive.chat.value" />
-
-        <div class="lobby-room-table-wrap lobby-panel lobby-panel-striped">
-          <LobbyTable
-            :players="players"
-            :max-seats="maxSeats"
-            :is-host-user="isHost"
-            @add-bot="addBot"
-          />
-        </div>
-        <LobbyRoundPreview
-          class="lobby-room-preview"
-          :cards-per-player="reactive.settings.value?.cardsPerPlayer ?? 0"
-          :max-pick="reactive.settings.value?.maxPick ?? 0"
-          :active-packs-count="(reactive.settings.value?.cardPacks ?? []).length"
-        />
-
-        <aside class="lobby-room-sidebar">
-          <LobbyCodePanel :code="lobby.code" />
-          <LobbyPlayerList
-            :players="players"
-            :max-seats="maxSeats"
-            :is-host-user="isHost"
-            @add-bot="addBot"
-            @kick="handleKick"
-          />
-          <LobbySettingsSummary
-            :settings="reactive.settings.value"
-            :is-host="isHost"
-            :shuffling="shufflePending"
-            :pack-names="packNames"
-            @edit="settingsOpen = true"
-            @shuffle="shufflePacks"
-          />
-        </aside>
-      </div>
-    </main>
-
-    <LobbyStartBar
+    <LobbyCompact
+      v-if="isCompact"
+      :code="lobby.code"
       :lobby-name="reactive.settings.value?.lobbyName ?? ''"
       :players="players"
       :my-id="myId ?? ''"
       :is-host="isHost"
       :is-starting="isStarting"
       :max-seats="maxSeats"
+      :settings="reactive.settings.value ?? null"
+      :pack-names="packNames"
+      :shuffling="shufflePending"
+      :chat-messages="reactive.chat.value"
       @toggle-ready="handleToggleReady"
       @start="startGameWrapper"
       @add-bot="addBot"
+      @kick="handleKick"
       @leave="$emit('leave')"
-      @open-settings="settingsOpen = !settingsOpen"
+      @edit-settings="settingsOpen = true"
       @open-app-settings="uiStore.showSettings = true"
+      @shuffle="shufflePacks"
     />
+
+    <template v-else>
+      <main class="lobby-room-main">
+        <div class="lobby-room-grid">
+          <LobbyChat class="lobby-room-chat" :messages="reactive.chat.value" />
+
+          <div class="lobby-room-table-wrap lobby-panel lobby-panel-striped">
+            <LobbyTable
+              :players="players"
+              :max-seats="maxSeats"
+              :is-host-user="isHost"
+              @add-bot="addBot"
+            />
+          </div>
+          <LobbyRoundPreview
+            class="lobby-room-preview"
+            :cards-per-player="reactive.settings.value?.cardsPerPlayer ?? 0"
+            :max-pick="reactive.settings.value?.maxPick ?? 0"
+            :active-packs-count="(reactive.settings.value?.cardPacks ?? []).length"
+          />
+
+          <aside class="lobby-room-sidebar">
+            <LobbyCodePanel :code="lobby.code" />
+            <LobbyPlayerList
+              :players="players"
+              :max-seats="maxSeats"
+              :is-host-user="isHost"
+              @add-bot="addBot"
+              @kick="handleKick"
+            />
+            <LobbySettingsSummary
+              :settings="reactive.settings.value"
+              :is-host="isHost"
+              :shuffling="shufflePending"
+              :pack-names="packNames"
+              @edit="settingsOpen = true"
+              @shuffle="shufflePacks"
+            />
+          </aside>
+        </div>
+      </main>
+
+      <LobbyStartBar
+        :lobby-name="reactive.settings.value?.lobbyName ?? ''"
+        :players="players"
+        :my-id="myId ?? ''"
+        :is-host="isHost"
+        :is-starting="isStarting"
+        :max-seats="maxSeats"
+        @toggle-ready="handleToggleReady"
+        @start="startGameWrapper"
+        @add-bot="addBot"
+        @leave="$emit('leave')"
+        @open-settings="settingsOpen = !settingsOpen"
+        @open-app-settings="uiStore.showSettings = true"
+      />
+    </template>
 
     <LobbySettingsDrawer
       :open="settingsOpen"
@@ -80,6 +105,7 @@
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import { useUiStore } from "~/stores/uiStore";
+import { useCompactLayout } from "~/composables/useCompactLayout";
 
 const props = defineProps<{
   lobby: Lobby;
@@ -90,6 +116,7 @@ defineEmits<{ (e: "leave"): void }>();
 
 const userStore = useUserStore();
 const uiStore = useUiStore();
+const { isCompact } = useCompactLayout();
 const { startGame, reactive, mutations } = useLobby();
 
 const isHost = computed(
