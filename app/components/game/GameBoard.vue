@@ -471,7 +471,9 @@ onUnmounted(() => {
 
 // Convert spectator to player — direct Y.Doc mutation
 function convertToPlayer(playerId: string) {
-  if (!isHost.value) return;
+  // A latecomer may deal themselves in; only the host deals in someone else
+  // (same rule as POST /api/players/convert).
+  if (!isHost.value && playerId !== myId) return;
 
   const result = engine.convertToPlayer(playerId);
   if (result.success) {
@@ -580,6 +582,7 @@ function handleNextRound() {
         @next-round="handleNextRound"
         @skip-prompt="handleSkipPrompt"
         @draw="handleDeckDraw"
+        @deal-in="convertToPlayer(myId)"
         @open-menu="menuOpen = true"
         @open-chat="openChat"
       />

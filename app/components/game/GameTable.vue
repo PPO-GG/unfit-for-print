@@ -560,8 +560,9 @@ function handleSelectWinner(playerId: string) {
     <!-- Spectator view -->
     <div v-if="blackCard && isSpectator" class="spectator-banner">
       <p>{{ t("game.you_are_spectating") }}</p>
+      <!-- Any spectator may deal themselves in (POST /api/players/convert allows
+           self); GameBoard.convertToPlayer enforces host-only for others. -->
       <UButton
-        v-if="isHost"
         color="primary"
         icon="i-mdi-account-plus"
         size="sm"

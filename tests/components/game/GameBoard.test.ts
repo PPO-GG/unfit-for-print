@@ -120,11 +120,11 @@ const GLOBAL_STUBS = {
   CornerControls: true,
   GameEscMenu: true,
   CompactGameLayout: {
-    template: "<div class=\"cgl-stub\"><button class=\"next\" @click=\"$emit('next-round')\" /><button class=\"menu\" @click=\"$emit('open-menu')\" /><button class=\"chat\" @click=\"$emit('open-chat')\" /></div>",
+    template: "<div class=\"cgl-stub\"><button class=\"next\" @click=\"$emit('next-round')\" /><button class=\"menu\" @click=\"$emit('open-menu')\" /><button class=\"chat\" @click=\"$emit('open-chat')\" /><button class=\"dealin\" @click=\"$emit('deal-in')\" /></div>",
   },
   CompactMenuSheet: {
     props: ["open", "focusChat"],
-    template: "<div class=\"sheet-stub\" :data-open=\"String(open)\" :data-focus-chat=\"String(!!focusChat)\"><button class=\"sheet-close\" @click=\"$emit('update:open', false)\" /><button class=\"sheet-leave\" @click=\"$emit('leave')\" /></div>",
+    template: "<div class=\"sheet-stub\" :data-open=\"String(open)\" :data-focus-chat=\"String(!!focusChat)\"><button class=\"sheet-close\" @click=\"$emit('update:open', false)\" /><button class=\"sheet-leave\" @click=\"$emit('leave')\" /><button class=\"sheet-convert-other\" @click=\"$emit('convert-spectator', 'someone-else')\" /></div>",
   },
   GameHeader: true,
   BlackCardDeck: true,
@@ -303,6 +303,23 @@ describe("GameBoard.vue — compact layout", () => {
     expect(nextRound).toHaveBeenCalledTimes(1);
     await w.get(".cgl-stub .menu").trigger("click");
     expect(w.get(".sheet-stub").attributes("data-open")).toBe("true");
+    w.unmount();
+  });
+
+  it("lets a spectator deal themselves in, but only the host deals in others", async () => {
+    compactFlag.value = true;
+    isHostRef.value = false;
+    (useUserStore() as any).user = { id: "spec-1", $id: "spec-1" };
+    engineMock.convertToPlayer.mockReturnValue({ success: true });
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mount(GameBoard, {
+      props: { lobby: { id: "l1", code: "ABC" } as any, players: [] },
+      global: { stubs: GLOBAL_STUBS },
+    });
+    await w.get(".cgl-stub .dealin").trigger("click");
+    expect(engineMock.convertToPlayer).toHaveBeenCalledWith("spec-1");
+    await w.get(".sheet-convert-other").trigger("click");
+    expect(engineMock.convertToPlayer).toHaveBeenCalledTimes(1);
     w.unmount();
   });
 

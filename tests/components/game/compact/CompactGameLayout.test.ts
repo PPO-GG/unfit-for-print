@@ -138,10 +138,12 @@ describe("CompactGameLayout", () => {
     expect(w.emitted("skip-prompt")).toHaveLength(1);
   });
 
-  it("spectators get a banner instead of a hand", () => {
+  it("spectators get a banner and a way to deal themselves in", async () => {
     const w = mk({ isSpectator: true, myHand: [] });
     expect(w.find(".carousel").exists()).toBe(false);
     expect(w.text()).toContain("compact.spectating");
+    await w.get(".cgl-deal-in").trigger("click");
+    expect(w.emitted("deal-in")).toHaveLength(1);
   });
 
   it("submitting-complete shows the shuffle card, never a blank", () => {

@@ -52,6 +52,7 @@ const emit = defineEmits<{
   "next-round": [];
   "skip-prompt": [];
   draw: [];
+  "deal-in": [];
   "open-menu": [];
   "open-chat": [];
 }>();
@@ -416,6 +417,16 @@ onMounted(() => {
 
       <div v-else-if="view === 'spectating'" class="cgl-status">
         <p class="cgl-status-title">{{ t("compact.spectating") }}</p>
+        <UButton
+          class="cgl-deal-in"
+          size="lg"
+          color="primary"
+          icon="i-mdi-account-plus"
+          block
+          @click="emit('deal-in')"
+        >
+          {{ t("compact.deal_me_in") }}
+        </UButton>
       </div>
 
       <div v-else-if="view === 'skipped'" class="cgl-status">
@@ -544,5 +555,6 @@ onMounted(() => {
   text-transform: uppercase;
   color: var(--lb-ink-dim);
 }
-.cgl-skip { min-height: 44px; max-width: 18rem; }
+.cgl-skip,
+.cgl-deal-in { min-height: 44px; max-width: 18rem; }
 </style>
