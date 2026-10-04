@@ -36,7 +36,7 @@ const props = defineProps<{
   readingAloud: boolean;
   promptSerial?: number;
   blackSkipUsed?: boolean;
-  /** Players the engine has skipped this round — nobody waits on them. */
+  /** Players the engine has skipped this round; nobody waits on them. */
   skippedPlayers?: string[];
   needsManualDraw: boolean;
   drawCount: number;

@@ -65,7 +65,7 @@ docker start unfit-postgres-test
 
 If it needs recreating: `docker run -d --name unfit-postgres-test -p 5433:5432 -e POSTGRES_USER=unfit -e POSTGRES_PASSWORD=unfit -e POSTGRES_DB=unfit postgres:16-alpine`, then apply migrations with `DATABASE_URL=$TEST_DATABASE_URL pnpm db:migrate`.
 
-Known-failing suites as of 2026-09-18, unrelated to card handling: `lobby-detail-admin`, `lobby-prune` (DB), plus `MobileBlackCard`, `MobileCardList`, `MobileGameLayout`, `userPrefsStore` — 6 files. Compare against that baseline rather than expecting green. `AvatarDecoration`, `useVoicePreview`, `lobby-registry` and `BlackCard` were on this list and pass again, so treat the list as drifting: re-derive it before assuming a failure is yours.
+Known-failing suites as of 2026-09-18, unrelated to card handling: `lobby-detail-admin`, `lobby-prune` (DB), plus `userPrefsStore` — 3 files. Compare against that baseline rather than expecting green. `AvatarDecoration`, `useVoicePreview`, `lobby-registry` and `BlackCard` were on this list and pass again, so treat the list as drifting: re-derive it before assuming a failure is yours.
 
 That baseline now also lives in code, as `KNOWN_FAILING` in `vitest.config.ts`. It is skipped only when `VITEST_SKIP_KNOWN_FAILING=1`, which `.github/workflows/ci.yml` sets so a pull request gates on the 1375 tests that do pass. A local `pnpm test` still runs everything, failures included — that is deliberate, so the debt stays visible where you work. Delete entries from the list as suites are repaired; never add one to silence a new failure.
 
@@ -115,6 +115,8 @@ Consequence: **game mutations must go through Yjs, not new API routes.** The onl
 | `useYjsGameEngine.ts` | The game rules. Each action reads state → validates phase/actor → mutates inside `doc.transact()`. Public API: `playCard`, `revealCard`, `selectWinner`, `nextRound`, `skipPlayer`, `skipJudge`, `setReadAloud`, `convertToPlayer`, `resetGame`, `markReturnedToLobby`, `handlePlayerLeave`, `replenishWhiteDeck`, `drawCards`. |
 | `useLobbyMutations.ts` | Lobby-level Y.Doc writes: `initializeLobby`, `addPlayer`, `removePlayer`, `setPlayerReady`, `updateSettings`, `startGame`. (Lobby status is written by the engine directly — `getMeta().set("status", …)` at three sites.) |
 | `useLobby.ts` | Composes all of the above + Postgres-backed lobby discovery. The façade most UI uses. |
+| `useCompactLayout.ts` | The one phone-layout rule (`width < 768 \|\| height < 500`) + orientation. Game, lobby and game over all switch on it. |
+| `useRoundUi.ts` | Per-client round UI the doc doesn't hold: a player's picks, the judge's pending winner, `canAdvance`. Used by the compact game view. |
 
 Game phases (`app/types/game.d.ts`): `waiting → submitting → submitting-complete → judging → roundEnd → complete`.
 

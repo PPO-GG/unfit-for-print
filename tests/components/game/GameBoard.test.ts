@@ -29,14 +29,15 @@ vi.mock("~/utils/confetti", () => ({
 }));
 vi.mock("gsap", () => ({ gsap: { to: vi.fn(), set: vi.fn(), fromTo: vi.fn() } }));
 
+// Controllable so both the desktop and the compact tree can be exercised.
+// The factory only reads it lazily, when useCompactLayout() runs during mount.
+const compactFlag = ref(false);
 vi.mock("~/composables/useCompactLayout", () => ({
-  // Force desktop layout so we exercise the WinnerCelebration/GameTable
-  // path (gated on winnerSelected) rather than the compact action bar.
   useCompactLayout: () => ({
-    isCompact: ref(false),
-    orientation: ref("landscape"),
-    width: ref(1280),
-    height: ref(800),
+    isCompact: compactFlag,
+    orientation: ref("portrait"),
+    width: ref(375),
+    height: ref(812),
   }),
 }));
 
@@ -94,6 +95,7 @@ vi.mock("~/composables/useLobby", () => ({
       leaderboard: computed(() => []),
       cardTexts: computed(() => ({})),
       settings: computed(() => ({})),
+      chat: computed(() => []),
     },
   }),
 }));
@@ -115,7 +117,10 @@ const GLOBAL_STUBS = {
   GameChatOverlay: true,
   CornerControls: true,
   GameEscMenu: true,
-  MobileGameLayout: true,
+  CompactGameLayout: {
+    template: "<div class=\"cgl-stub\"><button class=\"next\" @click=\"$emit('next-round')\" /><button class=\"menu\" @click=\"$emit('open-menu')\" /></div>",
+  },
+  CompactMenuSheet: { props: ["open"], template: '<div class="sheet-stub" :data-open="String(open)" />' },
   GameHeader: true,
   BlackCardDeck: true,
   WhiteCardDeck: true,
@@ -134,6 +139,7 @@ describe("GameBoard.vue — skip-judge soft lock (issue #99)", () => {
     vi.useFakeTimers();
     gameState.value = { phase: "judging", roundWinner: null, round: 1 };
     isJudgeRef.value = false;
+    compactFlag.value = false;
   });
 
   afterEach(() => {
@@ -218,6 +224,7 @@ describe("GameBoard.vue — skip-prompt control", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     isJudgeRef.value = true;
+    compactFlag.value = false;
     gameState.value = {
       phase: "submitting",
       roundWinner: null,
@@ -268,5 +275,28 @@ describe("GameBoard.vue — skip-prompt control", () => {
     const btn = wrapper.find(".deck-skip-btn");
     expect(btn.attributes("disabled")).toBeDefined();
     expect(btn.text()).toBe("game.skip_prompt_used");
+  });
+});
+
+describe("GameBoard.vue — compact layout", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    (useUserStore() as any).user = { $id: "host-1" };
+    vi.clearAllMocks();
+    compactFlag.value = false;
+  });
+
+  it("advances on next-round only as host, and opens the menu sheet", async () => {
+    compactFlag.value = true;
+    gameState.value = { phase: "roundEnd", roundWinner: null, round: 1 };
+    const w = mount(GameBoard, {
+      props: { lobby: { id: "l1", code: "ABC" } as any, players: [] },
+      global: { stubs: GLOBAL_STUBS },
+    });
+    await w.get(".cgl-stub .next").trigger("click");
+    expect(nextRound).toHaveBeenCalledTimes(1);
+    await w.get(".cgl-stub .menu").trigger("click");
+    expect(w.get(".sheet-stub").attributes("data-open")).toBe("true");
+    w.unmount();
   });
 });

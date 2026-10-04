@@ -17,7 +17,9 @@ import {
   getProviderFromVoiceId,
   type TTSProviderType,
 } from "~/constants/ttsProviders";
-import MobileGameLayout from "~/components/game/mobile/MobileGameLayout.vue";
+import CompactGameLayout from "~/components/game/compact/CompactGameLayout.vue";
+import CompactMenuSheet from "~/components/game/compact/CompactMenuSheet.vue";
+import { useChatUnread } from "~/composables/useChatUnread";
 import CornerControls from "~/components/game/CornerControls.vue";
 import GameEscMenu from "~/components/game/GameEscMenu.vue";
 import GameChatOverlay from "~/components/game/GameChatOverlay.vue";
@@ -27,7 +29,6 @@ const { t } = useI18n();
 const props = defineProps<{ lobby: Lobby; players: Player[] }>();
 const emit = defineEmits<{
   (e: "leave"): void;
-  (e: "toggle-sidebar"): void;
   (e: "skip-judge"): void;
   (e: "skip-player", playerId: string): void;
   (e: "reset-game"): void;
@@ -143,12 +144,24 @@ function handleDeckDraw() {
 }
 
 // ── Compact (phone) layout: narrow OR short, so landscape phones count ──
-const { isCompact: isMobile } = useCompactLayout();
-const myAvatar = computed(() => currentPlayer.value?.avatar || "");
+const { isCompact } = useCompactLayout();
 
 // ── Immersion: ESC menu & chat ──
 const escMenuOpen = ref(false);
 const gameChatRef = ref<InstanceType<typeof GameChatOverlay> | null>(null);
+
+// ── Compact menu sheet + chat badge ──
+const menuOpen = ref(false);
+const { unread: chatUnread } = useChatUnread(
+  computed(() => lobbyReactive.chat.value.length),
+  menuOpen,
+);
+const drawCount = computed(() =>
+  Math.max(
+    0,
+    (lobbyReactive.settings.value?.cardsPerPlayer ?? 10) - (myHand.value?.length ?? 0),
+  ),
+);
 
 // ESC key toggles the menu (chat overlay handles its own ESC via capture phase)
 function handleGlobalEsc(e: KeyboardEvent) {
@@ -477,8 +490,8 @@ function handleLeave() {
   emit("leave");
 }
 
-/** Mobile "Continue" button — skip the 5s auto-advance wait */
-function handleMobileContinue() {
+/** Compact "Next round" — host skips the 5s auto-advance wait. */
+function handleNextRound() {
   if (!isHost.value || isComplete.value) return;
   if (nextRoundTimeout) clearTimeout(nextRoundTimeout);
   hasTriggeredNextRound = true;
@@ -494,19 +507,19 @@ function handleMobileContinue() {
 <template>
   <div class="game-table-root" :class="tableLightingClass">
     <!-- Felt texture overlay -->
-    <div class="game-table-felt"></div>
+    <div v-if="!isCompact" class="game-table-felt"></div>
     <!-- Vignette -->
-    <div class="game-table-vignette"></div>
+    <div v-if="!isCompact" class="game-table-vignette"></div>
 
     <!-- Ambient floating particles -->
-    <div class="ambient-particles" aria-hidden="true" />
+    <div v-if="!isCompact" class="ambient-particles" aria-hidden="true" />
 
     <!-- FPS-style Chat Overlay (desktop only) -->
-    <GameChatOverlay v-if="!isMobile" ref="gameChatRef" />
+    <GameChatOverlay v-if="!isCompact" ref="gameChatRef" />
 
     <!-- Corner HUD Controls (desktop only) -->
     <CornerControls
-      v-if="!isMobile"
+      v-if="!isCompact"
       :unread-count="gameChatRef?.unreadCount ?? 0"
       @toggle-chat="gameChatRef?.toggleChat()"
       @toggle-settings="escMenuOpen = true"
@@ -526,42 +539,61 @@ function handleMobileContinue() {
       @reset-game="emit('reset-game'); escMenuOpen = false"
     />
 
-    <!-- Mobile Layout -->
-    <MobileGameLayout
-      v-if="isMobile"
-      class="relative z-10"
-      :phase="state?.phase || 'submitting'"
-      :black-card="blackCard"
-      :my-hand="myHand"
-      :my-submission="mySubmission"
-      :submissions="submissions"
-      :revealed-cards="revealedCards"
-      :scores="state?.scores || {}"
-      :my-id="myId"
-      :is-judge="isJudge"
-      :is-host="isHost"
-      :is-participant="isParticipant"
-      :is-spectator="isSpectator"
-      :players="props.players"
-      :judge-id="judgeId"
-      :card-texts="cardTexts"
-      :effective-round-winner="effectiveRoundWinner"
-      :confirmed-round-winner="confirmedRoundWinner"
-      :winner-selected="winnerSelected"
-      :winning-cards="state?.winningCards || []"
-      :round="state?.round || 1"
-      :reading-aloud="readingAloud"
-      :my-avatar="myAvatar"
-      :prompt-serial="state?.promptSerial"
-      :black-skip-used="state?.blackSkipUsed"
-      @select-cards="handleCardSubmit"
-      @reveal-card="revealCard"
-      @select-winner="handleSelectWinner"
-      @read-aloud="handleReadAloud"
-      @toggle-sidebar="emit('toggle-sidebar')"
-      @continue="handleMobileContinue"
-      @skip-prompt="handleSkipPrompt"
-    />
+    <!-- Compact (phone) layout -->
+    <template v-if="isCompact">
+      <CompactGameLayout
+        class="relative z-10"
+        :phase="state?.phase || 'submitting'"
+        :black-card="blackCard"
+        :my-hand="myHand"
+        :my-submission="mySubmission"
+        :submissions="submissions"
+        :revealed-cards="revealedCards"
+        :scores="state?.scores || {}"
+        :goal="lobbyReactive.settings.value?.maxPoints || 10"
+        :round="state?.round || 1"
+        :my-id="myId"
+        :is-judge="isJudge"
+        :is-host="isHost"
+        :is-spectator="isSpectator"
+        :players="props.players"
+        :judge-id="judgeId"
+        :card-texts="cardTexts"
+        :effective-round-winner="effectiveRoundWinner"
+        :confirmed-round-winner="confirmedRoundWinner"
+        :winner-selected="winnerSelected"
+        :winning-cards="state?.winningCards || []"
+        :reading-aloud="readingAloud"
+        :prompt-serial="state?.promptSerial"
+        :black-skip-used="state?.blackSkipUsed"
+        :skipped-players="state?.skippedPlayers || []"
+        :needs-manual-draw="!!needsManualDraw"
+        :draw-count="drawCount"
+        :chat-unread="chatUnread"
+        @select-cards="handleCardSubmit"
+        @reveal-card="revealCard"
+        @select-winner="handleSelectWinner"
+        @read-aloud="handleReadAloud"
+        @next-round="handleNextRound"
+        @skip-prompt="handleSkipPrompt"
+        @draw="handleDeckDraw"
+        @open-menu="menuOpen = true"
+      />
+      <CompactMenuSheet
+        v-model:open="menuOpen"
+        :lobby="props.lobby"
+        :players="props.players"
+        :state="state ?? null"
+        :settings="lobbyReactive.settings.value ?? null"
+        :is-host="isHost"
+        :my-id="myId"
+        @leave="handleLeave"
+        @skip-judge="emit('skip-judge')"
+        @skip-player="emit('skip-player', $event)"
+        @reset-game="emit('reset-game')"
+        @convert-spectator="convertToPlayer"
+      />
+    </template>
 
     <!-- Desktop Layout -->
     <div v-else class="min-h-dvh flex flex-col relative z-10">

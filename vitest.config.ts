@@ -19,9 +19,6 @@ loadEnv();
 // suites are repaired, and never add one to make a new failure go away.
 const KNOWN_FAILING = [
   "tests/stores/userPrefsStore.test.ts",
-  "tests/components/game/mobile/MobileBlackCard.test.ts",
-  "tests/components/game/mobile/MobileCardList.test.ts",
-  "tests/components/game/mobile/MobileGameLayout.test.ts",
   "tests/server/db/lobby-detail-admin.test.ts",
   "tests/server/db/lobby-prune.test.ts",
 ];
