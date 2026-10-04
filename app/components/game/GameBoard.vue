@@ -206,8 +206,12 @@ const drawCount = computed(() =>
 // ESC key toggles the menu (chat overlay handles its own ESC via capture phase)
 function handleGlobalEsc(e: KeyboardEvent) {
   if (e.key === "Escape") {
-    // The chat sheet closes itself on ESC; don't open the menu behind it.
+    // The chat sheet and any dialog on top (confirm, report, settings) close
+    // themselves on this same ESC; don't open the menu behind them. Their
+    // data-state is still "open" here — Vue hasn't re-rendered yet.
     if (chatOpen.value) return;
+    if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'))
+      return;
     escMenuOpen.value = !escMenuOpen.value;
   }
 }

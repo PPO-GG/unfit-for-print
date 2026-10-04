@@ -395,6 +395,28 @@ describe("GameBoard.vue — compact layout", () => {
     w.unmount();
   });
 
+  // A dialog on top (confirm, report, settings) closes itself on the same
+  // ESC; toggling the menu too opened it behind the dialog being dismissed.
+  it.each([true, false])("Escape leaves the menu alone while another dialog is open (compact=%s)", async (compact) => {
+    compactFlag.value = compact;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mountCompact();
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("data-state", "open");
+    document.body.appendChild(dialog);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await w.vm.$nextTick();
+    expect(w.get(".esc-stub").attributes("data-open")).toBe("false");
+
+    dialog.setAttribute("data-state", "closed");
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await w.vm.$nextTick();
+    expect(w.get(".esc-stub").attributes("data-open")).toBe("true");
+    dialog.remove();
+    w.unmount();
+  });
+
   it("Leave from the menu emits leave once and does not run its own leave flow", async () => {
     compactFlag.value = true;
     gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
