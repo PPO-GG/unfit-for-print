@@ -896,6 +896,8 @@ function handleResetGame() {
           <GameOver
             :leaderboard="leaderboard"
             :players="players"
+            :round="state?.round ?? 0"
+            :goal="reactive.settings.value?.maxPoints ?? 10"
             @continue="handleContinue"
           />
         </ClientOnly>
