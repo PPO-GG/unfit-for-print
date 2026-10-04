@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.27.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.26.1...v3.27.0) (2026-10-04)
+
+
+### ✨ Features
+
+* **web:** add @nuxtjs/seo with per-page canonicals, sitemap and structured data ([#158](https://github.com/PPO-GG/unfit-for-print/issues/158)) ([15456e0](https://github.com/PPO-GG/unfit-for-print/commit/15456e0706e36657fa3a1725bfbc7e3e9084aea6))
+
+
+### 🐛 Bug Fixes
+
+* **web:** stop the reconnecting banner showing on a healthy link ([#159](https://github.com/PPO-GG/unfit-for-print/issues/159)) ([e613f92](https://github.com/PPO-GG/unfit-for-print/commit/e613f922516be2ed708fcb2f4bb11e8631eee3b0))
+
 ## [3.26.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.26.0...v3.26.1) (2026-09-29)
 
 
