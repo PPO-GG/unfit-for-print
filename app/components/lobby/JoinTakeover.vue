@@ -53,7 +53,7 @@
             placeholder="RizzMaster69"
             class="join-username-input"
             @keydown.stop
-            @keydown.enter.prevent="cardRef?.focus()"
+            @keydown.enter.prevent="codeRef?.focus()"
           />
         </div>
 
@@ -78,11 +78,32 @@
             autocomplete="off"
             class="join-username-input"
             @keydown.stop
-            @keydown.enter.prevent="cardRef?.focus()"
+            @keydown.enter.prevent="canJoin ? attemptJoin() : codeRef?.focus()"
           />
         </div>
 
-        <div class="flex justify-center gap-3 mt-6">
+        <div class="join-slots flex justify-center gap-3 mt-6">
+          <!-- A real input over the slots: phones only open a keyboard for an
+               editable field, and Android keyboards don't report letters as
+               keydown events, so the card-level key handler alone left the
+               code unenterable on mobile. Invisible; the slots render it. -->
+          <input
+            ref="codeRef"
+            class="join-code-input"
+            type="text"
+            inputmode="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="go"
+            :aria-label="t('lobby.lobby_code')"
+            :value="fullCode"
+            :readonly="status !== 'entering'"
+            @input="onCodeInput"
+            @keydown.stop
+            @keydown.enter.prevent="attemptJoin"
+          />
           <div
             v-for="i in 4"
             :key="i"
@@ -199,6 +220,7 @@ const errorMessage = ref("");
 const cardRef = ref<HTMLElement | null>(null);
 const usernameRef = ref<HTMLInputElement | null>(null);
 const passwordRef = ref<HTMLInputElement | null>(null);
+const codeRef = ref<HTMLInputElement | null>(null);
 
 const fullCode = computed(() => code.value.join(""));
 const needsUsername = computed(() => requiresJoinUsername(userStore.user));
@@ -252,7 +274,7 @@ watch(
     if (needsUsername.value) {
       usernameRef.value?.focus();
     } else {
-      cardRef.value?.focus();
+      codeRef.value?.focus();
     }
   },
 );
@@ -339,6 +361,15 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+/** Typed or pasted code: keep letters and digits, uppercase, at most four. */
+function onCodeInput(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const clean = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  input.value = clean;
+  code.value = [0, 1, 2, 3].map((i) => clean[i] ?? "");
+  caretIndex.value = clean.length;
+}
+
 function close() {
   emit("update:open", false);
 }
@@ -346,7 +377,7 @@ function close() {
 function onCardAreaClick(e: MouseEvent) {
   const target = e.target as HTMLElement;
   if (target.tagName === "INPUT" || target.tagName === "BUTTON") return;
-  cardRef.value?.focus();
+  codeRef.value?.focus();
 }
 
 function browsePublicLobbies() {
@@ -537,6 +568,25 @@ function confettiStyle(i: number) {
   outline: none;
   border-color: var(--join-accent);
   box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.12);
+}
+
+.join-slots {
+  position: relative;
+}
+/* Covers the slots so a tap anywhere on them focuses it (and opens the
+   phone keyboard). 16px keeps iOS from zooming on focus. */
+.join-code-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  font-size: 16px;
+  color: transparent;
+  caret-color: transparent;
+  background: transparent;
+  border: 0;
+  z-index: 1;
 }
 
 .join-slot {
