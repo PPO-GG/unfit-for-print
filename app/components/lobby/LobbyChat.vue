@@ -99,11 +99,21 @@ function handleSend() {
   }
 }
 
+function scrollToBottom() {
+  if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight;
+}
+
+// Open at the newest message (the game's chat sheet mounts this fresh), and
+// let a parent that hides it with v-show catch up when it shows it again —
+// a hidden list has no height to scroll.
+onMounted(() => nextTick(scrollToBottom));
+defineExpose({ scrollToBottom });
+
 watch(
   () => props.messages.length,
   async (newCount, oldCount) => {
     await nextTick();
-    if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight;
+    scrollToBottom();
 
     if (newCount > oldCount) {
       const newMessages = props.messages.slice(oldCount);

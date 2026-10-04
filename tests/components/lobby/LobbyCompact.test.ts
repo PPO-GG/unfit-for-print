@@ -32,6 +32,8 @@ const inDiscord = Vue.ref(false);
 const notify = vi.fn();
 (globalThis as any).useNotifications = () => ({ notify });
 
+const chatScrollToBottom = vi.fn();
+
 import { shareInvite } from "~/utils/shareInvite";
 import LobbyCompact from "~/components/lobby/LobbyCompact.vue";
 
@@ -39,7 +41,12 @@ const p = (userId: string, ready: boolean, playerType = "player") =>
   ({ $id: userId, userId, name: userId, ready, playerType }) as any;
 const stubs = {
   LobbyPlayerList: { template: "<div class=\"plist\"><button class=\"kick\" @click=\"$emit('kick', 'b1')\" /></div>" },
-  LobbyChat: { template: '<div class="chat" />' },
+  LobbyChat: {
+    template: '<div class="chat" />',
+    setup(_: unknown, { expose }: any) {
+      expose({ scrollToBottom: chatScrollToBottom });
+    },
+  },
   LobbySettingsSummary: { template: "<div class=\"summary\" @click=\"$emit('edit')\" />" },
   LobbyRoundPreview: { template: '<div class="preview" />' },
   UDrawer: { props: ["open"], template: '<div v-if="open"><slot name="body" /></div>' },
@@ -88,6 +95,19 @@ describe("LobbyCompact", () => {
     expect(shown(w, "#lc-panel-chat")).toBe(false);
     await w.get(".summary").trigger("click");
     expect(w.emitted("edit-settings")).toHaveLength(1);
+  });
+
+  // The chat panel is hidden (v-show) on other tabs, where it can't scroll, so
+  // messages that arrived meanwhile were below the fold when the tab opened.
+  it("scrolls the chat to the newest message when the Chat tab opens", async () => {
+    chatScrollToBottom.mockClear();
+    const w = mk();
+    await w.get('[data-tab="chat"]').trigger("click");
+    await nextTick();
+    expect(chatScrollToBottom).toHaveBeenCalledTimes(1);
+    await w.get('[data-tab="players"]').trigger("click");
+    await nextTick();
+    expect(chatScrollToBottom).toHaveBeenCalledTimes(1);
   });
 
   describe("on-screen keyboard", () => {

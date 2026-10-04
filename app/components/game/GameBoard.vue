@@ -206,8 +206,12 @@ const drawCount = computed(() =>
 // ESC key toggles the menu (chat overlay handles its own ESC via capture phase)
 function handleGlobalEsc(e: KeyboardEvent) {
   if (e.key === "Escape") {
-    // The chat sheet closes itself on ESC; don't open the menu behind it.
+    // The chat sheet and any dialog on top (confirm, report, settings) close
+    // themselves on this same ESC; don't open the menu behind them. Their
+    // data-state is still "open" here — Vue hasn't re-rendered yet.
     if (chatOpen.value) return;
+    if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]'))
+      return;
     escMenuOpen.value = !escMenuOpen.value;
   }
 }
@@ -372,11 +376,23 @@ const activePhase = computed<"submitting" | "judging">(() => {
 // button on the display phase made it fly the pile home and then error.
 const canSkipPrompt = computed(() => state.value?.phase === "submitting");
 
-// Watch for roundWinner from the server
+// Watch for roundWinner from the server, together with the round: a phone
+// that resyncs from one round's end straight into the next's can see the same
+// winner twice, which a watch on the winner alone would not fire for. The
+// round's reset lives here too, so it always runs before the new winner is
+// recorded rather than after (a separate watcher would wipe the snapshot).
 watch(
-  () => state.value?.roundWinner,
-  (newWinner) => {
-    if (newWinner) {
+  [() => state.value?.round, () => state.value?.roundWinner],
+  ([round, newWinner], [prevRound, prevWinner]) => {
+    const newRound = round !== prevRound;
+    if (newRound) {
+      winnerSelected.value = false;
+      localRoundWinner.value = null;
+      confirmedRoundWinner.value = null;
+      hasTriggeredNextRound = false;
+      stopStalePhaseWatchdog();
+    }
+    if (newWinner && (newRound || newWinner !== prevWinner)) {
       // Clear local optimistic winner since server confirmed
       localRoundWinner.value = null;
 
@@ -420,18 +436,6 @@ watch(
     if (newPhase === "roundEnd" && !state.value?.roundWinner) {
       scheduleNextRound(5000);
     }
-  },
-);
-
-// Reset winner state when round changes
-watch(
-  () => state.value?.round,
-  () => {
-    winnerSelected.value = false;
-    localRoundWinner.value = null;
-    confirmedRoundWinner.value = null;
-    hasTriggeredNextRound = false;
-    stopStalePhaseWatchdog();
   },
 );
 

@@ -68,6 +68,9 @@ const seats = computed(() => {
   height: 100%;
   min-height: 400px;
   overflow: hidden;
+  /* The centre block sizes against the table's own height (cqh), so a short
+     table shrinks it instead of pushing it into the top and bottom seats. */
+  container-type: size;
 }
 
 .lobby-table-surface {
@@ -98,7 +101,7 @@ const seats = computed(() => {
 
 .lobby-table-headline {
   font-family: "Archivo Black", sans-serif;
-  font-size: clamp(28px, 4vw, 52px);
+  font-size: clamp(22px, min(4vw, 9cqh), 52px);
   line-height: 0.88;
   letter-spacing: -0.01em;
   color: var(--lb-ink);
@@ -111,5 +114,11 @@ const seats = computed(() => {
   letter-spacing: 0.15em;
   color: var(--lb-ink-muted);
   margin-top: 4px;
+}
+
+@container (max-height: 460px) {
+  .lobby-table-sub {
+    display: none;
+  }
 }
 </style>

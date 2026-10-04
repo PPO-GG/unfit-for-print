@@ -154,7 +154,7 @@ function onScroll() {
           :aria-label="t('compact.read_aloud')"
           @click.stop="emit('read-aloud', slide.playerId!)"
         >
-          <Icon name="i-solar-volume-loud-bold" />
+          <span class="compact-slide-speak-dot"><Icon name="i-solar-volume-loud-bold" /></span>
         </button>
       </div>
     </div>
@@ -260,18 +260,28 @@ function onScroll() {
   color: var(--lb-accent-yellow);
   pointer-events: none;
 }
+/* Bottom-right, over the watermark: the card's text runs top-down from the
+   top-right, so a button there covered words on the small landscape cards.
+   A full 44px tap area around a smaller visible dot. */
 .compact-slide-speak {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  bottom: 0;
+  right: 0;
   width: 44px;
   height: 44px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+.compact-slide-speak-dot {
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: #0d0f1a;
   color: #f6f3ea;
-  font-size: 18px;
+  font-size: 15px;
 }
 .compact-slide-speak:disabled {
   opacity: 0.5;

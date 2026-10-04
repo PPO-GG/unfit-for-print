@@ -85,12 +85,9 @@ describe("GameOver (podium)", () => {
     const long = w.findAll(".go-word--long");
     expect(long).toHaveLength(1);
     expect(long[0]!.text()).toContain(longName);
-    // The i18n stub glues the key and params into one unbroken word, so the longest
-    // word is the whole label; the property must equal its length.
-    const label = w.get(".go-title").attributes("aria-label")!;
-    const longest = Math.max(...label.split(" ").map((x) => x.length));
-    expect(longest).toBeGreaterThan(32);
-    expect(w.get(".go-title").attributes("style")).toContain(`--go-longest: ${longest}`);
+    // Past 20 characters the word breaks mid-word instead, so the headline is
+    // sized for 20 rather than shrinking to fit all of it.
+    expect(w.get(".go-title").attributes("style")).toContain("--go-longest: 20");
   });
 
   it("keeps an emoji as one character", () => {
@@ -141,6 +138,18 @@ describe("GameOver (podium)", () => {
     const rows = w.findAll(".go-row");
     expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.text())).toEqual(["2 · Tied4", "2 · Tied5", "2 · Tied6"].map((x) => expect.stringContaining(x)));
+  });
+
+  it("brings the +N chip in with the people on its step", async () => {
+    const crowd = ["e", "f", "g", "h", "i", "j"].map((id, i) => pl(id, `Tied${i + 1}`));
+    const w = mk({
+      players: [...players, ...crowd],
+      leaderboard: [{ playerId: "a", points: 10 }, ...crowd.map((c) => ({ playerId: c.userId, points: 0 }))],
+    });
+    await flushPromises();
+    const chip = w.get(".go-more").element;
+    const targets = tl.fromTo.mock.calls.map((c) => c[0]).filter(Array.isArray).flat();
+    expect(targets).toContain(chip);
   });
 
   it("keeps emoji whole in avatar initials", () => {

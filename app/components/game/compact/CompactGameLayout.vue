@@ -113,16 +113,18 @@ const roundEndReady = computed(
 );
 // GameBoard resets winnerSelected ~5s into roundEnd on non-hosts while the
 // phase is still roundEnd; without the latch the screen would fall back to
-// the judging carousel. Held until the phase leaves roundEnd/complete.
+// the judging carousel. Held until the phase leaves roundEnd/complete, or the
+// round changes: a backgrounded phone can resync from one round's end straight
+// into the next's, and must still get that round's winner highlight.
 const inRoundEnd = computed(
   () => props.phase === "roundEnd" || props.phase === "complete",
 );
 const roundEndLatched = ref(false);
 watch(
-  [inRoundEnd, roundEndReady],
-  ([inEnd, ready]) => {
-    if (!inEnd) roundEndLatched.value = false;
-    else if (ready) roundEndLatched.value = true;
+  [inRoundEnd, roundEndReady, () => props.round],
+  ([inEnd, ready, round], prev) => {
+    if (!inEnd || (prev && round !== prev[2])) roundEndLatched.value = false;
+    if (inEnd && ready) roundEndLatched.value = true;
   },
   { immediate: true },
 );

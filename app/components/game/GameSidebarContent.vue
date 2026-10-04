@@ -405,6 +405,13 @@ const canStart = computed(() => playerCount.value >= minPlayers);
 .copy-btn {
   flex-shrink: 0;
 }
+@media (pointer: coarse) {
+  .copy-btn {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
 
 .game-room-divider {
   height: 1px;

@@ -44,6 +44,17 @@ const { open: openReport } = useReportProblem();
 
 // ── Tabs ──
 const tab = ref<Tab>("players");
+// The chat panel stays mounted but hidden on other tabs, where it can't
+// scroll; catch it up to the newest message as it comes into view.
+// (A function ref: a plain ref inside the tab v-for would collect an array.)
+type ChatHandle = { scrollToBottom: () => void };
+let chatRef: ChatHandle | null = null;
+function setChatRef(el: unknown) {
+  chatRef = (el as ChatHandle | null) ?? null;
+}
+watch(tab, (now) => {
+  if (now === "chat") nextTick(() => chatRef?.scrollToBottom());
+});
 const tabs: Tab[] = ["players", "chat", "settings"];
 const { unread } = useChatUnread(
   computed(() => props.chatMessages.length),
@@ -219,7 +230,7 @@ watch(start.canStart, (ok) => {
           @add-bot="emit('add-bot')"
           @kick="(id: string) => emit('kick', id)"
         />
-        <LobbyChat v-else-if="name === 'chat'" class="lc-chat" :messages="chatMessages" />
+        <LobbyChat v-else-if="name === 'chat'" :ref="setChatRef" class="lc-chat" :messages="chatMessages" />
         <div v-else class="lc-settings">
           <LobbySettingsSummary
             :settings="settings"

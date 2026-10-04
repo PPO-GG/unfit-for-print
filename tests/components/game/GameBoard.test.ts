@@ -395,6 +395,56 @@ describe("GameBoard.vue — compact layout", () => {
     w.unmount();
   });
 
+  // A dialog on top (confirm, report, settings) closes itself on the same
+  // ESC; toggling the menu too opened it behind the dialog being dismissed.
+  it.each([true, false])("Escape leaves the menu alone while another dialog is open (compact=%s)", async (compact) => {
+    compactFlag.value = compact;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mountCompact();
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("data-state", "open");
+    document.body.appendChild(dialog);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await w.vm.$nextTick();
+    expect(w.get(".esc-stub").attributes("data-open")).toBe("false");
+
+    dialog.setAttribute("data-state", "closed");
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await w.vm.$nextTick();
+    expect(w.get(".esc-stub").attributes("data-open")).toBe("true");
+    dialog.remove();
+    w.unmount();
+  });
+
+  // A backgrounded phone can resync from round N's end straight into round
+  // N+1's. With the same winner both times the winner never "changes", so the
+  // celebration (winnerSelected) must still come back for the new round.
+  it("celebrates again after resyncing into the next round with the same winner", async () => {
+    vi.useFakeTimers();
+    try {
+      compactFlag.value = true;
+      gameState.value = { phase: "judging", roundWinner: null, round: 1 };
+      const w = mountCompact();
+      gameState.value = { phase: "roundEnd", roundWinner: "a", round: 1 };
+      await w.vm.$nextTick();
+      vi.advanceTimersByTime(2000);
+      await w.vm.$nextTick();
+      expect(w.get(".cgl-stub").attributes("winner-selected")).toBe("true");
+
+      gameState.value = { phase: "roundEnd", roundWinner: "a", round: 2 };
+      await w.vm.$nextTick();
+      expect(w.get(".cgl-stub").attributes("winner-selected")).toBe("false");
+      expect(w.get(".cgl-stub").attributes("confirmed-round-winner")).toBe("a");
+      vi.advanceTimersByTime(2000);
+      await w.vm.$nextTick();
+      expect(w.get(".cgl-stub").attributes("winner-selected")).toBe("true");
+      w.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("Leave from the menu emits leave once and does not run its own leave flow", async () => {
     compactFlag.value = true;
     gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
