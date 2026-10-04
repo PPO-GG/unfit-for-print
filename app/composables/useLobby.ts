@@ -402,9 +402,14 @@ export const useLobby = () => {
       // A refusal has to stop the join. Everything else stays non-fatal as it
       // was — a blip reaching the registry shouldn't keep someone out of a
       // lobby the doc will happily run without a Postgres row.
+      //
+      // 401 counts as a refusal: the session names an account that is gone (a
+      // guest deleted when their last lobby closed). Seated anyway, they were
+      // a doc-only player that game/start, which deals from Postgres, never
+      // dealt a hand.
       const status =
         (err as any)?.statusCode ?? (err as any)?.response?.status ?? 0;
-      if (status === 403) throw err;
+      if (status === 401 || status === 403) throw err;
       console.warn("[useLobby] Failed to create player row:", err);
     }
 

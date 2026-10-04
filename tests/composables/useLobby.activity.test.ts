@@ -174,6 +174,34 @@ describe("useLobby Activity reconnect", () => {
     expect(activityState.addPlayer).not.toHaveBeenCalled();
   });
 
+  // A session whose account is gone (a guest deleted when their last lobby
+  // closed) gets 401 here. Seating them anyway put a doc-only player in the
+  // lobby, and game/start — which deals from Postgres — never gave them a hand.
+  it("does not seat a joiner the server no longer recognises", async () => {
+    const userStore = useUserStore();
+    userStore.setActivityUser({
+      id: "6ac4a08e-0000-4000-8000-000000000001",
+      name: "DiscordPlayer",
+      avatarUrl: null,
+      discordUserId: "discord-user",
+    });
+
+    activityState.activityFetch.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/api/lobby/by-code/")) {
+        return { id: "lobby-1", code: "ABC123" };
+      }
+      if (url === "/api/lobby/join") {
+        throw Object.assign(new Error("Authentication required"), { statusCode: 401 });
+      }
+      return null;
+    });
+
+    await expect(
+      useLobby().joinLobby("ABC123", { username: "DiscordPlayer" }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+    expect(activityState.addPlayer).not.toHaveBeenCalled();
+  });
+
   // A blip reaching the registry must stay non-fatal: the doc is what the game
   // runs on, and lobby rows get reconciled later.
   it("still seats the player when the registry call fails for a non-refusal reason", async () => {
