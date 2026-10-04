@@ -378,6 +378,14 @@ watch(start.canStart, (ok) => {
 .lc-chat-panel { height: 100%; }
 .lc-chat { height: 100% !important; }
 .lc-settings { display: flex; flex-direction: column; gap: 10px; }
+/* The summary is sized for the desktop sidebar (flex: 1 1 0, its own scroll),
+   which collapsed it to ~100px here. In the tab it takes its natural height
+   and the tab panel does the scrolling. */
+.lc-settings :deep(.lobby-settings-summary) {
+  flex: none;
+  min-height: 0;
+  overflow: visible;
+}
 .lc-bar {
   grid-area: bar;
   display: flex;
