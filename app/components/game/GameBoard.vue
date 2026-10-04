@@ -564,7 +564,7 @@ function handleMobileContinue() {
     />
 
     <!-- Desktop Layout -->
-    <div v-else class="min-h-screen flex flex-col relative z-10">
+    <div v-else class="min-h-dvh flex flex-col relative z-10">
       <GameHeader
         :state="state as any"
         :is-submitting="isSubmitting"

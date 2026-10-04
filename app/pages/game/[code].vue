@@ -327,7 +327,13 @@ const ogTitleStatic = computed(() => {
 
 // Lobbies are noindex (routeRules in nuxt.config.ts) but still get link
 // previews, so the OG tags stay. The titles already carry the site name.
-useHead({ title: ogTitle, titleTemplate: "%s" });
+useHead({
+  title: ogTitle,
+  titleTemplate: "%s",
+  // A pull-to-refresh mid-game drops the Yjs connection. Element-level
+  // overscroll-behavior does nothing on overflow:hidden roots, so set it on <html>.
+  htmlAttrs: { style: "overscroll-behavior: none" },
+});
 useSeoMeta({
   description: ogDescription,
   ogTitle: ogTitleStatic,
