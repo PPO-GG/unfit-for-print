@@ -378,5 +378,9 @@
     "cat_audio": "Sound or voice problem",
     "cat_cards": "A card is broken",
     "cat_other": "Something else"
-  }
+  },
+  "lobby.remove_confirm_title": "Remove {name}?",
+  "lobby.remove_confirm_body": "They leave the game straight away and their cards go with them.",
+  "lobby.remove_player": "Remove",
+  "lobby.remove_cancel": "Keep them"
 }

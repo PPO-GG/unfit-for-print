@@ -9,11 +9,21 @@ const { open: openReport } = useReportProblem();
 const prefs = useUserPrefsStore();
 const music = useMusicPlayer();
 
+export interface EscMenuPlayerAction {
+  id: string;
+  name: string;
+  actions: Array<"skip" | "deal-in" | "remove">;
+}
+
 const props = defineProps<{
   open: boolean;
   lobbyCode?: string;
   isHost?: boolean;
   gameSettings?: LobbySettings | null;
+  /** Phones: slide up from the bottom instead of a centred dialog. */
+  sheet?: boolean;
+  /** Host tools: what the host can do to each other player right now. */
+  playerActions?: EscMenuPlayerAction[];
 }>();
 
 const emit = defineEmits<{
@@ -22,6 +32,9 @@ const emit = defineEmits<{
   (e: "toggle-chat"): void;
   (e: "skip-judge"): void;
   (e: "reset-game"): void;
+  (e: "skip-player", playerId: string): void;
+  (e: "convert-spectator", playerId: string): void;
+  (e: "remove-player", playerId: string): void;
 }>();
 
 type View = "main" | "my-settings" | "game-settings" | "host-tools";
@@ -62,9 +75,15 @@ watch(
 
 <template>
   <Teleport to="body">
-    <Transition name="esc-menu">
-      <div v-if="open" class="esc-menu-backdrop" @click.self="emit('close')">
-        <div class="esc-menu-panel">
+    <Transition :name="sheet ? 'esc-sheet' : 'esc-menu'">
+      <div
+        v-if="open"
+        class="esc-menu-backdrop"
+        :class="{ 'esc-menu-backdrop--sheet': sheet }"
+        @click.self="emit('close')"
+      >
+        <div class="esc-menu-panel" :class="{ 'esc-menu-panel--sheet': sheet }">
+          <div v-if="sheet" class="esc-menu-grabber" aria-hidden="true" />
           <!-- ═══ Main View ═══ -->
           <template v-if="activeView === 'main'">
             <h2 class="esc-menu-title">
@@ -75,7 +94,7 @@ watch(
               <button class="esc-menu-item" @click="emit('toggle-chat')">
                 <UIcon name="i-solar-chat-round-dots-bold-duotone" />
                 <span>{{ t("game.chat", "Chat") }}</span>
-                <kbd class="esc-menu-kbd">T</kbd>
+                <kbd v-if="!sheet" class="esc-menu-kbd">T</kbd>
               </button>
 
               <button class="esc-menu-item" @click="activeView = 'my-settings'">
@@ -153,7 +172,7 @@ watch(
               </button>
             </div>
 
-            <p class="esc-menu-hint">
+            <p v-if="!sheet" class="esc-menu-hint">
               {{ t("game.press_esc", "Press ESC to close") }}
             </p>
           </template>
@@ -371,6 +390,41 @@ watch(
                 <UIcon name="i-solar-skip-next-bold-duotone" />
                 <span>{{ t("game.skip_judge", "Skip Judge") }}</span>
               </button>
+
+              <div v-if="playerActions?.length" class="esc-menu-players">
+                <div
+                  v-for="p in playerActions"
+                  :key="p.id"
+                  class="esc-menu-player"
+                >
+                  <span class="esc-menu-player-name">{{ p.name }}</span>
+                  <button
+                    v-if="p.actions.includes('skip')"
+                    type="button"
+                    class="esc-menu-player-btn esc-menu-player-skip"
+                    @click="emit('skip-player', p.id)"
+                  >
+                    {{ t("game.menu_skip", "Skip") }}
+                  </button>
+                  <button
+                    v-if="p.actions.includes('deal-in')"
+                    type="button"
+                    class="esc-menu-player-btn esc-menu-player-dealin"
+                    @click="emit('convert-spectator', p.id)"
+                  >
+                    {{ t("game.menu_deal_in", "Deal in") }}
+                  </button>
+                  <button
+                    v-if="p.actions.includes('remove')"
+                    type="button"
+                    class="esc-menu-player-btn esc-menu-player-remove"
+                    :aria-label="t('lobby.remove_confirm_title', { name: p.name })"
+                    @click="emit('remove-player', p.id)"
+                  >
+                    <UIcon name="i-solar-close-circle-bold-duotone" />
+                  </button>
+                </div>
+              </div>
 
               <div class="esc-menu-divider" />
 
@@ -713,7 +767,111 @@ watch(
   color: #c4b5fd;
 }
 
+/* ─── Host tools: players ──────────────────────────────────── */
+.esc-menu-players {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.375rem;
+}
+.esc-menu-player {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.25rem 0.25rem 1rem;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.35);
+}
+.esc-menu-player-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
+.esc-menu-player-btn {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(71, 85, 105, 0.35);
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.esc-menu-player-remove {
+  padding: 0;
+  color: #f87171;
+  font-size: 1.1rem;
+}
+
+/* ─── Sheet (phones) ───────────────────────────────────────── */
+.esc-menu-backdrop--sheet {
+  align-items: flex-end;
+}
+.esc-menu-panel--sheet {
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  max-height: 88dvh;
+  border-radius: 20px 20px 0 0;
+  border-bottom: none;
+  padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
+}
+.esc-menu-grabber {
+  width: 40px;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(148, 163, 184, 0.4);
+  margin: 0.25rem auto 0.75rem;
+}
+.esc-menu-panel--sheet .esc-menu-title {
+  margin-bottom: 1rem;
+}
+.esc-menu-panel--sheet .esc-menu-item {
+  min-height: 48px;
+}
+.esc-menu-panel--sheet .esc-menu-back {
+  width: 44px;
+  height: 44px;
+}
+.esc-menu-panel--sheet .esc-menu-player-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* ─── Transitions ──────────────────────────────────────────── */
+.esc-sheet-enter-active {
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.esc-sheet-leave-active {
+  transition: opacity 0.2s ease;
+}
+.esc-sheet-enter-active .esc-menu-panel {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.esc-sheet-leave-active .esc-menu-panel {
+  transition: transform 0.2s ease-in;
+}
+.esc-sheet-enter-from,
+.esc-sheet-leave-to {
+  opacity: 0;
+}
+.esc-sheet-enter-from .esc-menu-panel,
+.esc-sheet-leave-to .esc-menu-panel {
+  transform: translateY(100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .esc-sheet-enter-active .esc-menu-panel,
+  .esc-sheet-leave-active .esc-menu-panel {
+    transition: none;
+  }
+}
 .esc-menu-enter-active {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }

@@ -18,10 +18,11 @@ import {
   type TTSProviderType,
 } from "~/constants/ttsProviders";
 import CompactGameLayout from "~/components/game/compact/CompactGameLayout.vue";
-import CompactMenuSheet from "~/components/game/compact/CompactMenuSheet.vue";
+import CompactChatSheet from "~/components/game/compact/CompactChatSheet.vue";
+import { useRemovePlayer } from "~/composables/useRemovePlayer";
 import { useChatUnread } from "~/composables/useChatUnread";
 import CornerControls from "~/components/game/CornerControls.vue";
-import GameEscMenu from "~/components/game/GameEscMenu.vue";
+import GameEscMenu, { type EscMenuPlayerAction } from "~/components/game/GameEscMenu.vue";
 import GameChatOverlay from "~/components/game/GameChatOverlay.vue";
 import { gsap } from "gsap";
 
@@ -150,21 +151,51 @@ const { isCompact } = useCompactLayout();
 const escMenuOpen = ref(false);
 const gameChatRef = ref<InstanceType<typeof GameChatOverlay> | null>(null);
 
-// ── Compact menu sheet + chat badge ──
-const menuOpen = ref(false);
-// The chat button opens the same sheet, then scrolls it down to the chat.
-const menuFocusChat = ref(false);
-watch(menuOpen, (open) => {
-  if (!open) menuFocusChat.value = false;
-});
+// ── Compact chat sheet + badge ──
+// Phones get the game menu itself (as a sheet) and a chat of their own.
+const chatOpen = ref(false);
 function openChat() {
-  menuFocusChat.value = true;
-  menuOpen.value = true;
+  escMenuOpen.value = false;
+  chatOpen.value = true;
+}
+function handleMenuChat() {
+  if (isCompact.value) openChat();
+  else {
+    gameChatRef.value?.toggleChat();
+    escMenuOpen.value = false;
+  }
 }
 const { unread: chatUnread } = useChatUnread(
   computed(() => lobbyReactive.chat.value.length),
-  menuOpen,
+  chatOpen,
 );
+
+// ── Host tools: what the host can do to each other player right now ──
+// The same rules the desktop table's seat controls follow (PlayerList).
+const playerActions = computed<EscMenuPlayerAction[]>(() => {
+  if (!isHost.value) return [];
+  const s = state.value;
+  const skipped = s?.skippedPlayers ?? [];
+  return props.players.flatMap((p) => {
+    if (!p.userId || p.userId === myId) return [];
+    const actions: EscMenuPlayerAction["actions"] = [];
+    if (p.playerType === "spectator") actions.push("deal-in");
+    else if (
+      s?.phase === "submitting" &&
+      p.userId !== s.judgeId &&
+      !s.submissions?.[p.userId] &&
+      !skipped.includes(p.userId)
+    )
+      actions.push("skip");
+    actions.push("remove");
+    return [{ id: p.userId, name: p.name, actions }];
+  });
+});
+const { removePlayer } = useRemovePlayer();
+function handleRemovePlayer(userId: string) {
+  const target = props.players.find((p) => p.userId === userId);
+  if (target) removePlayer(props.lobby.id, target);
+}
 const drawCount = computed(() =>
   Math.max(
     0,
@@ -175,8 +206,9 @@ const drawCount = computed(() =>
 // ESC key toggles the menu (chat overlay handles its own ESC via capture phase)
 function handleGlobalEsc(e: KeyboardEvent) {
   if (e.key === "Escape") {
-    if (isCompact.value) menuOpen.value = !menuOpen.value;
-    else escMenuOpen.value = !escMenuOpen.value;
+    // The chat sheet closes itself on ESC; don't open the menu behind it.
+    if (chatOpen.value) return;
+    escMenuOpen.value = !escMenuOpen.value;
   }
 }
 
@@ -534,14 +566,19 @@ function handleNextRound() {
     <!-- ESC Menu Overlay -->
     <GameEscMenu
       :open="escMenuOpen"
+      :sheet="isCompact"
       :lobby-code="props.lobby?.code"
       :is-host="isHost"
       :game-settings="lobbyReactive.settings.value"
+      :player-actions="playerActions"
       @close="escMenuOpen = false"
       @leave="emit('leave')"
-      @toggle-chat="gameChatRef?.toggleChat(); escMenuOpen = false"
+      @toggle-chat="handleMenuChat"
       @skip-judge="emit('skip-judge'); escMenuOpen = false"
       @reset-game="emit('reset-game'); escMenuOpen = false"
+      @skip-player="emit('skip-player', $event)"
+      @convert-spectator="convertToPlayer"
+      @remove-player="handleRemovePlayer"
     />
 
     <!-- Compact (phone) layout -->
@@ -583,23 +620,12 @@ function handleNextRound() {
         @skip-prompt="handleSkipPrompt"
         @draw="handleDeckDraw"
         @deal-in="convertToPlayer(myId)"
-        @open-menu="menuOpen = true"
+        @open-menu="escMenuOpen = true"
         @open-chat="openChat"
       />
-      <CompactMenuSheet
-        v-model:open="menuOpen"
-        :focus-chat="menuFocusChat"
-        :lobby="props.lobby"
-        :players="props.players"
-        :state="state ?? null"
-        :settings="lobbyReactive.settings.value ?? null"
-        :is-host="isHost"
-        :my-id="myId"
-        @leave="emit('leave')"
-        @skip-judge="emit('skip-judge')"
-        @skip-player="emit('skip-player', $event)"
-        @reset-game="emit('reset-game')"
-        @convert-spectator="convertToPlayer"
+      <CompactChatSheet
+        v-model:open="chatOpen"
+        :messages="lobbyReactive.chat.value"
       />
     </template>
 
