@@ -238,6 +238,26 @@ describe("CompactGameLayout", () => {
     expect(w.get(".carousel").attributes("data-mode")).toBe("select");
   });
 
+  // A backgrounded phone can resync from one round's end straight into the
+  // next's without ever seeing another phase; the latch from round N must not
+  // skip round N+1's winner highlight.
+  it("shows the next round's winner highlight after resyncing from one round end to the next", async () => {
+    const w = mk({
+      phase: "roundEnd", round: 1, effectiveRoundWinner: "p2",
+      submissions: { p2: ["w2"] }, revealedCards: { p2: true }, winnerSelected: true,
+      winningCards: ["w2"],
+    });
+    expect(w.find(".round-end").exists()).toBe(true);
+    await w.setProps({
+      round: 2, effectiveRoundWinner: "p3", winnerSelected: false,
+      submissions: { p3: ["w3"] }, revealedCards: { p3: true }, winningCards: ["w3"],
+    });
+    expect(w.find(".round-end").exists()).toBe(false);
+    expect(w.get(".carousel").attributes("data-mode")).toBe("judge");
+    await w.setProps({ winnerSelected: true });
+    expect(w.find(".round-end").exists()).toBe(true);
+  });
+
   it("a skipped player gets a status message and a muted button, not a hand", () => {
     const w = mk({ skippedPlayers: ["u2"] });
     expect(w.find(".carousel").exists()).toBe(false);
