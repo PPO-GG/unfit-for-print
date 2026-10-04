@@ -16,6 +16,7 @@ import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import { useI18n } from "vue-i18n";
 import { kickedMetaKey } from "~/utils/kickedPlayers";
+import { useCompactLayout } from "~/composables/useCompactLayout";
 
 // ─── Core Setup ─────────────────────────────────────────────────────────────
 const { t } = useI18n();
@@ -62,6 +63,9 @@ useGameWatchdog(reactive);
 
 // ─── Discord Activity ─────────────────────────────────────────────────────
 const { isDiscordActivity } = useDiscordSDK();
+// Phones get the podium on its own: its Continue leads to the lobby, which has
+// Leave, so the old sidebar's hamburger would only sit on top of it.
+const { isCompact } = useCompactLayout();
 
 // ─── Reactive State from Y.Doc ──────────────────────────────────────────────
 // All game state is derived from useLobbyReactive().
@@ -755,9 +759,9 @@ function handleResetGame() {
       v-if="!showJoinModal && lobby && players"
       class="flex h-dvh overflow-hidden"
     >
-      <!-- Mobile menu button (hidden during active gameplay — mobile has its own controls) -->
+      <!-- Tablet menu button (hidden during active gameplay — phones and gameplay have their own controls) -->
       <UButton
-        v-if="!isPlaying && !isWaiting"
+        v-if="!isPlaying && !isWaiting && !isCompact"
         icon="i-solar-hamburger-menu-broken"
         color="neutral"
         variant="ghost"
@@ -824,6 +828,7 @@ function handleResetGame() {
 
       <!-- Mobile slideover (hidden during active gameplay) -->
       <USlideover
+        v-if="!isCompact"
         v-model:open="isSidebarOpen"
         class="xl:hidden"
         side="left"
