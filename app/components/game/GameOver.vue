@@ -293,7 +293,7 @@ onUnmounted(() => {
   margin-left: -0.75rem;
   font-size: 1.5rem;
 }
-.go-person { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.go-person { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 0; max-width: 100%; }
 .go-avatar {
   width: 3.25rem;
   height: 3.25rem;
