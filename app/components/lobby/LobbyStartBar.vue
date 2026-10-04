@@ -81,7 +81,9 @@
 </template>
 
 <script lang="ts" setup>
+import { toRef } from "vue";
 import type { Player } from "~/types/player";
+import { useLobbyStart } from "~/composables/useLobbyStart";
 
 const props = defineProps<{
   lobbyName: string;
@@ -101,85 +103,20 @@ const emit = defineEmits<{
   (e: "add-bot"): void;
 }>();
 
-const COUNTDOWN_SECONDS = 5;
-
-const nonBotPlayers = computed(() =>
-  props.players.filter((p) => p.playerType !== "bot"),
-);
-
-const readyCount = computed(
-  () => props.players.filter((p) => p.playerType === "bot" || p.ready).length,
-);
-
-const allNonBotsReady = computed(() =>
-  nonBotPlayers.value.length > 0 &&
-  nonBotPlayers.value.every((p) => p.ready),
-);
-
-const canStart = computed(
-  () => props.players.length >= 3 && allNonBotsReady.value,
-);
-
-const enoughPlayers = computed(() => props.players.length >= 3);
-
-const myReady = computed(() => {
-  const me = props.players.find((p) => p.userId === props.myId);
-  return me?.ready ?? false;
-});
-
-// ── Countdown logic ─────────────────────────────────────────────
-const countdown = ref<number | null>(null);
-let timer: ReturnType<typeof setInterval> | null = null;
-let startFired = false;
-
-function clearTimer() {
-  if (timer !== null) {
-    clearInterval(timer);
-    timer = null;
-  }
-}
-
-function startCountdown() {
-  clearTimer();
-  startFired = false;
-  countdown.value = COUNTDOWN_SECONDS;
-  timer = setInterval(() => {
-    if (countdown.value === null) {
-      clearTimer();
-      return;
-    }
-    countdown.value -= 1;
-    if (countdown.value <= 0) {
-      clearTimer();
-      if (!startFired && props.isHost) {
-        startFired = true;
-        emit("start");
-      }
-    }
-  }, 1000);
-}
-
-function handleStart() {
-  if (!canStart.value || props.isStarting) return;
-  clearTimer();
-  if (!startFired) {
-    startFired = true;
-    emit("start");
-  }
-}
-
-watch(canStart, (now) => {
-  if (now) {
-    startCountdown();
-  } else {
-    clearTimer();
-    countdown.value = null;
-    startFired = false;
-  }
-});
-
-onBeforeUnmount(() => {
-  clearTimer();
+const {
+  enoughPlayers,
+  allNonBotsReady,
+  readyCount,
+  canStart,
+  myReady,
+  countdown,
+  handleStart,
+} = useLobbyStart({
+  players: toRef(props, "players"),
+  myId: toRef(props, "myId"),
+  isHost: toRef(props, "isHost"),
+  isStarting: toRef(props, "isStarting"),
+  onStart: () => emit("start"),
 });
 
 // ── State labels + visual treatment ─────────────────────────────
