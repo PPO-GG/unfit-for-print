@@ -96,7 +96,7 @@ describe("CompactGameLayout", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("player picks, prompt fills live, submit emits after the fly-in", async () => {
+  it("player picks, prompt fills live, submit emits immediately", async () => {
     const w = mk();
     expect(w.get(".carousel").attributes("data-mode")).toBe("select");
     expect(w.get(".act").attributes("data-label")).toBe("compact.select_more");
@@ -104,8 +104,21 @@ describe("CompactGameLayout", () => {
     expect(w.get(".black").attributes("data-fills")).toBe('["Brunch"]');
     expect(w.get(".act").attributes("data-label")).toBe("compact.submit");
     await w.get(".act").trigger("click");
-    vi.advanceTimersByTime(700);
     expect(w.emitted("select-cards")).toEqual([[["w1"]]]);
+    expect(motion.flyToPrompt).toHaveBeenCalledTimes(1);
+    expect(motion.flyToPrompt.mock.calls[0]).toHaveLength(2); // no completion callback
+  });
+
+  it("skipped players are not waited on", () => {
+    const w = mk({
+      mySubmission: ["w1"], submissions: { u2: ["w1"] }, skippedPlayers: ["u3"],
+    });
+    expect(w.get(".act").attributes("data-label")).toBe("compact.all_in");
+  });
+
+  it("skipped round shows a muted skipped pill, not a win", () => {
+    const w = mk({ phase: "roundEnd", isHost: true });
+    expect(w.get(".topbar").text()).toBe("game.prompt_skipped");
   });
 
   it("judge waits with a skip-prompt control", async () => {

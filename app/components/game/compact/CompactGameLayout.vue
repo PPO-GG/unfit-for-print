@@ -36,6 +36,8 @@ const props = defineProps<{
   readingAloud: boolean;
   promptSerial?: number;
   blackSkipUsed?: boolean;
+  /** Players the engine has skipped this round � nobody waits on them. */
+  skippedPlayers?: string[];
   needsManualDraw: boolean;
   drawCount: number;
   chatUnread: number;
@@ -76,9 +78,16 @@ const judgeName = computed(() => nameOf(props.judgeId));
 const activePlayers = computed(() =>
   props.players.filter((p) => p.playerType !== "spectator"),
 );
+const skippedIds = computed(() => props.skippedPlayers ?? []);
+// Players who still owe a card: not the judge, not skipped.
+const expectedPlayers = computed(() =>
+  activePlayers.value.filter(
+    (p) => p.userId !== props.judgeId && !skippedIds.value.includes(p.userId),
+  ),
+);
 const waitingOn = computed(() =>
-  activePlayers.value
-    .filter((p) => p.userId !== props.judgeId && !props.submissions[p.userId])
+  expectedPlayers.value
+    .filter((p) => !props.submissions[p.userId])
     .map((p) => nameOf(p.userId)),
 );
 const lockedIds = computed(() =>
@@ -151,10 +160,14 @@ const baseWidth = computed(() => {
 const promptScale = computed(() =>
   fitCardScale(promptW.value - 16, promptH.value - 8, baseWidth.value, { max: 170 }),
 );
-// Carousel slot also holds a label row and dots (~56px) and the ring lift.
+// The slot also holds the label row 44 + track padding 24 + dots 10 + ring lift ~6.
 const cardScale = computed(() =>
-  fitCardScale(Number.POSITIVE_INFINITY, carouselH.value - 64, baseWidth.value, { max: 150 }),
+  fitCardScale(Number.POSITIVE_INFINITY, carouselH.value - 84, baseWidth.value, { max: 150 }),
 );
+const judgeScale = computed(() =>
+  pick.value > 1 ? Math.max(50, Math.round(cardScale.value * 0.8)) : cardScale.value,
+);
+const submittedScale = computed(() => Math.max(50, Math.round(cardScale.value * 0.7)));
 
 // ── Bottom button ──
 const actionState = computed(() =>
@@ -183,15 +196,11 @@ const slideEls = (keys?: string[]) =>
 function onAct(action: CompactAction) {
   if (action === "submit") {
     const ids = [...ui.selected.value];
-    let sent = false;
-    const send = () => {
-      if (sent) return;
-      sent = true;
-      emit("select-cards", ids);
-    };
+    const els = slideEls(ids);
     playSfx(SFX.cardThrow);
-    motion.flyToPrompt(slideEls(ids), promptSlot.value, send);
-    setTimeout(send, 700); // never strand a submission behind an animation
+    // Ghost copies fly over the layout; the submit never waits on them.
+    motion.flyToPrompt(els, promptSlot.value);
+    emit("select-cards", ids);
     ui.clearSelection();
   } else if (action === "crown") {
     const winner = ui.pendingWinner.value;
@@ -229,6 +238,9 @@ async function onReadAloud(playerId: string) {
 
 // ── Top bar pill ──
 const pill = computed<{ label: string; tone: "cyan" | "yellow" | "lime" | "muted" }>(() => {
+  if (view.value === "round-end" && skippedRound.value) {
+    return { label: t("game.prompt_skipped"), tone: "muted" };
+  }
   if (view.value === "round-end") {
     return { label: t("compact.round_won", { round: props.round }), tone: "lime" };
   }
@@ -346,13 +358,13 @@ onMounted(() => {
           :card-texts="cardTexts"
           :cards="mySubmission ?? []"
           :interactive="false"
-          :scale="cardScale"
+          :scale="submittedScale"
         />
       </template>
 
       <div v-else-if="view === 'judge-wait'" class="cgl-status">
         <p class="cgl-status-title">
-          {{ t("compact.locked_in", { done: Object.keys(submissions).length, total: Math.max(0, activePlayers.length - 1) }) }}
+          {{ t("compact.locked_in", { done: Object.keys(submissions).length, total: expectedPlayers.length }) }}
         </p>
         <UButton
           v-if="blackCard && phase === 'submitting'"
@@ -392,7 +404,7 @@ onMounted(() => {
           :mine="isJudge ? null : myId"
           :can-read-aloud="isJudge"
           :reading-aloud="readingAloud"
-          :scale="pick > 1 ? Math.round(cardScale * 0.8) : cardScale"
+          :scale="judgeScale"
           @reveal="onReveal"
           @pick="ui.choosePendingWinner"
           @read-aloud="onReadAloud"

@@ -38,31 +38,60 @@ export function useCompactMotion() {
     gsap.fromTo(els, { scale: 0.92 }, { scale: 1, duration: 0.35, ease: "back.out(3)", overwrite: "auto" });
   }
 
+  /**
+   * Flies GHOST copies of the cards to the prompt. The real slides sit inside
+   * the carousel's overflow-clipped scroll track, which would cut the flight
+   * off, so each card is cloned onto <body> at its on-screen rect and the
+   * clone travels. The originals are never touched.
+   */
   function flyToPrompt(t: Targets, target: Element | null, onComplete?: () => void) {
     const els = list(t);
     if (!els.length || !target) {
       onComplete?.();
       return;
     }
+    const to = target.getBoundingClientRect();
+    const ghosts = els.map((el) => {
+      const r = el.getBoundingClientRect();
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.classList.add("lobby-tokens");
+      Object.assign(clone.style, {
+        position: "fixed",
+        left: `${r.left}px`,
+        top: `${r.top}px`,
+        width: `${r.width}px`,
+        height: `${r.height}px`,
+        margin: "0",
+        zIndex: "60",
+        pointerEvents: "none",
+      });
+      document.body.appendChild(clone);
+      return { clone, r };
+    });
+    const finish = () => {
+      ghosts.forEach(({ clone }) => clone.remove());
+      onComplete?.();
+    };
     if (reduced()) {
-      gsap.to(els, { opacity: 0, duration: 0.15, onComplete });
+      gsap.to(
+        ghosts.map((g) => g.clone),
+        { opacity: 0, duration: 0.15, onComplete: finish },
+      );
       return;
     }
-    const to = target.getBoundingClientRect();
-    els.forEach((el, i) => {
-      const from = el.getBoundingClientRect();
-      const dx = to.left + to.width / 2 - (from.left + from.width / 2);
-      const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-      gsap.to(el, {
-        x: `+=${dx}`,
-        y: `+=${dy}`,
+    ghosts.forEach(({ clone, r }, i) => {
+      const dx = to.left + to.width / 2 - (r.left + r.width / 2);
+      const dy = to.top + to.height / 2 - (r.top + r.height / 2);
+      gsap.to(clone, {
+        x: dx,
+        y: dy,
         scale: 0.3,
         rotation: i % 2 ? 10 : -10,
         opacity: 0,
         duration: 0.45,
         delay: i * 0.05,
         ease: "power2.in",
-        onComplete: i === els.length - 1 ? onComplete : undefined,
+        onComplete: i === ghosts.length - 1 ? finish : undefined,
       });
     });
   }

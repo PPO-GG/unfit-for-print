@@ -59,18 +59,43 @@ describe("useCompactMotion", () => {
     expect(to).toMatchObject({ rotation: 0, clearProps: "transform,opacity" });
   });
 
-  it("flyToPrompt uses relative offsets and onComplete only on last card", () => {
+  it("flyToPrompt flies ghost clones on <body>, never the originals, and cleans up", () => {
     const target = document.createElement("div");
     const done = vi.fn();
-    useCompactMotion().flyToPrompt([el(), el()], target, done);
+    const a = el();
+    const b = el();
+    const before = document.body.children.length;
+    useCompactMotion().flyToPrompt([a, b], target, done);
     expect(gsap.to).toHaveBeenCalledTimes(2);
-    const [, call0] = gsap.to.mock.calls[0]!;
-    const [, call1] = gsap.to.mock.calls[1]!;
-    expect(typeof call0.x).toBe("string");
-    expect(typeof call0.y).toBe("string");
-    expect(call0.x).toMatch(/^\+=/);
-    expect(call0.y).toMatch(/^\+=/);
+    const [t0, call0] = gsap.to.mock.calls[0]!;
+    const [t1, call1] = gsap.to.mock.calls[1]!;
+    expect(t0).not.toBe(a);
+    expect(t1).not.toBe(b);
+    expect(document.body.contains(t0)).toBe(true);
+    expect(document.body.contains(t1)).toBe(true);
+    expect(document.body.children.length).toBe(before + 2);
+    expect((t0 as HTMLElement).style.position).toBe("fixed");
+    expect(typeof call0.x).toBe("number");
+    expect(typeof call0.y).toBe("number");
     expect(call0.onComplete).toBeUndefined();
-    expect(call1.onComplete).toBe(done);
+    call1.onComplete();
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(document.body.contains(t0)).toBe(false);
+    expect(document.body.contains(t1)).toBe(false);
+    expect(document.body.children.length).toBe(before);
+  });
+
+  it("flyToPrompt fades the ghosts under reduced motion, then cleans up", () => {
+    preference.value = "reduce";
+    const done = vi.fn();
+    const before = document.body.children.length;
+    useCompactMotion().flyToPrompt([el()], document.createElement("div"), done);
+    const [ghosts, vars] = gsap.to.mock.calls[0]!;
+    expect(vars).toMatchObject({ opacity: 0, duration: 0.15 });
+    expect(document.body.children.length).toBe(before + 1);
+    vars.onComplete();
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(document.body.children.length).toBe(before);
+    expect(ghosts).toHaveLength(1);
   });
 });
