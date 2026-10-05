@@ -53,6 +53,7 @@ services:
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GOOGLE_TTS_API_KEY: ${GOOGLE_TTS_API_KEY}
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY}
     ports:
       # Host 3000 is already claimed by the `teleportal` service above, so
       # web is published on 8080 instead. Adjust to taste / put a reverse

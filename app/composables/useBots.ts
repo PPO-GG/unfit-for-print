@@ -111,6 +111,42 @@ export function useBots(
     () => reactive.gameState.value ?? null,
   );
 
+  // ─── Jev decisions ─────────────────────────────────────────────────────
+  // /api/bot/decide asks Jev which cards to play or which submission wins.
+  // Every failure resolves to null and the caller falls back to the old random
+  // behaviour, so a missing key or a Jev outage never stalls a bot.
+
+  const DECIDE_TIMEOUT_MS = 2500;
+
+  const requestDecision = async <T>(
+    body: Record<string, unknown>,
+  ): Promise<T | null> => {
+    if (!lobby.value) return null;
+    try {
+      const result = await $activityFetch<T>("/api/bot/decide", {
+        method: "POST",
+        body: { lobbyId: lobby.value.id, ...body },
+        timeout: DECIDE_TIMEOUT_MS,
+      });
+      return result ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  /** True while the table is still on the moment `snapshot` was taken in. A
+   *  skipped prompt keeps the phase and round, so promptSerial is what
+   *  catches it. */
+  const stillAt = (snapshot: GameState, phase: GameState["phase"]): boolean => {
+    const now = gameState.value;
+    return (
+      !!now &&
+      now.phase === phase &&
+      now.round === snapshot.round &&
+      (now.promptSerial ?? 0) === (snapshot.promptSerial ?? 0)
+    );
+  };
+
   // ─── Add / Remove Bot ─────────────────────────────────────────────────
 
   const addBot = async () => {
@@ -230,25 +266,45 @@ export function useBots(
   // ─── Bot Card Play (via Y.Doc engine) ──────────────────────────────────
 
   /**
-   * Picks random cards from a bot's hand and plays them via the Y.Doc engine.
-   * Returns true if the action succeeded.
+   * Plays a bot's cards via the Y.Doc engine: the server's Jev pick when it
+   * has one, otherwise the first cards in hand. Returns true on success.
    */
-  const botPlayCards = (botUserId: string): boolean => {
+  const botPlayCards = async (botUserId: string): Promise<boolean> => {
     const state = gameState.value;
     if (!state || state.phase !== "submitting") return false;
     if (state.judgeId === botUserId) return false;
     if (state.submissions?.[botUserId]) return false;
 
-    // Read the bot's hand from Y.Doc
     const hand = engine.readHand(botUserId);
     if (!hand || hand.length === 0) {
       console.warn(`[useBots] Bot ${botUserId} has no cards in hand`);
       return false;
     }
 
-    // Determine how many cards to play (based on black card pick count)
-    const pickCount = state.blackCard?.pick || 1;
-    const cardsToPlay = hand.slice(0, Math.min(pickCount, hand.length));
+    const decision = state.blackCard?.id
+      ? await requestDecision<{ cardIds: string[] | null }>({
+          mode: "play",
+          blackCardId: state.blackCard.id,
+          hand,
+        })
+      : null;
+
+    // The table may have moved on while we waited.
+    if (!stillAt(state, "submitting")) return false;
+    if (gameState.value?.submissions?.[botUserId]) return false;
+
+    const current = engine.readHand(botUserId) ?? [];
+    const pickCount = Math.min(state.blackCard?.pick || 1, current.length);
+    if (pickCount === 0) return false;
+
+    const chosen = decision?.cardIds;
+    const cardsToPlay =
+      Array.isArray(chosen) &&
+      chosen.length === pickCount &&
+      new Set(chosen).size === chosen.length &&
+      chosen.every((id) => current.includes(id))
+        ? chosen
+        : current.slice(0, pickCount);
 
     const result = engine.playCard(cardsToPlay, botUserId);
     if (!result.success) {
@@ -268,18 +324,28 @@ export function useBots(
   };
 
   /**
-   * Bot judge picks a random winner from submissions.
-   * Returns true if successful.
+   * Bot judge picks a winner: the server's Jev pick when it has one,
+   * otherwise a random submission. `submitterOrder` is the order the decision
+   * request listed submissions in, which `winnerIndex` points into.
    */
-  const botSelectWinner = (): boolean => {
-    const state = gameState.value;
-    if (!state || state.phase !== "judging") return false;
+  const botSelectWinner = async (
+    snapshot: GameState,
+    submitterOrder: string[],
+    decision: Promise<{ winnerIndex: number | null } | null>,
+  ): Promise<boolean> => {
+    const verdict = await decision;
+    if (!stillAt(snapshot, "judging")) return false;
 
-    const submitterIds = Object.keys(state.submissions || {});
+    const submitterIds = Object.keys(gameState.value?.submissions || {});
     if (submitterIds.length === 0) return false;
 
-    const randomIndex = Math.floor(Math.random() * submitterIds.length);
-    const winnerId = submitterIds[randomIndex]!;
+    const index = verdict?.winnerIndex;
+    const picked = typeof index === "number" ? submitterOrder[index] : undefined;
+    // A submitter can leave while we wait; their entry is then off the table.
+    const winnerId =
+      picked && submitterIds.includes(picked)
+        ? picked
+        : submitterIds[Math.floor(Math.random() * submitterIds.length)]!;
 
     const result = engine.selectWinner(winnerId);
     if (!result.success) {
@@ -338,12 +404,13 @@ export function useBots(
         staggerIndex++;
 
         botActionsInFlight.add(actionKey);
+        // The in-flight key is held until the decision request settles, not
+        // just until the timer fires, so a watcher re-run mid-request cannot
+        // schedule a second play.
         const timer = setTimeout(() => {
-          try {
-            botPlayCards(bot.userId);
-          } finally {
-            botActionsInFlight.delete(actionKey);
-          }
+          void botPlayCards(bot.userId)
+            .catch((err) => console.warn("[useBots] Bot play threw:", err))
+            .finally(() => botActionsInFlight.delete(actionKey));
         }, delay);
         pendingBotTimers.push({ timer, actionKey });
       }
@@ -384,6 +451,18 @@ export function useBots(
 
         let totalDelay = INITIAL_DELAY_MS;
 
+        // Ask now, while the reveals play, so the answer is in by the time the
+        // bot has "thought" about it. winnerIndex refers to this order.
+        const submitterOrder = Object.keys(state.submissions || {});
+        const decision: Promise<{ winnerIndex: number | null } | null> =
+          state.blackCard?.id && submitterOrder.length > 0
+            ? requestDecision<{ winnerIndex: number | null }>({
+                mode: "judge",
+                blackCardId: state.blackCard.id,
+                submissions: submitterOrder.map((id) => state.submissions[id] ?? []),
+              })
+            : Promise.resolve(null);
+
         // Schedule staggered reveal calls
         for (let i = 0; i < submitterIds.length; i++) {
           const playerId = submitterIds[i]!;
@@ -408,11 +487,9 @@ export function useBots(
         // After all reveals + thinking delay, pick a winner
         totalDelay += THINKING_DELAY_MS;
         const judgeTimer = setTimeout(() => {
-          try {
-            botSelectWinner();
-          } finally {
-            botActionsInFlight.delete(actionKey);
-          }
+          void botSelectWinner(state, submitterOrder, decision)
+            .catch((err) => console.warn("[useBots] Bot judge threw:", err))
+            .finally(() => botActionsInFlight.delete(actionKey));
         }, totalDelay);
         pendingBotTimers.push({ timer: judgeTimer, actionKey });
       }
