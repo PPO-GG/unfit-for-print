@@ -486,7 +486,7 @@ onMounted(() => {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 0.95fr) minmax(0, 1fr) auto;
   grid-template-areas: "top" "prompt" "main" "action";
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--safe-top);
   background: radial-gradient(120% 70% at 50% 0%, var(--lb-bg-2) 0%, var(--lb-bg-1) 55%, var(--lb-bg-0) 100%);
   color: var(--lb-ink);
   font-family: "Barlow Condensed", sans-serif;
@@ -499,8 +499,8 @@ onMounted(() => {
   /* The top bar spans both columns so the avatars aren't squeezed into the
      prompt column. */
   grid-template-areas: "top top" "prompt main" "prompt action";
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 .cgl-top { grid-area: top; }
 .cgl-prompt {

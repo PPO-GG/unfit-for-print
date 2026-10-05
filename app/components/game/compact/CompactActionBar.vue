@@ -40,7 +40,7 @@ function onClick() {
 <style scoped>
 .compact-action-bar {
   position: relative;
-  padding: 0.5rem 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  padding: 0.5rem 0.75rem max(0.75rem, var(--safe-bottom));
   pointer-events: none;
 }
 .compact-action-fade {

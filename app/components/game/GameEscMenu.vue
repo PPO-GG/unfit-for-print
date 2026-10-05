@@ -821,7 +821,7 @@ watch(
   max-height: 88dvh;
   border-radius: 20px 20px 0 0;
   border-bottom: none;
-  padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
+  padding: 0.5rem 1rem max(1rem, var(--safe-bottom));
 }
 .esc-menu-grabber {
   width: 40px;

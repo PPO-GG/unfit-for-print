@@ -216,7 +216,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+  padding: max(1.5rem, var(--safe-top)) 1rem max(1.5rem, var(--safe-bottom));
   background: radial-gradient(120% 60% at 50% 10%, #3a3010 0%, #141008 50%, var(--lb-bg-0) 100%);
   color: var(--lb-ink);
   font-family: "Barlow Condensed", sans-serif;

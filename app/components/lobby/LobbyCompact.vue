@@ -293,7 +293,7 @@ watch(start.canStart, (ok) => {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-areas: "head" "tabs" "panel" "bar";
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--safe-top);
   font-family: "Barlow Condensed", sans-serif;
   color: var(--lb-ink);
   overscroll-behavior: none;
@@ -302,8 +302,8 @@ watch(start.canStart, (ok) => {
   grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas: "head panel" "tabs panel" "tabs bar";
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 .lc-head { grid-area: head; text-align: center; padding: 10px 16px 4px; }
 .lc-meta {
@@ -402,7 +402,7 @@ watch(start.canStart, (ok) => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 10px 12px max(14px, env(safe-area-inset-bottom));
+  padding: 10px 12px max(14px, var(--safe-bottom));
   background: linear-gradient(transparent, var(--lb-bg-0) 30%);
 }
 .lc-hint {

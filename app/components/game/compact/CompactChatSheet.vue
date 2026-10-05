@@ -17,7 +17,7 @@ const { t } = useI18n();
     :ui="{
       content: 'lobby-tokens h-[80dvh]',
       container: 'flex-1 min-h-0',
-      body: 'flex-1 min-h-0 flex flex-col p-0 pb-[env(safe-area-inset-bottom)]',
+      body: 'flex-1 min-h-0 flex flex-col p-0 pb-[var(--safe-bottom)]',
     }"
   >
     <template #body>
