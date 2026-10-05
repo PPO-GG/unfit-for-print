@@ -321,6 +321,13 @@ describe("POST /api/bot/decide — personas", () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  it("rejects a botUserId that is not a uuid before it reaches the database", async () => {
+    const black = await blackCard("Why _?", 1);
+    await expect(
+      decide({ lobbyId, mode: "play", blackCardId: black, botUserId: "bot-1", hand }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
   it("refuses a bot from another lobby", async () => {
     const black = await blackCard("Why _?", 1);
     const [other] = await db

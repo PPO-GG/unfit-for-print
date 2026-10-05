@@ -13,6 +13,10 @@ const selectWinner = vi.fn(() => ({ success: true }));
 const activityFetch = vi.fn();
 
 const botPlayer = { userId: "bot-1", playerType: "bot", name: "Bot 1" };
+const secondBot = { userId: "bot-2", playerType: "bot", name: "Bot 2" };
+
+/** The lobby's bots; a test may add `secondBot` before calling start(). */
+let bots = [botPlayer];
 
 let state: Ref<Partial<GameState> | null> = ref(null);
 
@@ -29,7 +33,7 @@ Object.assign(globalThis, {
     return {
       isHost: computed(() => true),
       isWaiting: computed(() => false),
-      playerList: computed(() => [botPlayer]),
+      playerList: computed(() => bots),
       gameState: computed(() => own.value),
     };
   },
@@ -75,13 +79,14 @@ beforeEach(async () => {
   activityFetch.mockReset();
   readHand.mockImplementation(() => ["w-1", "w-2", "w-3"]);
   state = ref(null);
+  bots = [botPlayer];
 
   vi.resetModules();
   const { useBots } = await import("~/composables/useBots");
   start = () =>
     void useBots(
       ref({ id: "lobby-1", status: "playing" } as any),
-      ref([botPlayer] as any),
+      ref(bots as any),
       computed(() => true),
     );
 });
@@ -214,6 +219,22 @@ describe("useBots — judging with /api/bot/decide", () => {
 
     await vi.advanceTimersByTimeAsync(JUDGE_DONE_MS + 100);
     expect(selectWinner).toHaveBeenCalledWith("p-2");
+  });
+
+  it("asks with the judging bot's id when another bot is in the lobby", async () => {
+    // bot-2 judges while bot-1 sits first in the list, so sending any bot's id
+    // other than the judge's would show up here.
+    bots = [botPlayer, secondBot];
+    activityFetch.mockResolvedValue({ winnerIndex: 0 });
+    start();
+    await push(judging({ judgeId: "bot-2" }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(activityFetch).toHaveBeenCalledTimes(1);
+    expect(activityFetch.mock.calls[0]![1].body).toMatchObject({
+      mode: "judge",
+      botUserId: "bot-2",
+    });
   });
 
   it("picks at random when the server answers null", async () => {
