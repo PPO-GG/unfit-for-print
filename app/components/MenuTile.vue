@@ -208,11 +208,14 @@ function onClick(e: MouseEvent) {
 /* Phones: the home page lays tiles out as squares, two to a row, so drop the
    tall minimums, tighten the padding, and shed what a ~170px square has no
    room for. Shortcut keys mean nothing without a keyboard, and the extra slot
-   is decoration (Join Game's code boxes); the tile itself still opens it. */
+   is decoration (Join Game's code boxes); the tile itself still opens it.
+   `auto`, not 0: an aspect-ratio box only grows to fit its content while its
+   min-height is auto, so 0 let a wrapped label (narrow phone, long locale)
+   spill out of the square over the tile below. */
 @media (max-width: 639.98px) {
   .menu-tile,
   .menu-tile--featured {
-    min-height: 0;
+    min-height: auto;
     padding: 14px;
   }
 

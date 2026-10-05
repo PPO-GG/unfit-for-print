@@ -243,7 +243,7 @@
              phone. Breakpoint classes rather than useCompactLayout because
              this grid is server-rendered (see above) and a JS media query
              would disagree with the server on the first render. -->
-        <div class="grid grid-cols-6 gap-3 sm:gap-4">
+        <div class="menu-grid grid grid-cols-6 gap-3 sm:gap-4">
           <MenuTile
             v-if="isDiscordActivity"
             featured
@@ -757,6 +757,26 @@ onBeforeUnmount(() => {
   .hero-cards :deep(.card-scaler),
   .hero-card-placeholder {
     width: min(calc((100vw - 5rem) / 2), 10.5rem);
+  }
+}
+
+/* ─── Menu grid ─────────────────────────────────────────────────────── */
+
+/* Two squares to a row leaves an odd last tile alone at half width — the
+   Discord Activity has five tiles, an admin sees seven. Stretch it across the
+   row as a short bar instead. Done in CSS rather than per tile because which
+   tile ends up last depends on the v-ifs above (the admin tile appears after
+   hydration), and v-if placeholders are comments, so nth-child ignores them.
+   Stretch, because a grid item with an aspect ratio otherwise aligns to start:
+   when one tile grows past square to fit its text, its row-mate stays short. */
+@media (max-width: 639.98px) {
+  .menu-grid > * {
+    align-self: stretch;
+  }
+
+  .menu-grid > :last-child:nth-child(odd) {
+    grid-column: span 6 / span 6;
+    aspect-ratio: auto;
   }
 }
 
