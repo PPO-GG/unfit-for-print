@@ -206,6 +206,40 @@ describe("POST /api/lobby/activity-play", () => {
     expect(res).toMatchObject({ created: false, lobby: { id: live.id } });
   });
 
+  it("replaces a live doc that was never set up", async () => {
+    // The creator's client died between the row insert and writing the doc,
+    // and someone connected to the empty doc: Teleportal holds it, but it has
+    // no meta, so it reports no status. Nobody can ever start that game.
+    const broken = await seedLobby(alice.id, "BROK", { secondsAgo: 120 });
+    stubTeleportal([{ code: "BROK", players: 1 }, { code: "ELSE", status: "waiting" }]);
+
+    const res: any = await play(bob.id, { instanceId: INSTANCE });
+
+    expect(res.created).toBe(true);
+    const [old] = await db.select().from(lobbies).where(eq(lobbies.id, broken.id));
+    expect(old.status).toBe("complete");
+  });
+
+  it("leaves a never-set-up doc alone inside its grace window", async () => {
+    const fresh = await seedLobby(alice.id, "SOON", { secondsAgo: 5 });
+    stubTeleportal([{ code: "SOON", players: 1 }, { code: "ELSE", status: "waiting" }]);
+
+    const res: any = await play(bob.id, { instanceId: INSTANCE });
+
+    expect(res).toMatchObject({ created: false, lobby: { id: fresh.id } });
+  });
+
+  it("trusts presence alone from a Teleportal that reports no statuses", async () => {
+    // A build from before status was added to the summary: a missing status
+    // says nothing about the doc, so it must not read as "never set up".
+    const live = await seedLobby(alice.id, "OLDB", { secondsAgo: 120 });
+    stubTeleportal([{ code: "OLDB", players: 3 }]);
+
+    const res: any = await play(bob.id, { instanceId: INSTANCE });
+
+    expect(res).toMatchObject({ created: false, lobby: { id: live.id } });
+  });
+
   it("ignores complete lobbies", async () => {
     await seedLobby(alice.id, "DONE", { status: "complete" });
 

@@ -52,7 +52,18 @@ export default defineEventHandler(async (event) => {
   // connection. A stale answer is harmless: "absent" only matters past the
   // grace window, and a lobby created since is inside it.
   const live = await fetchLiveLobbies();
-  const liveCodes = live && new Set(live.map((l) => l?.code?.toUpperCase()));
+  // A doc with no status was never set up: its creator left before writing
+  // it, so nobody can start that game and it counts as gone. Only builds that
+  // report status (Teleportal since 2026-09) can say so; on an older one,
+  // being held is all we know.
+  const reportsStatus = !!live?.some((l) => typeof l?.status === "string");
+  const liveCodes =
+    live &&
+    new Set(
+      live
+        .filter((l) => l?.code && (!reportsStatus || typeof l.status === "string"))
+        .map((l) => l.code.toUpperCase()),
+    );
 
   const result = await db.transaction(async (tx) => {
     await tx.execute(
