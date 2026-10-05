@@ -12,7 +12,7 @@ const pick = ref<string | undefined>();
 
 onMounted(async () => {
   try {
-    users.value = await $activityFetch("/api/admin/users");
+    users.value = await $activityFetch<typeof users.value>("/api/admin/users");
   } catch {
     users.value = [];
   }
