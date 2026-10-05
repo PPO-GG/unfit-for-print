@@ -13,6 +13,14 @@ let pendingVolume = 70;
 const isPlaying = ref(false);
 const isReady = ref(false);
 const hasError = ref(false);
+/**
+ * The user pressed pause. Kept apart from `isPlaying`, which also goes false
+ * while buffering, at the end of a track, or when muted at volume 0 — none of
+ * which should stop the music coming back.
+ */
+const userPaused = ref(false);
+/** Volume hit 0 while the music was playing, so raising it should resume. */
+let pausedForMute = false;
 
 export function clampVolume(volume: number): number {
   return clampVolumePercent(volume);
@@ -122,6 +130,8 @@ function ensurePlayer(): Promise<any> {
 
 export function useMusicPlayer() {
   const play = async () => {
+    // Volume 0 means off: don't spin up a silent player.
+    if (pendingVolume === 0) return;
     try {
       const activePlayer = await ensurePlayer();
       activePlayer?.playVideo();
@@ -138,8 +148,10 @@ export function useMusicPlayer() {
 
   const toggle = () => {
     if (isPlaying.value) {
+      userPaused.value = true;
       pause();
     } else {
+      userPaused.value = false;
       // Fire-and-forget: play() may reject if the player fails to load or
       // construct. toggle() has no way to surface that to a caller, so
       // swallow it here rather than letting it become an unhandled
@@ -151,7 +163,26 @@ export function useMusicPlayer() {
   const setVolume = (volume: number) => {
     pendingVolume = clampVolume(volume);
     player?.setVolume(pendingVolume);
+
+    if (pendingVolume === 0) {
+      if (isPlaying.value) {
+        pausedForMute = true;
+        pause();
+      }
+    } else if (pausedForMute) {
+      pausedForMute = false;
+      if (!userPaused.value) player?.playVideo();
+    }
   };
 
-  return { play, pause, toggle, setVolume, isPlaying, isReady, hasError };
+  return {
+    play,
+    pause,
+    toggle,
+    setVolume,
+    isPlaying,
+    isReady,
+    hasError,
+    userPaused,
+  };
 }

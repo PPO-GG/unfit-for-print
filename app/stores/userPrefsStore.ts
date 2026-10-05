@@ -20,6 +20,8 @@ export const useUserPrefsStore = defineStore("userPrefs", {
     sfxVolume: 70,
     ttsVolume: 70,
     musicVolume: 5,
+    /** The user paused the music; autoplay stays off until they press play. */
+    musicPaused: false,
   }),
 
   actions: {
@@ -49,6 +51,9 @@ export const useUserPrefsStore = defineStore("userPrefs", {
     },
     setMusicVolume(volume: number) {
       this.musicVolume = clampVolumePercent(volume);
+    },
+    setMusicPaused(paused: boolean) {
+      this.musicPaused = paused;
     },
   },
 

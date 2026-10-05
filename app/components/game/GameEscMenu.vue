@@ -285,6 +285,7 @@ watch(
                     size="xs"
                     variant="soft"
                     data-testid="game-esc-music-toggle-button"
+                    :disabled="prefs.musicVolume === 0"
                     :icon="
                       music.isPlaying.value
                         ? 'i-solar-pause-bold'

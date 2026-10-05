@@ -25,4 +25,13 @@ describe("userPrefsStore volume settings", () => {
     expect(prefs.ttsVolume).toBe(0);
     expect(prefs.musicVolume).toBe(43);
   });
+
+  it("remembers whether the user paused the music", () => {
+    const prefs = useUserPrefsStore();
+    expect(prefs.musicPaused).toBe(false);
+
+    prefs.setMusicPaused(true);
+
+    expect(prefs.musicPaused).toBe(true);
+  });
 });

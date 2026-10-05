@@ -191,4 +191,74 @@ describe("useMusicPlayer", () => {
 
     expect(instance.playVideo).toHaveBeenCalledTimes(1);
   });
+  describe("pause intent and volume 0", () => {
+    async function setup() {
+      let config: any;
+      const instance = {
+        playVideo: vi.fn(() => config.events.onStateChange({ data: 1 })),
+        pauseVideo: vi.fn(() => config.events.onStateChange({ data: 2 })),
+        setVolume: vi.fn(),
+      };
+      (window as any).YT = {
+        // Constructor mock: must be a `function`, not an arrow — see the note
+        // on the first test above.
+        Player: vi.fn().mockImplementation(function (_id: string, cfg: any) {
+          config = cfg;
+          queueMicrotask(() => cfg.events.onReady());
+          return instance;
+        }),
+        PlayerState: { PLAYING: 1, PAUSED: 2 },
+      };
+      document.body.innerHTML = '<div id="music-player-yt-target"></div>';
+      const { useMusicPlayer } = await import("~/composables/useMusicPlayer");
+      return { music: useMusicPlayer(), instance };
+    }
+
+    it("pauses when the volume drops to 0 and resumes when it comes back", async () => {
+      const { music, instance } = await setup();
+      await music.play();
+      expect(music.isPlaying.value).toBe(true);
+
+      music.setVolume(0);
+      expect(instance.pauseVideo).toHaveBeenCalledOnce();
+      expect(music.isPlaying.value).toBe(false);
+      // A mute is not the user pausing — it must not be remembered as one.
+      expect(music.userPaused.value).toBe(false);
+
+      music.setVolume(40);
+      expect(instance.playVideo).toHaveBeenCalledTimes(2);
+      expect(music.isPlaying.value).toBe(true);
+    });
+
+    it("does not start playback while the volume is 0", async () => {
+      const { music, instance } = await setup();
+      music.setVolume(0);
+
+      await music.play();
+
+      expect(instance.playVideo).not.toHaveBeenCalled();
+    });
+
+    it("records the user's pause intent through toggle()", async () => {
+      const { music } = await setup();
+      await music.play();
+
+      music.toggle();
+      expect(music.userPaused.value).toBe(true);
+
+      music.toggle();
+      expect(music.userPaused.value).toBe(false);
+    });
+
+    it("does not resume on a volume change after the user paused", async () => {
+      const { music, instance } = await setup();
+      await music.play();
+      music.toggle();
+
+      music.setVolume(0);
+      music.setVolume(40);
+
+      expect(instance.playVideo).toHaveBeenCalledOnce();
+    });
+  });
 });
