@@ -51,7 +51,6 @@
 
 <script lang="ts" setup>
 import { useUserStore } from "~/stores/userStore";
-import { useLobby } from "~/composables/useLobby";
 
 definePageMeta({ layout: "game" });
 
@@ -162,11 +161,8 @@ const {
   init,
   authenticate,
   getSdk,
-  getChannelParticipants,
-  subscribeToParticipants,
   subscribeToSpeaking,
 } = useDiscordSDK();
-const { joinLobby, getLobbyByInstanceId } = useLobby();
 
 const statusText = ref("Connecting to Discord...");
 const launchError = ref<LaunchError | null>(null);
@@ -205,7 +201,7 @@ async function launch() {
     // 1. Initialize Discord SDK
     statusText.value = "Connecting to Discord...";
     stage = "sdk";
-    const sdk = await init();
+    await init();
 
     // 2. Authenticate (Discord → Appwrite session)
     statusText.value = "Logging you in...";
@@ -239,29 +235,12 @@ async function launch() {
     statusText.value = "Setting up your profile...";
     stage = "session";
 
-    // 4. Fetch VC participants and subscribe to updates
+    // 4. Speaking indicators for the game's player lists
     statusText.value = "Loading voice channel...";
     stage = "voice";
-    await getChannelParticipants();
-    await subscribeToParticipants();
     await subscribeToSpeaking();
 
-    // 5. Fast-path: reconnect to existing lobby for this Activity instance
-    stage = "lobby";
-    const instanceId = sdk.instanceId;
-    if (instanceId) {
-      const lobby = await getLobbyByInstanceId(instanceId);
-      if (lobby) {
-        statusText.value = "Rejoining game...";
-        await joinLobby(lobby.code, {
-          username: userStore.user?.name ?? "Unknown",
-        });
-        await router.replace(`/game/${lobby.code}`);
-        return;
-      }
-    }
-
-    // 6. No existing lobby — go to main page (hub is accessible from there)
+    // 5. Main menu: its Play button creates or joins this instance's game.
     await router.replace("/");
   } catch (err: any) {
     console.error(`[Discord Activity] Launch failed at stage "${stage}":`, err);

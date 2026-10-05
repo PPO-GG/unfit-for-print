@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
+  fetchLiveLobbies,
   planLobbyReconciliation,
   type LiveLobbySummary,
 } from "~/server/utils/reconcileLobbies";
@@ -113,5 +114,40 @@ describe("planLobbyReconciliation", () => {
     expect(plan).toEqual([
       { id: "lobby-uuid", updates: { status: "complete" } },
     ]);
+  });
+});
+
+describe("fetchLiveLobbies", () => {
+  beforeEach(() => {
+    globalThis.useRuntimeConfig = () =>
+      ({ public: { lobbyTeleportalUrl: "ws://localhost:1235" } }) as any;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns the summary's lobbies", async () => {
+    globalThis.$fetch = vi.fn().mockResolvedValue({
+      lobbies: [{ code: "ABCD", status: "waiting" }],
+      timestamp: 1,
+    }) as any;
+    await expect(fetchLiveLobbies()).resolves.toEqual([
+      { code: "ABCD", status: "waiting" },
+    ]);
+    expect(globalThis.$fetch).toHaveBeenCalledWith(
+      "http://localhost:1235/lobbies/summary",
+      expect.objectContaining({ timeout: 2000 }),
+    );
+  });
+
+  it("returns an empty list when Teleportal holds no docs", async () => {
+    globalThis.$fetch = vi.fn().mockResolvedValue({ timestamp: 1 }) as any;
+    await expect(fetchLiveLobbies()).resolves.toEqual([]);
+  });
+
+  it("returns null when Teleportal is unreachable", async () => {
+    globalThis.$fetch = vi.fn().mockRejectedValue(new Error("ECONNREFUSED")) as any;
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(fetchLiveLobbies()).resolves.toBeNull();
   });
 });

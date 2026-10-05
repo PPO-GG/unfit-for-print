@@ -41,19 +41,17 @@ const navItems = computed(() => [
     icon: "i-solar-info-square-bold-duotone",
     color: "info" as const,
   },
-  isDiscordActivity.value
-    ? {
-        labelKey: "nav.hub",
-        to: "/activity/hub",
-        icon: "i-ic-baseline-discord",
-        color: "warning" as const,
-      }
-    : {
-        labelKey: "nav.games",
-        to: "/game",
-        icon: "i-solar-gamepad-bold-duotone",
-        color: "warning" as const,
-      },
+  // The Activity has no lobby browser: its game is whatever Play gives it.
+  ...(isDiscordActivity.value
+    ? []
+    : [
+        {
+          labelKey: "nav.games",
+          to: "/game",
+          icon: "i-solar-gamepad-bold-duotone",
+          color: "warning" as const,
+        },
+      ]),
   {
     labelKey: "nav.labs",
     to: "/labs",

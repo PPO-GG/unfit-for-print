@@ -9,5 +9,5 @@ export default defineEventHandler(async (event) => {
   await requireAdmin(event);
 
   const url = getTeleportalHttpUrl();
-  return $fetch(`${url}/gc`, { method: "POST" });
+  return $fetch<unknown>(`${url}/gc`, { method: "POST" });
 });

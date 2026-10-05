@@ -13,6 +13,16 @@
 ───────────────────────────────────────────────────────────────────────────── */
 
 :root {
+  /* ── Safe-area insets ──
+     Pad with these, never env(safe-area-inset-*) directly. Discord's mobile
+     client draws its own header over an Activity and reports the space it
+     covers only in --discord-safe-area-inset-*; env() is the fallback for the
+     browser, and for the moments Discord has not set them yet. */
+  --safe-top: var(--discord-safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--discord-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--discord-safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-right: var(--discord-safe-area-inset-right, env(safe-area-inset-right, 0px));
+
   /* ── Card colours ── */
   --card-black-bg: #1c2342;
   --card-black-text: #ffffff;

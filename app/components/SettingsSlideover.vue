@@ -275,7 +275,7 @@ const [DefineSettings, ReuseSettings] = createReusableTemplate();
     close
     :ui="{
       content: 'max-h-[90dvh]',
-      body: 'flex flex-col gap-3 overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))]',
+      body: 'flex flex-col gap-3 overflow-y-auto pb-[calc(1rem+var(--safe-bottom))]',
     }"
   >
     <template #body>

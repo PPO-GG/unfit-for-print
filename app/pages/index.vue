@@ -239,6 +239,30 @@
            re-wrap it; give a new tile an SSR-safe condition instead. -->
       <div class="flex-1 w-full">
         <div class="grid grid-cols-6 gap-3 sm:gap-4">
+          <MenuTile
+            v-if="isDiscordActivity"
+            featured
+            accent="discord"
+            icon="i-lucide-play"
+            :label="activityHasLobby ? t('activity.join_game') : t('activity.play')"
+            :description="
+              activityHasLobby ? t('activity.join_game_desc') : t('activity.play_desc')
+            "
+            :loading="activityBusy"
+            class="col-span-6 sm:col-span-3 sm:row-span-2"
+            @click="activityPlay"
+          />
+
+          <MenuTile
+            v-if="isDiscordActivity"
+            accent="secondary"
+            icon="i-lucide-user-round-plus"
+            :label="t('activity.invite_friends')"
+            :description="t('activity.invite_friends_desc')"
+            class="col-span-6 sm:col-span-3"
+            @click="inviteToActivity"
+          />
+
           <!-- Held in the loading state rather than the disabled one until the
                session resolves, so a returning user is not told to log in. -->
           <MenuTile
@@ -329,16 +353,19 @@
             to="/admin"
             class="col-span-6 sm:col-span-3"
           />
-
-          <MenuTile
-            v-if="isDiscordActivity"
-            accent="discord"
-            icon="i-ic-baseline-discord"
-            :label="t('nav.hub')"
-            to="/activity/hub"
-            class="col-span-6 sm:col-span-3"
-          />
         </div>
+
+        <p
+          v-if="isDiscordActivity && activityFailure"
+          role="alert"
+          class="mt-3 text-sm text-error"
+        >
+          {{
+            activityFailure === "locked"
+              ? t("activity.play_locked")
+              : t("activity.play_failed")
+          }}
+        </p>
       </div>
     </div>
 
@@ -421,6 +448,8 @@ import { useNotifications } from "~/composables/useNotifications";
 import { useReportProblem } from "~/composables/useReportProblem";
 import { useIsAdmin } from "~/composables/useAdminCheck";
 import { useUiStore } from "~/stores/uiStore";
+import { useActivityPlay } from "~/composables/useActivityPlay";
+import { useLobby } from "~/composables/useLobby";
 
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
@@ -428,7 +457,7 @@ const userStore = useUserStore();
 const uiStore = useUiStore();
 const { notify } = useNotifications();
 const { open: openReport } = useReportProblem();
-const { isDiscordActivity: sdkIsDiscordActivity } = useDiscordSDK();
+const { isDiscordActivity: sdkIsDiscordActivity, inviteFriends } = useDiscordSDK();
 const isAdmin = useIsAdmin();
 const router = useRouter();
 const route = useRoute();
@@ -445,6 +474,27 @@ const isDiscordActivity = computed(
     sdkIsDiscordActivity.value ||
     (!!route.query.frame_id && !!route.query.instance_id),
 );
+
+// ─── Discord Activity ────────────────────────────────────────────────
+// One Play button: the first press in an Activity instance creates its game,
+// later presses join it. Inert outside Discord (it never polls there).
+// One useLobby() for the page, shared with useLobbyActions below.
+const lobby = useLobby();
+const {
+  hasLobby: activityHasLobby,
+  busy: activityBusy,
+  failure: activityFailure,
+  play: activityPlay,
+} = useActivityPlay(lobby);
+
+async function inviteToActivity() {
+  try {
+    await inviteFriends();
+  } catch (err) {
+    // Dismissing Discord's share sheet rejects; nothing to tell the user.
+    console.warn("[home] Invite dialog closed or failed:", err);
+  }
+}
 
 // ─── User Menu ───────────────────────────────────────────────────────
 const userMenuOpen = ref(false);
@@ -529,7 +579,7 @@ const {
   isCreating,
   showJoin,
   handleJoined,
-} = useLobbyActions();
+} = useLobbyActions(lobby);
 
 const handleMenuHotkey = createMenuHotkeyHandler({
   create: () => void checkForActiveLobbyAndCreate(),

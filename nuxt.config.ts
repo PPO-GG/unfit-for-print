@@ -111,6 +111,9 @@ export default defineNuxtConfig({
     "/game": { robots: false },
     "/game/**": { robots: false },
     "/activity/**": { robots: false },
+    // The hub was removed; an Activity left open across that deploy still
+    // has it in its old bundle.
+    "/activity/hub": { redirect: "/" },
     "/admin/**": { robots: false },
     "/auth/**": { robots: false },
     "/profile": { robots: false },

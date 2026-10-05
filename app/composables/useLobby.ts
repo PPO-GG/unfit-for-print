@@ -179,28 +179,6 @@ export const useLobby = () => {
     }
   };
 
-  const getLobbiesByChannelId = async (
-    discordChannelId: string,
-  ): Promise<Lobby[]> => {
-    try {
-      return await $activityFetch<Lobby[]>(
-        "/api/lobby/by-channel/" + discordChannelId,
-      );
-    } catch {
-      return [];
-    }
-  };
-
-  const updateLobbyPrivacy = async (
-    lobbyId: string,
-    vcOnly: boolean,
-  ): Promise<void> => {
-    await $activityFetch("/api/lobby/privacy", {
-      method: "POST",
-      body: { lobbyId, vcOnly },
-    });
-  };
-
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
@@ -263,6 +241,24 @@ export const useLobby = () => {
     return true;
   };
 
+  /**
+   * Connects to a lobby whose row the server has just created and writes its
+   * doc with the caller seated as host. The second half of createLobby, and
+   * all of it for the Discord Activity, whose row comes from
+   * lobby/activity-play.
+   */
+  const initializeCreatedLobby = async (
+    lobby: Lobby,
+    options: { hasPassword?: boolean } = {},
+  ) => {
+    await lobbyDoc.connect(lobby.code);
+    await initializeHostDoc(lobby.code, lobby.hostUserId, {
+      lobbyName: lobby.lobbyName || `${userStore.user?.name || "Anonymous"}'s Game`,
+      isPrivate: lobby.isPrivate ?? true,
+      hasPassword: !!options.hasPassword,
+    });
+  };
+
   // ── Create Lobby ──────────────────────────────────────────────────────
   // Creates the lobby registry row via the server API, then initializes
   // the Y.Doc. Identity/session bootstrap happens before this is called
@@ -300,13 +296,7 @@ export const useLobby = () => {
       },
     });
 
-    // Connect to Teleportal Y.Doc and initialize the full structure
-    await lobbyDoc.connect(lobby.code);
-    await initializeHostDoc(lobby.code, hostUserId, {
-      lobbyName: displayName,
-      isPrivate: isPrivate ?? true,
-      hasPassword: !!_password,
-    });
+    await initializeCreatedLobby(lobby, { hasPassword: !!_password });
 
     // The password goes to Postgres hashed, never into the Y.Doc. Done after
     // initializeLobby so a failure here leaves an open lobby rather than one
@@ -1005,13 +995,12 @@ export const useLobby = () => {
     players,
     fetchPlayers,
     createLobby,
+    initializeCreatedLobby,
     restoreLobbyDoc,
     waitForSync,
     joinLobby,
     getLobbyByCode,
     getLobbyByInstanceId,
-    getLobbiesByChannelId,
-    updateLobbyPrivacy,
     leaveLobby,
     isInLobby,
 

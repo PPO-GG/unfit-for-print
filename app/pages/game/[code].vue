@@ -62,8 +62,6 @@ const { initializeGamePageSession } = useJoinLobby();
 // engine.
 useGameWatchdog(reactive);
 
-// ─── Discord Activity ─────────────────────────────────────────────────────
-const { isDiscordActivity } = useDiscordSDK();
 // Phones get the podium on its own: its Continue leads to the lobby, which has
 // Leave, so the old sidebar's hamburger would only sit on top of it.
 const { isCompact } = useCompactLayout();
@@ -133,7 +131,7 @@ function sendHomeKicked() {
     icon: "i-mdi-account-remove",
   });
   lobbyDoc.disconnect();
-  return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+  return router.replace("/");
 }
 
 watch(
@@ -256,7 +254,7 @@ watch(
       icon: "i-mdi-door-closed",
     });
     lobbyDoc.disconnect();
-    router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+    router.replace("/");
   },
 );
 
@@ -432,7 +430,7 @@ onMounted(async () => {
         color: "error",
         icon: "i-mdi-alert-circle",
       });
-      return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+      return router.replace("/");
     }
 
     try {
@@ -514,7 +512,7 @@ onMounted(async () => {
       color: "error",
       icon: "i-mdi-alert-circle",
     });
-    await router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+    await router.replace("/");
   } finally {
     loading.value = false;
   }
@@ -566,15 +564,14 @@ function onJoinCardJoined(joinedCode: string) {
 }
 function onJoinCardOpen(open: boolean) {
   if (open || joinedFromCard) return;
-  router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+  router.replace("/");
 }
 
 const handleLeave = async () => {
   if (!lobby.value || !userStore.user?.id) return;
   selfLeaving.value = true;
   await leaveLobby(lobby.value.id, userStore.user.id);
-  // Discord Activity users return to VC Hub; others go home
-  return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
+  return router.replace("/");
 };
 
 const startGameWrapper = async () => {
