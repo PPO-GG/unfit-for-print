@@ -1,14 +1,5 @@
 import { ref, readonly } from "vue";
 
-export interface DiscordParticipant {
-  id: string;
-  username: string;
-  avatar: string | null;
-  avatarUrl: string | null;
-  global_name: string | null;
-  bot: boolean;
-}
-
 let sdkInstance: any = null;
 let cachedAuthResult: {
   discordUser: { id: string; username: string; avatar: string | null; avatarUrl: string | null };
@@ -24,7 +15,6 @@ const discordUser = ref<{
   avatar: string | null;
   avatarUrl: string | null;
 } | null>(null);
-const vcParticipants = ref<DiscordParticipant[]>([]);
 const speakingDiscordIds = ref<Set<string>>(new Set());
 const channelId = ref<string | null>(null);
 
@@ -129,40 +119,6 @@ export function useDiscordSDK() {
     return cachedAuthResult;
   }
 
-  function mapParticipant(p: any): DiscordParticipant {
-    const avatarHash = p.avatar ?? null;
-    const avatarUrl = avatarHash
-      ? `https://cdn.discordapp.com/avatars/${p.id}/${avatarHash}.png`
-      : null;
-    return {
-      id: p.id,
-      username: p.global_name || p.username,
-      avatar: avatarHash,
-      avatarUrl,
-      global_name: p.global_name ?? null,
-      bot: p.bot ?? false,
-    };
-  }
-
-  async function getChannelParticipants(): Promise<DiscordParticipant[]> {
-    if (!sdkInstance) throw new Error("Discord SDK not initialized");
-    const { participants } =
-      await sdkInstance.commands.getInstanceConnectedParticipants();
-    const mapped = participants.map(mapParticipant);
-    vcParticipants.value = mapped;
-    return mapped;
-  }
-
-  async function subscribeToParticipants(): Promise<void> {
-    if (!sdkInstance) throw new Error("Discord SDK not initialized");
-    await sdkInstance.subscribe(
-      "ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE",
-      (event: { participants: any[] }) => {
-        vcParticipants.value = event.participants.map(mapParticipant);
-      },
-    );
-  }
-
   async function subscribeToSpeaking(): Promise<void> {
     if (!sdkInstance) throw new Error("Discord SDK not initialized");
 
@@ -210,13 +166,10 @@ export function useDiscordSDK() {
     isReady: readonly(isReady),
     isAuthenticated: readonly(isAuthenticated),
     discordUser: readonly(discordUser),
-    vcParticipants: readonly(vcParticipants),
     speakingDiscordIds: readonly(speakingDiscordIds),
     channelId: readonly(channelId),
     init,
     authenticate,
-    getChannelParticipants,
-    subscribeToParticipants,
     subscribeToSpeaking,
     inviteFriends,
     close,

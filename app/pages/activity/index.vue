@@ -161,8 +161,6 @@ const {
   init,
   authenticate,
   getSdk,
-  getChannelParticipants,
-  subscribeToParticipants,
   subscribeToSpeaking,
 } = useDiscordSDK();
 
@@ -237,11 +235,9 @@ async function launch() {
     statusText.value = "Setting up your profile...";
     stage = "session";
 
-    // 4. Fetch VC participants and subscribe to updates
+    // 4. Speaking indicators for the game's player lists
     statusText.value = "Loading voice channel...";
     stage = "voice";
-    await getChannelParticipants();
-    await subscribeToParticipants();
     await subscribeToSpeaking();
 
     // 5. Main menu: its Play button creates or joins this instance's game.

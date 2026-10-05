@@ -571,7 +571,6 @@ const handleLeave = async () => {
   if (!lobby.value || !userStore.user?.id) return;
   selfLeaving.value = true;
   await leaveLobby(lobby.value.id, userStore.user.id);
-  // Discord Activity users return to VC Hub; others go home
   return router.replace("/");
 };
 
