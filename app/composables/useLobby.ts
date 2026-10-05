@@ -212,6 +212,57 @@ export const useLobby = () => {
     }
   };
 
+  // ── Host Doc Setup ────────────────────────────────────────────────────
+  // Writes a lobby's full doc structure with the signed-in host seated and
+  // default game settings. Used by createLobby, and by restoreLobbyDoc when
+  // the sync server has dropped the doc.
+
+  const initializeHostDoc = async (
+    code: string,
+    hostUserId: string,
+    lobbyOptions: { lobbyName: string; isPrivate: boolean; hasPassword: boolean },
+  ) => {
+    const user = userStore.user;
+    const cardPacks = await useCards().fetchDefaultPacks();
+
+    mutations.initializeLobby({
+      code,
+      hostUserId,
+      hostName: user?.name ?? "Anonymous",
+      hostAvatar: user?.avatarUrl || "",
+      hostActiveDecoration: user?.activeDecoration || "",
+      settings: {
+        maxPoints: 10,
+        cardsPerPlayer: 10,
+        maxPick: 3,
+        cardPacks,
+        isPrivate: lobbyOptions.isPrivate,
+        lobbyName: lobbyOptions.lobbyName,
+        roundEndCountdownDuration: 5,
+        hasPassword: lobbyOptions.hasPassword,
+      },
+    });
+  };
+
+  /**
+   * Rebuilds a lobby's doc after the sync server dropped it (it does once
+   * everyone disconnects), from the lobby row: the host is seated again, and
+   * the name and privacy come back. Settings that lived only in the doc reset
+   * to defaults. Host-only; returns whether it rebuilt.
+   */
+  const restoreLobbyDoc = async (
+    lobby: Lobby & { hasPassword?: boolean },
+  ): Promise<boolean> => {
+    const user = userStore.user;
+    if (!user || user.id !== lobby.hostUserId) return false;
+    await initializeHostDoc(lobby.code, lobby.hostUserId, {
+      lobbyName: lobby.lobbyName || `${user.name || "Anonymous"}'s Game`,
+      isPrivate: lobby.isPrivate ?? true,
+      hasPassword: !!lobby.hasPassword,
+    });
+    return true;
+  };
+
   // ── Create Lobby ──────────────────────────────────────────────────────
   // Creates the lobby registry row via the server API, then initializes
   // the Y.Doc. Identity/session bootstrap happens before this is called
@@ -251,28 +302,10 @@ export const useLobby = () => {
 
     // Connect to Teleportal Y.Doc and initialize the full structure
     await lobbyDoc.connect(lobby.code);
-
-    const user = userStore.user;
-    const avatarUrl = user?.avatarUrl ?? null;
-    const activeDecoration = user?.activeDecoration || "";
-    const cardPacks = await useCards().fetchDefaultPacks();
-
-    mutations.initializeLobby({
-      code: lobby.code,
-      hostUserId,
-      hostName: user?.name ?? "Anonymous",
-      hostAvatar: avatarUrl || "",
-      hostActiveDecoration: activeDecoration,
-      settings: {
-        maxPoints: 10,
-        cardsPerPlayer: 10,
-        maxPick: 3,
-        cardPacks,
-        isPrivate: isPrivate ?? true,
-        lobbyName: displayName,
-        roundEndCountdownDuration: 5,
-        hasPassword: !!_password,
-      },
+    await initializeHostDoc(lobby.code, hostUserId, {
+      lobbyName: displayName,
+      isPrivate: isPrivate ?? true,
+      hasPassword: !!_password,
     });
 
     // The password goes to Postgres hashed, never into the Y.Doc. Done after
@@ -442,16 +475,17 @@ export const useLobby = () => {
   // pre-connect state (e.g. page refresh before the Y.Doc reconnects).
 
   const isInLobby = async (userId: string, lobbyId: string) => {
-    // If Y.Doc is connected, check the players map directly
+    // The doc is the cheap yes. It is not a reliable no: before it syncs, or
+    // after the sync server dropped it, nobody is in it. The server's player
+    // row is the answer (see utils/lobbyEntry.ts).
     if (lobbyDoc.doc.value) {
       try {
-        return !!lobbyDoc.getPlayers().get(userId);
+        if (lobbyDoc.getPlayers().get(userId)) return true;
       } catch {
         // Y.Doc not ready — fall through to the server
       }
     }
 
-    // Fallback: derive from the user's active lobby (for pre-connect state)
     const activeLobby = await getActiveLobbyForUser(userId);
     return !!activeLobby && activeLobby.id === lobbyId;
   };
@@ -971,6 +1005,8 @@ export const useLobby = () => {
     players,
     fetchPlayers,
     createLobby,
+    restoreLobbyDoc,
+    waitForSync,
     joinLobby,
     getLobbyByCode,
     getLobbyByInstanceId,

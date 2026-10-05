@@ -7,7 +7,6 @@ import { useGameWatchdog } from "~/composables/useGameWatchdog";
 import { useNotifications } from "~/composables/useNotifications";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
-import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useAutoReturn, CELEBRATION_MS } from "~/composables/useAutoReturn";
 import { useSpectatorConversion } from "~/composables/useSpectatorConversion";
 import { useSfx } from "~/composables/useSfx";
@@ -16,6 +15,7 @@ import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
 import { useI18n } from "vue-i18n";
 import { kickedMetaKey } from "~/utils/kickedPlayers";
+import { decideLobbyEntry } from "~/utils/lobbyEntry";
 import { useCompactLayout } from "~/composables/useCompactLayout";
 
 // ─── Core Setup ─────────────────────────────────────────────────────────────
@@ -29,7 +29,6 @@ const nuxtApp = useNuxtApp();
 definePageMeta({ layout: "game" });
 
 const code = route.params.code as string;
-const ACTIVE_GAME_KEY = "unfit:activeGame";
 const lobby = ref<Lobby | null>(null);
 const players = ref<Player[]>([]);
 const loading = ref(true);
@@ -48,12 +47,13 @@ const {
   leaveLobby,
   getActiveLobbyForUser,
   startGame,
-  isInLobby,
   lobbyDoc,
   reactive,
   engine,
   mutations,
   resetGameState,
+  restoreLobbyDoc,
+  waitForSync,
 } = useLobby();
 const { initializeGamePageSession } = useJoinLobby();
 
@@ -127,9 +127,6 @@ watch(
 // player who is back on the join form, and rejoining clears it anyway.
 function sendHomeKicked() {
   selfLeaving.value = true;
-  if (typeof sessionStorage !== "undefined") {
-    sessionStorage.removeItem(ACTIVE_GAME_KEY);
-  }
   notify({
     title: t("lobby.you_were_kicked"),
     color: "warning",
@@ -253,9 +250,6 @@ watch(
   (closedAt) => {
     if (!closedAt || selfLeaving.value) return;
     selfLeaving.value = true;
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.removeItem(ACTIVE_GAME_KEY);
-    }
     notify({
       title: t("lobby.closed_host_left"),
       color: "info",
@@ -430,8 +424,6 @@ onMounted(async () => {
       return;
     }
 
-    const isCreator =
-      route.query.creator === "true" && isAuthenticatedUser(user);
 
     const fetchedLobby = await getLobbyByCode(code);
     if (!fetchedLobby) {
@@ -455,93 +447,66 @@ onMounted(async () => {
       console.error("Failed to fetch lobby data:", error);
     }
 
-    // ── Session-persisted rejoin fast-path ───────────────────────────
-    // On page refresh, anonymous users may get a NEW session (new
-    // $id), so Y.Doc and session checks against the new ID fail.
-    // sessionStorage survives refreshes within the same tab and lets us
-    // know the user was previously in this exact game.
-    const wasInThisGame =
-      typeof sessionStorage !== "undefined" &&
-      sessionStorage.getItem(ACTIVE_GAME_KEY) === code;
-
-    // Connect to Y.Doc early so membership checks can read the players map.
+    // ── Who is this visitor? ─────────────────────────────────────────
+    // The server's player rows decide membership (utils/lobbyEntry.ts); the
+    // doc is only checked first because it is cheaper. It has to be synced
+    // before it can answer: connect() resolves before the server's state
+    // arrives, and an unsynced doc has nobody in it.
     if (lobbyDoc.lobbyCode.value !== code) {
       await lobbyDoc.connect(code);
     }
+    await waitForSync();
 
-    if (!isCreator) {
-      // ── Rejoin Check ──────────────────────────────────────────────
-      // Priority 1: Check the Y.Doc players map (already synced above).
-      const inYDoc = (() => {
-        try {
-          return !!lobbyDoc.getPlayers().get(user.id);
-        } catch {
-          return false;
-        }
-      })();
+    const meta = lobbyDoc.getMeta();
+    const inDoc = !!lobbyDoc.getPlayers().get(user.id);
+    const activeLobby = inDoc ? null : await getActiveLobbyForUser(user.id);
+    const entry = decideLobbyEntry({
+      inDoc,
+      seatedHere: activeLobby?.id === fetchedLobby.id,
+      seatedElsewhere: !!activeLobby && activeLobby.code !== code,
+      kicked: !!meta.get(kickedMetaKey(user.id)),
+      docInitialized: !!meta.get("hostUserId"),
+      isHost: fetchedLobby.hostUserId === user.id,
+    });
 
-      if (!inYDoc && !wasInThisGame) {
-        // Not found in Y.Doc and no session memory of this game.
-        // Check if they belong to a *different* active lobby.
-        const activeLobby = await getActiveLobbyForUser(user.id);
-        if (activeLobby && activeLobby.code !== code) {
-          notify({
-            title: t("lobby.return_active_game"),
-            color: "info",
-            icon: "i-mdi-controller",
-          });
-          return router.replace(`/game/${activeLobby.code}`);
-        }
-
-        // Final fallback: player record check for this lobby
-        const stillInLobby = fetchedLobby
-          ? await isInLobby(user.id, fetchedLobby.id)
-          : false;
-
-        if (!stillInLobby) {
-          showJoinModal.value = true;
-          return;
-        }
+    if (entry === "join") {
+      showJoinModal.value = true;
+      return;
+    }
+    if (entry === "redirect") {
+      notify({
+        title: t("lobby.return_active_game"),
+        color: "info",
+        icon: "i-mdi-controller",
+      });
+      return router.replace(`/game/${activeLobby!.code}`);
+    }
+    if (entry === "kicked") return sendHomeKicked();
+    if (entry === "rebuild") {
+      // The sync server dropped the doc; the host gets their lobby back.
+      await restoreLobbyDoc(fetchedLobby);
+    } else if (entry === "rejoin") {
+      // Seated on the server, missing from the doc: a refresh that beat the
+      // doc, or a doc the sync server dropped.
+      try {
+        const docStatus = meta.get("status") || "waiting";
+        mutations.addPlayer({
+          userId: user.id,
+          name: user.name || "Unknown",
+          avatar: user.avatarUrl || "",
+          isHost: meta.get("hostUserId") === user.id,
+          joinedAt: new Date().toISOString(),
+          provider: user.discordUserId ? "discord" : "anonymous",
+          playerType: docStatus === "playing" ? "spectator" : "player",
+          activeDecoration: user.activeDecoration || "",
+        });
+      } catch (err) {
+        console.warn("[GamePage] Failed to re-add player to Y.Doc:", err);
       }
-
-      // Re-add to Y.Doc if confirmed in game but missing from players map
-      // (happens after HMR reload or page refresh when the Y.Doc player
-      // entry was lost but the session record persists)
-      if (!inYDoc && lobbyDoc.doc.value) {
-        // Missing because the host kicked them, not because an entry was lost.
-        // A tab that still remembers this game (wasInThisGame) skips the
-        // server check above, so without this it would seat them again.
-        if (lobbyDoc.getMeta().get(kickedMetaKey(user.id))) {
-          return sendHomeKicked();
-        }
-        try {
-          const meta = lobbyDoc.getMeta();
-          const docStatus = meta.get("status") || "waiting";
-          mutations.addPlayer({
-            userId: user.id,
-            name: user.name || "Unknown",
-            avatar: user.avatarUrl || "",
-            isHost: false,
-            joinedAt: new Date().toISOString(),
-            provider: user.discordUserId ? "discord" : "anonymous",
-            playerType: docStatus === "playing" ? "spectator" : "player",
-            activeDecoration: user.activeDecoration || "",
-          });
-          console.log("[GamePage] Re-added player to Y.Doc after reconnect");
-        } catch (err) {
-          console.warn("[GamePage] Failed to re-add player to Y.Doc:", err);
-        }
-      }
-      // Player confirmed in this game — proceed
     }
 
     lobby.value = fetchedLobby;
     joinedLobby.value = true;
-
-    // Persist active game for rejoin-on-refresh (survives F5 in same tab)
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.setItem(ACTIVE_GAME_KEY, code);
-    }
   } catch (err) {
     console.error(err);
     notify({
@@ -607,10 +572,6 @@ function onJoinCardOpen(open: boolean) {
 const handleLeave = async () => {
   if (!lobby.value || !userStore.user?.id) return;
   selfLeaving.value = true;
-  // Clear session marker so a future visit to this code shows the join form
-  if (typeof sessionStorage !== "undefined") {
-    sessionStorage.removeItem(ACTIVE_GAME_KEY);
-  }
   await leaveLobby(lobby.value.id, userStore.user.id);
   // Discord Activity users return to VC Hub; others go home
   return router.replace(isDiscordActivity.value ? "/activity/hub" : "/");
