@@ -285,6 +285,7 @@ export function useBots(
       ? await requestDecision<{ cardIds: string[] | null }>({
           mode: "play",
           blackCardId: state.blackCard.id,
+          botUserId,
           hand,
         })
       : null;
@@ -459,6 +460,7 @@ export function useBots(
             ? requestDecision<{ winnerIndex: number | null }>({
                 mode: "judge",
                 blackCardId: state.blackCard.id,
+                botUserId: judgeBot.userId,
                 submissions: submitterOrder.map((id) => state.submissions[id] ?? []),
               })
             : Promise.resolve(null);
