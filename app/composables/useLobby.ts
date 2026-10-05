@@ -179,28 +179,6 @@ export const useLobby = () => {
     }
   };
 
-  const getLobbiesByChannelId = async (
-    discordChannelId: string,
-  ): Promise<Lobby[]> => {
-    try {
-      return await $activityFetch<Lobby[]>(
-        "/api/lobby/by-channel/" + discordChannelId,
-      );
-    } catch {
-      return [];
-    }
-  };
-
-  const updateLobbyPrivacy = async (
-    lobbyId: string,
-    vcOnly: boolean,
-  ): Promise<void> => {
-    await $activityFetch("/api/lobby/privacy", {
-      method: "POST",
-      body: { lobbyId, vcOnly },
-    });
-  };
-
   const getActiveLobbyForUser = async (
     userId: string,
   ): Promise<Lobby | null> => {
@@ -1023,8 +1001,6 @@ export const useLobby = () => {
     joinLobby,
     getLobbyByCode,
     getLobbyByInstanceId,
-    getLobbiesByChannelId,
-    updateLobbyPrivacy,
     leaveLobby,
     isInLobby,
 

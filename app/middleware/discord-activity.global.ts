@@ -8,9 +8,9 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (!isDiscordActivity.value) return;
 
-  // Already authenticated — skip the init page if navigating there
+  // Already authenticated — skip the init page and go to the main menu
   if (to.path === "/activity" && isAuthenticated.value) {
-    return navigateTo("/activity/hub", { replace: true });
+    return navigateTo("/", { replace: true });
   }
 
   // Not authenticated and not already on an /activity route — redirect to init flow
