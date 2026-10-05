@@ -232,6 +232,7 @@ const [DefineSettings, ReuseSettings] = createReusableTemplate();
             size="sm"
             variant="soft"
             data-testid="music-toggle-button"
+            :disabled="prefs.musicVolume === 0"
             :icon="
               music.isPlaying.value
                 ? 'i-solar-pause-bold'

@@ -71,28 +71,42 @@ watch(
   { immediate: true },
 );
 
-watch(
-  () => prefs.musicVolume,
-  (volume) => {
-    if (import.meta.client) {
-      music.setVolume(volume);
-    }
-  },
-  { immediate: true },
-);
-
 // ─── Background Music Autoplay & First-Interaction Trigger ──────────
 if (import.meta.client) {
   const startMusic = () => {
     // Autoplay stays off in dev — nobody wants the playlist kicking in on
     // every HMR reload. Music can still be started manually from settings.
     if (isDev) return;
+    // A pause the user pressed outlives the page; only Play undoes it.
+    if (prefs.musicPaused) return;
     if (!music.isPlaying.value) {
       music.play().catch(() => {
         // Ignored: browser may still be initializing or blocking
       });
     }
   };
+
+  watch(
+    () => prefs.musicPaused,
+    (paused) => {
+      music.userPaused.value = paused;
+    },
+    { immediate: true },
+  );
+  watch(music.userPaused, (paused) => prefs.setMusicPaused(paused));
+
+  watch(
+    () => prefs.musicVolume,
+    (volume, previous) => {
+      music.setVolume(volume);
+      // Volume 0 stops the music. If it was already 0 when the page loaded,
+      // autoplay never created a player, so turning it up has to start one.
+      if (previous === 0 && volume > 0 && !music.isReady.value) {
+        startMusic();
+      }
+    },
+    { immediate: true },
+  );
 
   const onFirstUserInteraction = () => {
     startMusic();
