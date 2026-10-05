@@ -6,7 +6,10 @@
 // bots varied — its top option usually carries only 20–50% (spike,
 // 2026-10-05), and bland or off-prompt cards sit near zero either way.
 
-const stripTags = (text: string) => text.replace(/<[^>]+>/g, "").trim();
+// The result only ever goes to Jev as plain text, never into HTML. Stray
+// brackets left by nested or broken tags are dropped all the same.
+const stripTags = (text: string) =>
+  text.replace(/<[^>]*>/g, "").replace(/[<>]/g, "").trim();
 
 const cleanFill = (text: string) => stripTags(text).replace(/\.$/, "");
 

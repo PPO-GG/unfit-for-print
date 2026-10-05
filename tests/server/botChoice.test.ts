@@ -44,6 +44,12 @@ describe("fillPrompt", () => {
     expect(fillPrompt("Why _?", ["Cats.", "Dogs."])).toBe("Why [Cats]? / Dogs");
   });
 
+  it("leaves no angle brackets behind from nested or broken tags", () => {
+    const out = fillPrompt("<<script>script>Why _?", ["<<b>b>Cats."]);
+    expect(out).not.toMatch(/[<>]/);
+    expect(out).toBe("scriptWhy [bCats]?");
+  });
+
   it("strips HTML from the prompt and the fills", () => {
     expect(fillPrompt("<i>Behold</i> _.", ["<b>A llama</b>."])).toBe(
       "Behold [A llama].",
