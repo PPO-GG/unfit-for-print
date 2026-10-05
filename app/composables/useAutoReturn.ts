@@ -1,17 +1,26 @@
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch, onScopeDispose } from "vue";
 import type { ComputedRef, Ref } from "vue";
 import type { Lobby } from "~/types/lobby";
 import type { GameState } from "~/types/game";
 import type { LobbyDocResult } from "~/composables/useLobbyDoc";
 import { useYjsGameEngine } from "~/composables/useYjsGameEngine";
-import { useNotifications } from "~/composables/useNotifications";
-import { useI18n } from "vue-i18n";
+
+/** The winning card's highlight and celebration play before the podium. */
+export const CELEBRATION_MS = 7000;
+/** How long the podium stays up before everyone goes back to the lobby. */
+export const PODIUM_SECONDS = 10;
+/** A guest steps in if the host hasn't reset this long after the podium ends. */
+const HOST_GRACE_MS = 3000;
 
 /**
- * Manages auto-return-to-lobby logic after a game completes.
- * Handles the 60-second countdown and the "Continue" action for individual players.
+ * The end of a game: after the celebration, the podium shows for
+ * PODIUM_SECONDS, then the host resets the game and every client lands back in
+ * the lobby, where the host can change settings and start again.
  *
- * Uses Y.Doc game engine mutations.
+ * Timed from the doc's shared `gameEndTime`, so every client counts down to
+ * the same moment. If the host's client is gone (tab closed, phone asleep), a
+ * guest resets after a short grace period instead of leaving everyone on the
+ * podium. A reset is idempotent, so two clients doing it is harmless.
  */
 export function useAutoReturn(options: {
   state: ComputedRef<GameState | null>;
@@ -20,126 +29,82 @@ export function useAutoReturn(options: {
   isHost: ComputedRef<boolean>;
   lobbyRef: Ref<Lobby | null>;
   lobbyDoc: LobbyDocResult;
+  /** Resets the game back to the waiting room (useLobby().resetGameState). */
+  resetGame: () => unknown;
 }) {
-  const { state, myId, isComplete, isHost, lobbyRef, lobbyDoc } = options;
+  const { state, myId, isComplete, isHost, lobbyRef, lobbyDoc, resetGame } = options;
   const engine = useYjsGameEngine(lobbyDoc);
-  const { notify } = useNotifications();
-  const { t } = useI18n();
 
-  const autoReturnCheckInterval = ref<ReturnType<typeof setInterval> | null>(
-    null,
-  );
+  // Bumped every second so the countdown re-evaluates against the clock.
+  const now = ref(Date.now());
+  let ticker: ReturnType<typeof setInterval> | null = null;
+  let resetSent = false;
 
-  // Reactive tick counter — updated every second by the interval
-  // so that computed values depending on time actually re-evaluate.
-  const tickCounter = ref(0);
-
-  /** Whether the current player has already clicked "Continue" */
+  /** This player went ahead to the lobby before the podium time was up. */
   const hasReturnedToLobby = computed(() => {
-    if (!state.value || !myId.value || state.value.phase !== "complete")
-      return false;
-    return (
-      state.value.returnedToLobby && state.value.returnedToLobby[myId.value]
-    );
+    if (!state.value || !myId.value || state.value.phase !== "complete") return false;
+    return !!state.value.returnedToLobby?.[myId.value];
   });
 
-  /** Seconds remaining before the auto-return fires (60s total) */
-  const autoReturnTimeRemaining = computed(() => {
-    // Reference tickCounter to make this reactive on each interval tick
-    void tickCounter.value;
-    if (!state.value || !state.value.gameEndTime) return 60;
-    const timeElapsed = Math.floor(
-      (Date.now() - state.value.gameEndTime) / 1000,
-    );
-    return Math.max(0, 60 - timeElapsed);
+  /** When the podium ends, from the doc's shared game-end time. */
+  const podiumEndsAt = computed(() => {
+    const end = state.value?.gameEndTime;
+    return end ? end + CELEBRATION_MS + PODIUM_SECONDS * 1000 : null;
   });
 
-  /** Starts a 1-second interval that auto-returns the player when the timer expires */
-  const startAutoReturnCheck = () => {
-    if (autoReturnCheckInterval.value) {
-      clearInterval(autoReturnCheckInterval.value);
-    }
+  /** Seconds the podium has left: PODIUM_SECONDS until it appears, then down to 0. */
+  const podiumSecondsLeft = computed(() => {
+    if (podiumEndsAt.value === null) return PODIUM_SECONDS;
+    const left = Math.ceil((podiumEndsAt.value - now.value) / 1000);
+    return Math.min(PODIUM_SECONDS, Math.max(0, left));
+  });
 
-    autoReturnCheckInterval.value = setInterval(async () => {
-      // Increment the tick counter to force computed recomputation
-      tickCounter.value++;
+  function resetOnce() {
+    if (resetSent) return;
+    resetSent = true;
+    resetGame();
+  }
 
-      if (lobbyRef.value && isComplete.value) {
-        if (
-          autoReturnTimeRemaining.value <= 0 &&
-          !hasReturnedToLobby.value &&
-          myId.value
-        ) {
-          // Mark player as returned via Y.Doc mutation
-          engine.markReturnedToLobby(myId.value);
+  function tick() {
+    now.value = Date.now();
+    if (!isComplete.value || !lobbyRef.value || podiumEndsAt.value === null) return;
+    const overdue = now.value - podiumEndsAt.value;
+    if (overdue < 0) return;
+    if (isHost.value || overdue >= HOST_GRACE_MS) resetOnce();
+  }
 
-          // Host resets the lobby so everyone transitions back to the waiting room
-          if (isHost.value) {
-            engine.resetGame();
-          }
+  function stopTicker() {
+    if (ticker) clearInterval(ticker);
+    ticker = null;
+  }
 
-          notify({
-            title: t("lobby.return_to_lobby"),
-            description: t("lobby.timer_expired_return_description"),
-            color: "info",
-            icon: "i-mdi-clock-check",
-          });
-        }
-      } else if (autoReturnCheckInterval.value) {
-        clearInterval(autoReturnCheckInterval.value);
+  watch(
+    isComplete,
+    (complete) => {
+      stopTicker();
+      resetSent = false;
+      if (complete) {
+        now.value = Date.now();
+        ticker = setInterval(tick, 1000);
       }
-    }, 1000);
-  };
+    },
+    { immediate: true },
+  );
+  onScopeDispose(stopTicker);
 
-  // Cleanup on unmount
-  onUnmounted(() => {
-    if (autoReturnCheckInterval.value) {
-      clearInterval(autoReturnCheckInterval.value);
-    }
-  });
-
-  // Watch for game completion to start/stop auto-return
-  watch(isComplete, (newIsComplete) => {
-    if (newIsComplete) {
-      startAutoReturnCheck();
-    } else if (autoReturnCheckInterval.value) {
-      clearInterval(autoReturnCheckInterval.value);
-    }
-  });
-
-  /** Player clicks "Continue" — marks them as returned to lobby */
+  /**
+   * "Back to lobby": the host brings everyone now; a guest goes ahead on their
+   * own and waits there for the others.
+   */
   const handleContinue = async () => {
     if (!lobbyRef.value || !myId.value) return;
-
-    try {
-      // Mark player as returned via Y.Doc mutation
-      engine.markReturnedToLobby(myId.value);
-
-      // Host resets the lobby so everyone transitions back to the waiting room.
-      // Non-host players will see the change via Y.Doc sync.
-      if (isHost.value) {
-        engine.resetGame();
-      }
-
-      notify({
-        title: t("lobby.return_to_lobby"),
-        description: t("lobby.scoreboard_return_description"),
-        color: "success",
-        icon: "i-mdi-check-circle",
-      });
-    } catch (err) {
-      console.error("Failed to return to lobby:", err);
-      notify({
-        title: t("lobby.failed_return_to_lobby"),
-        color: "error",
-        icon: "i-mdi-alert-circle",
-      });
-    }
+    if (isHost.value) resetOnce();
+    else engine.markReturnedToLobby(myId.value);
   };
 
   return {
     hasReturnedToLobby,
-    autoReturnTimeRemaining,
+    podiumSecondsLeft,
     handleContinue,
   };
 }
