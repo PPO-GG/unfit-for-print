@@ -787,10 +787,24 @@ export const useLobby = () => {
   };
 
   // ── Reset Game State ──────────────────────────────────────────────────
-  // Delegates to useYjsGameEngine.resetGame()
+  // The doc reset is the game's; the host then puts the lobby row back to
+  // "waiting" (game/start set it to "playing"), or bot-adding and joining,
+  // which gate on that row, keep treating the lobby as mid-game. A failure is
+  // logged rather than undoing the reset. Guests reset only as a fallback when
+  // the host's client is gone, and the route is host-only.
 
-  const resetGameState = async (_lobbyId: string) => {
+  const resetGameState = async (lobbyId: string) => {
     engine.resetGame();
+    if (reactive.isHost.value) {
+      try {
+        await $activityFetch("/api/lobby/reset", {
+          method: "POST",
+          body: { lobbyId },
+        });
+      } catch (err) {
+        console.warn("[useLobby] Failed to mark the lobby waiting on server:", err);
+      }
+    }
     return true;
   };
 

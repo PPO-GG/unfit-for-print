@@ -164,6 +164,27 @@ export async function reconcileLobbiesFromLiveDocs(): Promise<number> {
 }
 
 /**
+ * The lobby's status, checked against its live doc when the row says it is
+ * not waiting. The row trails the doc: when a host resets a finished game the
+ * doc goes back to "waiting" and nothing writes the row until something
+ * reconciles it. Routes that gate on "waiting" (adding a bot, seating a
+ * newcomer as a player) ask here before refusing.
+ *
+ * Only a non-waiting row pays for the reconciliation, and it fails open to
+ * the row's own status if Teleportal can't be reached.
+ */
+export async function liveLobbyStatus(lobby: { id: string; status: string }): Promise<string> {
+  if (lobby.status === "waiting") return lobby.status;
+  await reconcileLobbiesFromLiveDocs();
+  const [row] = await useDb()
+    .select({ status: lobbies.status })
+    .from(lobbies)
+    .where(eq(lobbies.id, lobby.id))
+    .limit(1);
+  return row?.status ?? lobby.status;
+}
+
+/**
  * Minimum gap between reconciliations triggered by the lobby browser. Each run
  * asks Teleportal to summarize every live doc and reads every lobby row, and
  * `/api/lobby/list` runs on every browser page load — a few seconds of drift

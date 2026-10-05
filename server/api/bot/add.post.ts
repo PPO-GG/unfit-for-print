@@ -11,6 +11,7 @@ import { useDb } from "~~/server/db/client";
 import { lobbies, players, users } from "~~/server/db/schema";
 import { requireHost } from "~~/server/utils/session";
 import { generateBotName, getBotAvatarUrl } from "~~/server/utils/botNames";
+import { liveLobbyStatus } from "~~/server/utils/reconcileLobbies";
 
 const MAX_BOTS_PER_LOBBY = 5;
 
@@ -87,7 +88,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // --- Check lobby status (only allow adding bots in waiting phase) ---
-  if (lobby.status !== "waiting") {
+  // The row can still say "playing" after the host reset a finished game.
+  if ((await liveLobbyStatus(lobby)) !== "waiting") {
     throw createError({
       statusCode: 400,
       statusMessage: "Can only add bots while waiting",

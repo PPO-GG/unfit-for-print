@@ -8,6 +8,7 @@ import {
 import { verifyLobbyPassword } from "~~/server/utils/lobbyPassword";
 import { recordActivity } from "~~/server/utils/activity";
 import { requireAuth } from "~~/server/utils/session";
+import { liveLobbyStatus } from "~~/server/utils/reconcileLobbies";
 
 export default defineEventHandler(async (event) => {
   const userId = await requireAuth(event);
@@ -94,8 +95,11 @@ export default defineEventHandler(async (event) => {
   // Both cases clamp rather than refuse, so a latecomer still gets in to watch
   // and can be dealt in explicitly via the engine's convertToPlayer, which
   // does update the doc.
+  //
+  // The row can still say "playing" after the host reset a finished game, so a
+  // non-waiting status is checked against the live doc before clamping.
   const playerType =
-    lobby.status === "waiting" && activeCount < MAX_ACTIVE_PLAYERS
+    activeCount < MAX_ACTIVE_PLAYERS && (await liveLobbyStatus(lobby)) === "waiting"
       ? requestedType
       : "spectator";
 

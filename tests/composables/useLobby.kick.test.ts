@@ -2,13 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 
 // Kicking used to touch only the Y.Doc: the kicked player was never told, and
-// their Postgres row survived, so a refresh seated them again.
+// their Postgres row survived, so a refresh seated them again. The game reset
+// below had the same doc-only gap with the lobby row's status.
 
 const state = vi.hoisted(() => ({
   players: new Map<string, string>(),
   activityFetch: vi.fn(),
   kickPlayer: vi.fn(),
   skipPlayer: vi.fn(),
+  resetGame: vi.fn(),
+  isHost: { value: true },
 }));
 
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: state.activityFetch }));
@@ -32,11 +35,12 @@ vi.mock("~/composables/useLobbyReactive", () => ({
     playerList: { value: [] },
     gameState: { value: null },
     myHand: { value: [] },
+    isHost: state.isHost,
   }),
 }));
 
 vi.mock("~/composables/useYjsGameEngine", () => ({
-  useYjsGameEngine: () => ({ skipPlayer: state.skipPlayer }),
+  useYjsGameEngine: () => ({ skipPlayer: state.skipPlayer, resetGame: state.resetGame }),
 }));
 
 vi.mock("~/composables/usePlayers", () => ({
@@ -71,5 +75,39 @@ describe("useLobby.kickPlayer", () => {
 
     await expect(useLobby().kickPlayer("lobby-1", "alice")).resolves.toBeUndefined();
     expect(state.kickPlayer).toHaveBeenCalledWith("alice", "Alice");
+  });
+});
+
+describe("useLobby.resetGameState", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.stubGlobal("useDiscordSDK", () => ({ isDiscordActivity: { value: false } }));
+    vi.clearAllMocks();
+    state.isHost.value = true;
+    state.activityFetch.mockResolvedValue({ success: true });
+  });
+
+  it("resets the game, then puts the lobby row back to waiting", async () => {
+    await useLobby().resetGameState("lobby-1");
+    expect(state.resetGame).toHaveBeenCalledTimes(1);
+    expect(state.activityFetch).toHaveBeenCalledWith("/api/lobby/reset", {
+      method: "POST",
+      body: { lobbyId: "lobby-1" },
+    });
+  });
+
+  // A guest resets only as a fallback when the host's client is gone; the
+  // route is host-only, so the guest doesn't call it.
+  it("doesn't call the host-only route for a guest", async () => {
+    state.isHost.value = false;
+    await useLobby().resetGameState("lobby-1");
+    expect(state.resetGame).toHaveBeenCalledTimes(1);
+    expect(state.activityFetch).not.toHaveBeenCalled();
+  });
+
+  it("still resets the game when the server call fails", async () => {
+    state.activityFetch.mockRejectedValue(new Error("offline"));
+    await expect(useLobby().resetGameState("lobby-1")).resolves.toBe(true);
+    expect(state.resetGame).toHaveBeenCalledTimes(1);
   });
 });
