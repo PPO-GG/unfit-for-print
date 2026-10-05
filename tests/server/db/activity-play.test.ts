@@ -183,6 +183,29 @@ describe("POST /api/lobby/activity-play", () => {
     expect(res).toMatchObject({ created: false, lobby: { id: fresh.id } });
   });
 
+  it("joins a finished game whose doc is still live", async () => {
+    // Game over: the engine writes status "complete" to the doc and
+    // reconciliation copies it to the row while the group is still on the
+    // podium. A late arrival must land with them, not in a new lobby.
+    const finished = await seedLobby(alice.id, "OVER", { status: "complete" });
+    stubTeleportal([{ code: "OVER", status: "complete" }]);
+
+    const res: any = await play(bob.id, { instanceId: INSTANCE });
+
+    expect(res).toMatchObject({ created: false, lobby: { id: finished.id } });
+    expect(await instanceLobbies()).toHaveLength(1);
+  });
+
+  it("prefers the live lobby over a newer one whose doc is gone", async () => {
+    const live = await seedLobby(alice.id, "LIVE", { secondsAgo: 600, status: "complete" });
+    await seedLobby(bob.id, "GONE", { secondsAgo: 120 });
+    stubTeleportal([{ code: "LIVE" }]);
+
+    const res: any = await play(bob.id, { instanceId: INSTANCE });
+
+    expect(res).toMatchObject({ created: false, lobby: { id: live.id } });
+  });
+
   it("ignores complete lobbies", async () => {
     await seedLobby(alice.id, "DONE", { status: "complete" });
 

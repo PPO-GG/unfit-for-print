@@ -8,7 +8,7 @@
 // than a unique index because prod may already hold duplicate instance ids
 // from the old hub, which would fail the migration.
 
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, users } from "~~/server/db/schema";
 import { recordActivity } from "~~/server/utils/activity";
@@ -24,15 +24,16 @@ const NEW_LOBBY_GRACE_MS = 30_000;
 
 /**
  * Whether a lobby's game is gone: Teleportal no longer holds its doc (it drops
- * one 60 s after the last client leaves). Fails open — an unreachable
- * Teleportal means "alive", so an outage never orphans a running game.
+ * one 60 s after the last client leaves). `liveCodes` null means Teleportal
+ * was unreachable, which counts as alive, so an outage never orphans a game.
  */
-async function isDead(lobby: { code: string; createdAt: Date }): Promise<boolean> {
+function isDead(
+  lobby: { code: string; createdAt: Date },
+  liveCodes: Set<string> | null,
+): boolean {
   if (Date.now() - lobby.createdAt.getTime() < NEW_LOBBY_GRACE_MS) return false;
-  const live = await fetchLiveLobbies();
-  if (live === null) return false;
-  const code = lobby.code.toUpperCase();
-  return !live.some((l) => l?.code?.toUpperCase() === code);
+  if (liveCodes === null) return false;
+  return !liveCodes.has(lobby.code.toUpperCase());
 }
 
 export default defineEventHandler(async (event) => {
@@ -47,22 +48,33 @@ export default defineEventHandler(async (event) => {
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) throw createError({ statusCode: 404, statusMessage: "User not found" });
 
+  // Fetched before taking the lock so a slow Teleportal never holds a pooled
+  // connection. A stale answer is harmless: "absent" only matters past the
+  // grace window, and a lobby created since is inside it.
+  const live = await fetchLiveLobbies();
+  const liveCodes = live && new Set(live.map((l) => l?.code?.toUpperCase()));
+
   const result = await db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext(${"activity:" + instanceId}))`,
     );
 
-    const [existing] = await tx
+    const rows = await tx
       .select()
       .from(lobbies)
-      .where(
-        and(eq(lobbies.discordInstanceId, instanceId), ne(lobbies.status, "complete")),
-      )
+      .where(eq(lobbies.discordInstanceId, instanceId))
       .orderBy(desc(lobbies.createdAt))
-      .limit(1);
+      .limit(20);
 
+    // A doc Teleportal still holds is where the group is, whatever the row
+    // says: a finished game's row reads "complete" (reconciled from the doc)
+    // while everyone is still on the podium or starting a rematch.
+    const inPlay = liveCodes && rows.find((r) => liveCodes.has(r.code.toUpperCase()));
+    if (inPlay) return { lobby: inPlay, created: false };
+
+    const existing = rows.find((r) => r.status !== "complete");
     if (existing) {
-      if (!(await isDead(existing))) return { lobby: existing, created: false };
+      if (!isDead(existing, liveCodes)) return { lobby: existing, created: false };
       // pruneLobbies removes it later.
       await tx
         .update(lobbies)
