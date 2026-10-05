@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.31.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.30.0...v3.31.0) (2026-10-05)
+
+
+### ✨ Features
+
+* **web:** bots with a sense of humor ([#178](https://github.com/PPO-GG/unfit-for-print/issues/178)) ([9debf5d](https://github.com/PPO-GG/unfit-for-print/commit/9debf5d61c3c26ae7933cc2620db4ee50979c837))
+* **web:** smarter bots with Jev ([#176](https://github.com/PPO-GG/unfit-for-print/issues/176)) ([8b93f47](https://github.com/PPO-GG/unfit-for-print/commit/8b93f47006a1d7046ec9a989b9912a5f90eb3235))
+
 ## [3.30.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.29.0...v3.30.0) (2026-10-05)
 
 
