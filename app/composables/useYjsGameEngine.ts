@@ -1124,6 +1124,15 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       for (const key of [...hands.keys()]) {
         hands.delete(key);
       }
+
+      // Everyone readied up for the game just finished. Carried over, the
+      // flags auto-started the next game as soon as the lobby had enough
+      // players again, before the host could change settings.
+      const playersMap = getPlayers();
+      for (const [id, raw] of [...playersMap.entries()]) {
+        const player = safeParseJson<Record<string, unknown> | null>(raw, null);
+        if (player?.ready) playersMap.set(id, JSON.stringify({ ...player, ready: false }));
+      }
     });
   };
 
