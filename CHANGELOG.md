@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.29.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.28.0...v3.29.0) (2026-10-05)
+
+
+### ✨ Features
+
+* **web:** Discord Activity Play button replaces the hub ([#173](https://github.com/PPO-GG/unfit-for-print/issues/173)) ([59866d8](https://github.com/PPO-GG/unfit-for-print/commit/59866d8435c745b3ae87f1761a48da6c166b8896))
+
+
+### 🐛 Bug Fixes
+
+* **web:** decide lobby membership from the server seat, not ?creator=true ([#170](https://github.com/PPO-GG/unfit-for-print/issues/170)) ([af94f39](https://github.com/PPO-GG/unfit-for-print/commit/af94f397c3662a4cefa0f3898f84c91bb46bc8c3))
+* **web:** make app settings closable on phones with a bottom sheet ([#167](https://github.com/PPO-GG/unfit-for-print/issues/167)) ([7bed38a](https://github.com/PPO-GG/unfit-for-print/commit/7bed38a428f3c5c0b52c007ae230aec6450dd1c3))
+* **web:** podium for 10s, then everyone back to the lobby ([#169](https://github.com/PPO-GG/unfit-for-print/issues/169)) ([2910beb](https://github.com/PPO-GG/unfit-for-print/commit/2910beb56add127a5346730f87cdeec3eff94a96))
+* **web:** remember music pause and stop music at volume 0 ([#172](https://github.com/PPO-GG/unfit-for-print/issues/172)) ([823a89b](https://github.com/PPO-GG/unfit-for-print/commit/823a89b732c5e3731e48cc38d801575fa7015a76))
+* **web:** stop the avatar jumping after closing settings ([#171](https://github.com/PPO-GG/unfit-for-print/issues/171)) ([34284da](https://github.com/PPO-GG/unfit-for-print/commit/34284da4876569ca1eb90ae3ddedb27fc8cc5544))
+
 ## [3.28.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.27.0...v3.28.0) (2026-10-04)
 
 
