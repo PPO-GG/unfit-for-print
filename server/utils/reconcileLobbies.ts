@@ -106,6 +106,27 @@ export function planLobbyReconciliation(
 }
 
 /**
+ * Teleportal's view of every doc it still holds. `null` means Teleportal could
+ * not be reached — callers must fail open on that, never read it as "no live
+ * lobbies".
+ */
+export async function fetchLiveLobbies(): Promise<LiveLobbySummary[] | null> {
+  try {
+    const summary = await $fetch<{ lobbies?: LiveLobbySummary[] }>(
+      `${getTeleportalHttpUrl()}/lobbies/summary`,
+      { timeout: SUMMARY_TIMEOUT_MS },
+    );
+    return summary?.lobbies ?? [];
+  } catch (err: any) {
+    console.warn(
+      "[reconcileLobbies] Could not reach Teleportal:",
+      err?.message || err,
+    );
+    return null;
+  }
+}
+
+/**
  * Pulls authoritative lobby state out of the live Y.Docs and writes back
  * anything Postgres has wrong.
  *
@@ -122,21 +143,8 @@ export function planLobbyReconciliation(
 export async function reconcileLobbiesFromLiveDocs(): Promise<number> {
   const db = useDb();
 
-  let live: LiveLobbySummary[] = [];
-  try {
-    const summary = await $fetch<{ lobbies?: LiveLobbySummary[] }>(
-      `${getTeleportalHttpUrl()}/lobbies/summary`,
-      { timeout: SUMMARY_TIMEOUT_MS },
-    );
-    live = summary?.lobbies ?? [];
-  } catch (err: any) {
-    console.warn(
-      "[reconcileLobbies] Could not reach Teleportal:",
-      err?.message || err,
-    );
-    return 0;
-  }
-  if (live.length === 0) return 0;
+  const live = await fetchLiveLobbies();
+  if (!live || live.length === 0) return 0;
 
   const rows = await db
     .select({

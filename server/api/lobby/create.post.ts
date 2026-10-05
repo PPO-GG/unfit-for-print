@@ -1,13 +1,9 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { lobbies, players, users } from "~~/server/db/schema";
+import { users } from "~~/server/db/schema";
 import { recordActivity } from "~~/server/utils/activity";
+import { createLobbyRow } from "~~/server/utils/createLobbyRow";
 import { requireNonGuest } from "~~/server/utils/session";
-
-function randomCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
 
 export default defineEventHandler(async (event) => {
   // Hosting creates durable state other people join, so it needs a real
@@ -27,37 +23,12 @@ export default defineEventHandler(async (event) => {
   const [hostUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!hostUser) throw createError({ statusCode: 404, statusMessage: "User not found" });
 
-  let code = randomCode();
-  for (let attempts = 0; attempts < 5; attempts++) {
-    const [existing] = await db.select({ id: lobbies.id }).from(lobbies).where(eq(lobbies.code, code));
-    if (!existing) break;
-    code = randomCode();
-  }
-
-  const [lobby] = await db
-    .insert(lobbies)
-    .values({
-      code,
-      hostUserId: userId,
-      lobbyName: body.lobbyName,
-      discordInstanceId: body.discordInstanceId,
-      discordChannelId: body.discordChannelId,
-      vcOnly: body.vcOnly ?? false,
-      isPrivate: body.isPrivate ?? true,
-    })
-    .returning();
-
-  if (!lobby) {
-    throw createError({ statusCode: 500, statusMessage: "Failed to create lobby" });
-  }
-
-  await db.insert(players).values({
-    userId,
-    lobbyId: lobby.id,
-    name: hostUser.name,
-    avatar: hostUser.avatarUrl,
-    isHost: true,
-    playerType: "player",
+  const lobby = await createLobbyRow(db, hostUser, {
+    lobbyName: body.lobbyName,
+    discordInstanceId: body.discordInstanceId,
+    discordChannelId: body.discordChannelId,
+    vcOnly: body.vcOnly,
+    isPrivate: body.isPrivate,
   });
 
   await recordActivity("lobby_created", lobby.id, userId);
