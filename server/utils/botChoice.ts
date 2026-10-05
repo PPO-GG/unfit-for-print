@@ -6,10 +6,18 @@
 // bots varied — its top option usually carries only 20–50% (spike,
 // 2026-10-05), and bland or off-prompt cards sit near zero either way.
 
-// The result only ever goes to Jev as plain text, never into HTML. Stray
-// brackets left by nested or broken tags are dropped all the same.
-const stripTags = (text: string) =>
-  text.replace(/<[^>]*>/g, "").replace(/[<>]/g, "").trim();
+// The result only ever goes to Jev as plain text, never into HTML. Tags are
+// stripped until none are left (one pass can expose another, e.g.
+// "<<b>script>"), then any stray bracket goes too.
+function stripTags(text: string): string {
+  let previous: string;
+  let current = text;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]*>/g, "");
+  } while (current !== previous);
+  return current.replace(/[<>]/g, "").trim();
+}
 
 const cleanFill = (text: string) => stripTags(text).replace(/\.$/, "");
 

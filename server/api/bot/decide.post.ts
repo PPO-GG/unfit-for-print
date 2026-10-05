@@ -122,6 +122,8 @@ export default defineEventHandler(async (event) => {
     .from(blackCards)
     .where(and(eq(blackCards.id, blackCardId), eq(blackCards.active, true)));
   if (!black?.text) return none;
+  // Narrowing does not reach into the callbacks below, so hold the text here.
+  const blackText = black.text;
 
   const ids = mode === "play" ? hand : [...new Set(submissions.flat())];
   const rows = await db
@@ -132,14 +134,14 @@ export default defineEventHandler(async (event) => {
   for (const row of rows) if (row.text) texts.set(row.id, row.text);
   if (ids.some((id) => !texts.has(id))) return none;
 
-  const state = `Prompt card: ${fillPrompt(black.text, [])}`;
+  const state = `Prompt card: ${fillPrompt(blackText, [])}`;
 
   try {
     if (mode === "judge") {
       const criteria = Object.fromEntries(
         submissions.map((cards, i) => [
           `s${i}`,
-          fillPrompt(black.text, cards.map((id) => texts.get(id)!)),
+          fillPrompt(blackText, cards.map((id) => texts.get(id)!)),
         ]),
       );
       const probs = await jevChoose(state, JUDGE_INSTRUCTIONS, criteria);
@@ -156,7 +158,7 @@ export default defineEventHandler(async (event) => {
       const criteria = Object.fromEntries(
         remaining.map((id, i) => [
           `c${i}`,
-          fillPrompt(black.text, [...chosenTexts, texts.get(id)!]),
+          fillPrompt(blackText, [...chosenTexts, texts.get(id)!]),
         ]),
       );
       const probs = await jevChoose(
