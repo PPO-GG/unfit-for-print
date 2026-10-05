@@ -16,7 +16,7 @@ import { useDb } from "~~/server/db/client";
 import { blackCards, players, whiteCards } from "~~/server/db/schema";
 import {
   fillPrompt,
-  JUDGE_INSTRUCTIONS,
+  judgeInstructions,
   playInstructions,
   sampleIndex,
 } from "~~/server/utils/botChoice";
@@ -144,7 +144,7 @@ export default defineEventHandler(async (event) => {
           fillPrompt(blackText, cards.map((id) => texts.get(id)!)),
         ]),
       );
-      const probs = await jevChoose(state, JUDGE_INSTRUCTIONS, criteria);
+      const probs = await jevChoose(state, judgeInstructions(), criteria);
       return {
         winnerIndex: sampleIndex(submissions.map((_, i) => probs[`s${i}`] ?? 0)),
       };

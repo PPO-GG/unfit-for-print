@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   fillPrompt,
-  JUDGE_INSTRUCTIONS,
+  judgeInstructions,
   playInstructions,
   sampleIndex,
 } from "~/server/utils/botChoice";
@@ -88,19 +88,49 @@ describe("sampleIndex", () => {
   });
 });
 
+const HOUSE =
+  "This is a round of Cards Against Humanity, an adult party game where dark, absurd, and offensive humor wins.";
+const FAVOR =
+  "Favor answers that are surprising, clever, or shockingly fitting for the prompt over answers that are bland or don't fit.";
+
 describe("instructions", () => {
-  it("frames a one-card prompt without card numbering", () => {
-    expect(playInstructions(1, 1)).not.toMatch(/card 1 of/);
-    expect(playInstructions(1, 1)).toMatch(/Cards Against Humanity/);
+  it("keeps the crowd-pleaser's wording exactly as it shipped", () => {
+    expect(playInstructions(1, 1)).toBe(
+      `${HOUSE} Which completed card would make a group of friends laugh hardest? ${FAVOR}`,
+    );
+    expect(playInstructions(1, 2, "crowd")).toBe(
+      `${HOUSE} The prompt takes 2 cards and you are choosing card 1 of 2. Cards still to be chosen are shown as _. Which choice makes the funniest card, or sets up the funniest finish? ${FAVOR}`,
+    );
+    expect(judgeInstructions()).toBe(
+      `${HOUSE} You are the judge. Which submitted card would make a group of friends laugh hardest? ${FAVOR}`,
+    );
   });
 
-  it("names which card of a multi-card prompt is being chosen", () => {
-    expect(playInstructions(1, 2)).toMatch(/card 1 of 2/);
-    expect(playInstructions(1, 2)).toMatch(/shown as _/);
-    expect(playInstructions(2, 2)).not.toMatch(/shown as _/);
+  it("asks a dark bot for the darkest card that still answers the prompt", () => {
+    expect(playInstructions(1, 1, "dark")).toBe(
+      `${HOUSE} Which completed card is the darkest and most shocking — the one that makes people gasp before they laugh — while still answering the prompt?`,
+    );
   });
 
-  it("frames the judge", () => {
-    expect(JUDGE_INSTRUCTIONS).toMatch(/judge/);
+  it("asks an absurd bot for the most absurd card that still answers the prompt", () => {
+    expect(playInstructions(1, 1, "absurd")).toBe(
+      `${HOUSE} Which completed card is the most absurd and surreal — the funniest pure nonsense — while still answering the prompt?`,
+    );
+  });
+
+  it("keeps the multi-card framing for every persona", () => {
+    for (const persona of ["dark", "absurd"] as const) {
+      expect(playInstructions(1, 2, persona)).toMatch(/card 1 of 2\. Cards still to be chosen are shown as _\./);
+      expect(playInstructions(2, 2, persona)).not.toMatch(/shown as _/);
+    }
+  });
+
+  it("judges with the bot's own taste", () => {
+    expect(judgeInstructions("dark")).toBe(
+      `${HOUSE} You are the judge. Which submitted card is the darkest and most shocking — the one that makes people gasp before they laugh — while still answering the prompt?`,
+    );
+    expect(judgeInstructions("absurd")).toBe(
+      `${HOUSE} You are the judge. Which submitted card is the most absurd and surreal — the funniest pure nonsense — while still answering the prompt?`,
+    );
   });
 });
