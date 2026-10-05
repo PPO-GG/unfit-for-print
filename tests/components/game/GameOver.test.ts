@@ -46,7 +46,7 @@ const leaderboard = [
 ];
 const stubs = { AvatarDecoration: { template: "<div><slot /></div>" } };
 const mk = (over = {}) =>
-  mount(GameOver, { props: { leaderboard, players, round: 15, goal: 10, ...over }, global: { stubs } });
+  mount(GameOver, { props: { leaderboard, players, round: 15, goal: 10, secondsLeft: 10, ...over }, global: { stubs } });
 
 describe("GameOver (podium)", () => {
   beforeEach(() => {
@@ -109,20 +109,22 @@ describe("GameOver (podium)", () => {
     expect(w.get(".go-title").attributes("aria-label")).toBe('gameover.wins|{"name":"Maxwell & Mynd"}');
   });
 
-  it("continue marks me returned and emits", async () => {
+  // The page owns the return (useAutoReturn): the podium only asks for it.
+  it("Back to lobby asks the page to return, and does nothing itself", async () => {
     const w = mk();
     await w.get(".go-continue").trigger("click");
     await flushPromises();
-    expect(markPlayerReturnedToLobby).toHaveBeenCalledWith("lobby-1", "d");
     expect(w.emitted("continue")).toHaveLength(1);
+    expect(markPlayerReturnedToLobby).not.toHaveBeenCalled();
   });
 
-  it("auto-returns after 60 seconds", async () => {
-    const w = mk();
+  it("shows the page's countdown and runs no timer of its own", async () => {
+    const w = mk({ secondsLeft: 7 });
+    expect(w.get(".go-timer").text()).toBe('lobby.returning_in|{"seconds":7}');
     vi.advanceTimersByTime(60_000);
     await flushPromises();
-    expect(markPlayerReturnedToLobby).toHaveBeenCalledTimes(1);
-    expect(w.emitted("continue")).toHaveLength(1);
+    expect(w.emitted("continue")).toBeUndefined();
+    expect(markPlayerReturnedToLobby).not.toHaveBeenCalled();
   });
 
   it("caps a crowded step at three people, shows +N, and lists the overflow as rows", () => {
@@ -162,15 +164,12 @@ describe("GameOver (podium)", () => {
     expect(w.get(".go-title").attributes("aria-label")).toBe("game.game_over");
   });
 
-  it("stops confetti and the timeline on unmount, and never auto-returns afterwards", async () => {
+  it("stops confetti and the timeline on unmount", async () => {
     const w = mk();
     await flushPromises();
     w.unmount();
     expect(tl.kill).toHaveBeenCalled();
     expect(resetConfetti).toHaveBeenCalled();
-    vi.advanceTimersByTime(60_000);
-    await flushPromises();
-    expect(markPlayerReturnedToLobby).not.toHaveBeenCalled();
   });
 
   it("under reduced motion only fades the root in (no timeline)", async () => {

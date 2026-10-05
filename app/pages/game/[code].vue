@@ -8,7 +8,7 @@ import { useNotifications } from "~/composables/useNotifications";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
-import { useAutoReturn } from "~/composables/useAutoReturn";
+import { useAutoReturn, CELEBRATION_MS } from "~/composables/useAutoReturn";
 import { useSpectatorConversion } from "~/composables/useSpectatorConversion";
 import { useSfx } from "~/composables/useSfx";
 import GameOver from "~/components/game/GameOver.vue";
@@ -53,6 +53,7 @@ const {
   reactive,
   engine,
   mutations,
+  resetGameState,
 } = useLobby();
 const { initializeGamePageSession } = useJoinLobby();
 
@@ -165,7 +166,7 @@ useDynamicFavicon({
   hasSubmitted: computed(() => mySubmission.value !== null),
 });
 
-const { hasReturnedToLobby, autoReturnTimeRemaining, handleContinue } =
+const { hasReturnedToLobby, podiumSecondsLeft, handleContinue } =
   useAutoReturn({
     state,
     myId,
@@ -173,12 +174,13 @@ const { hasReturnedToLobby, autoReturnTimeRemaining, handleContinue } =
     isHost,
     lobbyRef: lobby,
     lobbyDoc,
+    resetGame: () => lobby.value && resetGameState(lobby.value.id),
   });
 
 // ─── Delayed Complete Gate ──────────────────────────────────────────────────
 // When someone wins the final round, the server sets phase="complete" instantly.
 // Delay the GameOver screen so the winning card celebration plays out first
-// (2s card highlight + 5s celebration overlay = 7s total).
+// (2s card highlight + 5s celebration overlay = CELEBRATION_MS).
 const delayedComplete = ref(false);
 let delayedCompleteTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -186,7 +188,7 @@ watch(isComplete, (complete) => {
   if (complete) {
     delayedCompleteTimeout = setTimeout(() => {
       delayedComplete.value = true;
-    }, 7000);
+    }, CELEBRATION_MS);
   } else {
     delayedComplete.value = false;
     if (delayedCompleteTimeout) {
@@ -710,8 +712,8 @@ function handleSkipJudge() {
 }
 
 function handleResetGame() {
-  if (!isHost.value) return;
-  engine.resetGame();
+  if (!isHost.value || !lobby.value) return;
+  resetGameState(lobby.value.id);
   isStarting.value = false;
   notify({
     title: t("game.reset_to_lobby_success"),
@@ -865,10 +867,12 @@ function handleResetGame() {
 
       <!-- Main content area -->
       <div class="flex-1">
-        <!-- Waiting room -->
+        <!-- Waiting room. Also where a player who tapped "Back to lobby" on the
+             podium waits for the rest; it lives here, inside the full-height
+             layout, because a sibling after it rendered below the screen. -->
         <ClientOnly>
           <LobbyRoom
-            v-if="isWaiting && lobby && players"
+            v-if="(isWaiting || (delayedComplete && hasReturnedToLobby)) && lobby && players"
             :lobby="lobby"
             :players="players"
             @leave="handleLeave"
@@ -903,24 +907,11 @@ function handleResetGame() {
             :players="players"
             :round="state?.round ?? 0"
             :goal="reactive.settings.value?.maxPoints ?? 10"
+            :seconds-left="podiumSecondsLeft"
             @continue="handleContinue"
           />
         </ClientOnly>
       </div>
-    </div>
-
-    <!-- Post-game waiting room -->
-    <div
-      v-if="delayedComplete && hasReturnedToLobby && lobby && players"
-      class="flex-1"
-    >
-      <ClientOnly>
-        <LobbyRoom
-          :lobby="lobby"
-          :players="players"
-          @leave="handleLeave"
-        />
-      </ClientOnly>
     </div>
 
     <!-- Winner celebration is now handled inline by GameTable/GameBoard -->

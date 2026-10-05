@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import type { Player } from "~/types/player";
-import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
-import { useNotifications } from "~/composables/useNotifications";
 import { useSfx } from "~/composables/useSfx";
 import { useCompactLayout } from "~/composables/useCompactLayout";
 import { getPlayerAvatarUrl } from "~/composables/usePlayerAvatar";
@@ -18,13 +16,13 @@ const props = defineProps<{
   players: Player[];
   round: number;
   goal: number;
+  /** Seconds until everyone goes back to the lobby (owned by useAutoReturn). */
+  secondsLeft: number;
 }>();
 const emit = defineEmits<{ continue: [] }>();
 
 const { t } = useI18n();
-const { markPlayerReturnedToLobby } = useLobby();
 const userStore = useUserStore();
-const { notify } = useNotifications();
 const { playSfx } = useSfx();
 const { isCompact } = useCompactLayout();
 const reducedMotion = usePreferredReducedMotion();
@@ -75,40 +73,6 @@ function playerFor(id: string): Player | undefined {
 }
 function initials(name: string): string {
   return splitChars(name).slice(0, 2).join("").toUpperCase();
-}
-
-// ── Auto-return (unchanged behaviour: 60s, then back to the lobby) ──
-const autoReturnTimeRemaining = ref(60);
-let autoReturnInterval: number | null = null;
-
-function startAutoReturnTimer() {
-  autoReturnTimeRemaining.value = 60;
-  if (autoReturnInterval) window.clearInterval(autoReturnInterval);
-  autoReturnInterval = window.setInterval(() => {
-    autoReturnTimeRemaining.value--;
-    if (autoReturnTimeRemaining.value <= 0) {
-      if (autoReturnInterval) window.clearInterval(autoReturnInterval);
-      handleContinue();
-    }
-  }, 1000);
-}
-
-async function handleContinue() {
-  const lobbyId = props.players[0]?.lobbyId;
-  if (!lobbyId || !myId.value) return;
-  try {
-    await markPlayerReturnedToLobby(lobbyId, myId.value);
-    notify({
-      title: t("lobby.return_to_lobby"),
-      description: t("lobby.scoreboard_return_description"),
-      color: "success",
-      icon: "i-mdi-check-circle",
-    });
-    emit("continue");
-  } catch (err) {
-    console.error("Failed to return to lobby:", err);
-    notify({ title: t("lobby.failed_return_to_lobby"), color: "error", icon: "i-mdi-alert-circle" });
-  }
 }
 
 // ── Entrance ──
@@ -163,7 +127,6 @@ function celebrate() {
 
 onMounted(() => {
   playSfx(SFX.winGame, { volume: 0.8 });
-  startAutoReturnTimer();
   nextTick(runEntrance);
 });
 onUnmounted(() => {
@@ -171,7 +134,6 @@ onUnmounted(() => {
   entrance?.kill();
   entrance = null;
   resetConfetti();
-  if (autoReturnInterval) window.clearInterval(autoReturnInterval);
 });
 </script>
 
@@ -236,8 +198,8 @@ onUnmounted(() => {
     </ol>
 
     <div class="go-actions">
-      <p class="go-timer">{{ t("lobby.returning_in", { seconds: autoReturnTimeRemaining }) }}</p>
-      <button type="button" class="go-continue" @click="handleContinue">
+      <p class="go-timer">{{ t("lobby.returning_in", { seconds: secondsLeft }) }}</p>
+      <button type="button" class="go-continue" @click="emit('continue')">
         {{ t("game.continue_to_lobby") }}
       </button>
     </div>
@@ -428,10 +390,13 @@ onUnmounted(() => {
   font-family: "Archivo Black", sans-serif;
   text-transform: uppercase;
 }
-.go--compact .go-podium { gap: 0.5rem; }
-.go--compact .go-step--1 .go-block { height: 6rem; }
-.go--compact .go-step--2 .go-block { height: 4.5rem; }
-.go--compact .go-step--3 .go-block { height: 3.25rem; }
+/* Phones: the podium takes the height the headline and the button leave, with
+   the steps standing on its floor, instead of sitting small in the top half. */
+.go--compact { --go-step: clamp(6rem, 24dvh, 13rem); }
+.go--compact .go-podium { gap: 0.5rem; flex: 1 1 auto; min-height: 0; }
+.go--compact .go-step--1 .go-block { height: var(--go-step); }
+.go--compact .go-step--2 .go-block { height: calc(var(--go-step) * 0.75); }
+.go--compact .go-step--3 .go-block { height: calc(var(--go-step) * 0.55); }
 .go--compact .go-avatar { width: 2.75rem; height: 2.75rem; }
 .go--compact .go-step--1 .go-avatar { width: 3.5rem; height: 3.5rem; }
 </style>
