@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.30.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.29.0...v3.30.0) (2026-10-05)
+
+
+### ✨ Features
+
+* **web:** compact two-column home menu and larger hero cards on phones ([#174](https://github.com/PPO-GG/unfit-for-print/issues/174)) ([d86178b](https://github.com/PPO-GG/unfit-for-print/commit/d86178b2a49addcb830cc36f0ea2a26caceb6c1f))
+
 ## [3.29.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.28.0...v3.29.0) (2026-10-05)
 
 
