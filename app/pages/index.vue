@@ -696,7 +696,10 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(139, 92, 246, 0.25);
-  overflow: hidden;
+  /* clip, not hidden: a hidden box is still a scroll container, so when the
+     Settings slideover closes and hands focus back to the collapsed menu's
+     Settings item, the browser scrolls it into view and the avatar jumps up. */
+  overflow: clip;
   transition:
     background 0.25s ease,
     border-color 0.25s ease,
@@ -812,7 +815,7 @@ onBeforeUnmount(() => {
   max-height: 0;
   max-width: 0;
   opacity: 0;
-  overflow: hidden;
+  overflow: clip;
   transition:
     max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
