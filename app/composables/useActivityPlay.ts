@@ -4,23 +4,38 @@
 // host and write the doc) or returns the existing one (we join it).
 
 import { ref, onScopeDispose } from "vue";
-import { useLobby } from "~/composables/useLobby";
 import { useUserStore } from "~/stores/userStore";
 import type { Lobby } from "~/types/lobby";
 
 /** How often the menu re-checks whether this instance already has a game. */
 const POLL_MS = 5000;
 
-export function useActivityPlay() {
+/**
+ * The slice of useLobby() this needs. The page passes its own useLobby()
+ * rather than this building a second one alongside it.
+ */
+export interface ActivityPlayLobbyApi {
+  getLobbyByInstanceId(instanceId: string): Promise<Lobby | null>;
+  initializeCreatedLobby(lobby: Lobby): Promise<void>;
+  joinLobby(code: string, options: { username: string }): Promise<unknown>;
+}
+
+/**
+ * Why the last press failed. "locked": the host set a password, which nobody
+ * in the Activity can enter, so retrying cannot help.
+ */
+export type ActivityPlayFailure = "locked" | "error";
+
+export function useActivityPlay(lobbyApi: ActivityPlayLobbyApi) {
   const { $activityFetch } = useNuxtApp();
   const { isDiscordActivity, channelId, getSdk } = useDiscordSDK();
-  const { getLobbyByInstanceId, initializeCreatedLobby, joinLobby } = useLobby();
+  const { getLobbyByInstanceId, initializeCreatedLobby, joinLobby } = lobbyApi;
   const userStore = useUserStore();
 
   /** Drives the Play / Join game label. */
   const hasLobby = ref(false);
   const busy = ref(false);
-  const failed = ref(false);
+  const failure = ref<ActivityPlayFailure | null>(null);
 
   const instanceId = (): string | null => getSdk()?.instanceId ?? null;
 
@@ -33,7 +48,7 @@ export function useActivityPlay() {
   async function play() {
     if (busy.value) return;
     busy.value = true;
-    failed.value = false;
+    failure.value = null;
     try {
       const id = instanceId();
       if (!id) throw new Error("No Discord Activity instance id");
@@ -46,13 +61,16 @@ export function useActivityPlay() {
       );
       if (created) {
         await initializeCreatedLobby(lobby);
-      } else {
+      } else if (lobby.hostUserId !== userStore.user?.id) {
         await joinLobby(lobby.code, { username: userStore.user?.name ?? "Unknown" });
       }
+      // A returning host already has their seat: the game page puts them back
+      // in the doc, or rebuilds it if their first attempt never wrote it.
       await navigateTo(`/game/${lobby.code}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("[useActivityPlay] Play failed:", err);
-      failed.value = true;
+      const status = err?.statusCode ?? err?.response?.status;
+      failure.value = status === 403 ? "locked" : "error";
     } finally {
       busy.value = false;
     }
@@ -66,5 +84,5 @@ export function useActivityPlay() {
     onScopeDispose(() => clearInterval(timer));
   }
 
-  return { hasLobby, busy, failed, play, refresh };
+  return { hasLobby, busy, failure, play, refresh };
 }

@@ -356,11 +356,15 @@
         </div>
 
         <p
-          v-if="isDiscordActivity && activityFailed"
+          v-if="isDiscordActivity && activityFailure"
           role="alert"
           class="mt-3 text-sm text-error"
         >
-          {{ t("activity.play_failed") }}
+          {{
+            activityFailure === "locked"
+              ? t("activity.play_locked")
+              : t("activity.play_failed")
+          }}
         </p>
       </div>
     </div>
@@ -445,6 +449,7 @@ import { useReportProblem } from "~/composables/useReportProblem";
 import { useIsAdmin } from "~/composables/useAdminCheck";
 import { useUiStore } from "~/stores/uiStore";
 import { useActivityPlay } from "~/composables/useActivityPlay";
+import { useLobby } from "~/composables/useLobby";
 
 const { t } = useI18n();
 const userPrefs = useUserPrefsStore();
@@ -473,12 +478,14 @@ const isDiscordActivity = computed(
 // ─── Discord Activity ────────────────────────────────────────────────
 // One Play button: the first press in an Activity instance creates its game,
 // later presses join it. Inert outside Discord (it never polls there).
+// One useLobby() for the page, shared with useLobbyActions below.
+const lobby = useLobby();
 const {
   hasLobby: activityHasLobby,
   busy: activityBusy,
-  failed: activityFailed,
+  failure: activityFailure,
   play: activityPlay,
-} = useActivityPlay();
+} = useActivityPlay(lobby);
 
 async function inviteToActivity() {
   try {
@@ -572,7 +579,7 @@ const {
   isCreating,
   showJoin,
   handleJoined,
-} = useLobbyActions();
+} = useLobbyActions(lobby);
 
 const handleMenuHotkey = createMenuHotkeyHandler({
   create: () => void checkForActiveLobbyAndCreate(),

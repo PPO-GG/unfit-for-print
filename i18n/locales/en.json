@@ -333,6 +333,7 @@
   "activity.invite_friends": "Invite Friends",
   "activity.invite_friends_desc": "Bring more people into the Activity",
   "activity.play_failed": "Couldn't start the game. Try again.",
+  "activity.play_locked": "The host put a password on this game. Ask them to remove it in the game settings.",
   "nav.joingame": "Join Game",
   "nav.labs": "Labs",
   "nav.login_discord": "Login With Discord",

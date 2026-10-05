@@ -7,10 +7,11 @@ import { useNotifications } from "~/composables/useNotifications";
  * flow used by the header and any page-level CTA that needs Join/Create actions.
  *
  * Each call to useLobbyActions() gets its own reactive state so multiple
- * consumers (e.g. AppHeader + about.vue) are fully independent.
+ * consumers (e.g. AppHeader + about.vue) are fully independent. A page that
+ * already holds a useLobby() can pass it in instead of building another.
  */
-export function useLobbyActions() {
-  const { getActiveLobbyForUser, createLobby } = useLobby();
+export function useLobbyActions(lobby: ReturnType<typeof useLobby> = useLobby()) {
+  const { getActiveLobbyForUser, createLobby } = lobby;
   const router = useRouter();
   const userStore = useUserStore();
   const { notify } = useNotifications();

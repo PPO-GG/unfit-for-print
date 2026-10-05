@@ -12,13 +12,6 @@ const s = vi.hoisted(() => ({
   sdk: { instanceId: "i-1" } as { instanceId?: string } | null,
 }));
 
-vi.mock("~/composables/useLobby", () => ({
-  useLobby: () => ({
-    getLobbyByInstanceId: s.getLobbyByInstanceId,
-    initializeCreatedLobby: s.initializeCreatedLobby,
-    joinLobby: s.joinLobby,
-  }),
-}));
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: s.activityFetch }));
 vi.stubGlobal("navigateTo", s.navigateTo);
 vi.stubGlobal("useDiscordSDK", () => ({
@@ -29,11 +22,20 @@ vi.stubGlobal("useDiscordSDK", () => ({
 
 import { useActivityPlay } from "~/composables/useActivityPlay";
 
-const LOBBY = { id: "l-1", code: "ABCD", hostUserId: "u-1" };
+/** Someone else's game. */
+const LOBBY = { id: "l-1", code: "ABCD", hostUserId: "u-host" };
+/** A game the caller (u-1) hosts. */
+const MINE = { id: "l-2", code: "MINE", hostUserId: "u-1" };
 
 function setup() {
   const scope = effectScope();
-  const api = scope.run(() => useActivityPlay())!;
+  const api = scope.run(() =>
+    useActivityPlay({
+      getLobbyByInstanceId: s.getLobbyByInstanceId,
+      initializeCreatedLobby: s.initializeCreatedLobby,
+      joinLobby: s.joinLobby,
+    }),
+  )!;
   return { scope, api };
 }
 
@@ -44,6 +46,7 @@ describe("useActivityPlay", () => {
     vi.clearAllMocks();
     s.sdk = { instanceId: "i-1" };
     s.getLobbyByInstanceId.mockResolvedValue(null);
+    s.joinLobby.mockResolvedValue(undefined);
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
   afterEach(() => {
@@ -70,7 +73,7 @@ describe("useActivityPlay", () => {
   });
 
   it("initializes the doc when it created the lobby", async () => {
-    s.activityFetch.mockResolvedValue({ lobby: LOBBY, created: true });
+    s.activityFetch.mockResolvedValue({ lobby: MINE, created: true });
     const { api } = setup();
 
     await api.play();
@@ -79,9 +82,9 @@ describe("useActivityPlay", () => {
       method: "POST",
       body: { instanceId: "i-1", channelId: "c-1" },
     });
-    expect(s.initializeCreatedLobby).toHaveBeenCalledWith(LOBBY);
+    expect(s.initializeCreatedLobby).toHaveBeenCalledWith(MINE);
     expect(s.joinLobby).not.toHaveBeenCalled();
-    expect(s.navigateTo).toHaveBeenCalledWith("/game/ABCD");
+    expect(s.navigateTo).toHaveBeenCalledWith("/game/MINE");
   });
 
   it("joins when the lobby already existed", async () => {
@@ -95,9 +98,23 @@ describe("useActivityPlay", () => {
     expect(s.navigateTo).toHaveBeenCalledWith("/game/ABCD");
   });
 
+  it("sends a returning host straight to their game", async () => {
+    // Their seat is already on the server. The game page restores their doc
+    // if their first attempt never wrote it, whereas joinLobby would seat
+    // them as a plain player in an empty doc that nobody can start.
+    s.activityFetch.mockResolvedValue({ lobby: MINE, created: false });
+    const { api } = setup();
+
+    await api.play();
+
+    expect(s.joinLobby).not.toHaveBeenCalled();
+    expect(s.initializeCreatedLobby).not.toHaveBeenCalled();
+    expect(s.navigateTo).toHaveBeenCalledWith("/game/MINE");
+  });
+
   it("never calls /api/lobby/active", async () => {
     // A user hosting a web lobby must still get the instance's game.
-    s.activityFetch.mockResolvedValue({ lobby: LOBBY, created: true });
+    s.activityFetch.mockResolvedValue({ lobby: MINE, created: true });
     const { api } = setup();
 
     await api.play();
@@ -112,7 +129,7 @@ describe("useActivityPlay", () => {
 
     await api.play();
 
-    expect(api.failed.value).toBe(true);
+    expect(api.failure.value).toBe("error");
     expect(api.busy.value).toBe(false);
     expect(s.navigateTo).not.toHaveBeenCalled();
   });
@@ -123,9 +140,24 @@ describe("useActivityPlay", () => {
     const { api } = setup();
 
     await api.play();
-    expect(api.failed.value).toBe(true);
+    expect(api.failure.value).toBe("error");
     await api.play();
-    expect(api.failed.value).toBe(false);
+    expect(api.failure.value).toBeNull();
+  });
+
+  it("says the game is locked when its password refuses the join", async () => {
+    // Nobody in the Activity can enter a password, so "try again" would
+    // never work.
+    s.activityFetch.mockResolvedValue({ lobby: LOBBY, created: false });
+    s.joinLobby.mockRejectedValue(
+      Object.assign(new Error("Incorrect lobby password"), { statusCode: 403 }),
+    );
+    const { api } = setup();
+
+    await api.play();
+
+    expect(api.failure.value).toBe("locked");
+    expect(s.navigateTo).not.toHaveBeenCalled();
   });
 
   it("ignores a second press while busy", async () => {
@@ -148,7 +180,7 @@ describe("useActivityPlay", () => {
 
     await api.play();
 
-    expect(api.failed.value).toBe(true);
+    expect(api.failure.value).toBe("error");
     expect(s.activityFetch).not.toHaveBeenCalled();
   });
 });
