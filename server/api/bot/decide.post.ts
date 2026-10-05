@@ -13,7 +13,7 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
-import { blackCards, whiteCards } from "~~/server/db/schema";
+import { blackCards, players, whiteCards } from "~~/server/db/schema";
 import {
   fillPrompt,
   JUDGE_INSTRUCTIONS,
@@ -34,6 +34,10 @@ const MAX_PICK = 3;
 // a loop from spending Jev credit, it is not a quota.
 const DECIDE_LIMIT = 60;
 const DECIDE_WINDOW_MS = 60_000;
+// The per-lobby bucket alone can be multiplied by joining many lobbies, so the
+// whole process also has a ceiling. A busy bot lobby asks ~18 times a minute;
+// past this, bots fall back to random play rather than spending more.
+const DECIDE_GLOBAL_LIMIT = 600;
 
 interface DecideBody {
   lobbyId?: unknown;
@@ -86,19 +90,33 @@ export default defineEventHandler(async (event) => {
 
   await requirePlayerInLobby(event, lobbyId);
 
-  const rateLimit = consumeRateLimit(`bot-decide:${lobbyId}`, {
-    limit: DECIDE_LIMIT,
-    windowMs: DECIDE_WINDOW_MS,
-  });
-  if (!rateLimit.allowed) {
-    setResponseHeader(event, "Retry-After", rateLimit.retryAfterSeconds);
-    throw createError({ statusCode: 429, statusMessage: "Too many bot decisions" });
+  const db = useDb();
+
+  // Only a lobby that actually holds a bot has anything to decide. Without
+  // this, any member of any lobby could spend Jev credit.
+  const [bot] = await db
+    .select({ id: players.id })
+    .from(players)
+    .where(and(eq(players.lobbyId, lobbyId), eq(players.playerType, "bot")))
+    .limit(1);
+  if (!bot) {
+    throw createError({ statusCode: 403, statusMessage: "No bots in this lobby" });
+  }
+
+  for (const [key, limit] of [
+    [`bot-decide:${lobbyId}`, DECIDE_LIMIT],
+    ["bot-decide:global", DECIDE_GLOBAL_LIMIT],
+  ] as const) {
+    const rateLimit = consumeRateLimit(key, { limit, windowMs: DECIDE_WINDOW_MS });
+    if (!rateLimit.allowed) {
+      setResponseHeader(event, "Retry-After", rateLimit.retryAfterSeconds);
+      throw createError({ statusCode: 429, statusMessage: "Too many bot decisions" });
+    }
   }
 
   const none = mode === "play" ? { cardIds: null } : { winnerIndex: null };
   if (!jevConfigured()) return none;
 
-  const db = useDb();
   const [black] = await db
     .select({ text: blackCards.text, pick: blackCards.pick })
     .from(blackCards)

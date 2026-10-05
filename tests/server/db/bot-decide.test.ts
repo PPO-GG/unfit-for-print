@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { blackCards, lobbies, players, users, whiteCards } from "~/server/db/schema";
-import { __resetRateLimits } from "~/server/utils/rateLimit";
+import { __resetRateLimits, consumeRateLimit } from "~/server/utils/rateLimit";
 import { insertCards, resetCardTables } from "./helpers/cards";
 
 const db = useDb();
@@ -90,6 +90,15 @@ beforeEach(async () => {
     name: "Host",
     isHost: true,
     playerType: "player",
+  });
+  // The route only answers for lobbies that actually hold a bot.
+  const [botUser] = await db.insert(users).values({ name: "Bot" }).returning();
+  await db.insert(players).values({
+    userId: botUser!.id,
+    lobbyId,
+    name: "Bot",
+    isHost: false,
+    playerType: "bot",
   });
 
   const white = await insertCards(whiteCards, [
@@ -288,6 +297,31 @@ describe("POST /api/bot/decide — guards", () => {
     await expect(
       decide({ lobbyId, mode: "play", blackCardId: black, hand }),
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("refuses a lobby with no bots, without asking Jev", async () => {
+    const black = await blackCard("Why _?", 1);
+    await db.delete(players).where(eq(players.playerType, "bot"));
+    prefer(first);
+
+    await expect(
+      decide({ lobbyId, mode: "play", blackCardId: black, hand }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(jevChoose).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits across all lobbies past the process-wide ceiling", async () => {
+    const black = await blackCard("Why _?", 1);
+    // Fill the shared bucket as if many other lobbies had been asking.
+    for (let i = 0; i < 600; i++) {
+      consumeRateLimit("bot-decide:global", { limit: 600, windowMs: 60_000 });
+    }
+    prefer(first);
+
+    await expect(
+      decide({ lobbyId, mode: "play", blackCardId: black, hand }),
+    ).rejects.toMatchObject({ statusCode: 429 });
+    expect(jevChoose).not.toHaveBeenCalled();
   });
 
   it("rate-limits a lobby past 60 requests a minute", async () => {
