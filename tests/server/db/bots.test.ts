@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { lobbies, players, users } from "~/server/db/schema";
+import { personaForBotName } from "~/server/utils/botNames";
 
 const db = useDb();
 let currentUserId: string;
@@ -67,6 +68,27 @@ describe("bot routes", () => {
       .from(players)
       .where(and(eq(players.userId, result.bot.userId), eq(players.lobbyId, lobby.id)));
     expect(botPlayer.playerType).toBe("bot");
+  });
+
+  it("add gives the new bot a sense of humor the lobby's bots lack", async () => {
+    const [lobby] = await db
+      .insert(lobbies)
+      .values({ code: "BOT4", hostUserId: currentUserId })
+      .returning();
+    await db
+      .insert(players)
+      .values({ userId: currentUserId, lobbyId: lobby.id, name: "Host", isHost: true });
+    for (const name of ["GloomyBadger", "ZanyWaffle"]) {
+      const [botUser] = await db.insert(users).values({ name, isGuest: true }).returning();
+      await db
+        .insert(players)
+        .values({ userId: botUser.id, lobbyId: lobby.id, name, playerType: "bot" });
+    }
+
+    const handler = (await import("~/server/api/bot/add.post")).default;
+    const result: any = await handler(mockEvent({ lobbyId: lobby.id }));
+
+    expect(personaForBotName(result.bot.name)).toBe("crowd");
   });
 
   it("remove deletes both the bot's player row and its synthetic users row", async () => {

@@ -48,7 +48,8 @@ function mockEvent(body: unknown) {
 }
 
 const handler = async () => (await import("~/server/api/bot/decide.post")).default;
-const decide = async (body: unknown) => (await handler())(mockEvent(body));
+const decide = async (body: Record<string, unknown>) =>
+  (await handler())(mockEvent({ botUserId: botId, ...body }));
 
 /** Jev stand-in that puts all probability on one criteria key. */
 const prefer = (key: (criteria: Record<string, string>) => string) =>
@@ -60,11 +61,24 @@ const prefer = (key: (criteria: Record<string, string>) => string) =>
 const first = (criteria: Record<string, string>) => Object.keys(criteria)[0]!;
 
 let lobbyId: string;
+let botId: string;
 let hand: string[];
 
 async function blackCard(text: string, pick: number) {
   const [row] = await insertCards(blackCards, { text, pick });
   return row!.id;
+}
+
+async function addBot(name: string, inLobby = lobbyId) {
+  const [user] = await db.insert(users).values({ name }).returning();
+  await db.insert(players).values({
+    userId: user!.id,
+    lobbyId: inLobby,
+    name,
+    isHost: false,
+    playerType: "bot",
+  });
+  return user!.id;
 }
 
 beforeEach(async () => {
@@ -93,6 +107,7 @@ beforeEach(async () => {
   });
   // The route only answers for lobbies that actually hold a bot.
   const [botUser] = await db.insert(users).values({ name: "Bot" }).returning();
+  botId = botUser!.id;
   await db.insert(players).values({
     userId: botUser!.id,
     lobbyId,
@@ -252,6 +267,90 @@ describe("POST /api/bot/decide — judge", () => {
         submissions: [[hand[0]], [hand[1]]],
       }),
     ).toEqual({ winnerIndex: null });
+  });
+});
+
+describe("POST /api/bot/decide — personas", () => {
+  it.each([
+    ["GloomyBadger", /darkest and most shocking/],
+    ["ZanyWaffle", /most absurd and surreal/],
+    ["FrostyKitten", /laugh hardest/],
+  ])("%s plays with its own taste", async (name, marker) => {
+    const black = await blackCard("Why _?", 1);
+    const id = await addBot(name);
+    prefer(first);
+
+    await decide({ lobbyId, mode: "play", blackCardId: black, botUserId: id, hand });
+
+    expect(jevChoose.mock.calls[0]![1]).toMatch(marker);
+  });
+
+  it("keeps the taste on every card of a multi-card prompt", async () => {
+    const black = await blackCard("_ + _", 2);
+    const id = await addBot("GloomyBadger");
+    prefer(first);
+
+    await decide({ lobbyId, mode: "play", blackCardId: black, botUserId: id, hand });
+
+    expect(jevChoose).toHaveBeenCalledTimes(2);
+    for (const call of jevChoose.mock.calls) {
+      expect(call[1]).toMatch(/darkest and most shocking/);
+    }
+  });
+
+  it("judges with the judge bot's taste", async () => {
+    const black = await blackCard("Why _?", 1);
+    const id = await addBot("ZanyWaffle");
+    prefer(first);
+
+    await decide({
+      lobbyId,
+      mode: "judge",
+      blackCardId: black,
+      botUserId: id,
+      submissions: [[hand[0]], [hand[1]]],
+    });
+
+    expect(jevChoose.mock.calls[0]![1]).toMatch(/You are the judge\. Which submitted card is the most absurd/);
+  });
+
+  it("rejects a request that does not say which bot is asking", async () => {
+    const black = await blackCard("Why _?", 1);
+    await expect(
+      decide({ lobbyId, mode: "play", blackCardId: black, botUserId: undefined, hand }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("rejects a botUserId that is not a uuid before it reaches the database", async () => {
+    const black = await blackCard("Why _?", 1);
+    await expect(
+      decide({ lobbyId, mode: "play", blackCardId: black, botUserId: "bot-1", hand }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("refuses a bot from another lobby", async () => {
+    const black = await blackCard("Why _?", 1);
+    const [other] = await db
+      .insert(lobbies)
+      .values({ code: "ELSE", hostUserId: currentUserId, status: "playing" })
+      .returning();
+    const strangerBot = await addBot("GloomyBadger", other!.id);
+    prefer(first);
+
+    await expect(
+      decide({ lobbyId, mode: "play", blackCardId: black, botUserId: strangerBot, hand }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(jevChoose).not.toHaveBeenCalled();
+  });
+
+  it("refuses a human player's id", async () => {
+    const black = await blackCard("Why _?", 1);
+    prefer(first);
+
+    await expect(
+      decide({ lobbyId, mode: "play", blackCardId: black, botUserId: currentUserId, hand }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(jevChoose).not.toHaveBeenCalled();
   });
 });
 

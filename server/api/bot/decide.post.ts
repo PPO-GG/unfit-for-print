@@ -16,10 +16,11 @@ import { useDb } from "~~/server/db/client";
 import { blackCards, players, whiteCards } from "~~/server/db/schema";
 import {
   fillPrompt,
-  JUDGE_INSTRUCTIONS,
+  judgeInstructions,
   playInstructions,
   sampleIndex,
 } from "~~/server/utils/botChoice";
+import { personaForBotName } from "~~/server/utils/botNames";
 import { isCardId } from "~~/server/utils/cardIds";
 import { JevError, jevChoose, jevConfigured } from "~~/server/utils/jev";
 import { consumeRateLimit } from "~~/server/utils/rateLimit";
@@ -43,6 +44,7 @@ interface DecideBody {
   lobbyId?: unknown;
   mode?: unknown;
   blackCardId?: unknown;
+  botUserId?: unknown;
   hand?: unknown;
   submissions?: unknown;
 }
@@ -58,13 +60,14 @@ const isIdList = (value: unknown, max: number): value is string[] =>
 
 export default defineEventHandler(async (event) => {
   const body = ((await readBody<DecideBody>(event)) ?? {}) as DecideBody;
-  const { lobbyId, mode, blackCardId } = body;
+  const { lobbyId, mode, blackCardId, botUserId } = body;
 
   if (!isCardId(lobbyId)) throw badRequest("lobbyId is required");
   if (mode !== "play" && mode !== "judge") {
     throw badRequest("mode must be play or judge");
   }
   if (!isCardId(blackCardId)) throw badRequest("blackCardId is required");
+  if (!isCardId(botUserId)) throw badRequest("botUserId is required");
 
   let hand: string[] = [];
   let submissions: string[][] = [];
@@ -92,16 +95,23 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb();
 
-  // Only a lobby that actually holds a bot has anything to decide. Without
-  // this, any member of any lobby could spend Jev credit.
+  // The asking bot must be a bot in this lobby. Its name carries its sense of
+  // humor, and the check keeps anyone without a bot from spending Jev credit.
   const [bot] = await db
-    .select({ id: players.id })
+    .select({ name: players.name })
     .from(players)
-    .where(and(eq(players.lobbyId, lobbyId), eq(players.playerType, "bot")))
+    .where(
+      and(
+        eq(players.lobbyId, lobbyId),
+        eq(players.userId, botUserId),
+        eq(players.playerType, "bot"),
+      ),
+    )
     .limit(1);
   if (!bot) {
-    throw createError({ statusCode: 403, statusMessage: "No bots in this lobby" });
+    throw createError({ statusCode: 403, statusMessage: "Not a bot in this lobby" });
   }
+  const persona = personaForBotName(bot.name);
 
   for (const [key, limit] of [
     [`bot-decide:${lobbyId}`, DECIDE_LIMIT],
@@ -144,7 +154,7 @@ export default defineEventHandler(async (event) => {
           fillPrompt(blackText, cards.map((id) => texts.get(id)!)),
         ]),
       );
-      const probs = await jevChoose(state, JUDGE_INSTRUCTIONS, criteria);
+      const probs = await jevChoose(state, judgeInstructions(persona), criteria);
       return {
         winnerIndex: sampleIndex(submissions.map((_, i) => probs[`s${i}`] ?? 0)),
       };
@@ -163,7 +173,7 @@ export default defineEventHandler(async (event) => {
       );
       const probs = await jevChoose(
         state,
-        playInstructions(card, cardsToChoose),
+        playInstructions(card, cardsToChoose, persona),
         criteria,
       );
       const index = sampleIndex(remaining.map((_, i) => probs[`c${i}`] ?? 0));
