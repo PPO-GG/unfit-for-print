@@ -132,7 +132,7 @@
         <div
           class="bg-slate-700/20 backdrop-blur-md outline-2 outline-offset-2 dark:outline-slate-500/20 outline-slate-900/20 rounded-2xl p-4 flex flex-col items-center gap-4 w-full max-w-sm"
         >
-          <div class="flex justify-center gap-4">
+          <div class="hero-cards flex justify-center gap-4">
             <!-- Black Card -->
             <BlackCard
               v-if="blackCard"
@@ -154,7 +154,7 @@
             />
             <div
               v-else
-              class="flex text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#0d0f1a] rounded-[14px] overflow-hidden"
+              class="hero-card-placeholder flex text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#0d0f1a] rounded-[14px] overflow-hidden"
             >
               <div class="w-[5%] shrink-0 bg-[#f5d442]" />
               <div class="flex-1 flex items-center p-2">
@@ -185,7 +185,7 @@
             />
             <div
               v-else
-              class="flex text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#f6f3ea] rounded-[14px] overflow-hidden"
+              class="hero-card-placeholder flex text-white w-[clamp(calc(10rem*0.75),calc(12vw*0.75),calc(18rem*0.75))] aspect-[3/4] bg-[#f6f3ea] rounded-[14px] overflow-hidden"
             >
               <div class="w-[5%] shrink-0 bg-[#c32c4c]" />
               <div class="flex-1 flex items-center p-2">
@@ -238,7 +238,12 @@
            bits), so the grid can be server-rendered without a mismatch. Don't
            re-wrap it; give a new tile an SSR-safe condition instead. -->
       <div class="flex-1 w-full">
-        <div class="grid grid-cols-6 gap-3 sm:gap-4">
+        <!-- Below sm every tile is a square, two to a row (col-span-3 of 6):
+             stacked full-width tiles made the menu several screens tall on a
+             phone. Breakpoint classes rather than useCompactLayout because
+             this grid is server-rendered (see above) and a JS media query
+             would disagree with the server on the first render. -->
+        <div class="menu-grid grid grid-cols-6 gap-3 sm:gap-4">
           <MenuTile
             v-if="isDiscordActivity"
             featured
@@ -249,7 +254,7 @@
               activityHasLobby ? t('activity.join_game_desc') : t('activity.play_desc')
             "
             :loading="activityBusy"
-            class="col-span-6 sm:col-span-3 sm:row-span-2"
+            class="col-span-3 max-sm:aspect-square sm:row-span-2"
             @click="activityPlay"
           />
 
@@ -259,7 +264,7 @@
             icon="i-lucide-user-round-plus"
             :label="t('activity.invite_friends')"
             :description="t('activity.invite_friends_desc')"
-            class="col-span-6 sm:col-span-3"
+            class="col-span-3 max-sm:aspect-square"
             @click="inviteToActivity"
           />
 
@@ -275,7 +280,7 @@
             shortcut="N"
             :loading="isCreating || !authKnown"
             :disabled="authKnown && !canHostLobby"
-            class="col-span-6 sm:col-span-3 sm:row-span-2"
+            class="col-span-3 max-sm:aspect-square sm:row-span-2"
             @click="checkForActiveLobbyAndCreate"
           />
 
@@ -287,7 +292,7 @@
             description="Enter a lobby code"
             shortcut="J"
             :loading="isJoining"
-            class="col-span-6 sm:col-span-3"
+            class="col-span-3 max-sm:aspect-square"
             @click="checkForActiveLobbyAndJoin"
           >
             <template #extra>
@@ -309,7 +314,7 @@
             description="Resume or browse games"
             shortcut="G"
             to="/game"
-            class="col-span-6 sm:col-span-3"
+            class="col-span-3 max-sm:aspect-square"
           />
 
           <MenuTile
@@ -320,7 +325,7 @@
             description="Explore experimental decks"
             shortcut="L"
             to="/labs"
-            class="col-span-6 sm:col-span-3"
+            class="col-span-3 max-sm:aspect-square"
           />
 
           <MenuTile
@@ -330,7 +335,7 @@
             description="Learn the rules"
             shortcut="?"
             to="/about"
-            class="col-span-6 sm:col-span-3"
+            class="col-span-3 max-sm:aspect-square"
           />
 
           <MenuTile
@@ -339,7 +344,7 @@
             :label="t('nav.settings')"
             description="Adjust volume & preferences"
             shortcut="ESC"
-            class="col-span-6 sm:col-span-3"
+            class="col-span-3 max-sm:aspect-square"
             @click="uiStore.showSettings = true"
           />
 
@@ -351,7 +356,7 @@
             description="Use with caution"
             shortcut="A"
             to="/admin"
-            class="col-span-6 sm:col-span-3"
+            class="col-span-3 max-sm:aspect-square"
           />
         </div>
 
@@ -369,8 +374,12 @@
       </div>
     </div>
 
-    <!-- Footer links -->
-    <div class="flex gap-6 mt-8 text-sm text-slate-500 absolute bottom-4">
+    <!-- Footer links. In flow below sm: the compact menu no longer fills the
+         page, so the pinned footer landed on top of the last row of tiles,
+         and six links don't fit one phone-width row. -->
+    <div
+      class="flex gap-6 mt-8 text-sm text-slate-500 sm:absolute sm:bottom-4 max-sm:flex-wrap max-sm:justify-center max-sm:gap-x-4 max-sm:gap-y-2"
+    >
       <NuxtLink to="/about" class="hover:text-slate-300 transition-colors"
         >About</NuxtLink
       >
@@ -736,6 +745,41 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* ─── Hero cards ────────────────────────────────────────────────────── */
+
+/* The cards' own width rule bottoms out at 10rem x scale (120px here), which
+   leaves most of a phone's width empty once the menu is a compact grid. Below
+   sm, size each card to half the row instead: viewport minus the page gutter
+   (2 x 1rem), the preview box's padding (2 x 1rem) and the gap (1rem), capped
+   at what fits inside the box's max-w-sm. Card text is sized in cqi, so it
+   follows the width. */
+@media (max-width: 639.98px) {
+  .hero-cards :deep(.card-scaler),
+  .hero-card-placeholder {
+    width: min(calc((100vw - 5rem) / 2), 10.5rem);
+  }
+}
+
+/* ─── Menu grid ─────────────────────────────────────────────────────── */
+
+/* Two squares to a row leaves an odd last tile alone at half width — the
+   Discord Activity has five tiles, an admin sees seven. Stretch it across the
+   row as a short bar instead. Done in CSS rather than per tile because which
+   tile ends up last depends on the v-ifs above (the admin tile appears after
+   hydration), and v-if placeholders are comments, so nth-child ignores them.
+   Stretch, because a grid item with an aspect ratio otherwise aligns to start:
+   when one tile grows past square to fit its text, its row-mate stays short. */
+@media (max-width: 639.98px) {
+  .menu-grid > * {
+    align-self: stretch;
+  }
+
+  .menu-grid > :last-child:nth-child(odd) {
+    grid-column: span 6 / span 6;
+    aspect-ratio: auto;
+  }
+}
+
 /* ─── Container ─────────────────────────────────────────────────────── */
 
 .user-menu-container {

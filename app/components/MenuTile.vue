@@ -25,14 +25,16 @@
     <div class="mt-auto pt-4">
       <div
         class="font-display leading-none tracking-wide"
-        :class="featured ? 'text-4xl sm:text-5xl' : 'text-2xl sm:text-3xl'"
+        :class="featured ? 'text-2xl sm:text-5xl' : 'text-2xl sm:text-3xl'"
       >
         {{ label }}
       </div>
       <p v-if="description" class="menu-tile__description">
         {{ description }}
       </p>
-      <slot name="extra" />
+      <div class="menu-tile__extra">
+        <slot name="extra" />
+      </div>
     </div>
 
     <kbd v-if="shortcut" class="menu-tile__shortcut">{{ shortcut }}</kbd>
@@ -201,5 +203,30 @@ function onClick(e: MouseEvent) {
 .menu-tile--featured .menu-tile__shortcut {
   right: 1.25rem;
   bottom: 1.375rem;
+}
+
+/* Phones: the home page lays tiles out as squares, two to a row, so drop the
+   tall minimums, tighten the padding, and shed what a ~170px square has no
+   room for. Shortcut keys mean nothing without a keyboard, and the extra slot
+   is decoration (Join Game's code boxes); the tile itself still opens it.
+   `auto`, not 0: an aspect-ratio box only grows to fit its content while its
+   min-height is auto, so 0 let a wrapped label (narrow phone, long locale)
+   spill out of the square over the tile below. */
+@media (max-width: 639.98px) {
+  .menu-tile,
+  .menu-tile--featured {
+    min-height: auto;
+    padding: 14px;
+  }
+
+  .menu-tile__description {
+    font-size: 0.625rem;
+    margin-top: 0.375rem;
+  }
+
+  .menu-tile__shortcut,
+  .menu-tile__extra {
+    display: none;
+  }
 }
 </style>
