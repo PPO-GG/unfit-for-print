@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   skipPlayer: vi.fn(),
   resetGame: vi.fn(),
   isHost: { value: true },
+  initializeLobby: vi.fn(),
 }));
 
 vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: state.activityFetch }));
@@ -27,7 +28,10 @@ vi.mock("~/composables/useLobbyDoc", () => ({
 }));
 
 vi.mock("~/composables/useLobbyMutations", () => ({
-  useLobbyMutations: () => ({ kickPlayer: state.kickPlayer }),
+  useLobbyMutations: () => ({
+    kickPlayer: state.kickPlayer,
+    initializeLobby: state.initializeLobby,
+  }),
 }));
 
 vi.mock("~/composables/useLobbyReactive", () => ({
@@ -47,7 +51,12 @@ vi.mock("~/composables/usePlayers", () => ({
   usePlayers: () => ({ getUserAvatarUrl: () => "" }),
 }));
 
+vi.mock("~/composables/useCards", () => ({
+  useCards: () => ({ fetchDefaultPacks: async () => ["pack-1"] }),
+}));
+
 import { useLobby } from "~/composables/useLobby";
+import { useUserStore } from "~/stores/userStore";
 
 describe("useLobby.kickPlayer", () => {
   beforeEach(() => {
@@ -109,5 +118,39 @@ describe("useLobby.resetGameState", () => {
     state.activityFetch.mockRejectedValue(new Error("offline"));
     await expect(useLobby().resetGameState("lobby-1")).resolves.toBe(true);
     expect(state.resetGame).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The sync server drops a doc once everyone disconnects; the host coming back
+// rebuilds it from the lobby row rather than landing in an empty shell.
+describe("useLobby.restoreLobbyDoc", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.stubGlobal("useDiscordSDK", () => ({ isDiscordActivity: { value: false } }));
+    vi.clearAllMocks();
+  });
+
+  it("rebuilds the lobby with the host and the row's name and privacy", async () => {
+    useUserStore().user = { id: "host-1", name: "Mynd", avatarUrl: "a.png", activeDecoration: "d1" } as any;
+
+    await useLobby().restoreLobbyDoc({
+      id: "lobby-1", code: "ABCD", hostUserId: "host-1", lobbyName: "Friday Night", isPrivate: false,
+    } as any);
+
+    expect(state.initializeLobby).toHaveBeenCalledTimes(1);
+    expect(state.initializeLobby.mock.calls[0]![0]).toMatchObject({
+      code: "ABCD",
+      hostUserId: "host-1",
+      hostName: "Mynd",
+      hostAvatar: "a.png",
+      hostActiveDecoration: "d1",
+      settings: { lobbyName: "Friday Night", isPrivate: false, cardPacks: ["pack-1"], maxPoints: 10 },
+    });
+  });
+
+  it("only the host rebuilds", async () => {
+    useUserStore().user = { id: "guest-1", name: "Sam" } as any;
+    await useLobby().restoreLobbyDoc({ id: "lobby-1", code: "ABCD", hostUserId: "host-1" } as any);
+    expect(state.initializeLobby).not.toHaveBeenCalled();
   });
 });

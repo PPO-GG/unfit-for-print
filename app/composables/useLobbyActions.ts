@@ -66,7 +66,7 @@ export function useLobbyActions() {
 
       const lobby = await createLobby(userStore.user.id);
       if (!lobby?.code) throw new Error("Invalid lobby response");
-      await router.push(`/game/${lobby.code}?creator=true`);
+      await router.push(`/game/${lobby.code}`);
     } catch (error: unknown) {
       console.error("Error creating lobby:", error);
       notify({
@@ -81,9 +81,8 @@ export function useLobbyActions() {
 
   /**
    * Called by JoinLobbyForm / CreateLobbyDialog after a successful join or
-   * create. Navigates to the game page with the creator flag set so the game
-   * page skips the "are you in this lobby?" check while the player document
-   * is still being written.
+   * create. By now the player is seated on the server and in the doc, so the
+   * game page's entry check (utils/lobbyEntry.ts) lets them straight in.
    */
   const handleJoined = (code: string): void => {
     notify({
@@ -92,7 +91,7 @@ export function useLobbyActions() {
       icon: "i-mdi-loading i-spin",
       duration: 3000,
     });
-    router.push(`/game/${code}?creator=true`);
+    router.push(`/game/${code}`);
   };
 
   return {
