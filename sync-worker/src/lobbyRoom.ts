@@ -4,9 +4,10 @@
 // Lifecycle:
 // - every change to the summary fields is pushed to LobbyRegistry (throttled)
 // - while anyone is connected, an alarm runs every REAP_INTERVAL_MS and
-//   closes sockets that stopped answering pings (a killed phone or a slept
-//   laptop never sends a close frame, so without this the room would count
-//   them as present until the platform noticed — possibly never)
+//   closes sockets that have gone silent — no answered ping and no inbound
+//   frame for STALE_SOCKET_MS (a killed phone or a slept laptop never sends
+//   a close frame, so without this the room would count them as present
+//   until the platform noticed — possibly never)
 // - when the last socket closes or is reaped, the doc is flushed and an
 //   expiry deadline is stored EXPIRY_MS out; any new connection clears it
 // - the alarm at that deadline wipes storage and the registry row
@@ -42,12 +43,15 @@ export const MAX_STORED_BYTES = 1.5 * 1024 * 1024;
 /** Storage key for the expiry deadline (epoch ms); absent while anyone is connected. */
 export const EXPIRES_AT_KEY = "expiresAt";
 /** How often a room with connections checks them for liveness. */
-export const REAP_INTERVAL_MS = 60_000;
+export const REAP_INTERVAL_MS = 120_000;
 /**
- * A socket whose last ping (or, if it never pinged, its connect) is older
- * than this is dead. Clients ping every 15 s, so this is four missed pings.
+ * A socket is dead when its latest sign of life — an answered ping, any
+ * inbound frame, or its connect — is older than this. Clients ping every
+ * 15 s, but browsers throttle timers in hidden tabs (Chrome's intensive
+ * throttling: about once a minute after ~5 min hidden), so this allows
+ * two and a half throttled periods before reaping a healthy background tab.
  */
-export const STALE_SOCKET_MS = 60_000;
+export const STALE_SOCKET_MS = 150_000;
 /** Close code sent to a reaped socket; a live client just reconnects. */
 export const HEARTBEAT_TIMEOUT_CODE = 4000;
 /**
@@ -56,6 +60,10 @@ export const HEARTBEAT_TIMEOUT_CODE = 4000;
  * own key (__ypsAwarenessIds) beside it, and both writers spread the rest.
  */
 export const CONNECTED_AT_KEY = "__unfitConnectedAt";
+/** Connection-state key for the last inbound frame, kept the same way. */
+export const LAST_SEEN_AT_KEY = "__unfitLastSeenAt";
+/** Skip re-recording LAST_SEEN_AT_KEY until the stored value is this old. */
+const LAST_SEEN_WRITE_MS = 10_000;
 const PUSH_THROTTLE_MS = 1000;
 const WS_OPEN = 1;
 
@@ -118,7 +126,7 @@ export class LobbyRoom extends YServer {
     super.onConnect(connection, ctx);
     this.#wiped = false;
     const now = this.now();
-    this.#stampConnectedAt(connection, now);
+    this.#stamp(connection, CONNECTED_AT_KEY, now);
     await this.ctx.storage.delete(EXPIRES_AT_KEY);
     // Someone is here, so the alarm's job is reaping. Never move an alarm
     // later: one due sooner than a reap would be is already good enough.
@@ -148,6 +156,7 @@ export class LobbyRoom extends YServer {
       connection.close(1008, "Rate limit exceeded");
       return;
     }
+    this.#noteSeen(connection);
     super.onMessage(connection, message);
   }
 
@@ -289,7 +298,7 @@ export class LobbyRoom extends YServer {
       if (lastSeen === null) {
         // No connect time recorded (accepted by an older build): start its
         // clock now rather than reap a socket we know nothing about.
-        this.#stampConnectedAt(conn, now);
+        this.#stamp(conn, CONNECTED_AT_KEY, now);
         live++;
         continue;
       }
@@ -315,20 +324,45 @@ export class LobbyRoom extends YServer {
     return live;
   }
 
-  /** Latest sign of life: the last answered ping or the connect time. */
+  /** Latest sign of life: answered ping, inbound frame or connect time. */
   #lastSeen(conn: Connection): number | null {
-    const state = conn.state as Record<string, unknown> | null;
-    const connectedAt = state?.[CONNECTED_AT_KEY];
-    const times = [this.lastPingAt(conn), typeof connectedAt === "number" ? connectedAt : null];
+    const times = [
+      this.lastPingAt(conn),
+      this.#stamped(conn, LAST_SEEN_AT_KEY),
+      this.#stamped(conn, CONNECTED_AT_KEY),
+    ];
     const known = times.filter((t): t is number => t !== null);
     return known.length > 0 ? Math.max(...known) : null;
   }
 
-  /** Records the connect time in the socket attachment, beside y-partyserver's key. */
-  #stampConnectedAt(conn: Connection, at: number): void {
+  /**
+   * Records an inbound frame as a sign of life. Throttled: serializing the
+   * attachment on every Yjs frame would be wasted work, and the reaper only
+   * needs the value to within LAST_SEEN_WRITE_MS.
+   */
+  #noteSeen(conn: Connection): void {
+    const now = this.now();
+    const last = this.#stamped(conn, LAST_SEEN_AT_KEY);
+    if (last !== null && now - last < LAST_SEEN_WRITE_MS) return;
+    try {
+      this.#stamp(conn, LAST_SEEN_AT_KEY, now);
+    } catch (err) {
+      // Liveness bookkeeping must never drop a sync message.
+      void reportError(this.env, err);
+    }
+  }
+
+  /** A timestamp kept in the connection state, or null if absent. */
+  #stamped(conn: Connection, key: string): number | null {
+    const value = (conn.state as Record<string, unknown> | null)?.[key];
+    return typeof value === "number" ? value : null;
+  }
+
+  /** Writes a timestamp into the socket attachment, beside y-partyserver's key. */
+  #stamp(conn: Connection, key: string, at: number): void {
     conn.setState((prev: unknown) => ({
       ...(prev && typeof prev === "object" ? prev : {}),
-      [CONNECTED_AT_KEY]: at,
+      [key]: at,
     }));
   }
 

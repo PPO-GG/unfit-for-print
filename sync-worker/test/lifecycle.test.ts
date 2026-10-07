@@ -8,6 +8,7 @@ import {
   DOC_KEY,
   EXPIRES_AT_KEY,
   HEARTBEAT_TIMEOUT_CODE,
+  LAST_SEEN_AT_KEY,
   REAP_INTERVAL_MS,
   STALE_SOCKET_MS,
 } from "../src/lobbyRoom";
@@ -28,16 +29,26 @@ const skipRoomClock = (code: string, ms: number) =>
   runInDurableObject(roomStub(code), (room) => {
     (room as unknown as { now: () => number }).now = () => Date.now() + ms;
   });
-/** Backdates every socket's recorded connect time by `ms`. */
-const backdateConnects = (code: string, ms: number) =>
+/** Backdates every socket's recorded connect time and last inbound frame by `ms`. */
+const backdateSignsOfLife = (code: string, ms: number) =>
   runInDurableObject(roomStub(code), (room) => {
     for (const conn of room.getConnections()) {
       conn.setState((prev: unknown) => ({
         ...(prev as object),
         [CONNECTED_AT_KEY]: Date.now() - ms,
+        [LAST_SEEN_AT_KEY]: Date.now() - ms,
       }));
     }
   });
+const pingAndAwaitPong = async (ws: WebSocket) => {
+  const pong = new Promise<string>((resolve) =>
+    ws.addEventListener("message", (event) => {
+      if (typeof event.data === "string") resolve(event.data);
+    }),
+  );
+  ws.send("ping");
+  expect(await pong).toBe("pong");
+};
 // `meta` is Record<string, unknown>, which the RPC types collapse to never.
 const registryRow = async (code: string) =>
   ((await getRegistry(env).rows()) as unknown as StoredLobby[]).find((r) => r.record.code === code);
@@ -111,7 +122,7 @@ describe("LobbyRoom lifecycle", () => {
     b.close();
   });
 
-  it("reaps a socket that never pings, then starts the expiry clock", async () => {
+  it("reaps a socket silent for longer than STALE_SOCKET_MS, then starts the expiry clock", async () => {
     const a = await connectYClient("REAP1");
     await a.synced;
     a.doc.getMap("meta").set("status", "playing");
@@ -120,7 +131,7 @@ describe("LobbyRoom lifecycle", () => {
     const reapAt = await alarmOf("REAP1");
     expect(reapAt!).toBeLessThanOrEqual(Date.now() + REAP_INTERVAL_MS);
 
-    await backdateConnects("REAP1", STALE_SOCKET_MS + 5000);
+    await backdateSignsOfLife("REAP1", STALE_SOCKET_MS + 5000);
     expect(await runDurableObjectAlarm(roomStub("REAP1"))).toBe(true);
 
     const closed = await a.closed;
@@ -147,14 +158,8 @@ describe("LobbyRoom lifecycle", () => {
     const a = await connectYClient("REAP2");
     await a.synced;
     // Without a ping this socket would be stale: only the ping keeps it.
-    await backdateConnects("REAP2", STALE_SOCKET_MS + 5000);
-    const pong = new Promise<string>((resolve) =>
-      a.ws.addEventListener("message", (event) => {
-        if (typeof event.data === "string") resolve(event.data);
-      }),
-    );
-    a.ws.send("ping");
-    expect(await pong).toBe("pong");
+    await backdateSignsOfLife("REAP2", STALE_SOCKET_MS + 5000);
+    await pingAndAwaitPong(a.ws);
 
     expect(await runDurableObjectAlarm(roomStub("REAP2"))).toBe(true);
 
@@ -166,6 +171,42 @@ describe("LobbyRoom lifecycle", () => {
     expect(alarmAt! - Date.now()).toBeLessThanOrEqual(REAP_INTERVAL_MS);
     a.close();
     await waitFor(() => storedExpiry("REAP2"));
+  });
+
+  // A hidden browser tab's 15 s ping timer can fire only about once a
+  // minute, so a healthy background tab's last ping is often over 60 s old.
+  it("does not reap a socket whose last ping was 61 s ago", async () => {
+    const a = await connectYClient("REAP3");
+    await a.synced;
+    await backdateSignsOfLife("REAP3", STALE_SOCKET_MS + 5000);
+    await pingAndAwaitPong(a.ws);
+    await skipRoomClock("REAP3", 61_000);
+
+    expect(await runDurableObjectAlarm(roomStub("REAP3"))).toBe(true);
+
+    expect(a.ws.readyState).toBe(WebSocket.READY_STATE_OPEN);
+    expect(await storedExpiry("REAP3")).toBeUndefined();
+    a.close();
+    await waitFor(() => storedExpiry("REAP3"));
+  });
+
+  it("does not reap a socket that sends Yjs frames but never pings", async () => {
+    const a = await connectYClient("REAP4");
+    await a.synced;
+    await backdateSignsOfLife("REAP4", STALE_SOCKET_MS + 5000);
+    a.doc.getMap("meta").set("status", "playing");
+    await waitFor(async () =>
+      (await runInDurableObject(roomStub("REAP4"), (room) =>
+        room.document.getMap("meta").get("status"),
+      )) === "playing",
+    );
+
+    expect(await runDurableObjectAlarm(roomStub("REAP4"))).toBe(true);
+
+    expect(a.ws.readyState).toBe(WebSocket.READY_STATE_OPEN);
+    expect(await storedExpiry("REAP4")).toBeUndefined();
+    a.close();
+    await waitFor(() => storedExpiry("REAP4"));
   });
 
   it("closes a connection that sends a message over 1 MiB", async () => {
