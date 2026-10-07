@@ -132,11 +132,14 @@ describe("LobbyRoom lifecycle", () => {
     expect(reapAt!).toBeLessThanOrEqual(Date.now() + REAP_INTERVAL_MS);
 
     await backdateSignsOfLife("REAP1", STALE_SOCKET_MS + 5000);
+    // A truly dead peer never answers the close, so onClose never runs for
+    // it. Silence it here: the reaper alone must close the socket, count it
+    // out and start the expiry clock.
+    await runInDurableObject(roomStub("REAP1"), (room) => {
+      (room as unknown as { onClose: () => Promise<void> }).onClose = async () => {};
+    });
     expect(await runDurableObjectAlarm(roomStub("REAP1"))).toBe(true);
 
-    const closed = await a.closed;
-    expect(closed.code).toBe(HEARTBEAT_TIMEOUT_CODE);
-    expect(closed.reason).toBe("Heartbeat timeout");
     const expiresAt = await storedExpiry("REAP1");
     expect(expiresAt).toBeDefined();
     expect(Math.abs(expiresAt! - (Date.now() + EXPIRY_MS))).toBeLessThan(30_000);
@@ -144,6 +147,9 @@ describe("LobbyRoom lifecycle", () => {
     expect(
       await runInDurableObject(roomStub("REAP1"), (room) => [...room.getConnections()].length),
     ).toBe(0);
+    const closed = await a.closed;
+    expect(closed.code).toBe(HEARTBEAT_TIMEOUT_CODE);
+    expect(closed.reason).toBe("Heartbeat timeout");
     // The registry stops counting the vanished player.
     await waitFor(async () => (await registryRow("REAP1"))?.record.clients === 0);
 
@@ -254,6 +260,22 @@ describe("LobbyRoom lifecycle", () => {
     // The sockets' close events must not schedule a push that re-creates the row.
     await pastPushThrottle();
     expect(await getRegistry(env).has("PURGE1")).toBe(false);
+  });
+
+  it("refresh restarts the reaper for open sockets left without an alarm", async () => {
+    const a = await connectYClient("NOALARM1");
+    await a.synced;
+    await runInDurableObject(roomStub("NOALARM1"), (_r, s) => s.storage.deleteAlarm());
+    expect(await alarmOf("NOALARM1")).toBeNull();
+
+    expect(await roomStub("NOALARM1").refresh("NOALARM1")).toBe(true);
+
+    const alarmAt = await alarmOf("NOALARM1");
+    expect(alarmAt).not.toBeNull();
+    expect(alarmAt!).toBeLessThanOrEqual(Date.now() + REAP_INTERVAL_MS);
+    expect(await storedExpiry("NOALARM1")).toBeUndefined();
+    a.close();
+    await waitFor(() => storedExpiry("NOALARM1"));
   });
 
   it("refresh reports false for a room with nothing stored and no players", async () => {

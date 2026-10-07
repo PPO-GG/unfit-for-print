@@ -126,7 +126,13 @@ export class LobbyRoom extends YServer {
     super.onConnect(connection, ctx);
     this.#wiped = false;
     const now = this.now();
-    this.#stamp(connection, CONNECTED_AT_KEY, now);
+    try {
+      this.#stamp(connection, CONNECTED_AT_KEY, now);
+    } catch (err) {
+      // Must not stop the alarm below from being set; the reaper stamps a
+      // socket it finds without a connect time instead of reaping it.
+      void reportError(this.env, err);
+    }
     await this.ctx.storage.delete(EXPIRES_AT_KEY);
     // Someone is here, so the alarm's job is reaping. Never move an alarm
     // later: one due sooner than a reap would be is already good enough.
@@ -247,9 +253,15 @@ export class LobbyRoom extends YServer {
     }
     // A room whose close events were lost (a deploy or eviction dropped its
     // sockets without webSocketClose) may never have armed its expiry, so
-    // its stored doc would outlive its registry row forever. A room that
-    // still holds dead-but-open sockets is left to its own reaper alarm.
-    if (this.openConnectionCount() === 0) await this.#armExpiry(this.now());
+    // its stored doc would outlive its registry row forever.
+    if (this.openConnectionCount() === 0) {
+      await this.#armExpiry(this.now());
+    } else if ((await this.ctx.storage.getAlarm()) === null) {
+      // Open sockets with no alarm: the runtime gave up retrying a failing
+      // alarm, or onConnect threw before setting one. Nothing would ever
+      // reap those sockets again, so restart the reaper.
+      await this.ctx.storage.setAlarm(this.now() + REAP_INTERVAL_MS);
+    }
     this.#lastPushed = null;
     await this.#push(code);
     return true;
