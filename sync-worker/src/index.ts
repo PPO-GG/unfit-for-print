@@ -1,6 +1,7 @@
 import { getServerByName } from "partyserver";
 import { isLobbyCode } from "./lobbyCode";
 
+export { LobbyRegistry } from "./registry";
 export { LobbyRoom } from "./lobbyRoom";
 
 export default {

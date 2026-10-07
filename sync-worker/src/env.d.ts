@@ -3,6 +3,7 @@
 declare namespace Cloudflare {
   interface Env {
     LOBBY: DurableObjectNamespace<import("./lobbyRoom").LobbyRoom>;
+    REGISTRY: DurableObjectNamespace<import("./registry").LobbyRegistry>;
     SYNC_ADMIN_TOKEN: string;
     WEB_APP_URL: string;
   }
