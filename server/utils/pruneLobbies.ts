@@ -6,7 +6,7 @@
 import { and, eq, inArray, isNull, lte, ne, notInArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, players, reports, submissions, users } from "~~/server/db/schema";
-import { getTeleportalHttpUrl } from "~~/server/utils/teleportal";
+import { getTeleportalHttpUrl, teleportalAdminHeaders } from "~~/server/utils/teleportal";
 
 export interface PruneLobbiesOptions {
   /** TTL for orphaned lobbies without a live Teleportal doc. Defaults to 2 hours. */
@@ -63,7 +63,7 @@ export async function pruneStaleLobbies(
     const url = getTeleportalHttpUrl();
     const teleportal = await $fetch<{
       documents?: Record<string, any>;
-    }>(`${url}/status`, { timeout: 4000 });
+    }>(`${url}/status`, { timeout: 4000, headers: teleportalAdminHeaders() });
 
     teleportalOnline = true;
     if (teleportal.documents) {

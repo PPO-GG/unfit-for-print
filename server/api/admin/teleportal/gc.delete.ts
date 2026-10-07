@@ -16,7 +16,10 @@ export default defineEventHandler(async (event) => {
   const target = `${url}/gc/${encodeURIComponent(body.docId)}`;
 
   try {
-    const result = await $fetch(target, { method: "DELETE" });
+    const result = await $fetch(target, {
+      method: "DELETE",
+      headers: teleportalAdminHeaders(),
+    });
     return result;
   } catch (err: any) {
     console.error(
