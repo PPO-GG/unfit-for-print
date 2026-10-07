@@ -130,6 +130,27 @@ describe("LobbyRoom lifecycle", () => {
     expect(await roomStub("NEVERUSED1").refresh("NEVERUSED1")).toBe(false);
   });
 
+  it("refresh arms the expiry alarm for a stored doc whose close events were lost", async () => {
+    const doc = new Y.Doc();
+    doc.getMap("meta").set("status", "playing");
+    await runInDurableObject(roomStub("LOSTCLOSE1"), (_r, s) =>
+      s.storage.put(DOC_KEY, Y.encodeStateAsUpdate(doc)),
+    );
+    expect(
+      await runInDurableObject(roomStub("LOSTCLOSE1"), (_r, s) => s.storage.getAlarm()),
+    ).toBeNull();
+
+    expect(await roomStub("LOSTCLOSE1").refresh("LOSTCLOSE1")).toBe(true);
+
+    const alarmAt = await runInDurableObject(roomStub("LOSTCLOSE1"), (_r, s) =>
+      s.storage.getAlarm(),
+    );
+    expect(alarmAt).not.toBeNull();
+    expect(Math.abs(alarmAt! - (Date.now() + EXPIRY_MS))).toBeLessThan(30_000);
+    // Wipe so the pushed registry row does not outlive the test.
+    expect(await runDurableObjectAlarm(roomStub("LOSTCLOSE1"))).toBe(true);
+  });
+
   it("does not persist a doc over 1.5 MB, and the game keeps running", async () => {
     const a = await connectYClient("HUGE1");
     await a.synced;

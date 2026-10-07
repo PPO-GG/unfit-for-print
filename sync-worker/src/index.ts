@@ -49,6 +49,11 @@ async function route(
   if (room) {
     const code = safeDecode(room[1]!);
     if (code === null || !isLobbyCode(code)) return json({ error: "Invalid lobby code" }, 400, cors);
+    // Addressing a room creates it (partyserver stores its name), and only a
+    // WebSocket upgrade is worth that.
+    if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
+      return json({ error: "Expected WebSocket upgrade" }, 426, cors);
+    }
     const stub = await getServerByName(env.LOBBY, code);
     return stub.fetch(request);
   }

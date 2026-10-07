@@ -114,6 +114,12 @@ describe("HTTP endpoints", () => {
     expect(await getRegistry(env).has("HTTPGCALL1")).toBe(false);
   });
 
+  it("answers 426 to a plain GET on a room path without creating the room", async () => {
+    const res = await call("/parties/lobby/JUNKGET1");
+    expect(res.status).toBe(426);
+    expect(await res.json()).toEqual({ error: "Expected WebSocket upgrade" });
+  });
+
   it("rejects malformed percent-encoding without a 500", async () => {
     const ws = await call("/parties/lobby/%E0%A4%A", { headers: { Upgrade: "websocket" } });
     expect(ws.status).toBe(400);

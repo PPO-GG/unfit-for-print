@@ -1,3 +1,5 @@
 # Copy to .dev.vars for `pnpm dev`. Must match NUXT_SYNC_ADMIN_TOKEN in the
 # web app's .env for the admin lobby monitor to work locally.
 SYNC_ADMIN_TOKEN=dev-sync-admin-token
+# Where crash reports link to; keeps local runs out of production's issue tracker.
+WEB_APP_URL=http://localhost:3000

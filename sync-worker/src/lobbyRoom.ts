@@ -22,6 +22,7 @@ import {
   MAX_SYNC_STEP2_BYTES,
   type MessageGuard,
 } from "./messageGuard";
+import { shouldPush } from "./pushPolicy";
 import { getRegistry } from "./registry";
 import { EXPIRY_MS } from "./registryViews";
 import { reportError } from "./reporter";
@@ -47,6 +48,7 @@ export class LobbyRoom extends YServer {
 
   #guards = new Map<string, MessageGuard>();
   #lastPushed: string | null = null;
+  #lastPushedActivity = 0;
   #pushTimer: ReturnType<typeof setTimeout> | null = null;
   #lastActivity = Date.now();
   #oversizeReported = false;
@@ -189,6 +191,12 @@ export class LobbyRoom extends YServer {
       await this.ctx.storage.deleteAll();
       return false;
     }
+    // A room whose close events were lost (a deploy or eviction dropped its
+    // sockets without webSocketClose) never armed the expiry alarm, so its
+    // stored doc would outlive its registry row forever.
+    if (this.openConnectionCount() === 0 && (await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + EXPIRY_MS);
+    }
     this.#lastPushed = null;
     await this.#push(code);
     return true;
@@ -238,13 +246,14 @@ export class LobbyRoom extends YServer {
       clients: this.openConnectionCount(),
       lastActivity: this.#lastActivity,
     };
-    // lastActivity changes on every edit; only push when something the
-    // registry shows has changed.
+    // lastActivity changes on every edit; push when something the registry
+    // shows has changed, or when the registry's copy has gone stale.
     const key = JSON.stringify({ ...record, lastActivity: 0 });
-    if (key === this.#lastPushed) return;
+    if (!shouldPush(this.#lastPushed, this.#lastPushedActivity, key, record.lastActivity)) return;
     try {
       await getRegistry(this.env).upsert(record);
       this.#lastPushed = key;
+      this.#lastPushedActivity = record.lastActivity;
     } catch (err) {
       // Never let the registry affect sync. The next change pushes again and
       // the registry's hourly sweep covers anything missed.
