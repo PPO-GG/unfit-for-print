@@ -258,6 +258,9 @@ export function useLobbyDoc(): LobbyDocResult {
       // Two tabs in one browser are two players; don't cross-sync them
       // locally behind the server's back.
       disableBc: true,
+      // The provider's default 2.5 s cap would have every client retry every
+      // 2.5 s for as long as an outage lasts.
+      maxBackoffTime: 10_000,
     });
     const connection = createSyncConnection(provider);
 
