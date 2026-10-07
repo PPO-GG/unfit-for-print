@@ -9,9 +9,9 @@
  * keeps nothing on an idle socket, so a half-open connection (sleep, NAT
  * timeout, Wi-Fi drop without a close frame) would read "connected" forever.
  * Every HEARTBEAT_INTERVAL_MS the adapter sends the string "ping" (the worker
- * answers "pong" from the runtime), and closes the socket after
- * HEARTBEAT_TIMEOUT_MS without any inbound frame; YProvider's close handler
- * then reports "disconnected" and reconnects. connectionRevival covers a
+ * answers "pong" from the runtime), and closes the socket once a ping has
+ * gone HEARTBEAT_TIMEOUT_MS without any inbound frame; YProvider's close
+ * handler then reports "disconnected" and reconnects. connectionRevival covers a
  * different case: background tabs whose timers the browser froze.
  *
  * Pure and Vue-free so it can be tested with a fake provider.
@@ -19,7 +19,8 @@
 
 /** How often a live socket is pinged. */
 export const HEARTBEAT_INTERVAL_MS = 15_000;
-/** Silence (no inbound frame of any kind) after which the socket is closed. */
+/** How long a ping may go unanswered (by any inbound frame) before the
+ *  socket is closed. */
 export const HEARTBEAT_TIMEOUT_MS = 45_000;
 
 const WS_OPEN = 1;
@@ -87,11 +88,16 @@ export function createSyncConnection(provider: SyncProviderLike): SyncConnection
   const pendingSyncs = new Set<(err: Error) => void>();
   let destroyed = false;
 
-  // Heartbeat: liveness is the time of the last inbound frame on the
-  // current socket. The socket object changes on every reconnect, so the
+  // Heartbeat: the socket is dead only when a ping we sent has gone
+  // unanswered for HEARTBEAT_TIMEOUT_MS. Judging by "time since the last
+  // frame" instead would close healthy idle tabs: browsers throttle timers
+  // in hidden tabs to about one tick a minute, so a lone tick can find the
+  // last pong 60 s old on a perfectly good socket. Any inbound frame counts
+  // as an answer. The socket object changes on every reconnect, so the
   // listener is attached per socket and moved when the socket changes.
   let watched: SyncSocketLike | null = null;
   let lastSeen = Date.now();
+  let lastPingAt = 0;
   // A socket we already closed: its close event can be slow to arrive, and
   // it must not be closed or pinged again meanwhile.
   let killed: SyncSocketLike | null = null;
@@ -103,6 +109,7 @@ export function createSyncConnection(provider: SyncProviderLike): SyncConnection
     watched?.removeEventListener("message", onFrame);
     watched = socket;
     lastSeen = Date.now();
+    lastPingAt = 0;
     socket?.addEventListener("message", onFrame);
   };
   const beat = () => {
@@ -110,12 +117,15 @@ export function createSyncConnection(provider: SyncProviderLike): SyncConnection
     if (!socket || socket.readyState !== WS_OPEN || socket === killed) return;
     // Covers a "connected" event that was missed or came first.
     watch(socket);
+    const now = Date.now();
+    const pingOutstanding = lastPingAt > lastSeen;
     try {
-      if (Date.now() - lastSeen >= HEARTBEAT_TIMEOUT_MS) {
+      if (!pingOutstanding) {
+        socket.send("ping");
+        lastPingAt = now;
+      } else if (now - lastPingAt >= HEARTBEAT_TIMEOUT_MS) {
         killed = socket;
         socket.close();
-      } else {
-        socket.send("ping");
       }
     } catch {
       // Socket went away mid-beat; YProvider's close handler takes over.

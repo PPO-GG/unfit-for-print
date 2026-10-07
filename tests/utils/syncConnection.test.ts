@@ -179,16 +179,45 @@ describe("createSyncConnection heartbeat", () => {
     expect(socket.close).not.toHaveBeenCalled();
   });
 
-  it("closes the socket once after a full timeout of silence", () => {
+  it("closes the socket once, 45 s after an unanswered ping and not before", () => {
     const { socket } = connectedConnection();
-    vi.advanceTimersByTime(HEARTBEAT_TIMEOUT_MS);
-    expect(socket.close).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS);
+    expect(socket.send).toHaveBeenCalledTimes(1); // the ping, at t = 15 s
+    vi.advanceTimersByTime(HEARTBEAT_TIMEOUT_MS - HEARTBEAT_INTERVAL_MS);
+    expect(socket.close).not.toHaveBeenCalled(); // 30 s after the ping
+    vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS);
+    expect(socket.close).toHaveBeenCalledTimes(1); // 45 s after the ping
     // Even if the close event is slow to arrive, the same socket is not
     // closed again or pinged.
-    const pings = socket.send.mock.calls.length;
     vi.advanceTimersByTime(HEARTBEAT_TIMEOUT_MS * 2);
     expect(socket.close).toHaveBeenCalledTimes(1);
-    expect(socket.send).toHaveBeenCalledTimes(pings);
+    expect(socket.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("an outstanding ping suppresses further pings until answered", () => {
+    const { socket } = connectedConnection();
+    vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS * 2); // ping at 15 s, tick at 30 s
+    expect(socket.send).toHaveBeenCalledTimes(1);
+    socket.receive("pong");
+    vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS); // answered: next ping
+    expect(socket.send).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS); // unanswered: none
+    expect(socket.send).toHaveBeenCalledTimes(2);
+  });
+
+  it("never closes a live socket whose ticks are throttled to once a minute", () => {
+    const { socket } = connectedConnection();
+    // Hidden-tab throttling: the clock jumps a minute and then exactly one
+    // tick fires (advancing the timers by a minute would run four), and each
+    // ping is answered at once. The last frame is always 60 s+ old when a
+    // tick runs, yet the link is healthy.
+    for (let i = 0; i < 10; i++) {
+      vi.setSystemTime(Date.now() + 60_000);
+      vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS);
+      socket.receive("pong");
+    }
+    expect(socket.send).toHaveBeenCalledTimes(10);
+    expect(socket.close).not.toHaveBeenCalled();
   });
 
   it("does not ping a socket that is not open", () => {
