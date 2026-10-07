@@ -1,4 +1,4 @@
-import { env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
+import { env, evictDurableObject, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import * as encoding from "lib0/encoding";
 import { describe, expect, it } from "vitest";
 import * as awarenessProtocol from "y-protocols/awareness";
@@ -9,6 +9,8 @@ import { EXPIRY_MS } from "../src/registryViews";
 import type { StoredLobby } from "../src/registryViews";
 import { connectYClient, waitFor } from "./helpers";
 
+// Longer than the room's 1 s push throttle.
+const pastPushThrottle = () => new Promise((resolve) => setTimeout(resolve, 1500));
 const roomStub = (code: string) => env.LOBBY.get(env.LOBBY.idFromName(code));
 // `meta` is Record<string, unknown>, which the RPC types collapse to never.
 const registryRow = async (code: string) =>
@@ -103,6 +105,9 @@ describe("LobbyRoom lifecycle", () => {
       await runInDurableObject(roomStub("PURGE1"), (_r, s) => s.storage.get(DOC_KEY)),
     ).toBeUndefined();
     expect(await getRegistry(env).has("PURGE1")).toBe(false);
+    // The sockets' close events must not schedule a push that re-creates the row.
+    await pastPushThrottle();
+    expect(await getRegistry(env).has("PURGE1")).toBe(false);
   });
 
   it("refresh reports false for a room with nothing stored and no players", async () => {
@@ -133,5 +138,44 @@ describe("LobbyRoom lifecycle", () => {
       s.storage.get<Uint8Array>(DOC_KEY),
     );
     expect(stored!.byteLength).toBeLessThan(1_000_000);
+  });
+
+  // KNOWN GAP (reported, no design change made): after hibernation the room
+  // reloads only the small stored copy and, correctly, sends sync step 1 to
+  // the connected client. But the client's step 2 reply carries the whole
+  // oversize doc (> 1 MiB), so the message guard closes the socket with 1009
+  // and the large entries are never recovered. `it.fails` documents the
+  // desired behavior; when this starts passing, remove `.fails`.
+  it.fails("a client re-supplies what an oversize doc could not persist after hibernation", async () => {
+    const a = await connectYClient("HUGE2");
+    await a.synced;
+    a.doc.getMap("meta").set("status", "playing");
+    await waitFor(() => runInDurableObject(roomStub("HUGE2"), (_r, s) => s.storage.get(DOC_KEY)));
+    a.doc.getArray("chat").push(["x".repeat(800_000)]);
+    a.doc.getArray("chat").push(["y".repeat(800_000)]);
+    await waitFor(async () =>
+      (await runInDurableObject(roomStub("HUGE2"), (room) =>
+        room.document.getArray("chat").length,
+      )) === 2,
+    );
+    // Let the (skipped) debounced save run: storage keeps only the small doc.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    const stored = await runInDurableObject(roomStub("HUGE2"), (_r, s) =>
+      s.storage.get<Uint8Array>(DOC_KEY),
+    );
+    expect(stored!.byteLength).toBeLessThan(1_000_000);
+
+    await evictDurableObject(roomStub("HUGE2"), { webSockets: "hibernate" });
+
+    // This small update wakes the room, which reloads only the small copy.
+    a.doc.getMap("gameState").set("round", 1);
+    await waitFor(
+      async () =>
+        (await runInDurableObject(roomStub("HUGE2"), (room) =>
+          room.document.getArray("chat").length,
+        )) === 2,
+      5000,
+    );
+    a.close();
   });
 });

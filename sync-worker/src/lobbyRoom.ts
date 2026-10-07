@@ -111,7 +111,8 @@ export class LobbyRoom extends YServer {
       }
       await this.ctx.storage.setAlarm(Date.now() + EXPIRY_MS);
     }
-    this.#schedulePush();
+    // The close events that follow a purge must not resurrect the row.
+    if (!this.#wiped) this.#schedulePush();
   }
 
   async onAlarm(): Promise<void> {
@@ -197,6 +198,7 @@ export class LobbyRoom extends YServer {
   }
 
   async #push(code: string): Promise<void> {
+    if (this.#wiped) return;
     const record: LobbyRecord = {
       ...extractLobbySummary(this.document),
       code,

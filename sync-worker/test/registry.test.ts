@@ -54,6 +54,9 @@ describe("LobbyRegistry", () => {
     });
     expect((await a.closed).code).toBe(1000);
     expect(await registry.has("GCONE1")).toBe(false);
+    // Close events after the purge must not re-create the row.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(await registry.has("GCONE1")).toBe(false);
   });
 
   it("gcAll purges every live lobby", async () => {
@@ -68,6 +71,9 @@ describe("LobbyRegistry", () => {
     expect(result.flushed).toBeGreaterThanOrEqual(2);
     expect((await a.closed).code).toBe(1000);
     expect((await b.closed).code).toBe(1000);
+    expect(await registry.has("GCALL1")).toBe(false);
+    expect(await registry.has("GCALL2")).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     expect(await registry.has("GCALL1")).toBe(false);
     expect(await registry.has("GCALL2")).toBe(false);
   });
