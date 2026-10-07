@@ -3,9 +3,16 @@
 //
 // Lifecycle:
 // - every change to the summary fields is pushed to LobbyRegistry (throttled)
-// - when the last socket closes, the doc is flushed and an alarm is set
-//   EXPIRY_MS out; any new connection cancels it
-// - the alarm wipes storage and the registry row
+// - while anyone is connected, an alarm runs every REAP_INTERVAL_MS and
+//   closes sockets that stopped answering pings (a killed phone or a slept
+//   laptop never sends a close frame, so without this the room would count
+//   them as present until the platform noticed — possibly never)
+// - when the last socket closes or is reaped, the doc is flushed and an
+//   expiry deadline is stored EXPIRY_MS out; any new connection clears it
+// - the alarm at that deadline wipes storage and the registry row
+//
+// A Durable Object has one alarm, so reaping and expiry share it; the
+// stored deadline (EXPIRES_AT_KEY) says which job the next alarm is for.
 //
 // After a wipe the in-memory doc may outlive the storage until the runtime
 // evicts this object. A player who reconnects in that window simply finds
@@ -32,6 +39,23 @@ import type { LobbyRecord } from "./types";
 export const DOC_KEY = "doc";
 /** DO storage values cap at 2 MB; leave headroom. */
 export const MAX_STORED_BYTES = 1.5 * 1024 * 1024;
+/** Storage key for the expiry deadline (epoch ms); absent while anyone is connected. */
+export const EXPIRES_AT_KEY = "expiresAt";
+/** How often a room with connections checks them for liveness. */
+export const REAP_INTERVAL_MS = 60_000;
+/**
+ * A socket whose last ping (or, if it never pinged, its connect) is older
+ * than this is dead. Clients ping every 15 s, so this is four missed pings.
+ */
+export const STALE_SOCKET_MS = 60_000;
+/** Close code sent to a reaped socket; a live client just reconnects. */
+export const HEARTBEAT_TIMEOUT_CODE = 4000;
+/**
+ * Connection-state key for the connect time. Connection state is the
+ * socket attachment, so it survives hibernation; y-partyserver keeps its
+ * own key (__ypsAwarenessIds) beside it, and both writers spread the rest.
+ */
+export const CONNECTED_AT_KEY = "__unfitConnectedAt";
 const PUSH_THROTTLE_MS = 1000;
 const WS_OPEN = 1;
 
@@ -93,7 +117,15 @@ export class LobbyRoom extends YServer {
   async onConnect(connection: Connection, ctx: ConnectionContext): Promise<void> {
     super.onConnect(connection, ctx);
     this.#wiped = false;
-    await this.ctx.storage.deleteAlarm();
+    const now = this.now();
+    this.#stampConnectedAt(connection, now);
+    await this.ctx.storage.delete(EXPIRES_AT_KEY);
+    // Someone is here, so the alarm's job is reaping. Never move an alarm
+    // later: one due sooner than a reap would be is already good enough.
+    const alarm = await this.ctx.storage.getAlarm();
+    if (alarm === null || alarm > now + REAP_INTERVAL_MS) {
+      await this.ctx.storage.setAlarm(now + REAP_INTERVAL_MS);
+    }
     this.#schedulePush();
   }
 
@@ -128,23 +160,36 @@ export class LobbyRoom extends YServer {
     super.onClose(connection, code, reason, wasClean);
     this.#guards.delete(connection.id);
     if (!this.#wiped && this.openConnectionCount(connection) === 0) {
-      // The debounced save fires only on edits; flush now so the final
-      // state is on disk before the room goes quiet. A failed flush must
-      // not skip the expiry alarm, or the room would never clean up.
-      try {
-        await this.onSave();
-      } catch (err) {
-        await reportError(this.env, err);
-      }
-      await this.ctx.storage.setAlarm(Date.now() + EXPIRY_MS);
+      await this.#flush();
+      await this.#armExpiry(this.now());
     }
     // The close events that follow a purge must not resurrect the row.
     if (!this.#wiped) this.#schedulePush();
   }
 
   async onAlarm(): Promise<void> {
-    if (this.openConnectionCount() > 0) return;
-    await this.#wipe(this.name);
+    // A wipe deletes the alarm; this covers one already in flight.
+    if (this.#wiped) return;
+    const now = this.now();
+    if (this.#reapStale(now) > 0) {
+      await this.ctx.storage.delete(EXPIRES_AT_KEY);
+      await this.ctx.storage.setAlarm(now + REAP_INTERVAL_MS);
+      return;
+    }
+    const expiresAt = await this.ctx.storage.get<number>(EXPIRES_AT_KEY);
+    if (expiresAt === undefined) {
+      // The last socket was reaped, or its close event was lost: start the
+      // expiry clock here, since onClose may never run for it.
+      await this.#flush();
+      await this.#armExpiry(now);
+      this.#schedulePush();
+      return;
+    }
+    if (now >= expiresAt) {
+      await this.#wipe(this.name);
+      return;
+    }
+    await this.ctx.storage.setAlarm(expiresAt);
   }
 
   onException(error: unknown): void {
@@ -192,14 +237,32 @@ export class LobbyRoom extends YServer {
       return false;
     }
     // A room whose close events were lost (a deploy or eviction dropped its
-    // sockets without webSocketClose) never armed the expiry alarm, so its
-    // stored doc would outlive its registry row forever.
-    if (this.openConnectionCount() === 0 && (await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(Date.now() + EXPIRY_MS);
-    }
+    // sockets without webSocketClose) may never have armed its expiry, so
+    // its stored doc would outlive its registry row forever. A room that
+    // still holds dead-but-open sockets is left to its own reaper alarm.
+    if (this.openConnectionCount() === 0) await this.#armExpiry(this.now());
     this.#lastPushed = null;
     await this.#push(code);
     return true;
+  }
+
+  /** Clock for liveness and expiry; tests override it to skip ahead. */
+  protected now(): number {
+    return Date.now();
+  }
+
+  /**
+   * When the runtime last answered this socket's "ping" (epoch ms), or null
+   * if it never has. The auto-response never wakes the room, so this is the
+   * only record that a hibernated client is still there. A Connection is
+   * the hibernatable WebSocket itself, so it can be passed straight in.
+   */
+  protected lastPingAt(connection: Connection): number | null {
+    try {
+      return this.ctx.getWebSocketAutoResponseTimestamp(connection)?.getTime() ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** Open sockets, not counting `excluding` (the one closing right now). */
@@ -210,6 +273,90 @@ export class LobbyRoom extends YServer {
       if (conn.readyState === WS_OPEN) count++;
     }
     return count;
+  }
+
+  /**
+   * Closes every open socket that has gone quiet for STALE_SOCKET_MS and
+   * returns how many open sockets are left. Does the close bookkeeping
+   * itself: a server-side close is not guaranteed to come back to this
+   * object as webSocketClose, least of all from a peer that is gone.
+   */
+  #reapStale(now: number): number {
+    let live = 0;
+    let reaped = 0;
+    for (const conn of this.getConnections()) {
+      const lastSeen = this.#lastSeen(conn);
+      if (lastSeen === null) {
+        // No connect time recorded (accepted by an older build): start its
+        // clock now rather than reap a socket we know nothing about.
+        this.#stampConnectedAt(conn, now);
+        live++;
+        continue;
+      }
+      if (now - lastSeen <= STALE_SOCKET_MS) {
+        live++;
+        continue;
+      }
+      try {
+        conn.close(HEARTBEAT_TIMEOUT_CODE, "Heartbeat timeout");
+      } catch {
+        // Already closing.
+      }
+      // YServer drops the socket's awareness states and tells the others.
+      try {
+        super.onClose(conn, HEARTBEAT_TIMEOUT_CODE, "Heartbeat timeout", false);
+      } catch (err) {
+        void reportError(this.env, err);
+      }
+      this.#guards.delete(conn.id);
+      reaped++;
+    }
+    if (reaped > 0) this.#schedulePush();
+    return live;
+  }
+
+  /** Latest sign of life: the last answered ping or the connect time. */
+  #lastSeen(conn: Connection): number | null {
+    const state = conn.state as Record<string, unknown> | null;
+    const connectedAt = state?.[CONNECTED_AT_KEY];
+    const times = [this.lastPingAt(conn), typeof connectedAt === "number" ? connectedAt : null];
+    const known = times.filter((t): t is number => t !== null);
+    return known.length > 0 ? Math.max(...known) : null;
+  }
+
+  /** Records the connect time in the socket attachment, beside y-partyserver's key. */
+  #stampConnectedAt(conn: Connection, at: number): void {
+    conn.setState((prev: unknown) => ({
+      ...(prev && typeof prev === "object" ? prev : {}),
+      [CONNECTED_AT_KEY]: at,
+    }));
+  }
+
+  /**
+   * The debounced save fires only on edits; flush so the final state is on
+   * disk before the room goes quiet. A failed flush must not skip the
+   * expiry, or the room would never clean up.
+   */
+  async #flush(): Promise<void> {
+    try {
+      await this.onSave();
+    } catch (err) {
+      await reportError(this.env, err);
+    }
+  }
+
+  /**
+   * Ensures an expiry deadline is stored and the alarm is set for it. Keeps
+   * an existing deadline: a late close event for a socket the reaper already
+   * counted out must not push the wipe back.
+   */
+  async #armExpiry(now: number): Promise<void> {
+    let expiresAt = await this.ctx.storage.get<number>(EXPIRES_AT_KEY);
+    if (expiresAt === undefined) {
+      expiresAt = now + EXPIRY_MS;
+      await this.ctx.storage.put(EXPIRES_AT_KEY, expiresAt);
+    }
+    await this.ctx.storage.setAlarm(expiresAt);
   }
 
   #isSyncStep2(message: WSMessage): boolean {
@@ -269,6 +416,9 @@ export class LobbyRoom extends YServer {
     }
     this.#lastPushed = null;
     await this.ctx.storage.deleteAll();
+    // Whether deleteAll also drops the alarm depends on the compatibility
+    // date; a leftover reaper alarm must not wake the room for nothing.
+    await this.ctx.storage.deleteAlarm();
     await getRegistry(this.env).remove(code);
   }
 }
