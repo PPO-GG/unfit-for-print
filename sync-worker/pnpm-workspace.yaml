@@ -1,0 +1,11 @@
+# sync-worker is deliberately not part of the root pnpm workspace: its own
+# package.json, its own lockfile, its own deploy (wrangler). pnpm 12 only
+# reads settings from this file, so it needs its own copy.
+#
+# allowBuilds: pnpm 12 fails the install outright on an ignored build
+# script. workerd and esbuild ship platform binaries whose install scripts
+# only verify them.
+allowBuilds:
+  esbuild: true
+  workerd: true
+  sharp: false

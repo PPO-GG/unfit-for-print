@@ -1,0 +1,3 @@
+# Copy to .dev.vars for `pnpm dev`. Must match NUXT_SYNC_ADMIN_TOKEN in the
+# web app's .env for the admin lobby monitor to work locally.
+SYNC_ADMIN_TOKEN=dev-sync-admin-token

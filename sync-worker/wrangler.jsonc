@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "unfit-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "LOBBY", "class_name": "LobbyRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LobbyRoom"] }],
+  "vars": { "WEB_APP_URL": "https://unfit.cards" },
+  "routes": [{ "pattern": "sync.unfit.cards", "custom_domain": true }],
+  "observability": { "enabled": true }
+}
