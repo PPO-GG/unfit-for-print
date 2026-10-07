@@ -72,7 +72,7 @@ Made by **MYND** at **[PPO.GG](https://ppo.gg)**.
 | --------- | ------------------------------------------------------ |
 | Framework | Nuxt 4, Vue 3 Composition API                          |
 | UI        | Nuxt UI v4, Tailwind CSS 4, GSAP                       |
-| Real-time | Yjs CRDTs over a custom Teleportal WebSocket server    |
+| Real-time | Yjs CRDTs on Cloudflare Durable Objects                |
 | Backend   | Nitro server routes, PostgreSQL with Drizzle ORM       |
 | Auth      | Discord OAuth2 and guest accounts (`nuxt-auth-utils`)  |
 | i18n      | `@nuxtjs/i18n`, 9 locales                              |
@@ -83,12 +83,12 @@ Made by **MYND** at **[PPO.GG](https://ppo.gg)**.
 
 State is split by how long it needs to live.
 
-- **Live game state** (hands, submissions, scores, whose turn it is) lives in a Yjs document. Every game action runs in the players' browsers and syncs through the Teleportal server in [`teleportal-server/`](teleportal-server/). Nothing is written to disk. When the last player leaves, the document is gone.
+- **Live game state** (hands, submissions, scores, whose turn it is) lives in a Yjs document. Every game action runs in the players' browsers and syncs through the sync worker in [`sync-worker/`](sync-worker/), a Cloudflare Worker with one Durable Object per lobby. The document is saved to Durable Object storage, so it survives restarts and deploys, and is deleted 10 minutes after the last player leaves.
 - **Durable data** (users, lobbies, cards and packs, Labs submissions, reports) lives in Postgres and is reached only through the Nitro API in [`server/api/`](server/api/).
 
 ```mermaid
 flowchart LR
-    B1[Player browser] <-- Yjs over WebSocket --> T[Teleportal server]
+    B1[Player browser] <-- Yjs over WebSocket --> T[Sync worker]
     B2[Player browser] <-- Yjs over WebSocket --> T
     B1 -- REST --> W[Nuxt / Nitro API]
     B2 -- REST --> W
