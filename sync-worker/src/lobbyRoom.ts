@@ -16,7 +16,12 @@ import type { Connection, ConnectionContext, WSMessage } from "partyserver";
 import { YServer } from "y-partyserver";
 import * as Y from "yjs";
 import { extractLobbySummary } from "./extractLobbySummary";
-import { createMessageGuard, type MessageGuard } from "./messageGuard";
+import {
+  createMessageGuard,
+  MAX_MESSAGE_BYTES,
+  MAX_SYNC_STEP2_BYTES,
+  type MessageGuard,
+} from "./messageGuard";
 import { getRegistry } from "./registry";
 import { EXPIRY_MS } from "./registryViews";
 import { reportError } from "./reporter";
@@ -79,8 +84,16 @@ export class LobbyRoom extends YServer {
   }
 
   onMessage(connection: Connection, message: WSMessage): void {
-    const size = typeof message === "string" ? message.length : message.byteLength;
-    const verdict = this.#guardFor(connection.id).check(size, Date.now());
+    const size =
+      typeof message === "string"
+        ? new TextEncoder().encode(message).byteLength
+        : message.byteLength;
+    // Sync step 2 (messageSync = 0, step 2 = 1, both single-byte varuints)
+    // is how a client re-supplies state the room lost, e.g. an oversize doc
+    // after hibernation, so it may carry the whole diff. Everything else
+    // keeps the tight cap, and the rate limit applies to both.
+    const limit = this.#isSyncStep2(message) ? MAX_SYNC_STEP2_BYTES : MAX_MESSAGE_BYTES;
+    const verdict = this.#guardFor(connection.id).check(size, Date.now(), limit);
     if (verdict === "too-large") {
       connection.close(1009, "Message too large");
       return;
@@ -177,6 +190,14 @@ export class LobbyRoom extends YServer {
       if (conn.readyState === WS_OPEN) count++;
     }
     return count;
+  }
+
+  #isSyncStep2(message: WSMessage): boolean {
+    if (typeof message === "string") return false;
+    const bytes = ArrayBuffer.isView(message)
+      ? new Uint8Array(message.buffer, message.byteOffset, Math.min(message.byteLength, 2))
+      : new Uint8Array(message, 0, Math.min(message.byteLength, 2));
+    return bytes.length === 2 && bytes[0] === 0 && bytes[1] === 1;
   }
 
   #guardFor(connectionId: string): MessageGuard {

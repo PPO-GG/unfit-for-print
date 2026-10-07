@@ -4,6 +4,8 @@
 // only ever slows its own lobby.
 
 export const MAX_MESSAGE_BYTES = 1024 * 1024;
+/** Sync step 2 is the recovery path and may carry a whole doc's diff. */
+export const MAX_SYNC_STEP2_BYTES = 8 * 1024 * 1024;
 export const MAX_MESSAGES_PER_SECOND = 200;
 const WINDOW_MS = 1000;
 
@@ -13,8 +15,8 @@ export function createMessageGuard() {
   let windowStart = Number.NEGATIVE_INFINITY;
   let count = 0;
   return {
-    check(sizeBytes: number, now: number): GuardVerdict {
-      if (sizeBytes > MAX_MESSAGE_BYTES) return "too-large";
+    check(sizeBytes: number, now: number, maxBytes: number = MAX_MESSAGE_BYTES): GuardVerdict {
+      if (sizeBytes > maxBytes) return "too-large";
       if (now - windowStart >= WINDOW_MS) {
         windowStart = now;
         count = 0;

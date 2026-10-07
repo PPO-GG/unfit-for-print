@@ -140,13 +140,10 @@ describe("LobbyRoom lifecycle", () => {
     expect(stored!.byteLength).toBeLessThan(1_000_000);
   });
 
-  // KNOWN GAP (reported, no design change made): after hibernation the room
-  // reloads only the small stored copy and, correctly, sends sync step 1 to
-  // the connected client. But the client's step 2 reply carries the whole
-  // oversize doc (> 1 MiB), so the message guard closes the socket with 1009
-  // and the large entries are never recovered. `it.fails` documents the
-  // desired behavior; when this starts passing, remove `.fails`.
-  it.fails("a client re-supplies what an oversize doc could not persist after hibernation", async () => {
+  // After hibernation the room reloads only the small stored copy; the
+  // connected client answers sync step 1 with a step 2 over 1 MiB, which
+  // the guard must let through so the large entries come back.
+  it("a client re-supplies what an oversize doc could not persist after hibernation", async () => {
     const a = await connectYClient("HUGE2");
     await a.synced;
     a.doc.getMap("meta").set("status", "playing");
@@ -177,5 +174,8 @@ describe("LobbyRoom lifecycle", () => {
       5000,
     );
     a.close();
+    await a.closed;
+    // Let the close-time flush and registry push finish before teardown.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
   });
 });
