@@ -4,7 +4,7 @@ This file provides guidance to coding agents (Codex, and others that read AGENTS
 
 ## Project Overview
 
-**Unfit for Print** (https://unfit.cards) — a Cards Against Humanity-style multiplayer party game. Nuxt 4 + Vue 3, Nuxt UI v4 / Tailwind 4, Postgres via Drizzle, and Yjs CRDTs synced through a custom Teleportal WebSocket server. Package manager is **pnpm**.
+**Unfit for Print** (https://unfit.cards) — a Cards Against Humanity-style multiplayer party game. Nuxt 4 + Vue 3, Nuxt UI v4 / Tailwind 4, Postgres via Drizzle, and Yjs CRDTs synced through a Cloudflare Durable Object sync worker. Package manager is **pnpm**.
 
 ## Commands
 
@@ -91,7 +91,7 @@ The same setup file stubs Nitro/H3 globals (`defineEventHandler`, `createError`,
 
 Two stores, split by lifetime:
 
-- **Ephemeral game state → Yjs `Y.Doc`**, held in memory by `teleportal-server/` and synced over WebSocket. Every in-game mutation (play card, reveal, judge, next round, score) runs **client-side** and replicates via CRDT. Nothing is persisted; docs are GC'd after the last client disconnects. State loss on restart is by design.
+- **Ephemeral game state → Yjs `Y.Doc`**, held by `sync-worker/` (one Durable Object per lobby) and synced over WebSocket. Every in-game mutation (play card, reveal, judge, next round, score) runs **client-side** and replicates via CRDT. The doc survives restarts and deploys, and is deleted 10 minutes after the last client disconnects.
 - **Durable metadata → Postgres** (Drizzle, `server/db/schema.ts`): users, lobbies, players, white/black cards + packs, submissions, reports, decorations. Reached only through Nitro routes in `server/api/`.
 
 **Packs have ids.** `card_packs` is the pack registry (`id` uuid, unique `name`, `is_default`), and cards reference it through `pack_id`. Renaming a pack is a one-row update. A lobby's `settings.cardPacks` holds pack **ids**; lobbies created before migration `0012_pack_ids` hold the raw pack key, which the migration kept in the retired `card_packs.pack` column while promoting any display name to `name`. Those legacy refs resolve by that retired key first and by `name` only when no key matches — server-side via `resolvePackRefs(db, refs, { legacyKeys: true })` (`server/utils/packs.ts`) in `game/start` (which also hands the resolved ids back in `config.cardPacks`, so starting a game upgrades the doc) and `game/draw-cards`, and client-side via `normalizePackSelection` against `/api/cards/packs`' `meta[].legacyKey`, which the host's settings drawer and `GameSettings.vue` use to rewrite them to ids. Key first matters: a key/display-name swap between two packs would otherwise resolve to the wrong one. Admin routes accept a `packId` or a legacy `pack` name and still answer with `pack` = the current name. The Card Explorer addresses packs by id; the name form stays for the admin screens that still key by name (the duplicates page and the add-card modal's `cards/create`). The retired columns — `white_cards.pack`, `black_cards.pack`, `card_packs.pack`, `card_packs.display_name`, and table `default_card_packs` — are kept but never written, and the legacy-key lookup above is the one sanctioned read (of `card_packs.pack`); don't add others. The PR that drops these columns must preserve the key → id mapping first (e.g. copy `card_packs.pack` into a `legacy_key` column) or every pre-migration lobby loses its display-named packs.
@@ -109,7 +109,7 @@ Consequence: **game mutations must go through Yjs, not new API routes.** The onl
 
 | Composable | Role |
 |---|---|
-| `useLobbyDoc.ts` | Y.Doc factory + Teleportal provider. Owns `DOC_KEYS` (`meta`, `settings`, `gameState`, `submissions`, `cards`, `hands`, `players`, `chat`) — **import these, never hardcode map names**. Exposes typed `getX()` accessors. |
+| `useLobbyDoc.ts` | Y.Doc factory + y-partyserver provider. Owns `DOC_KEYS` (`meta`, `settings`, `gameState`, `submissions`, `cards`, `hands`, `players`, `chat`) — **import these, never hardcode map names**. Exposes typed `getX()` accessors. |
 | `useLobbyReactive.ts` | Observes Y.Maps and exposes Vue refs. Values are stored as **JSON strings** in Y.Maps and parsed here. |
 | `useCardTexts.ts` | Per-client card-text resolution: batch-fetches the white and black texts this client displays from `/api/cards/resolve` and caches them locally. Never writes back to the doc. |
 | `useYjsGameEngine.ts` | The game rules. Each action reads state → validates phase/actor → mutates inside `doc.transact()`. Public API: `playCard`, `revealCard`, `selectWinner`, `nextRound`, `skipPlayer`, `skipJudge`, `setReadAloud`, `convertToPlayer`, `resetGame`, `markReturnedToLobby`, `handlePlayerLeave`, `replenishWhiteDeck`, `drawCards`. |
@@ -135,8 +135,8 @@ Three Y.Doc quirks worth knowing before editing the engine:
 - DB handle: `useDb()` from `server/db/client.ts` (lazy `pg` Pool + Drizzle singleton).
 - Auth guards: `server/utils/session.ts` — `requireAuth`, `requirePlayerInLobby`, `requireHost`. Auth accepts **either** a Nuxt session cookie **or** a `Bearer` Discord-Activity token (`server/utils/activityToken.ts`).
 - `server/plugins/lobby-sweeper.ts` prunes stale lobbies every 30 min; it self-disables under `VITEST`/`NODE_ENV=test`.
-- **Lobby rows are reconciled server-side, not by the host's browser.** The Y.Doc is authoritative for lobby state, but Postgres is what the public browser filters on. Those columns used to be mirrored by watchers in `app/pages/game/[code].vue` that ran **only in the host's tab**, so a host closing their tab stranded a lobby as `playing` until the sweeper caught it hours later, and a mid-game rename never reached Postgres at all. Now `/api/lobby/list` pulls Teleportal's `/lobbies/summary` and applies `planLobbyReconciliation` (`server/utils/reconcileLobbies.ts`) before filtering. It is deliberately conservative — a lobby with no live doc is left alone (absence is not evidence; pruning is `pruneLobbies`' job), a field the summary omits is left alone, and an unreachable Teleportal fails open rather than erroring the browser.
-- **Deploy ordering:** `status`, `lobbyName` and `isPrivate` in `/lobbies/summary` were added in `teleportal-server/`, which deploys separately from the web app. The reconciliation skips fields the summary does not carry, so shipping the web app first is safe — it simply reconciles nothing until Teleportal catches up.
+- **Lobby rows are reconciled server-side, not by the host's browser.** The Y.Doc is authoritative for lobby state, but Postgres is what the public browser filters on. Those columns used to be mirrored by watchers in `app/pages/game/[code].vue` that ran **only in the host's tab**, so a host closing their tab stranded a lobby as `playing` until the sweeper caught it hours later, and a mid-game rename never reached Postgres at all. Now `/api/lobby/list` pulls the sync worker's `/lobbies/summary` and applies `planLobbyReconciliation` (`server/utils/reconcileLobbies.ts`) before filtering. It is deliberately conservative — a lobby with no live doc is left alone (absence is not evidence; pruning is `pruneLobbies`' job), a field the summary omits is left alone, and an unreachable sync worker fails open rather than erroring the browser.
+- **Deploy ordering:** deploy `sync-worker/` before the web app that points at it; the web app's `/api/lobby/list` reconciliation fails open while the worker is unreachable.
 - `playerType` is mirrored by `POST /api/players/convert`, fired by the engine after `convertToPlayer` succeeds. You may deal yourself in; only the host may deal in someone else.
 - `server/utils/game-engine.ts` is *not* a server-side game engine — it only fetches/shuffles card IDs for `game/start.post.ts`.
 
@@ -144,9 +144,11 @@ Three Y.Doc quirks worth knowing before editing the engine:
 
 The app runs both as a website and as a Discord Activity (embedded iframe). Client requests should go through `$activityFetch` (`app/plugins/activity-fetch.client.ts`), which injects Activity auth headers from `useAuthHeaders()` when running inside Discord. Middleware `discord-csp.ts` / `discord-redirect.ts` and `app/middleware/discord-activity.global.ts` handle the embedded context.
 
-### `teleportal-server/`
+### `sync-worker/`
 
-Standalone ~660-line Yjs server with its own `package.json`, Dockerfile, and lockfile — **not** part of the pnpm workspace. No persistence, no storage backend, no auth (knowing the lobby code is the access control). Origin-allowlisted. HTTP endpoints: `/health`, `/status`, `/lobbies/summary`, `POST /gc` (the admin `/api/admin/teleportal/*` routes proxy these; base URL derived from the WS config by `server/utils/teleportal.ts`).
+Cloudflare Worker + Durable Objects, with its own `package.json`, lockfile and `pnpm-workspace.yaml` — **not** part of the pnpm workspace. Deploys with `pnpm deploy` (Wrangler) to `sync.unfit.cards`; local dev is `pnpm dev` on port 1235. One `LobbyRoom` DO per lobby code (`y-partyserver`'s `YServer`) syncs the Y.Doc, saves it to DO storage, and wipes it 10 minutes after the last player leaves; a single `LobbyRegistry` DO holds one row per live lobby. HTTP endpoints keep Teleportal's contract: `/health`, `/lobbies/summary` (public), `/status` and `POST /gc` / `DELETE /gc/:docId` (bearer `SYNC_ADMIN_TOKEN`, sent by the web app from `NUXT_SYNC_ADMIN_TOKEN`), and `/snapshot/:code` (the client preloads it before connecting — cheap, and it speeds large joins). No auth on the WebSocket — knowing the lobby code is the access control. `teleportal-server/` is the retired Node server, kept only until the cutover overlap ends.
+
+Liveness and limits: clients send a text `ping` every 15 s and the room answers `pong` through a runtime auto-response, which does not wake a hibernated room; the client closes the socket when a ping goes unanswered for 45 s, so `YProvider` reconnects. Inbound frames are capped at 1 MiB, except y-protocol sync step 2 frames (the doc-recovery path), which may be up to 8 MiB; more than 200 messages per second closes the socket. Tests run real Durable Objects locally through `@cloudflare/vitest-pool-workers` (`cd sync-worker && pnpm test`), and CI has a separate `Sync worker` job for it.
 
 ## Conventions
 

@@ -122,15 +122,15 @@ pnpm db:migrate
 
 That container matches the default `DATABASE_URL` in `.env.example`.
 
-**3. Run the Teleportal server**
+**3. Run the sync server**
 
-`.env.example` points at the production Teleportal (`wss://teleportal.unfit.cards`). For development, run your own so your test lobbies stay local:
+`.env.example` points at the production sync worker (`wss://sync.unfit.cards`). For development, run your own so your test lobbies stay local:
 
 ```bash
-cd teleportal-server && pnpm install && pnpm dev
+cd sync-worker && pnpm install && cp .dev.vars.example .dev.vars && pnpm dev
 ```
 
-Then set `NUXT_PUBLIC_LOBBY_TELEPORTAL_URL=ws://localhost:1235` in `.env`.
+Then set `NUXT_PUBLIC_LOBBY_TELEPORTAL_URL=ws://localhost:1235` and `NUXT_SYNC_ADMIN_TOKEN=dev-sync-admin-token` in `.env`.
 
 **4. Start the app**
 
