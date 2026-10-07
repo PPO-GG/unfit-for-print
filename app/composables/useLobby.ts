@@ -149,7 +149,7 @@ export const useLobby = () => {
         wsState: lobbyDoc.connectionState?.value,
         wsSynced: lobbyDoc.synced.value,
         reconnectCount: lobbyDoc.reconnectCount?.value,
-        bufferedMessages: diagnostics?.bufferedMessageCount,
+        bufferedBytes: diagnostics?.bufferedBytes,
       };
     });
   }

@@ -36,8 +36,8 @@ export interface IssueContext {
   wsState?: string;
   wsSynced?: boolean;
   reconnectCount?: number;
-  /** Updates the transport is holding because it has nowhere to send them. */
-  bufferedMessages?: number;
+  /** Bytes the socket is holding because it has nowhere to send them. */
+  bufferedBytes?: number;
   /** anomaly only */
   ruleId?: string;
   /** player-report only */

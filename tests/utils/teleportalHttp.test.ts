@@ -28,6 +28,12 @@ describe("teleportalHttpBase", () => {
     );
   });
 
+  it("keeps the Discord /sync proxy path for the snapshot base", () => {
+    expect(teleportalHttpBase("wss://123.discordsays.com/sync")).toBe(
+      "https://123.discordsays.com/sync",
+    );
+  });
+
   it("strips any query string", () => {
     expect(teleportalHttpBase("ws://localhost:1235/?token=abc")).toBe(
       "http://localhost:1235",

@@ -90,7 +90,7 @@ export const ISSUE_CONTEXT_KEYS = [
   "wsState",
   "wsSynced",
   "reconnectCount",
-  "bufferedMessages",
+  "bufferedBytes",
   "ruleId",
   "category",
   "method",
