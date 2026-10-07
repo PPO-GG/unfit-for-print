@@ -54,6 +54,18 @@ export class LobbyRoom extends YServer {
   // re-persist the doc nor arm a new alarm. Cleared by the next connection.
   #wiped = false;
 
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    // Clients ping with the string "ping" so a half-open socket (sleep, NAT
+    // timeout, Wi-Fi drop without a close frame) is noticed: y-partyserver's
+    // provider has no receive timeout of its own. The runtime answers "pong"
+    // itself, so a ping neither wakes a hibernated room nor reaches
+    // onMessage and the message guard (it would count against the rate
+    // limit). Set in the constructor, which runs on every wake, because the
+    // pair must be in place before the first ping after a wake can arrive.
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+
   async onLoad(): Promise<void> {
     const stored = await this.ctx.storage.get<Uint8Array>(DOC_KEY);
     if (stored) Y.applyUpdate(this.document, stored);

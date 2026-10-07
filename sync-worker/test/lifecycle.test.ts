@@ -17,6 +17,22 @@ const registryRow = async (code: string) =>
   ((await getRegistry(env).rows()) as unknown as StoredLobby[]).find((r) => r.record.code === code);
 
 describe("LobbyRoom lifecycle", () => {
+  it("answers a string ping with pong without treating it as a sync message", async () => {
+    const a = await connectYClient("PING1");
+    await a.synced;
+    const pong = new Promise<string>((resolve) =>
+      a.ws.addEventListener("message", (event) => {
+        if (typeof event.data === "string") resolve(event.data);
+      }),
+    );
+    const binaryBefore = a.received.length;
+    a.ws.send("ping");
+    expect(await pong).toBe("pong");
+    // Answered by the runtime: nothing reached the Yjs handler to reply to.
+    expect(a.received.length).toBe(binaryBefore);
+    a.close();
+  });
+
   it("pushes its summary to the registry", async () => {
     const a = await connectYClient("PUSH1");
     await a.synced;
