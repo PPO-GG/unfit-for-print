@@ -87,7 +87,12 @@ export class LobbyRegistry extends DurableObject<Env> {
     return { flushed, remaining: this.#clientCount() };
   }
 
-  async gcOne(docId: string): Promise<{ status: 200 | 404; body: Record<string, unknown> }> {
+  // The body is spelled out rather than Record<string, unknown>: workerd's RPC
+  // types collapse `unknown` values to never, which erases the whole result.
+  async gcOne(docId: string): Promise<
+    | { status: 404; body: { error: string; docId: string } }
+    | { status: 200; body: { removed: string; remaining: number } }
+  > {
     const code = codeFromDocId(docId);
     if (!code || !this.has(code)) {
       return { status: 404, body: { error: "Document not found", docId } };
