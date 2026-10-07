@@ -9,6 +9,9 @@ export default defineConfig({
         // The workerd bundled with pool-workers 0.22 trails wrangler and
         // rejects the newer date in wrangler.jsonc.
         compatibilityDate: "2026-08-22",
+        // The issue reporter posts to WEB_APP_URL; answer it locally so a
+        // failing lookup does not surface as an uncaught exception.
+        outboundService: () => new Response("{}", { status: 200 }),
         bindings: {
           SYNC_ADMIN_TOKEN: "test-admin-token",
           WEB_APP_URL: "http://web.test",

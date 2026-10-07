@@ -72,9 +72,19 @@ export class LobbyRegistry extends DurableObject<Env> {
 
   async gcAll(): Promise<{ flushed: number; remaining: number }> {
     const codes = this.rows().map((r) => r.record.code);
-    await Promise.allSettled(codes.map((code) => this.#purgeRoom(code)));
-    this.ctx.storage.sql.exec(`DELETE FROM lobbies`);
-    return { flushed: codes.length, remaining: 0 };
+    const results = await Promise.allSettled(codes.map((code) => this.#purgeRoom(code)));
+    let flushed = 0;
+    for (const [i, result] of results.entries()) {
+      const code = codes[i] as string;
+      if (result.status === "fulfilled") {
+        flushed++;
+        // purge already removed the row; this keeps it idempotent.
+        this.remove(code);
+      } else {
+        await reportError(this.env, result.reason);
+      }
+    }
+    return { flushed, remaining: this.#clientCount() };
   }
 
   async gcOne(docId: string): Promise<{ status: 200 | 404; body: Record<string, unknown> }> {
@@ -84,7 +94,7 @@ export class LobbyRegistry extends DurableObject<Env> {
     }
     await this.#purgeRoom(code);
     this.remove(code);
-    const remaining = this.rows().reduce((n, r) => n + r.record.clients, 0);
+    const remaining = this.#clientCount();
     return { status: 200, body: { removed: docIdFor(code), remaining } };
   }
 
@@ -103,6 +113,10 @@ export class LobbyRegistry extends DurableObject<Env> {
     } finally {
       await this.ctx.storage.setAlarm(Date.now() + SWEEP_INTERVAL_MS);
     }
+  }
+
+  #clientCount(): number {
+    return this.rows().reduce((n, r) => n + r.record.clients, 0);
   }
 
   async #purgeRoom(code: string): Promise<void> {
