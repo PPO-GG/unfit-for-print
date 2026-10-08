@@ -65,6 +65,8 @@ export const LAST_SEEN_AT_KEY = "__unfitLastSeenAt";
 /** Skip re-recording LAST_SEEN_AT_KEY until the stored value is this old. */
 const LAST_SEEN_WRITE_MS = 10_000;
 const PUSH_THROTTLE_MS = 1000;
+/** Close code a peer's close frame is reported with when it carried none. */
+const NO_STATUS_CODE = 1005;
 const WS_OPEN = 1;
 
 export class LobbyRoom extends YServer {
@@ -172,6 +174,18 @@ export class LobbyRoom extends YServer {
     reason: string,
     wasClean: boolean,
   ): Promise<void> {
+    // A close with no status code (y-websocket's disconnect(), a bare
+    // ws.close()) arrives as 1005. partyserver echoes the client's code to
+    // complete the handshake, but 1005 is reserved and may not be sent, so
+    // it sends nothing and the client waits in CLOSING until the browser
+    // gives up — and YProvider cannot reconnect until then. Answer it here.
+    if (code === NO_STATUS_CODE) {
+      try {
+        connection.close(1000, "Client closed");
+      } catch {
+        // Already closed.
+      }
+    }
     super.onClose(connection, code, reason, wasClean);
     this.#guards.delete(connection.id);
     if (!this.#wiped && this.openConnectionCount(connection) === 0) {
