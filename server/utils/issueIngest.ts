@@ -125,7 +125,7 @@ const CONTEXT_VALUE_GUARDS: Record<
   wsState: (v) => WS_STATES.includes(v as never),
   wsSynced: (v) => typeof v === "boolean",
   reconnectCount: isCount,
-  bufferedMessages: isCount,
+  bufferedBytes: isCount,
   ruleId: isShortString,
   category: isShortString,
   method: isShortString,

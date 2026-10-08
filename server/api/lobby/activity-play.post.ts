@@ -23,9 +23,10 @@ import { requireNonGuest } from "~~/server/utils/session";
 const NEW_LOBBY_GRACE_MS = 30_000;
 
 /**
- * Whether a lobby's game is gone: Teleportal no longer holds its doc (it drops
- * one 60 s after the last client leaves). `liveCodes` null means Teleportal
- * was unreachable, which counts as alive, so an outage never orphans a game.
+ * Whether a lobby's game is gone: the sync worker no longer holds its doc (it
+ * drops one 10 minutes after the last client leaves). `liveCodes` null means
+ * the sync worker was unreachable, which counts as alive, so an outage never
+ * orphans a game.
  */
 function isDead(
   lobby: { code: string; createdAt: Date },

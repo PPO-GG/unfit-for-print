@@ -11,11 +11,13 @@ import { requireAdmin } from "~~/server/utils/session";
 export interface UnifiedStatusResponse {
   server: {
     version: string;
-    uptime: number;
+    /** Absent on the sync worker, which has no process uptime. */
+    uptime?: number;
     activeClients: number;
     activeDocuments: number;
     idleDocTtlSec: number;
-    memoryUsage: { rss: string; heapUsed: string };
+    /** Absent on the sync worker, which has no process memory to report. */
+    memoryUsage?: { rss: string; heapUsed: string };
   };
   lobbies: UnifiedLobby[];
 }
@@ -29,7 +31,7 @@ export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> 
   try {
     // Fetch both sources in parallel
     const [teleportal, lobbyRows] = await Promise.all([
-      $fetch<any>(`${url}/status`),
+      $fetch<any>(`${url}/status`, { headers: teleportalAdminHeaders() }),
       db.select().from(lobbies).orderBy(desc(lobbies.createdAt)).limit(500),
     ]);
 

@@ -350,10 +350,20 @@ onUnmounted(() => {
           <UBadge color="neutral" variant="subtle" size="md">
             {{ status.server.activeClients }} client(s)
           </UBadge>
-          <UBadge color="neutral" variant="subtle" size="md">
+          <UBadge
+            v-if="status.server.uptime != null"
+            color="neutral"
+            variant="subtle"
+            size="md"
+          >
             Up {{ formatUptime(status.server.uptime) }}
           </UBadge>
-          <UBadge color="neutral" variant="subtle" size="md">
+          <UBadge
+            v-if="status.server.memoryUsage"
+            color="neutral"
+            variant="subtle"
+            size="md"
+          >
             {{ status.server.memoryUsage.rss }}
           </UBadge>
         </template>

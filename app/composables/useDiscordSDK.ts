@@ -44,10 +44,12 @@ export function useDiscordSDK() {
     await sdkInstance.ready();
 
     // Route external requests through Discord's proxy to satisfy CSP.
-    // /appwrite  → Appwrite API (fetch/XHR)
-    // /teleportal → Teleportal WebSocket server (HTTP fallback paths)
+    // /appwrite   → Appwrite API (fetch/XHR)
+    // /sync       → sync worker (lobby WebSocket, /snapshot, /lobbies/summary)
+    // /teleportal → old Teleportal server; remove after the cutover overlap
     patchUrlMappings([
       { prefix: "/appwrite", target: "api.ppo.gg" },
+      { prefix: "/sync", target: "sync.unfit.cards" },
       { prefix: "/teleportal", target: "teleportal.unfit.cards" },
     ]);
 

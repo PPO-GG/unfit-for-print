@@ -1,8 +1,10 @@
 // composables/useLobbyDoc.ts
-// Y.Doc factory and Teleportal provider for ephemeral game lobbies.
+// Y.Doc factory and sync provider for game lobbies.
 //
-// Creates a single Y.Doc per lobby, synced via Teleportal WebSocket.
-// No persistence — the doc is purely in-memory because lobbies are ephemeral.
+// Creates a single Y.Doc per lobby, synced over WebSocket with the sync
+// worker (sync-worker/, one Cloudflare Durable Object per lobby) using
+// y-partyserver's provider. The browser keeps no copy — the server persists
+// the doc, and drops it 10 minutes after the last player leaves.
 //
 // Usage:
 //   const { doc, connect, disconnect, awareness, synced, connected } = useLobbyDoc()
@@ -12,11 +14,12 @@
 
 import * as Y from "yjs";
 import { ref, shallowRef, readonly, type Ref, type ShallowRef } from "vue";
+import YProvider from "y-partyserver/provider";
 import {
-  DirectConnection,
-  Provider,
-  websocketTransport,
-} from "teleportal/providers";
+  createSyncConnection,
+  syncProviderTarget,
+  type SyncConnection,
+} from "~/utils/syncConnection";
 import { teleportalHttpBase } from "~/utils/teleportalHttp";
 import { trackConnectionHealth } from "~/utils/connectionHealth";
 import { reviveConnectionOnReturn } from "~/utils/connectionRevival";
@@ -42,7 +45,7 @@ export interface LobbyDocResult {
   /** The raw Y.Doc instance — for advanced usage and direct observation */
   doc: ShallowRef<Y.Doc | null>;
 
-  /** Connect to a lobby Y.Doc via Teleportal */
+  /** Connect to a lobby Y.Doc via the sync worker */
   connect: (lobbyCode: string, token?: string) => Promise<void>;
 
   /** Disconnect and destroy the provider + doc */
@@ -71,9 +74,9 @@ export interface LobbyDocResult {
   /** Times the link has come back after dropping, this connection. */
   reconnectCount: Ref<number>;
 
-  /** The transport's point-in-time internals, or null when there is no live
+  /** The socket's point-in-time internals, or null when there is no live
    *  connection. Values change constantly — read on demand, never cache. */
-  getConnectionDiagnostics: () => { bufferedMessageCount?: number } | null;
+  getConnectionDiagnostics: () => { bufferedBytes?: number } | null;
 
   /** Current lobby code (null if not connected) */
   lobbyCode: Ref<string | null>;
@@ -123,7 +126,7 @@ export interface LobbyDocResult {
 interface LobbyDocState {
   activeDoc: Y.Doc | null;
   activeProvider: any | null;
-  activeConnection: any | null;
+  activeConnection: SyncConnection | null;
   beforeUnloadHandler: (() => void) | null;
   doc: ShallowRef<Y.Doc | null>;
   awareness: ShallowRef<any | null>;
@@ -204,47 +207,29 @@ export function useLobbyDoc(): LobbyDocResult {
     const documentName = `lobby-${code}`;
     const ydoc = new Y.Doc();
 
-    // Build WebSocket URL
-    // NOTE: Do NOT set ?document= in the URL. The Teleportal Provider handles
-    // document identification via its own sync protocol (the `document` field
-    // in Provider.create). Sending it in both places causes the server to
-    // create a duplicate Y.Doc under a namespaced key (e.g., lobby-CODE/lobby-CODE),
-    // which gets orphaned and triggers GC sweeps that corrupt tracking state.
-    //
     // Discord Activity: the iframe on discordsays.com blocks direct external
     // WebSocket connections. Route through Discord's proxy via URL mapping
-    // (/teleportal → teleportal.unfit.cards, configured in Developer Portal).
+    // (/sync → sync.unfit.cards, configured in the Developer Portal and
+    // patched in useDiscordSDK).
     const { isDiscordActivity } = useDiscordSDK();
     let baseUrl: string;
     if (isDiscordActivity.value && typeof window !== "undefined") {
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      baseUrl = `${proto}//${window.location.host}/teleportal`;
+      baseUrl = `${proto}//${window.location.host}/sync`;
     } else {
       baseUrl = config.public.lobbyTeleportalUrl || "ws://localhost:1235";
     }
     console.log(
       `[LobbyDoc] Connecting to ${baseUrl} doc=${documentName}${isDiscordActivity.value ? " (Discord proxy)" : ""}`,
     );
-    const wsUrl = new URL(baseUrl);
-    if (token) {
-      wsUrl.searchParams.set("token", token);
-    }
 
     // ── Snapshot preload ────────────────────────────────────────────────
-    // Teleportal's websocket sync silently drops an initial-state message over
-    // ~48 KiB: the server sends it, nothing errors, and the client is simply
-    // left with an empty document — which the app then renders as a real but
-    // empty lobby. A started game clears that on its own (the decks alone are
-    // ~47 KB with the default packs, and chat only grows it), so every client
-    // that was not present when the doc was created was locked out.
-    //
-    // Fetching the state over HTTP first sidesteps it: once applied, this
-    // doc's state vector tells the server it is nearly caught up, so the
-    // handshake below carries a small delta rather than the whole document.
-    //
-    // Strictly best-effort. A miss (404 for a lobby with no live doc, server
-    // down, request blocked) leaves the doc empty and the normal websocket
-    // sync runs exactly as before.
+    // Fetches the doc over HTTP before the socket opens, so the handshake
+    // below only carries a small delta. Added for Teleportal, which silently
+    // dropped initial syncs over ~48 KiB; kept because it is cheap and makes
+    // joining a large game faster. Strictly best-effort: a miss (404 for a
+    // lobby with no live doc, server down) leaves the doc empty and the
+    // normal sync runs as usual.
     const httpBase = teleportalHttpBase(baseUrl);
     if (httpBase) {
       try {
@@ -266,39 +251,18 @@ export function useLobbyDoc(): LobbyDocResult {
       }
     }
 
-    // Yield to event loop before heavy Provider.create()
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    // WebSocket-only, deliberately. Provider.create defaults to
-    // [websocketTransport(), httpTransport()], but this server speaks WebSocket
-    // alone — the HTTP fallback would just produce noisy 404s on brief
-    // disconnects. Passing the transport list explicitly keeps that behaviour.
-    const connection = new DirectConnection({
-      url: wsUrl.toString(),
-      transports: [websocketTransport({ timeout: 5_000 })],
-      heartbeatInterval: 15_000, // Ping every 15s to keep alive
-      messageReconnectTimeout: 60_000, // 60s timeout (more generous than Rundown's 45s — games have idle phases)
-      // Never give up. The default is 10 attempts, which at 100ms × 1.3ⁿ
-      // spends its whole budget in ~5s of outage and then sits in `errored`
-      // for good — the game simply stops updating, with nothing to say why.
-      // The backoff already caps each wait at 30s, so retrying forever costs
-      // one handshake per half-minute.
-      maxReconnectAttempts: Number.POSITIVE_INFINITY,
+    const target = syncProviderTarget(baseUrl, code);
+    const provider = new YProvider(target.host, code, ydoc, {
+      prefix: target.prefix,
+      protocol: target.protocol,
+      // Two tabs in one browser are two players; don't cross-sync them
+      // locally behind the server's back.
+      disableBc: true,
+      // The provider's default 2.5 s cap would have every client retry every
+      // 2.5 s for as long as an outage lasts.
+      maxBackoffTime: 10_000,
     });
-
-    const provider = await Provider.create({
-      connection,
-      document: documentName,
-      ydoc,
-      enableOfflinePersistence: false, // Ephemeral — no IndexedDB
-      // Opt out of end-to-end encryption, which 0.0.6+ requires by default.
-      // Not an oversight: the server READS document contents — /lobbies/summary
-      // exposes phase, round and player names for the lobby browser, and
-      // /api/lobby/list reconciles the Postgres row against them. E2EE would
-      // make the server unable to read any of that. Lobby access is the join
-      // code plus, now, a hashed password; the doc itself is not a secret.
-      encryptionKey: false,
-    });
+    const connection = createSyncConnection(provider);
 
     // Store module-level refs for singleton enforcement
     _state.activeDoc = ydoc;
@@ -320,7 +284,8 @@ export function useLobbyDoc(): LobbyDocResult {
       () => _state.activeConnection === connection,
     );
 
-    // Covers what infinite retries can't — see ~/utils/connectionRevival.
+    // Covers what automatic retries can't (frozen background tabs) — see
+    // ~/utils/connectionRevival.
     _state.stopRevival?.();
     _state.stopRevival =
       typeof window !== "undefined"
@@ -354,12 +319,7 @@ export function useLobbyDoc(): LobbyDocResult {
     // state (especially the players map) to be available immediately.
     // Timeout after 5s to avoid hanging if the server is slow.
     try {
-      await Promise.race([
-        provider.synced,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("sync timeout")), 5000),
-        ),
-      ]);
+      await connection.whenSynced(5000);
       synced.value = true;
       console.log(`[LobbyDoc] Synced with server for lobby-${code}`);
     } catch (err: any) {
@@ -445,8 +405,7 @@ export function useLobbyDoc(): LobbyDocResult {
     lobbyCode.value = null;
   };
 
-  /** Best-effort: the transport exposes this, but it is a third-party getter
-   *  on an object that may already be torn down. */
+  /** Best-effort: reads a live socket that may already be torn down. */
   const getConnectionDiagnostics = () => {
     try {
       return _state.activeConnection?.diagnostics ?? null;

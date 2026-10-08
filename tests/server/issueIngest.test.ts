@@ -288,12 +288,12 @@ describe("game-diagnostic context fields", () => {
       wsState: "connected",
       wsSynced: true,
       reconnectCount: 2,
-      bufferedMessages: 7,
+      bufferedBytes: 7,
     };
     expect(kept(context, "wsState")).toBe("connected");
     expect(kept(context, "wsSynced")).toBe(true);
     expect(kept(context, "reconnectCount")).toBe(2);
-    expect(kept(context, "bufferedMessages")).toBe(7);
+    expect(kept(context, "bufferedBytes")).toBe(7);
   });
 
   it("drops a transport state nobody defined", () => {
@@ -324,7 +324,7 @@ describe("game-diagnostic context fields", () => {
         wsState: "disconnected",
         wsSynced: false,
         reconnectCount: 4,
-        bufferedMessages: 12,
+        bufferedBytes: 12,
       },
     });
 

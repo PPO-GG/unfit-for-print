@@ -204,6 +204,9 @@ export default defineNuxtConfig({
     r2AccessKeyId: process.env.NUXT_R2_ACCESS_KEY_ID,
     r2SecretAccessKey: process.env.NUXT_R2_SECRET_ACCESS_KEY,
     r2Bucket: process.env.NUXT_R2_BUCKET,
+    // Bearer token for the sync worker's admin endpoints (/status, /gc).
+    // Must match the worker's SYNC_ADMIN_TOKEN secret.
+    syncAdminToken: process.env.NUXT_SYNC_ADMIN_TOKEN || "",
 
     // New guest identities allowed per IP per 10 minutes (POST /api/auth/guest
     // is unauthenticated and inserts a `users` row). 0 disables the throttle —
@@ -243,10 +246,10 @@ export default defineNuxtConfig({
       baseUrl: siteUrl,
       appVersion: pkg.version,
 
-      // Yjs lobby Teleportal server
+      // Yjs lobby sync server (sync-worker/, Cloudflare Durable Objects)
       lobbyTeleportalUrl:
         process.env.NUXT_PUBLIC_LOBBY_TELEPORTAL_URL ||
-        "wss://teleportal.unfit.cards",
+        "wss://sync.unfit.cards",
 
       // Discord Activity
       discordClientId: process.env.NUXT_PUBLIC_DISCORD_CLIENT_ID || "",
