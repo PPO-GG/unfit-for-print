@@ -22,6 +22,10 @@ export const HEARTBEAT_INTERVAL_MS = 15_000;
 /** How long a ping may go unanswered (by any inbound frame) before the
  *  socket is closed. */
 export const HEARTBEAT_TIMEOUT_MS = 45_000;
+/** Close code for a socket whose ping went unanswered; matches the worker's
+ *  reaper. A bare close() would reach the worker as 1005, which it may not
+ *  echo, leaving the socket in CLOSING until the browser gives up. */
+const HEARTBEAT_TIMEOUT_CODE = 4000;
 
 const WS_OPEN = 1;
 
@@ -32,7 +36,7 @@ export interface SyncSocketLike {
   readyState: number;
   bufferedAmount?: number;
   send(data: string): void;
-  close(): void;
+  close(code?: number, reason?: string): void;
   addEventListener(type: "message", handler: (event: any) => void): void;
   removeEventListener(type: "message", handler: (event: any) => void): void;
 }
@@ -98,8 +102,8 @@ export function createSyncConnection(provider: SyncProviderLike): SyncConnection
   let watched: SyncSocketLike | null = null;
   let lastSeen = Date.now();
   let lastPingAt = 0;
-  // A socket we already closed: its close event can be slow to arrive, and
-  // it must not be closed or pinged again meanwhile.
+  // A socket we already closed: its close event can still be slow to arrive
+  // from a dead link, and it must not be closed or pinged again meanwhile.
   let killed: SyncSocketLike | null = null;
   const onFrame = () => {
     lastSeen = Date.now();
@@ -125,7 +129,7 @@ export function createSyncConnection(provider: SyncProviderLike): SyncConnection
         lastPingAt = now;
       } else if (now - lastPingAt >= HEARTBEAT_TIMEOUT_MS) {
         killed = socket;
-        socket.close();
+        socket.close(HEARTBEAT_TIMEOUT_CODE, "Heartbeat timeout");
       }
     } catch {
       // Socket went away mid-beat; YProvider's close handler takes over.
