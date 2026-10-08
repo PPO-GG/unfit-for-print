@@ -225,7 +225,9 @@ describe("LobbyRoom lifecycle", () => {
   it("closes a connection that sends more than 200 messages in a second", async () => {
     const a = await connectYClient("FLOOD1");
     await a.synced;
-    for (let i = 0; i < 250; i++) a.ws.send(new Uint8Array([2]));
+    // The guard counts in fixed 1 s windows, so a burst can straddle a
+    // boundary; 1000 frames exceed 200 in some window however they split.
+    for (let i = 0; i < 1000; i++) a.ws.send(new Uint8Array([2]));
     expect((await a.closed).code).toBe(1008);
   });
 
