@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.32.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.31.0...v3.32.0) (2026-10-08)
+
+
+### ✨ Features
+
+* sync lobbies through Cloudflare Durable Objects ([#179](https://github.com/PPO-GG/unfit-for-print/issues/179)) ([ecbcaa3](https://github.com/PPO-GG/unfit-for-print/commit/ecbcaa37bed72015d0974fa09e1b0e4394bcd8b6))
+
 ## [3.31.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.30.0...v3.31.0) (2026-10-05)
 
 
