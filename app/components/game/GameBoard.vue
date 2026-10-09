@@ -171,7 +171,6 @@ const { unread: chatUnread } = useChatUnread(
 );
 
 // ── Host tools: what the host can do to each other player right now ──
-// The same rules the desktop table's seat controls follow (PlayerList).
 const playerActions = computed<EscMenuPlayerAction[]>(() => {
   if (!isHost.value) return [];
   const s = state.value;
