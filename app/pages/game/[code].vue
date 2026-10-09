@@ -8,7 +8,6 @@ import { useNotifications } from "~/composables/useNotifications";
 import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
 import { useAutoReturn, CELEBRATION_MS } from "~/composables/useAutoReturn";
-import { useSpectatorConversion } from "~/composables/useSpectatorConversion";
 import { useSfx } from "~/composables/useSfx";
 import GameOver from "~/components/game/GameOver.vue";
 import type { Lobby } from "~/types/lobby";
@@ -16,13 +15,11 @@ import type { Player } from "~/types/player";
 import { useI18n } from "vue-i18n";
 import { kickedMetaKey } from "~/utils/kickedPlayers";
 import { decideLobbyEntry } from "~/utils/lobbyEntry";
-import { useCompactLayout } from "~/composables/useCompactLayout";
 
 // ─── Core Setup ─────────────────────────────────────────────────────────────
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const config = useRuntimeConfig();
 const userStore = useUserStore();
 const nuxtApp = useNuxtApp();
 
@@ -34,10 +31,7 @@ const players = ref<Player[]>([]);
 const loading = ref(true);
 const showJoinModal = ref(false);
 const joinedLobby = ref(false);
-const isStarting = ref(false);
-const isSidebarOpen = ref(false);
 const selfLeaving = ref(false);
-const copied = ref(false);
 
 // ─── Composables ────────────────────────────────────────────────────────────
 const { notify } = useNotifications();
@@ -46,7 +40,6 @@ const {
   getLobbyByCode,
   leaveLobby,
   getActiveLobbyForUser,
-  startGame,
   lobbyDoc,
   reactive,
   engine,
@@ -61,10 +54,6 @@ const { initializeGamePageSession } = useJoinLobby();
 // reports; it changes no game state, so it belongs here rather than in the
 // engine.
 useGameWatchdog(reactive);
-
-// Phones get the podium on its own: its Continue leads to the lobby, which has
-// Leave, so the old sidebar's hamburger would only sit on top of it.
-const { isCompact } = useCompactLayout();
 
 // ─── Reactive State from Y.Doc ──────────────────────────────────────────────
 // All game state is derived from useLobbyReactive().
@@ -83,7 +72,7 @@ const {
 } = reactive;
 
 // Wrap the Y.Doc gameState ref in a computed so it satisfies ComputedRef<>
-// expected by useDynamicFavicon, useAutoReturn, useSpectatorConversion.
+// expected by useDynamicFavicon and useAutoReturn.
 const state = computed(() => reactive.gameState.value);
 
 // ─── Discord Rich Presence ──────────────────────────────────────────────────
@@ -191,14 +180,6 @@ watch(isComplete, (complete) => {
       delayedCompleteTimeout = null;
     }
   }
-});
-
-const { convertToPlayer } = useSpectatorConversion({
-  isHost,
-  players,
-  lobbyRef: lobby,
-  state,
-  getPlayerName,
 });
 
 // ─── Bot Orchestration ──────────────────────────────────────────────────────
@@ -337,38 +318,6 @@ useSeoMeta({
   ogTitle: ogTitleStatic,
   ogDescription,
 });
-// ─── Sidebar Watcher ────────────────────────────────────────────────────────
-// Desktop sidebar can be toggled. Auto-collapse when game starts, but allow user to re-open.
-// The re-open is debounced to prevent visual flapping during transient
-// Teleportal reconnects (Y.Doc state briefly nulls → isPlaying flickers false).
-const showDesktopSidebar = ref(true);
-let sidebarReopenTimer: ReturnType<typeof setTimeout> | null = null;
-
-watch(isPlaying, (newIsPlaying) => {
-  // Always cancel any pending re-open when isPlaying changes
-  if (sidebarReopenTimer) {
-    clearTimeout(sidebarReopenTimer);
-    sidebarReopenTimer = null;
-  }
-
-  if (newIsPlaying) {
-    // Auto-collapse both mobile and desktop sidebars when game starts
-    isSidebarOpen.value = false;
-    showDesktopSidebar.value = false;
-  } else {
-    // Delay sidebar restoration to survive transient Y.Doc reconnect flickers.
-    // If isPlaying flips back to true within 500ms, the timer is cancelled above.
-    sidebarReopenTimer = setTimeout(() => {
-      showDesktopSidebar.value = true;
-      sidebarReopenTimer = null;
-    }, 500);
-  }
-});
-
-function toggleDesktopSidebar() {
-  showDesktopSidebar.value = !showDesktopSidebar.value;
-}
-
 // ─── Player Name Resolution ─────────────────────────────────────────────────
 /**
  * Synchronously resolves a player name using all available data sources.
@@ -523,10 +472,6 @@ onMounted(async () => {
 // explicitly leaving via handleLeave, tear down the Y.Doc connection so the
 // Teleportal server doesn't retain ghost clients and stale documents.
 onBeforeUnmount(() => {
-  if (sidebarReopenTimer) {
-    clearTimeout(sidebarReopenTimer);
-    sidebarReopenTimer = null;
-  }
   if (!selfLeaving.value && lobbyDoc.connected.value) {
     console.log("[GamePage] Unmounting — disconnecting lobby Y.Doc");
     lobbyDoc.disconnect();
@@ -574,59 +519,6 @@ const handleLeave = async () => {
   return router.replace("/");
 };
 
-const startGameWrapper = async () => {
-  if (!lobby.value) return;
-
-  try {
-    isStarting.value = true;
-    const s = reactive.settings.value;
-    if (!s) return;
-    await startGame(lobby.value.id, {
-      maxPoints: s.maxPoints,
-      numPlayerCards: s.cardsPerPlayer,
-      cardPacks: s.cardPacks,
-      isPrivate: s.isPrivate,
-      lobbyName: s.lobbyName,
-      maxPick: s.maxPick,
-    });
-  } catch (err) {
-    console.error("Failed to start game:", err);
-    isStarting.value = false;
-  }
-};
-
-function copyLobbyLink() {
-  if (typeof window === "undefined" || !navigator.clipboard) {
-    notify({
-      title: t("lobby.error_code_copied"),
-      color: "error",
-      icon: "i-mdi-alert-circle",
-    });
-    return;
-  }
-  navigator.clipboard
-    .writeText(config.public.baseUrl + "/game/" + lobby.value?.code)
-    .then(() => {
-      notify({
-        title: t("lobby.code_copied"),
-        color: "success",
-        icon: "i-mdi-clipboard-check",
-      });
-    })
-    .catch((err) => {
-      console.error("Failed to copy lobby code:", err);
-      notify({
-        title: t("lobby.error_code_copied"),
-        color: "error",
-        icon: "i-mdi-alert-circle",
-      });
-    });
-  copied.value = true;
-  setTimeout(() => {
-    copied.value = false;
-  }, 2000);
-}
-
 function handleSkipPlayer(playerId: string) {
   if (!lobby.value) return;
   const result = engine.skipPlayer(playerId);
@@ -672,7 +564,6 @@ function handleSkipJudge() {
 function handleResetGame() {
   if (!isHost.value || !lobby.value) return;
   resetGameState(lobby.value.id);
-  isStarting.value = false;
   notify({
     title: t("game.reset_to_lobby_success"),
     color: "success",
@@ -719,110 +610,6 @@ function handleResetGame() {
       v-if="!showJoinModal && lobby && players"
       class="flex h-dvh overflow-hidden"
     >
-      <!-- Tablet menu button (hidden during active gameplay — phones and gameplay have their own controls) -->
-      <UButton
-        v-if="!isPlaying && !isWaiting && !isCompact"
-        icon="i-solar-hamburger-menu-broken"
-        color="neutral"
-        variant="ghost"
-        size="xl"
-        class="xl:hidden absolute left-6 translate-y-[50%] z-10"
-        aria-label="Open menu"
-        @click="isSidebarOpen = true"
-      />
-
-      <!-- Desktop sidebar toggle button (waiting room only — gameplay uses CornerControls) -->
-      <Transition name="sidebar-toggle">
-        <div
-          v-if="!showDesktopSidebar && !isPlaying && !isWaiting"
-          class="hidden xl:flex fixed left-4 top-4 z-[75] sidebar-toggle-btn"
-        >
-          <UButton
-            icon="i-solar-sidebar-minimalistic-bold-duotone"
-            color="neutral"
-            variant="soft"
-            size="lg"
-            aria-label="Toggle sidebar"
-            @click="toggleDesktopSidebar"
-          />
-        </div>
-      </Transition>
-
-      <!-- Desktop sidebar backdrop (waiting room only — gameplay uses ESC menu + FPS chat) -->
-      <Transition name="sidebar-backdrop">
-        <div
-          v-if="showDesktopSidebar && !isPlaying && !isWaiting"
-          class="hidden xl:block fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px]"
-          @click="showDesktopSidebar = false"
-        />
-      </Transition>
-
-      <!-- Desktop sidebar (hidden during active gameplay and waiting phase) -->
-      <aside
-        v-if="!isPlaying && !isWaiting"
-        class="desktop-sidebar hidden xl:flex"
-        :class="{ 'desktop-sidebar--open': showDesktopSidebar }"
-      >
-        <div class="sidebar-content-scroll">
-          <GameSidebarContent
-            :lobby="lobby"
-            :players="players"
-            :state="state"
-            :game-settings="reactive.settings.value"
-            :is-host="isHost"
-            :is-starting="isStarting"
-            :is-waiting="isWaiting"
-            :joined-lobby="joinedLobby"
-            :my-id="myId"
-            :copied="copied"
-            @copy-link="copyLobbyLink"
-            @leave="handleLeave"
-            @start-game="startGameWrapper"
-            @convert-spectator="convertToPlayer"
-            @skip-player="handleSkipPlayer"
-            @skip-judge="handleSkipJudge"
-            @reset-game="handleResetGame"
-          />
-        </div>
-      </aside>
-
-      <!-- Mobile slideover (hidden during active gameplay) -->
-      <USlideover
-        v-if="!isCompact"
-        v-model:open="isSidebarOpen"
-        class="xl:hidden"
-        side="left"
-        :overlay="false"
-        title="Game Menu"
-        description="Game sidebar with players, settings, and actions"
-      >
-        <template #content>
-          <div class="p-4 flex flex-col h-full space-y-4 overflow-auto">
-            <GameSidebarContent
-              mobile
-              :lobby="lobby"
-              :players="players"
-              :state="state"
-              :game-settings="reactive.settings.value"
-              :is-host="isHost"
-              :is-starting="isStarting"
-              :is-waiting="isWaiting"
-              :joined-lobby="joinedLobby"
-              :my-id="myId"
-              :copied="copied"
-              @copy-link="copyLobbyLink"
-              @leave="handleLeave"
-              @start-game="startGameWrapper"
-              @convert-spectator="convertToPlayer"
-              @skip-player="handleSkipPlayer"
-              @skip-judge="handleSkipJudge"
-              @reset-game="handleResetGame"
-              @close="isSidebarOpen = false"
-            />
-          </div>
-        </template>
-      </USlideover>
-
       <!-- Main content area -->
       <div class="flex-1">
         <!-- Waiting room. Also where a player who tapped "Back to lobby" on the
@@ -880,119 +667,3 @@ function handleResetGame() {
     </div>
   </div>
 </template>
-
-<style scoped>
-/* ─── Desktop sidebar overlay ──────────────────────────────── */
-.desktop-sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 70;
-  height: 100vh;
-  height: 100dvh;
-  width: 21.25rem;
-  max-width: 90vw;
-  padding: 0;
-  flex-direction: column;
-  gap: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* Deep dark background — slightly lighter than the board */
-  background: linear-gradient(
-    180deg,
-    rgba(10, 10, 24, 0.99) 0%,
-    rgba(15, 15, 35, 0.98) 100%
-  );
-  /* Noise texture via pseudo — we'll use box-shadow trick instead */
-  border-right: 1px solid rgba(139, 92, 246, 0.3);
-  box-shadow:
-    4px 0 40px rgba(0, 0, 0, 0.6),
-    1px 0 0 rgba(139, 92, 246, 0.15),
-    inset -1px 0 0 rgba(139, 92, 246, 0.08);
-  transform: translateX(-100%);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Subtle scanline texture */
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 0, 0, 0.04) 2px,
-      rgba(0, 0, 0, 0.04) 4px
-    ),
-    linear-gradient(
-      180deg,
-      rgba(10, 10, 24, 0.99) 0%,
-      rgba(15, 15, 35, 0.98) 100%
-    );
-}
-
-/* Scrollable inner content area */
-.sidebar-content-scroll {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0.85rem 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
-}
-
-.sidebar-content-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar-content-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-content-scroll::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
-  border-radius: 99px;
-}
-
-.desktop-sidebar--open {
-  transform: translateX(0);
-}
-
-/* ─── Close row (inside scroll, when playing) ───────────────── */
-.sidebar-close-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: -0.25rem;
-}
-
-/* ─── Sidebar backdrop fade ───────────────────────────────── */
-.sidebar-backdrop-enter-active,
-.sidebar-backdrop-leave-active {
-  transition: opacity 0.3s ease;
-}
-.sidebar-backdrop-enter-from,
-.sidebar-backdrop-leave-to {
-  opacity: 0;
-}
-
-/* ─── Toggle button ───────────────────────────────────────── */
-.sidebar-toggle-btn {
-  transition: all 0.2s ease;
-}
-
-.sidebar-toggle-btn:hover {
-  background: rgba(139, 92, 246, 0.15) !important;
-  border-color: rgba(139, 92, 246, 0.6) !important;
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
-}
-
-.sidebar-toggle-enter-active,
-.sidebar-toggle-leave-active {
-  transition: all 0.3s ease;
-}
-
-.sidebar-toggle-enter-from,
-.sidebar-toggle-leave-to {
-  opacity: 0;
-  transform: translateX(-12px);
-}
-</style>
