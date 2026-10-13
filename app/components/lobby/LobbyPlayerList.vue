@@ -10,7 +10,7 @@
           <div
             class="lpl-avatar"
             :class="{ 'lpl-avatar--image': avatarUrlFor(p) && !imgErrors[p.$id] }"
-            :style="avatarUrlFor(p) && !imgErrors[p.$id] ? {} : avatarStyle(p)"
+            :style="avatarUrlFor(p) && !imgErrors[p.$id] ? {} : playerAvatarStyle(p)"
           >
             <img
               v-if="avatarUrlFor(p) && !imgErrors[p.$id]"
@@ -19,7 +19,7 @@
               referrerpolicy="no-referrer"
               @error="imgErrors[p.$id] = true"
             />
-            <span v-else>{{ initials(p) }}</span>
+            <span v-else>{{ playerInitials(p) }}</span>
           </div>
         </AvatarDecoration>
         <div class="lpl-body">
@@ -45,6 +45,7 @@
 <script lang="ts" setup>
 import type { Player } from "~/types/player";
 import { getPlayerAvatarUrl } from "~/composables/usePlayerAvatar";
+import { playerAvatarStyle, playerInitials } from "~/utils/playerColor";
 
 defineProps<{
   players: Player[];
@@ -59,37 +60,6 @@ defineEmits<{
 
 const imgErrors = reactive<Record<string, boolean>>({});
 function avatarUrlFor(p: Player): string | null { return getPlayerAvatarUrl(p); }
-
-const PALETTE = [
-  "#5865f2", "#f43f5e", "#22d3ee", "#84cc16",
-  "#f59e0b", "#a78bfa", "#fb7185", "#34d399",
-];
-
-function colorFromId(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[hash % PALETTE.length]!;
-}
-
-function initials(p: Player): string {
-  if (p.playerType === "bot") return "🤖";
-  const name = p.name?.trim() ?? "";
-  if (!name) return "?";
-  const parts = name.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0]!.charAt(0) + parts.at(-1)!.charAt(0)).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function avatarStyle(p: Player): Record<string, string> {
-  if (p.playerType === "bot") {
-    return { background: "linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%)", color: "#0d0f1a" };
-  }
-  const color = colorFromId(p.userId ?? p.$id ?? "");
-  return {
-    background: `linear-gradient(135deg, ${color}aa 0%, ${color}55 100%)`,
-    color: "#0d0f1a",
-  };
-}
 
 function statusLabel(p: Player): string {
   if (p.playerType === "bot") return "✓ BOT · ready";
