@@ -123,7 +123,7 @@ function openEditor(filter: PackFilter = "all") {
 }
 const isStarting = ref(false);
 
-// Same action the settings drawer exposes, surfaced here so the host can
+// Same action the house-rules editor exposes, surfaced here so the host can
 // re-roll the packs without opening settings.
 const { shuffle, pending: shufflePending } = useShufflePacks();
 function shufflePacks() {
@@ -143,7 +143,7 @@ const myId = computed(() => userStore.user?.id ?? null);
 
 // Start with 2 open seats when 1 player is in the lobby (3 total to show minimum required).
 // When player 2 joins, they take the 2nd seat (leaving 1 open seat).
-// For 3+ players, each new player adds a seat while keeping 1 open seat, capped at 16 for table layout sanity.
+// For 3+ players, each new player adds a seat while keeping 1 open seat, capped at 16 to keep the player grid sane.
 // The lobby itself has no hard player limit.
 const maxSeats = computed(() =>
   Math.min(Math.max(props.players.length + 1, 3), 16),
@@ -271,8 +271,9 @@ onBeforeUnmount(() => {
 <style>
 @import "~/assets/css/lobby.css";
 
-/* panel-striped variant; unscoped so LobbyPlayerGrid picks it up */
-.lobby-panel-striped {
+/* panel-striped variant; unscoped so LobbyPlayerGrid picks it up. Doubled
+   up so it beats .lobby-panel regardless of stylesheet order. */
+.lobby-panel.lobby-panel-striped {
   background:
     repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.02) 0 10px, rgba(255, 255, 255, 0) 10px 20px),
     rgba(10, 13, 28, 0.72);

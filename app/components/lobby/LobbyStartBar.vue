@@ -177,8 +177,9 @@ const frameClass = computed(() => {
 .lsb-utils { display: flex; gap: 4px; }
 .lsb-divider { width: 1px; height: 28px; background: var(--lb-line-strong); }
 
-.lsb-pips { display: flex; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.lsb-pips { flex-shrink: 0; display: flex; gap: 5px; margin: 0; padding: 0; list-style: none; }
 .lsb-pip {
+  flex-shrink: 0;
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -195,7 +196,7 @@ const frameClass = computed(() => {
 .lsb-pip--ready { background: var(--pip); color: #0d0f1a; opacity: 1; }
 .lsb-pip--more { --pip: var(--lb-line-strong); opacity: 1; color: var(--lb-ink-dim); }
 
-.lsb-status { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.lsb-status { display: flex; flex-direction: column; gap: 4px; flex: 0 1 auto; min-width: 0; }
 .lsb-label-main {
   font-family: 'Archivo Black', sans-serif;
   font-size: 15px;

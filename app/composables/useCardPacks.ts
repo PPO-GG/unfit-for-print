@@ -73,7 +73,11 @@ export function useCardPacks() {
         "/api/cards/packs",
         { query: { activeOnly: 1 } },
       ),
-      fetcher<{ packs: string[] }>("/api/cards/default-packs"),
+      // The default flags are decoration: a failure here must not hide the
+      // whole roster, so it degrades to "nothing is a default".
+      fetcher<{ packs: string[] }>("/api/cards/default-packs").catch(() => ({
+        packs: [] as string[],
+      })),
     ]);
     tiles.value = buildPackGallery(packs, defaults?.packs ?? [], packs?.meta ?? []);
     loaded.value = true;

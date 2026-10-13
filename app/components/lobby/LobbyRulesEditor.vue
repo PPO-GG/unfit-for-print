@@ -36,17 +36,17 @@
               <div>
                 <div class="lre-label">{{ t("lobby.editor.points_to_win") }}</div>
                 <div class="lre-stepper">
-                  <button class="lb-btn lb-btn--secondary lb-btn--icon lre-points-down" :disabled="!isHost || settings.maxPoints <= 3" @click="update('maxPoints', settings.maxPoints - 1)">−</button>
+                  <button class="lb-btn lb-btn--secondary lb-btn--icon lre-points-down" :aria-label="t('lobby.editor.decrease', { setting: pointsLabel })" :disabled="!isHost || settings.maxPoints <= 3" @click="update('maxPoints', settings.maxPoints - 1)">−</button>
                   <span class="lre-step-val">{{ settings.maxPoints }}</span>
-                  <button class="lb-btn lb-btn--secondary lb-btn--icon lre-points-up" :disabled="!isHost || settings.maxPoints >= 20" @click="update('maxPoints', settings.maxPoints + 1)">+</button>
+                  <button class="lb-btn lb-btn--secondary lb-btn--icon lre-points-up" :aria-label="t('lobby.editor.increase', { setting: pointsLabel })" :disabled="!isHost || settings.maxPoints >= 20" @click="update('maxPoints', settings.maxPoints + 1)">+</button>
                 </div>
               </div>
               <div>
                 <div class="lre-label">{{ t("lobby.editor.cards_in_hand") }}</div>
                 <div class="lre-stepper">
-                  <button class="lb-btn lb-btn--secondary lb-btn--icon" :disabled="!isHost || settings.cardsPerPlayer <= 5" @click="update('cardsPerPlayer', settings.cardsPerPlayer - 1)">−</button>
+                  <button class="lb-btn lb-btn--secondary lb-btn--icon" :aria-label="t('lobby.editor.decrease', { setting: handLabel })" :disabled="!isHost || settings.cardsPerPlayer <= 5" @click="update('cardsPerPlayer', settings.cardsPerPlayer - 1)">−</button>
                   <span class="lre-step-val">{{ settings.cardsPerPlayer }}</span>
-                  <button class="lb-btn lb-btn--secondary lb-btn--icon" :disabled="!isHost || settings.cardsPerPlayer >= 15" @click="update('cardsPerPlayer', settings.cardsPerPlayer + 1)">+</button>
+                  <button class="lb-btn lb-btn--secondary lb-btn--icon" :aria-label="t('lobby.editor.increase', { setting: handLabel })" :disabled="!isHost || settings.cardsPerPlayer >= 15" @click="update('cardsPerPlayer', settings.cardsPerPlayer + 1)">+</button>
                 </div>
               </div>
             </div>
@@ -94,7 +94,11 @@
             <div class="lre-packs-head">
               <h3 class="lre-group lre-group--flush">{{ t("game.settings.card_packs") }}</h3>
               <span class="lre-tally">
-                {{ t("lobby.editor.tally", { packs: tally.packs, total: tiles.length, white: tally.white, black: tally.black }) }}
+                {{
+                  tally.all
+                    ? t("lobby.editor.tally_all", { white: tally.white, black: tally.black })
+                    : t("lobby.editor.tally", { packs: tally.packs, total: tiles.length, white: tally.white, black: tally.black })
+                }}
               </span>
             </div>
             <div class="lre-controls">
@@ -108,10 +112,10 @@
                   :aria-selected="filter === f"
                   @click="filter = f"
                 >
-                  {{ t(`lobby.editor.filter_${f}`) }}<small>{{ counts[f] }}</small>
+                  {{ t(`lobby.editor.filter_${f}`) }}<small>{{ f === "selected" && tally.all ? t("lobby.editor.all_short") : counts[f] }}</small>
                 </button>
               </div>
-              <input v-model="search" class="lobby-input lre-search" :placeholder="t('labs.search_packs')" />
+              <input v-model="search" class="lobby-input lre-search" :aria-label="t('labs.search_packs')" :placeholder="t('labs.search_packs')" />
               <template v-if="isHost">
                 <button class="lb-btn lb-btn--secondary lb-btn--sm lre-defaults" :disabled="defaultIds.length === 0" @click="applyDefaults">
                   {{ t("lobby.editor.defaults") }}
@@ -133,7 +137,13 @@
                 @toggle="togglePack"
               />
               <p v-if="tiles.length > 0 && visibleTiles.length === 0" class="lre-empty">{{ t("lobby.editor.no_packs_match") }}</p>
-              <p v-if="tiles.length === 0" class="lre-empty">{{ t("labs.loading_packs") }}</p>
+              <div v-if="tiles.length === 0 && rosterFailed" class="lre-empty lre-roster-failed">
+                <p>{{ t("game.settings.fetch_packs_error") }}</p>
+                <button type="button" class="lb-btn lb-btn--secondary lb-btn--sm lre-retry" @click="loadRoster(true)">
+                  {{ t("lobby.editor.retry") }}
+                </button>
+              </div>
+              <p v-else-if="tiles.length === 0 && rosterLoading" class="lre-empty">{{ t("labs.loading_packs") }}</p>
             </div>
           </section>
         </div>
@@ -203,6 +213,9 @@ const counts = computed<Record<PackFilter, number>>(() => ({
   default: defaultIds.value.length,
 }));
 
+const pointsLabel = computed(() => t("lobby.editor.points_to_win"));
+const handLabel = computed(() => t("lobby.editor.cards_in_hand"));
+
 const filter = ref<PackFilter>(props.packFilter ?? "all");
 const search = ref("");
 watch(
@@ -253,14 +266,24 @@ function shufflePacks() {
 // and write defaults over the lobby's real packs, so this waits until both the
 // roster and the settings are present, and runs once.
 const rosterReady = ref(false);
+const rosterLoading = ref(true);
+const rosterFailed = ref(false);
 let normalised = false;
 let cancelled = false;
 onBeforeUnmount(() => { cancelled = true; });
 
-onMounted(async () => {
-  await load();
+// `load()` swallows its own errors and leaves `tiles` empty, so an empty roster
+// afterwards is the failure signal. Retry goes through here too, and a success
+// only flips `rosterReady`; the normalise watcher below keeps every one of its
+// gates (once-only, synced, settings, host), so a retry cannot bypass them.
+async function loadRoster(force = false) {
+  rosterLoading.value = true;
+  rosterFailed.value = false;
+  await load(force ? { force: true } : undefined);
   if (cancelled) return;
+  rosterLoading.value = false;
   if (tiles.value.length === 0) {
+    rosterFailed.value = true;
     notify({
       title: t("game.settings.fetch_packs_error"),
       icon: "i-solar-danger-circle-bold-duotone",
@@ -269,7 +292,9 @@ onMounted(async () => {
     return;
   }
   rosterReady.value = true;
-});
+}
+
+onMounted(() => loadRoster());
 
 watch(
   [rosterReady, synced, () => props.settings, () => props.isHost],
@@ -385,6 +410,7 @@ function toggleRequirePassword() {
   padding: 20px 22px;
   color: var(--lb-ink);
   background: #11152a;
+  font-family: "Barlow Condensed", system-ui, sans-serif;
 }
 .lre-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .lre-title { margin: 0; font-family: 'Archivo Black', sans-serif; font-size: 20px; letter-spacing: 0.03em; text-transform: uppercase; }
@@ -452,6 +478,8 @@ function toggleRequirePassword() {
   scrollbar-color: var(--lb-line-strong) transparent;
 }
 .lre-empty { grid-column: 1 / -1; text-align: center; padding: 20px 0; color: var(--lb-ink-muted); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.lre-roster-failed { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.lre-roster-failed p { margin: 0; }
 .lre-spin { animation: lre-spin 0.8s linear infinite; }
 @keyframes lre-spin { to { transform: rotate(360deg); } }
 

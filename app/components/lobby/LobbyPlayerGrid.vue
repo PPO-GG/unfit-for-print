@@ -61,12 +61,12 @@ const openSeats = computed(() => Math.max(0, props.maxSeats - props.players.leng
 const codeCopied = ref(false);
 const linkCopied = ref(false);
 
-async function copy(text: string, flag: typeof codeCopied) {
+async function copy(text: string, flag: typeof codeCopied, successTitle: string) {
   if (typeof window === "undefined") return;
   try {
     await navigator.clipboard.writeText(text);
     flag.value = true;
-    notify({ title: t("lobby.code_copied"), color: "success", icon: "i-mdi-clipboard-check" });
+    notify({ title: successTitle, color: "success", icon: "i-mdi-clipboard-check" });
     setTimeout(() => { flag.value = false; }, 1500);
   } catch {
     notify({ title: t("lobby.error_code_copied"), color: "error", icon: "i-mdi-alert-circle" });
@@ -74,11 +74,11 @@ async function copy(text: string, flag: typeof codeCopied) {
 }
 
 function copyCode() {
-  return copy(props.code, codeCopied);
+  return copy(props.code, codeCopied, t("lobby.code_copied"));
 }
 
 function copyLink() {
-  return copy(`${config.public.baseUrl}/game/${props.code}`, linkCopied);
+  return copy(`${config.public.baseUrl}/game/${props.code}`, linkCopied, t("lobby.link_copied"));
 }
 </script>
 

@@ -113,6 +113,73 @@ describe("LobbyRulesEditor — packs", () => {
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ title: "game.settings.fetch_packs_error" }));
   });
 
+  it("shows the failure and a Retry instead of an endless loading line", async () => {
+    tiles.value = [];
+    const w = mk({ settings: { ...settings, cardPacks: ["Raw Base"] } });
+    await flushPromises();
+    expect(w.text()).toContain("game.settings.fetch_packs_error");
+    expect(w.text()).not.toContain("labs.loading_packs");
+    expect(w.find(".lre-retry").exists()).toBe(true);
+  });
+
+  it("shows the loading line while the roster is still loading", async () => {
+    tiles.value = [];
+    let finish!: () => void;
+    load.mockImplementationOnce(() => new Promise<void>((r) => { finish = r; }));
+    const w = mk({ settings: { ...settings, cardPacks: ["Raw Base"] } });
+    await flushPromises();
+    expect(w.text()).toContain("labs.loading_packs");
+    expect(w.find(".lre-retry").exists()).toBe(false);
+    finish();
+    await flushPromises();
+  });
+
+  it("Retry reloads with force, renders the roster, and still normalises once", async () => {
+    tiles.value = [];
+    const w = mk({ settings: { ...settings, cardPacks: ["Raw Base", BLUE] } });
+    await flushPromises();
+    expect(updateSettings).not.toHaveBeenCalled();
+
+    load.mockImplementationOnce(async () => { tiles.value = ROSTER; });
+    await w.get(".lre-retry").trigger("click");
+    await flushPromises();
+
+    expect(load).toHaveBeenLastCalledWith({ force: true });
+    expect(w.findAll(".tile-stub")).toHaveLength(2);
+    expect(w.find(".lre-retry").exists()).toBe(false);
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith({ cardPacks: [BASE, BLUE] });
+  });
+
+  it("Retry does not normalise before the doc has synced", async () => {
+    synced.value = false;
+    tiles.value = [];
+    const w = mk({ settings: { ...settings, cardPacks: ["Raw Base"] } });
+    await flushPromises();
+    load.mockImplementationOnce(async () => { tiles.value = ROSTER; });
+    await w.get(".lre-retry").trigger("click");
+    await flushPromises();
+    expect(updateSettings).not.toHaveBeenCalled();
+  });
+
+  it("describes an empty selection as all packs, not a count", async () => {
+    synced.value = false; // keep the empty selection from being rewritten
+    const w = mk({ settings: { ...settings, cardPacks: [] } });
+    await flushPromises();
+    expect(w.get(".lre-tally").text()).toBe("lobby.editor.tally_all");
+    expect(w.get(".lre-filter--on").exists()).toBe(true);
+    const selectedTab = w.findAll(".lre-filter")[1]!;
+    expect(selectedTab.get("small").text()).toBe("lobby.editor.all_short");
+  });
+
+  it("labels the search box and the steppers for assistive tech", async () => {
+    const w = mk({ settings: { ...settings, cardPacks: [BASE] } });
+    await flushPromises();
+    expect(w.get(".lre-search").attributes("aria-label")).toBe("labs.search_packs");
+    expect(w.get(".lre-points-up").attributes("aria-label")).toBe("lobby.editor.increase");
+    expect(w.get(".lre-points-down").attributes("aria-label")).toBe("lobby.editor.decrease");
+  });
+
   it("writes nothing for a non-host and hides shuffle", async () => {
     const w = mk({ isHost: false, settings: { ...settings, cardPacks: ["Raw Base"] } });
     await flushPromises();

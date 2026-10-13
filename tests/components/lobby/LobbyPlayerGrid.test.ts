@@ -6,7 +6,8 @@ import * as Vue from "vue";
 Object.assign(globalThis, Vue);
 vi.unmock("vue");
 vi.stubGlobal("useI18n", () => ({ t: (key: string) => key }));
-vi.stubGlobal("useNotifications", () => ({ notify: vi.fn() }));
+const notify = vi.fn();
+vi.stubGlobal("useNotifications", () => ({ notify }));
 vi.stubGlobal("useRuntimeConfig", () => ({ public: { baseUrl: "https://unfit.cards" } }));
 
 import LobbyPlayerGrid from "~/components/lobby/LobbyPlayerGrid.vue";
@@ -14,6 +15,7 @@ import LobbyPlayerGrid from "~/components/lobby/LobbyPlayerGrid.vue";
 const writeText = vi.fn().mockResolvedValue(undefined);
 beforeEach(() => {
   writeText.mockClear();
+  notify.mockClear();
   Object.defineProperty(globalThis.navigator, "clipboard", { value: { writeText }, configurable: true });
 });
 
@@ -53,6 +55,7 @@ describe("LobbyPlayerGrid", () => {
     await w.get(".lpg-copy-link").trigger("click");
     await flushPromises();
     expect(writeText.mock.calls).toEqual([["QX7K"], ["https://unfit.cards/game/QX7K"]]);
+    expect(notify.mock.calls.map(([n]) => n.title)).toEqual(["lobby.code_copied", "lobby.link_copied"]);
   });
 
   it("copies the invite link when an open seat asks to invite", async () => {
