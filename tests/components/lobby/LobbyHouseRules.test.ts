@@ -73,6 +73,18 @@ describe("LobbyHouseRules", () => {
     expect(guest.find(".lhr-shuffle").exists()).toBe(false);
   });
 
+  it("renders rows whose short names collide without duplicate-key warnings", async () => {
+    // A legacy name entry equal to a resolved id's label yields two "Pack 5"
+    // rows. Vue only checks keys in the middle of a keyed patch (after the
+    // shared head and tail), so the update has to change the middle.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const w = mk({ settings: { ...settings, cardPacks: [ids[0], ids[1], ids[2]] } });
+    await w.setProps({ settings: { ...settings, cardPacks: [ids[0], ids[5], "Pack 5", ids[2]] } });
+    expect(w.findAll(".lhr-pack").map((p) => p.text())).toEqual(["Pack 0", "Pack 5", "Pack 5", "Pack 2"]);
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("Duplicate keys"))).toBe(false);
+    warn.mockRestore();
+  });
+
   it("disables Shuffle mid-roll", () => {
     expect(mk({ shuffling: true }).get(".lhr-shuffle").attributes("disabled")).toBeDefined();
   });

@@ -29,7 +29,7 @@
       </div>
       <ul class="lhr-pack-list">
         <li v-if="tally.all" class="lhr-all">{{ t("lobby.rules.all_packs") }}</li>
-        <li v-for="name in shownNames" :key="name" class="lhr-pack">{{ name }}</li>
+        <li v-for="(name, i) in shownNames" :key="`${i}-${name}`" class="lhr-pack">{{ name }}</li>
       </ul>
       <button v-if="extraNames > 0" class="lhr-more" @click="$emit('edit', 'selected')">
         {{ t("lobby.rules.more", { count: extraNames }) }}
