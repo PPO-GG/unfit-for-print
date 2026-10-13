@@ -91,7 +91,7 @@
       />
     </template>
 
-    <LobbySettingsDrawer
+    <LobbyRulesEditor
       :open="settingsOpen"
       :settings="reactive.settings.value"
       :is-host="isHost"
