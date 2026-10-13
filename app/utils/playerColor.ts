@@ -2,7 +2,7 @@
  * One accent colour per player, shared by the lobby's player cards, the ready
  * bar's pips and the compact list's avatars so all three always agree.
  *
- * The hash and palette are the ones LobbySeat and LobbyPlayerList each kept a
+ * The hash and palette are the ones the lobby seat card and LobbyPlayerList each kept a
  * copy of; keeping them byte-for-byte means nobody's colour changes.
  */
 export const PLAYER_PALETTE: readonly string[] = [

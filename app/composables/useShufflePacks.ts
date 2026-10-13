@@ -2,7 +2,7 @@
  * Backs the host's "Shuffle packs" control, which rolls a random spread of
  * card packs instead of making the host toggle two dozen chips by hand.
  *
- * The control appears twice — on the Card Packs field in the settings drawer
+ * The control appears twice — in the house-rules editor
  * and beside "Active Packs" in the lobby-room summary — so the roster load,
  * the roll and the Y.Doc write live here rather than in both components.
  *
