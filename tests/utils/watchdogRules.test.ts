@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   WATCHDOG_RULES,
   evaluateRules,
+  shouldRecoverDeparted,
   type WatchdogSnapshot,
   type WatchdogState,
 } from "~/utils/watchdogRules";
@@ -276,5 +277,50 @@ describe("evaluateRules", () => {
     const copy = JSON.parse(JSON.stringify(before));
     evaluateRules(WATCHDOG_RULES, stalled, 20_000, before);
     expect(before).toEqual(copy);
+  });
+});
+
+describe("shouldRecoverDeparted", () => {
+  const departedJudge = snapshot({
+    phase: "judging",
+    judgeId: "ghost",
+    activePlayerIds: ["judge", "alice", "bob"],
+    submittedPlayerIds: ["alice", "bob"],
+  });
+  const kickedToTwo = snapshot({ activePlayerIds: ["judge", "alice"] });
+
+  it("waits for the rule's threshold, like the report does", () => {
+    const first = evaluateRules(WATCHDOG_RULES, departedJudge, 0, {});
+    expect(shouldRecoverDeparted(first.state)).toBe(false);
+
+    const later = evaluateRules(WATCHDOG_RULES, departedJudge, 15_000, first.state);
+    expect(shouldRecoverDeparted(later.state)).toBe(true);
+  });
+
+  it("keeps asking on every tick while the state persists", () => {
+    let s = evaluateRules(WATCHDOG_RULES, departedJudge, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, departedJudge, 15_000, s).state;
+    s = evaluateRules(WATCHDOG_RULES, departedJudge, 30_000, s).state;
+    expect(shouldRecoverDeparted(s)).toBe(true);
+  });
+
+  it("covers too few players on its own", () => {
+    const first = evaluateRules(WATCHDOG_RULES, kickedToTwo, 0, {});
+    const later = evaluateRules(WATCHDOG_RULES, kickedToTwo, 30_000, first.state);
+    expect(shouldRecoverDeparted(later.state)).toBe(true);
+  });
+
+  it("stops once the state clears", () => {
+    let s = evaluateRules(WATCHDOG_RULES, departedJudge, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, departedJudge, 15_000, s).state;
+    s = evaluateRules(WATCHDOG_RULES, snapshot(), 30_000, s).state;
+    expect(shouldRecoverDeparted(s)).toBe(false);
+  });
+
+  it("ignores the rules it cannot repair", () => {
+    const stalled = snapshot({ phase: "submitting-complete" });
+    let s = evaluateRules(WATCHDOG_RULES, stalled, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, stalled, 60_000, s).state;
+    expect(shouldRecoverDeparted(s)).toBe(false);
   });
 });

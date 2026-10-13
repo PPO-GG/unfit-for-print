@@ -1348,6 +1348,54 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     scheduleReplenishIfNeeded();
   };
 
+  // ── Reconcile Departed Players ─────────────────────────────────────────
+  // handlePlayerLeave runs on the LEAVER's client, against whatever that
+  // client last saw. A leave that crosses the host's nextRound merges badly:
+  // nextRound's hand top-up beats the concurrent hand delete (a Yjs write wins
+  // over a delete that never saw it), the host had already picked the leaver
+  // as judge, and its phase write can beat the leaver's revert to waiting. The
+  // round then runs with a judge who is gone (lobby B36R). A kick has a gap of
+  // its own: skipPlayer refuses the judge, and nothing reverts below three.
+  //
+  // This is the host's after-the-fact repair. It re-runs handlePlayerLeave for
+  // anyone the round still references — a hand, a submission, the judge seat —
+  // who is no longer an active player, judge last so the rotation it triggers
+  // cannot land on another leaver. Idempotent: a healthy round writes nothing.
+  // Driven by the host-only watchdog rather than an observer, because this
+  // engine has no teardown to unhook an observer from.
+
+  const reconcileDepartedPlayers = (): boolean => {
+    if (getMeta().get("hostUserId") !== myId()) return false;
+
+    const state = readGameState();
+    if (state.phase === "waiting" || state.phase === "complete") return false;
+
+    const active = new Set(getActivePlayerIds());
+    const departed = new Set(
+      [...getHands().keys(), ...Object.keys(state.submissions)].filter(
+        (id) => !active.has(id),
+      ),
+    );
+    const judgeGone = !!state.judgeId && !active.has(state.judgeId);
+    if (state.judgeId) departed.delete(state.judgeId);
+
+    for (const id of departed) handlePlayerLeave(id);
+    if (judgeGone) handlePlayerLeave(state.judgeId!);
+
+    // Nobody left to clean up after, but too few to play: a kick, which
+    // removes the hand along with the player and never runs the revert.
+    const after = readGameState().phase;
+    if (after !== "waiting" && after !== "complete" && active.size < 3) {
+      requireDoc().transact(() => {
+        getGameState().set("phase", "waiting");
+        getMeta().set("status", "waiting");
+      });
+      return true;
+    }
+
+    return departed.size > 0 || judgeGone;
+  };
+
   // ── Manual Draw ──────────────────────────────────────────────────────
   // When manualDraw setting is enabled, players draw their own cards
   // by clicking the white deck instead of auto-receiving them.
@@ -1413,6 +1461,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     resetGame,
     markReturnedToLobby,
     handlePlayerLeave,
+    reconcileDepartedPlayers,
     replenishWhiteDeck,
     drawCards,
   };

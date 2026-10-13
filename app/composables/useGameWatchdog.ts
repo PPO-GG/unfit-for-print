@@ -4,6 +4,7 @@ import { useIssueReporter } from "~/composables/useIssueReporter";
 import {
   WATCHDOG_RULES,
   evaluateRules,
+  shouldRecoverDeparted,
   type WatchdogSnapshot,
   type WatchdogState,
 } from "~/utils/watchdogRules";
@@ -23,12 +24,18 @@ type LobbyReactive = ReturnType<typeof useLobbyReactive>;
  * useYjsGameEngine). Every client sees the same Y.Doc, so letting all of them
  * evaluate would report the same stuck round once per player.
  *
- * It only reports. No toast, no auto-recovery — the thresholds here are
- * untuned guesses, and telling a host their working game is broken is worse
- * than telling nobody. Once the inbox shows which rules never false-positive,
- * nudging the host becomes a defensible next step.
+ * Mostly it only reports. No toast — telling a host their working game is
+ * broken is worse than telling nobody. The one exception is a round still
+ * referencing a player who has left (`RECOVERABLE_RULE_IDS`): the inbox showed
+ * those are real (lobby B36R) and have exactly one repair, so once such a rule
+ * has held past its threshold the host runs `recoverDeparted` — the engine's
+ * reconcileDepartedPlayers — on every tick until it clears. The report goes
+ * out first, so it still describes the broken state.
  */
-export function useGameWatchdog(reactive: LobbyReactive) {
+export function useGameWatchdog(
+  reactive: LobbyReactive,
+  recoverDeparted?: () => unknown,
+) {
   // The reporter already dedupes, caps per session, and never throws.
   const { report } = useIssueReporter();
 
@@ -65,6 +72,16 @@ export function useGameWatchdog(reactive: LobbyReactive) {
         message: anomaly.message,
         context: { ruleId: anomaly.ruleId, phase: snapshot.phase },
       });
+    }
+
+    if (recoverDeparted && shouldRecoverDeparted(state)) {
+      try {
+        recoverDeparted();
+      } catch (err) {
+        // A repair that throws must not take the watchdog's timer with it;
+        // the next tick tries again while the rule still holds.
+        console.error("[GameWatchdog] Departed-player recovery failed:", err);
+      }
     }
   };
 

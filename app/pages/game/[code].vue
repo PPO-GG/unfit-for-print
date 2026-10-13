@@ -50,10 +50,10 @@ const {
 } = useLobby();
 const { initializeGamePageSession } = useJoinLobby();
 
-// Host-only watchdog for rounds that wedge without throwing. It observes and
-// reports; it changes no game state, so it belongs here rather than in the
-// engine.
-useGameWatchdog(reactive);
+// Host-only watchdog for rounds that wedge without throwing. It reports, and
+// for a round still waiting on a player who has left it also has the engine
+// repair it — the rule lives in the engine, only the timer lives here.
+useGameWatchdog(reactive, engine.reconcileDepartedPlayers);
 
 // ─── Reactive State from Y.Doc ──────────────────────────────────────────────
 // All game state is derived from useLobbyReactive().
