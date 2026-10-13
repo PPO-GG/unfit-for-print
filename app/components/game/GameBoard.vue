@@ -12,6 +12,7 @@ import GameHeader from "~/components/game/GameHeader.vue";
 import { SFX } from "~/config/sfx.config";
 import { useSpeech } from "~/composables/useSpeech";
 import { useCompactLayout } from "~/composables/useCompactLayout";
+import { manualDrawSlots } from "~/utils/manualDraw";
 import { useUserPrefsStore } from "@/stores/userPrefsStore";
 import {
   getProviderFromVoiceId,
@@ -125,17 +126,19 @@ const isSpectator = computed(() => {
   return currentPlayer.value?.playerType === "spectator";
 });
 
-const needsManualDraw = computed(() => {
-  const manualDraw = lobbyReactive.settings.value?.manualDraw;
-  const myHandCards = lobbyReactive.myHand.value ?? [];
-  const cardsPerPlayer = lobbyReactive.settings.value?.cardsPerPlayer ?? 10;
-  return (
-    manualDraw &&
-    myHandCards.length < cardsPerPlayer &&
-    !isJudge.value &&
-    isParticipant.value
-  );
-});
+// Empty hand slots this player can fill from the deck. Zero unless manual draw
+// is on and drawCards would accept a draw right now.
+const drawCount = computed(() =>
+  manualDrawSlots({
+    manualDraw: !!lobbyReactive.settings.value?.manualDraw,
+    handSize: lobbyReactive.myHand.value?.length ?? 0,
+    cardsPerPlayer: lobbyReactive.settings.value?.cardsPerPlayer ?? 10,
+    isJudge: !!isJudge.value,
+    isParticipant: isParticipant.value,
+    hasSubmitted: !!submissions.value[myId],
+  }),
+);
+const needsManualDraw = computed(() => drawCount.value > 0);
 
 function handleDeckDraw() {
   const result = engine.drawCards();
@@ -195,12 +198,6 @@ function handleRemovePlayer(userId: string) {
   const target = props.players.find((p) => p.userId === userId);
   if (target) removePlayer(props.lobby.id, target);
 }
-const drawCount = computed(() =>
-  Math.max(
-    0,
-    (lobbyReactive.settings.value?.cardsPerPlayer ?? 10) - (myHand.value?.length ?? 0),
-  ),
-);
 
 // ESC key toggles the menu (chat overlay handles its own ESC via capture phase)
 function handleGlobalEsc(e: KeyboardEvent) {
@@ -682,6 +679,7 @@ function handleNextRound() {
             :scale="75"
             :interactive="needsManualDraw"
             :needs-draw="needsManualDraw"
+            :draw-count="drawCount"
             @draw="handleDeckDraw"
           />
         </div>
@@ -711,6 +709,7 @@ function handleNextRound() {
           :judge-id="judgeId"
           :reading-aloud="readingAloud"
           :card-texts="cardTexts"
+          :draw-slots="drawCount"
           @select-cards="handleCardSubmit"
           @convert-to-player="convertToPlayer"
           @select-winner="handleSelectWinner"
@@ -718,6 +717,7 @@ function handleNextRound() {
           @read-aloud="handleReadAloud"
           @skip-player="emit('skip-player', $event)"
           @skip-prompt="handleSkipPrompt"
+          @draw="handleDeckDraw"
         />
 
         <!-- Waiting State -->

@@ -86,4 +86,55 @@ describe("UserHand.vue", () => {
     const selected = wrapper.findAll(".hand-card--selected");
     expect(selected.length).toBe(0);
   });
+
+  describe("manual draw slots", () => {
+    const stubs = { WhiteCard: true, UButton: true, Icon: true };
+
+    it("shows one dashed slot per card the player can draw", () => {
+      wrapper = mount(UserHand, {
+        props: { cards: ["c1", "c2", "c3"], drawSlots: 7 },
+        global: { stubs },
+      });
+
+      expect(wrapper.findAll(".hand-card").length).toBe(3);
+      expect(wrapper.findAll(".hand-slot").length).toBe(7);
+    });
+
+    it("shows none when there is nothing to draw", () => {
+      wrapper = mount(UserHand, {
+        props: { cards: ["c1", "c2", "c3"] },
+        global: { stubs },
+      });
+
+      expect(wrapper.findAll(".hand-slot").length).toBe(0);
+    });
+
+    it("draws when a slot is tapped, without selecting a card", async () => {
+      wrapper = mount(UserHand, {
+        props: { cards: ["c1", "c2"], drawSlots: 2 },
+        global: { stubs },
+      });
+
+      await wrapper.find(".hand-slot").trigger("click");
+
+      expect(wrapper.emitted("draw")).toHaveLength(1);
+      expect(wrapper.findAll(".hand-card--selected").length).toBe(0);
+    });
+
+    // The fan is laid out for the full hand, so drawn cards land in the gaps
+    // they fill instead of the whole fan reshuffling around them.
+    it("lays the fan out for the full hand, gaps included", () => {
+      const short = mount(UserHand, {
+        props: { cards: ["c1", "c2", "c3"], drawSlots: 7 },
+        global: { stubs },
+      });
+      const full = mount(UserHand, {
+        props: { cards: Array.from({ length: 10 }, (_, i) => `c${i}`) },
+        global: { stubs },
+      });
+
+      expect(short.vm.getBaseTransform(0)).toEqual(full.vm.getBaseTransform(0));
+      expect(short.vm.getBaseTransform(9)).toEqual(full.vm.getBaseTransform(9));
+    });
+  });
 });

@@ -43,11 +43,20 @@ const props = defineProps<{
   cardTexts?: CardTexts;
   /** When true the hand is visible; when false it slides down and hides. */
   isSubmitting?: boolean;
+  /** Empty slots the player can draw into under manual draw. Shown as dashed
+   *  gaps after the cards; tapping one emits `draw`. */
+  drawSlots?: number;
 }>();
 
 const emit = defineEmits<{
   (e: "select-cards", cardIds: string[]): void;
+  (e: "draw"): void;
 }>();
+
+const drawSlots = computed(() => Math.max(0, props.drawSlots ?? 0));
+// The fan is laid out for cards plus gaps, so a drawn card lands in the gap it
+// fills rather than the whole fan reshuffling around it.
+const slotCount = computed(() => props.cards.length + drawSlots.value);
 
 const selectedCards = ref<string[]>([]);
 const hoveredIndex = ref<number | null>(null);
@@ -93,7 +102,7 @@ const isTabletTouch = computed(
 
 // Fan geometry
 const FAN = computed(() => {
-  const n = props.cards.length;
+  const n = slotCount.value;
   const w = windowWidth.value;
   const isMob = w < 768;
   const totalArc = Math.min(isMob ? 50 : 40, n * (isMob ? 6 : 5));
@@ -108,7 +117,7 @@ const FAN = computed(() => {
 
 // ── GSAP Animation ─────────────────────────────────────────────────────────
 function getBaseTransform(i: number) {
-  const n = props.cards.length;
+  const n = slotCount.value;
   const center = (n - 1) / 2;
   const offset = i - center;
   const { arcStep, curveIntensity, spread } = FAN.value;
@@ -151,6 +160,23 @@ function animateCards() {
   });
 
   justToggledIndex.value = null;
+}
+
+/** Where the draw gap at fan position `i` sits. Plain CSS rather than GSAP: a
+ *  gap never flies in from the deck, it only makes room when a card is hovered. */
+function slotStyle(i: number) {
+  const { hoverPush, hoverLift } = FAN.value;
+  const t = applyHoverTransform({
+    index: i,
+    hovered: hoveredIndex.value,
+    base: getBaseTransform(i),
+    hoverPush,
+    hoverLift,
+  });
+  return {
+    transform: `translate(${t.x}px, ${t.y}px) rotate(${t.rotation}deg)`,
+    zIndex: t.zIndex,
+  };
 }
 
 watch(hoveredIndex, () => animateCards());
@@ -405,7 +431,9 @@ function handlePointerMove(e: MouseEvent | TouchEvent) {
   const containerCenterX = rect.left + rect.width / 2;
   const cursorX = clientX - containerCenterX;
 
-  const n = cardRefs.value.length;
+  // Draw gaps are part of the fan's geometry but are not cards: they count
+  // towards the footprint and the centre, never towards what can be hovered.
+  const n = slotCount.value;
   const center = (n - 1) / 2;
   const { spread, curveIntensity } = FAN.value;
 
@@ -447,6 +475,9 @@ function handlePointerMove(e: MouseEvent | TouchEvent) {
       minDistance = distance;
       closestIndex = i;
     }
+  }
+  if (closestIndex !== null && closestIndex >= props.cards.length) {
+    closestIndex = null;
   }
 
   if (hoveredIndex.value !== closestIndex) {
@@ -723,6 +754,13 @@ onUnmounted(() => {
               :scale="75"
             />
           </div>
+          <DrawSlot
+            v-for="n in drawSlots"
+            :key="`draw-slot-${n}`"
+            class="hand-slot carousel-slot"
+            :scale="75"
+            @click.stop="emit('draw')"
+          />
         </div>
 
         <!-- Submit bar -->
@@ -800,6 +838,14 @@ onUnmounted(() => {
               :scale="65"
             />
           </div>
+          <DrawSlot
+            v-for="n in drawSlots"
+            :key="`draw-slot-${n}`"
+            class="hand-slot hand-slot--fan"
+            :scale="65"
+            :style="slotStyle(props.cards.length + n - 1)"
+            @click.stop="emit('draw')"
+          />
         </div>
       </div>
     </div>
@@ -982,6 +1028,14 @@ onUnmounted(() => {
   bottom: 0;
 }
 
+/* Draw gaps sit in the arc exactly where a card would. */
+.hand-slot--fan {
+  position: absolute;
+  bottom: 0;
+  transform-origin: center bottom;
+  transition: transform 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
 .hand-card--selected::after {
   content: "";
   position: absolute;
@@ -1122,6 +1176,11 @@ onUnmounted(() => {
               opacity 0.2s ease,
               box-shadow 0.2s ease;
   border-radius: 14px;
+}
+
+.carousel-slot {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
 }
 
 .carousel-card--selected {

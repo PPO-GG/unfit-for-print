@@ -48,9 +48,12 @@ const props = withDefaults(
     readingAloud?: boolean;
     /** Resolved card texts keyed by card ID — eliminates per-card fetches. */
     cardTexts?: CardTexts;
+    /** Empty hand slots this player can draw into (manual draw only). */
+    drawSlots?: number;
   }>(),
   {
     blackCard: null,
+    drawSlots: 0,
     myHand: () => [],
     effectiveRoundWinner: null,
     confirmedRoundWinner: null,
@@ -71,6 +74,7 @@ const emit = defineEmits([
   "read-aloud",
   "skip-player",
   "skip-prompt",
+  "draw",
 ]);
 
 const { t } = useI18n();
@@ -603,7 +607,9 @@ function handleSelectWinner(playerId: string) {
           :disabled="isJudge || false"
           :card-texts="props.cardTexts"
           :is-submitting="isSubmitting"
+          :draw-slots="drawSlots"
           @select-cards="handleCardSubmit"
+          @draw="emit('draw')"
         />
       </div>
     </Transition>

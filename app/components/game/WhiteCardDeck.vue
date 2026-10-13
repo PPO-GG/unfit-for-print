@@ -27,11 +27,22 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  /** How many cards a draw would deal; shown as a badge while `needsDraw`. */
+  drawCount: {
+    type: Number,
+    default: 0,
+  },
 });
 
 const emit = defineEmits<{
   (e: "draw"): void;
 }>();
+
+const { t } = useI18n();
+
+function onActivate() {
+  if (props.interactive) emit("draw");
+}
 
 const deckRef = ref<HTMLElement | null>(null);
 const { registerDeck, isDealing } = useWhiteDeckPosition();
@@ -68,8 +79,15 @@ watch(isDealing, (dealing) => {
     :class="{
       'white-deck--dealing': isDealing,
       'white-deck--interactive': props.interactive,
+      'white-deck--needs-draw': props.needsDraw,
     }"
-    @click="props.interactive && emit('draw')"
+    :role="props.interactive ? 'button' : undefined"
+    :tabindex="props.interactive ? 0 : undefined"
+    :aria-label="
+      props.interactive ? t('game.deck_draw_aria', props.drawCount) : undefined
+    "
+    @click="onActivate"
+    @keydown.enter.self.prevent="onActivate"
   >
     <!-- Stack effect with multiple cards -->
     <div
@@ -94,7 +112,7 @@ watch(isDealing, (dealing) => {
       />
       <div
         v-if="i === 1 && props.needsDraw"
-        class="draw-indicator text-nickel-500"
+        class="draw-indicator"
       >
         <UIcon
           name="i-solar-circle-bottom-down-bold"
@@ -102,6 +120,10 @@ watch(isDealing, (dealing) => {
         />
       </div>
     </div>
+    <!-- After the layers: the first layer sizes the stack via :first-child. -->
+    <span v-if="props.needsDraw && props.drawCount > 0" class="draw-badge">
+      +{{ props.drawCount }}
+    </span>
   </div>
 </template>
 
@@ -128,6 +150,45 @@ watch(isDealing, (dealing) => {
 
 .white-deck--interactive {
   cursor: pointer;
+  border-radius: 14px;
+  outline: none;
+}
+
+/* A glow around the whole stack, not just the top card: the old grey icon on
+   a grey card back was easy to play an entire game without noticing. */
+.white-deck--needs-draw {
+  --draw-accent: var(--lb-accent, oklch(78% 0.2 195));
+  filter: drop-shadow(0 0 10px color-mix(in oklch, var(--draw-accent) 70%, transparent));
+  animation: deck-glow 1.8s ease-in-out infinite;
+}
+
+.white-deck--interactive:focus-visible {
+  filter: drop-shadow(0 0 0 var(--draw-accent)) drop-shadow(0 0 14px var(--draw-accent));
+}
+
+@keyframes deck-glow {
+  50% {
+    filter: drop-shadow(0 0 20px var(--draw-accent));
+  }
+}
+
+.draw-badge {
+  position: absolute;
+  top: -22px;
+  right: -14px;
+  z-index: 20;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 17px;
+  display: grid;
+  place-items: center;
+  background: var(--draw-accent);
+  color: #05060d;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
 }
 
 .draw-indicator {
@@ -138,6 +199,7 @@ watch(isDealing, (dealing) => {
   justify-content: center;
   pointer-events: none;
   z-index: 10;
+  color: var(--draw-accent);
 }
 
 .draw-indicator-icon {
@@ -155,6 +217,13 @@ watch(isDealing, (dealing) => {
   50% {
     opacity: 1;
     transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .white-deck--needs-draw,
+  .draw-indicator-icon {
+    animation: none;
   }
 }
 </style>

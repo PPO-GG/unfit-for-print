@@ -383,7 +383,9 @@ onMounted(() => {
           :selected="ui.selected.value"
           :show-order="pick > 1"
           :scale="cardScale"
+          :draw-slots="needsManualDraw ? drawCount : 0"
           @select="onSelect"
+          @draw="emit('draw')"
         />
       </template>
 
