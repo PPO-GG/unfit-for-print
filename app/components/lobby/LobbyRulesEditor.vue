@@ -3,7 +3,7 @@
     :open="open"
     :title="t('lobby.editor.title')"
     :fullscreen="isCompact"
-    :ui="{ content: 'lobby-tokens lre-content' }"
+    :ui="{ content: contentClass }"
     @update:open="(v: boolean) => { if (!v) $emit('close'); }"
   >
     <template #content>
@@ -171,8 +171,16 @@ defineEmits<{ (e: "close"): void }>();
 
 const { t } = useI18n();
 const { notify } = useNotifications();
-const { mutations } = useLobby();
+const { mutations, lobbyDoc } = useLobby();
+const synced = lobbyDoc.synced;
 const { isCompact } = useCompactLayout();
+// Fullscreen on compact: Nuxt UI already pins the content to inset-0, so the
+// fixed width and border only apply to the windowed desktop modal.
+const contentClass = computed(() =>
+  isCompact.value
+    ? "lobby-tokens lre-content"
+    : "lobby-tokens lre-content lre-content--windowed",
+);
 const { tiles, load, seriesPrefix } = useCardPacks();
 const { shuffle, pending: shufflePending } = useShufflePacks();
 
@@ -264,9 +272,12 @@ onMounted(async () => {
 });
 
 watch(
-  [rosterReady, () => props.settings, () => props.isHost],
-  ([ready, settings, isHost]) => {
-    if (normalised || !ready || !settings || !isHost) return;
+  [rosterReady, synced, () => props.settings, () => props.isHost],
+  ([ready, isSynced, settings, isHost]) => {
+    // `settings` is never null once the doc object exists: before the first
+    // sync it parses to an empty selection, which would read as "seed defaults"
+    // and race the server's real cardPacks. So wait for the doc to have synced.
+    if (normalised || !ready || !isSynced || !settings || !isHost) return;
     normalised = true;
     const current = settings.cardPacks ?? [];
     const { ids, changed } = normalizePackSelection(current, roster.value);
@@ -459,5 +470,6 @@ function toggleRequirePassword() {
 <style>
 /* UModal teleports its content to body, outside .lobby-room, so the width
    and surface have to be set on the content element itself. */
-.lre-content { width: min(920px, calc(100vw - 32px)); max-width: none; background: #11152a; border: 1px solid var(--lb-line-strong); }
+.lre-content { background: #11152a; }
+.lre-content--windowed { width: min(920px, calc(100vw - 32px)); max-width: none; border: 1px solid var(--lb-line-strong); }
 </style>

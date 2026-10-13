@@ -17,10 +17,11 @@ const updateSettings = vi.fn();
 const notify = vi.fn();
 const tiles = Vue.ref<any[]>([]);
 const load = vi.fn(async () => {});
+const synced = Vue.ref(true);
 
 vi.stubGlobal("useI18n", () => ({ t: (key: string) => key }));
 vi.stubGlobal("useNotifications", () => ({ notify }));
-vi.mock("~/composables/useLobby", () => ({ useLobby: () => ({ mutations: { updateSettings } }) }));
+vi.mock("~/composables/useLobby", () => ({ useLobby: () => ({ mutations: { updateSettings }, lobbyDoc: { synced } }) }));
 vi.mock("~/composables/useShufflePacks", () => ({
   useShufflePacks: () => ({ shuffle, pending: Vue.ref(false) }),
 }));
@@ -66,6 +67,7 @@ beforeEach(() => {
   notify.mockClear();
   load.mockClear();
   tiles.value = ROSTER;
+  synced.value = true;
 });
 
 describe("LobbyRulesEditor — packs", () => {
@@ -87,6 +89,17 @@ describe("LobbyRulesEditor — packs", () => {
     await flushPromises();
     expect(updateSettings).not.toHaveBeenCalled();
     await w.setProps({ settings: { ...settings, cardPacks: ["Raw Base"] } });
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith({ cardPacks: [BASE] });
+  });
+
+  it("waits for the doc to sync before seeding defaults over an empty selection", async () => {
+    synced.value = false;
+    mk({ settings: { ...settings, cardPacks: [] } });
+    await flushPromises();
+    expect(updateSettings).not.toHaveBeenCalled();
+    synced.value = true;
     await flushPromises();
     expect(updateSettings).toHaveBeenCalledTimes(1);
     expect(updateSettings).toHaveBeenCalledWith({ cardPacks: [BASE] });
