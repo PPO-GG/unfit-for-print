@@ -119,6 +119,44 @@
   box-shadow: 0 0 18px oklch(80% 0.20 140 / 0.35);
 }
 
+/* ── Lobby button tiers ──────────────────────────────────────────────────────
+   quiet = utilities, secondary = toggles, primary = the one main action.
+   .neon-btn stays for the compact view and the game screens. */
+.lb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--lb-ink);
+  font-family: 'Archivo Black', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 120ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+.lb-btn:focus-visible { outline: 2px solid var(--lb-accent); outline-offset: 2px; }
+.lb-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+.lb-btn--quiet { color: var(--lb-ink-dim); }
+.lb-btn--quiet:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); color: var(--lb-ink); }
+.lb-btn--secondary { background: rgba(255, 255, 255, 0.04); border-color: var(--lb-line-strong); }
+.lb-btn--secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.32); }
+.lb-btn--primary {
+  color: #0d0f1a;
+  background: var(--lb-accent);
+  border-color: var(--lb-accent);
+  box-shadow: 0 4px 0 0 var(--lb-accent-shadow);
+}
+.lb-btn--primary:hover:not(:disabled) { background: oklch(82% 0.20 195); transform: translateY(-1px); }
+.lb-btn--primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 0 var(--lb-accent-shadow); }
+.lb-btn--icon { width: 36px; height: 36px; padding: 0; font-size: 18px; }
+.lb-btn--sm { padding: 5px 9px; font-size: 9px; }
+
 /* ── Seat ────────────────────────────────────────────────────────────────── */
 .lobby-seat {
   position: absolute;
