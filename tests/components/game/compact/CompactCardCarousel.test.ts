@@ -44,6 +44,31 @@ describe("CompactCardCarousel — select", () => {
     expect(w.emitted("select")).toEqual([["w2"]]);
   });
 
+  // First, not last: a phone shows about one card at a time, and gaps at the
+  // end of the track sat behind a swipe the player had no reason to make.
+  it("leads with a dashed gap per drawable card, and tapping one draws", async () => {
+    const w = mount(CompactCardCarousel, {
+      props: { mode: "select", cardTexts: texts, cards: ["w1", "w2"], drawSlots: 2 },
+      global: { stubs },
+    });
+    const track = w.get(".compact-carousel-track").element.children;
+    expect(track[0]!.classList).toContain("compact-draw-slot");
+    expect(track[1]!.classList).toContain("compact-draw-slot");
+    expect(w.findAll("[data-slide]")).toHaveLength(2);
+
+    await w.get(".compact-draw-slot").trigger("click");
+    expect(w.emitted("draw")).toHaveLength(1);
+    expect(w.emitted("select")).toBeUndefined();
+  });
+
+  it("shows no gaps in judge mode", () => {
+    const w = mount(CompactCardCarousel, {
+      props: { mode: "judge", cardTexts: texts, order: [], drawSlots: 3 },
+      global: { stubs },
+    });
+    expect(w.find(".compact-draw-slot").exists()).toBe(false);
+  });
+
   it("does nothing when not interactive", async () => {
     const w = mount(CompactCardCarousel, {
       props: { mode: "select", cardTexts: texts, cards: ["w1"], interactive: false },

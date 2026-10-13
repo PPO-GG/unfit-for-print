@@ -27,6 +27,8 @@ const props = withDefaults(
     canReadAloud?: boolean;
     readingAloud?: boolean;
     scale?: number;
+    /** Select mode: empty slots the player can draw into under manual draw. */
+    drawSlots?: number;
   }>(),
   {
     cards: () => [],
@@ -41,10 +43,12 @@ const props = withDefaults(
     canReadAloud: false,
     readingAloud: false,
     scale: 100,
+    drawSlots: 0,
   },
 );
 
 const emit = defineEmits<{
+  draw: [];
   select: [cardId: string];
   reveal: [playerId: string];
   pick: [playerId: string];
@@ -78,6 +82,16 @@ const slides = computed<Slide[]>(() =>
       })),
 );
 
+// Draw gaps lead the track rather than trail it: a phone shows about one card
+// at a time, and gaps at the end sat behind a swipe nobody had reason to make.
+const gapCount = computed(() =>
+  props.mode === "select" && props.interactive ? Math.max(0, props.drawSlots) : 0,
+);
+const dotKeys = computed(() => [
+  ...Array.from({ length: gapCount.value }, (_, i) => `draw-slot-${i}`),
+  ...slides.value.map((s) => s.key),
+]);
+
 function onTap(slide: Slide) {
   if (!props.interactive) return;
   if (props.mode === "select") {
@@ -94,7 +108,7 @@ const trackEl = ref<HTMLElement | null>(null);
 const activeIndex = ref(0);
 function onScroll() {
   const el = trackEl.value;
-  const count = slides.value.length;
+  const count = dotKeys.value.length;
   if (!el || count === 0) return;
   const max = el.scrollWidth - el.clientWidth;
   activeIndex.value = max > 0 ? Math.round((el.scrollLeft / max) * (count - 1)) : 0;
@@ -107,6 +121,13 @@ function onScroll() {
     :class="`compact-carousel--${mode}`"
   >
     <div ref="trackEl" class="compact-carousel-track" @scroll.passive="onScroll">
+      <DrawSlot
+        v-for="key in dotKeys.slice(0, gapCount)"
+        :key="key"
+        class="compact-draw-slot"
+        :scale="scale"
+        @click="emit('draw')"
+      />
       <div
         v-for="slide in slides"
         :key="slide.key"
@@ -158,10 +179,10 @@ function onScroll() {
         </button>
       </div>
     </div>
-    <div v-if="slides.length > 1" class="compact-carousel-dots" aria-hidden="true">
+    <div v-if="dotKeys.length > 1" class="compact-carousel-dots" aria-hidden="true">
       <i
-        v-for="(slide, i) in slides"
-        :key="slide.key"
+        v-for="(key, i) in dotKeys"
+        :key="key"
         :class="{ on: i === activeIndex }"
       />
     </div>
@@ -198,6 +219,10 @@ function onScroll() {
   border-radius: 12px;
   transition: transform 0.18s ease;
   -webkit-tap-highlight-color: transparent;
+}
+.compact-draw-slot {
+  flex: none;
+  scroll-snap-align: center;
 }
 .compact-slide.is-interactive {
   cursor: pointer;
