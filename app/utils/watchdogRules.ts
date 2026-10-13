@@ -165,3 +165,25 @@ export function evaluateRules(
 
   return { state: next, fired };
 }
+
+/**
+ * Rules the host repairs as well as reports. Both describe a round still
+ * referencing someone who has left — a leave that crossed nextRound (lobby
+ * B36R), or a kick — and both have one unambiguous repair, the engine's
+ * reconcileDepartedPlayers. The other rules are still report-only: what the
+ * right repair is for them depends on why the round stalled.
+ */
+export const RECOVERABLE_RULE_IDS = ["judge-missing", "too-few-players"];
+
+/**
+ * Whether the host should run the departed-player repair this tick: a
+ * recoverable rule has held past its threshold and is still holding.
+ *
+ * Reads `reported` rather than `fired` on purpose. A rule fires once per
+ * stretch, but a repair that did not take (a write that lost a race of its
+ * own) must be retried on the next tick, and `reported` stays true for exactly
+ * as long as the condition does.
+ */
+export function shouldRecoverDeparted(state: WatchdogState): boolean {
+  return RECOVERABLE_RULE_IDS.some((id) => state[id]?.reported);
+}
