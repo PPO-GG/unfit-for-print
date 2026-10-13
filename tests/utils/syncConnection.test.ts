@@ -187,6 +187,9 @@ describe("createSyncConnection heartbeat", () => {
     expect(socket.close).not.toHaveBeenCalled(); // 30 s after the ping
     vi.advanceTimersByTime(HEARTBEAT_INTERVAL_MS);
     expect(socket.close).toHaveBeenCalledTimes(1); // 45 s after the ping
+    // With a code: a bare close() reaches the worker as 1005, which it may
+    // not echo, so the socket would linger in CLOSING.
+    expect(socket.close).toHaveBeenCalledWith(4000, "Heartbeat timeout");
     // Even if the close event is slow to arrive, the same socket is not
     // closed again or pinged.
     vi.advanceTimersByTime(HEARTBEAT_TIMEOUT_MS * 2);
