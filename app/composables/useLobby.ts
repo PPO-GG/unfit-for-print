@@ -126,6 +126,7 @@ export const useLobby = () => {
         whiteDeckCount: reactive.cards.value?.whiteDeck?.length,
         blackDeckCount: reactive.cards.value?.blackDeck?.length,
         isHost: reactive.isHost.value,
+        manualDraw: snapshot?.manualDraw,
 
         // Who, exactly. `submissionCount` alone forced the reader to infer
         // who had played from hand sizes, which only works while every card

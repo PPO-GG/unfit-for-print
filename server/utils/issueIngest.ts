@@ -118,6 +118,7 @@ const CONTEXT_VALUE_GUARDS: Record<
   whiteDeckCount: isFiniteNumber,
   blackDeckCount: isFiniteNumber,
   isHost: (v) => typeof v === "boolean",
+  manualDraw: (v) => typeof v === "boolean",
   submittedPlayerIds: isIdList,
   skippedPlayerIds: isIdList,
   activeRuleIds: isKnownRuleIdList,

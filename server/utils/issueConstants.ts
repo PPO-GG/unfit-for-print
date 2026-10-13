@@ -83,6 +83,7 @@ export const ISSUE_CONTEXT_KEYS = [
   "whiteDeckCount",
   "blackDeckCount",
   "isHost",
+  "manualDraw",
   "submittedPlayerIds",
   "skippedPlayerIds",
   "activeRuleIds",

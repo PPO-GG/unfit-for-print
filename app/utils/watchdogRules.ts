@@ -26,6 +26,8 @@ export interface WatchdogSnapshot {
   /** Player id → number of cards currently held. */
   handSizes: Record<string, number>;
   cardsPerPlayer: number;
+  /** Players top up their own hands by tapping the deck; nextRound deals none. */
+  manualDraw: boolean;
 }
 
 export interface Anomaly {
@@ -99,10 +101,14 @@ export const WATCHDOG_RULES: WatchdogRule[] = [
     // the normal mid-round state and flagging it would fire every round. A
     // player who has NOT submitted, however, should still be holding a full
     // hand — if they are short, replenishment failed (which today only warns).
+    // Except under manual draw, where nextRound deals nobody anything and a
+    // player who hasn't tapped the deck is short by choice. That was every
+    // v3.32.0 report of this rule: the white deck never moved between rounds.
     id: "hand-underfilled",
     thresholdMs: 30_000,
     detect: (s) =>
       s.phase === "submitting" &&
+      !s.manualDraw &&
       s.activePlayerIds.some((id) => {
         if (id === s.judgeId) return false;
         if (s.skippedPlayerIds.includes(id)) return false;
