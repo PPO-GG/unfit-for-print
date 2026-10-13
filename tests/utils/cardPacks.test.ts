@@ -635,3 +635,14 @@ describe("countLabsCards", () => {
     expect(isLabsPack("  unfit labs  ")).toBe(true);
   });
 });
+
+describe("buildPackGallery — legacy keys", () => {
+  it("carries a pack's pre-migration key onto its tile", () => {
+    const [tile] = buildPackGallery(
+      { white: [{ packId: "id-1", pack: "Base", total: 5, active: 5 }], black: [] },
+      [],
+      [{ id: "id-1", pack: "Base", legacyKey: "Raw Base", series: null, description: null, official: false, nsfw: false }],
+    );
+    expect(tile!.legacyKey).toBe("Raw Base");
+  });
+});

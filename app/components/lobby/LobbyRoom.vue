@@ -27,7 +27,7 @@
       @add-bot="addBot"
       @kick="handleKick"
       @leave="$emit('leave')"
-      @edit-settings="settingsOpen = true"
+      @edit-settings="openEditor()"
       @open-app-settings="uiStore.showSettings = true"
       @shuffle="shufflePacks"
     />
@@ -36,46 +36,25 @@
       <main class="lobby-room-main">
         <div class="lobby-room-grid">
           <LobbyChat class="lobby-room-chat" :messages="reactive.chat.value" />
-
-          <div class="lobby-room-table-wrap lobby-panel lobby-panel-striped">
-            <!-- Sits above the table rather than centred in the start bar, where
-                 it ran into the buttons on narrower windows. -->
-            <h1 class="lobby-room-title">
-              {{ reactive.settings.value?.lobbyName || "UNTITLED LOBBY" }}
-            </h1>
-            <LobbyTable
-              class="lobby-room-table"
-              :players="players"
-              :max-seats="maxSeats"
-              :is-host-user="isHost"
-              @add-bot="addBot"
-            />
-          </div>
-          <LobbyRoundPreview
-            class="lobby-room-preview"
-            :cards-per-player="reactive.settings.value?.cardsPerPlayer ?? 0"
-            :max-pick="reactive.settings.value?.maxPick ?? 0"
-            :active-packs-count="(reactive.settings.value?.cardPacks ?? []).length"
+          <LobbyPlayerGrid
+            class="lobby-room-players"
+            :code="lobby.code"
+            :lobby-name="reactive.settings.value?.lobbyName ?? ''"
+            :players="players"
+            :my-id="myId ?? ''"
+            :is-host-user="isHost"
+            :max-seats="maxSeats"
+            @add-bot="addBot"
+            @kick="handleKick"
           />
-
-          <aside class="lobby-room-sidebar">
-            <LobbyCodePanel :code="lobby.code" />
-            <LobbyPlayerList
-              :players="players"
-              :max-seats="maxSeats"
-              :is-host-user="isHost"
-              @add-bot="addBot"
-              @kick="handleKick"
-            />
-            <LobbySettingsSummary
-              :settings="reactive.settings.value"
-              :is-host="isHost"
-              :shuffling="shufflePending"
-              :pack-names="packNames"
-              @edit="settingsOpen = true"
-              @shuffle="shufflePacks"
-            />
-          </aside>
+          <LobbyHouseRules
+            class="lobby-room-rules"
+            :settings="reactive.settings.value"
+            :is-host="isHost"
+            :shuffling="shufflePending"
+            @edit="openEditor"
+            @shuffle="shufflePacks"
+          />
         </div>
       </main>
 
@@ -84,21 +63,19 @@
         :my-id="myId ?? ''"
         :is-host="isHost"
         :is-starting="isStarting"
-        :max-seats="maxSeats"
         @toggle-ready="handleToggleReady"
         @start="startGameWrapper"
-        @add-bot="addBot"
         @leave="$emit('leave')"
-        @open-settings="settingsOpen = !settingsOpen"
         @open-app-settings="uiStore.showSettings = true"
       />
     </template>
 
-    <LobbySettingsDrawer
+    <LobbyRulesEditor
       :open="settingsOpen"
       :settings="reactive.settings.value"
       :is-host="isHost"
       :lobby-id="lobby.id"
+      :pack-filter="editorFilter"
       @close="settingsOpen = false"
     />
 
@@ -112,6 +89,7 @@ import type { Player } from "~/types/player";
 import { useUiStore } from "~/stores/uiStore";
 import { useCompactLayout } from "~/composables/useCompactLayout";
 import { useRemovePlayer } from "~/composables/useRemovePlayer";
+import type { PackFilter } from "~/utils/lobbyPackSelection";
 
 const props = defineProps<{
   lobby: Lobby;
@@ -138,9 +116,14 @@ const { addBot } = useBots(
 );
 
 const settingsOpen = ref(false);
+const editorFilter = ref<PackFilter>("all");
+function openEditor(filter: PackFilter = "all") {
+  editorFilter.value = filter;
+  settingsOpen.value = true;
+}
 const isStarting = ref(false);
 
-// Same action the settings drawer exposes, surfaced here so the host can
+// Same action the house-rules editor exposes, surfaced here so the host can
 // re-roll the packs without opening settings.
 const { shuffle, pending: shufflePending } = useShufflePacks();
 function shufflePacks() {
@@ -160,7 +143,7 @@ const myId = computed(() => userStore.user?.id ?? null);
 
 // Start with 2 open seats when 1 player is in the lobby (3 total to show minimum required).
 // When player 2 joins, they take the 2nd seat (leaving 1 open seat).
-// For 3+ players, each new player adds a seat while keeping 1 open seat, capped at 16 for table layout sanity.
+// For 3+ players, each new player adds a seat while keeping 1 open seat, capped at 16 to keep the player grid sane.
 // The lobby itself has no hard player limit.
 const maxSeats = computed(() =>
   Math.min(Math.max(props.players.length + 1, 3), 16),
@@ -262,94 +245,37 @@ onBeforeUnmount(() => {
   height: 100%;
   max-width: 1920px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
   min-height: 0;
+  display: grid;
+  gap: 14px;
+  /* 768–1023px: players + rules side by side, chat under the players. */
+  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-rows: minmax(0, 1fr) 220px;
+  grid-template-areas:
+    "players rules"
+    "chat    rules";
 }
+.lobby-room-players { grid-area: players; min-height: 0; }
+.lobby-room-rules { grid-area: rules; min-height: 0; }
+.lobby-room-chat { grid-area: chat; min-height: 0; height: 100%; }
 
 @media (min-width: 1024px) {
   .lobby-room-grid {
     grid-template-columns: 280px minmax(0, 1fr) 310px;
-    grid-template-rows: minmax(0, 1fr) auto;
-    gap: 14px;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "chat players rules";
   }
-
-  .lobby-room-chat {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    min-height: 0;
-    height: 100%;
-  }
-
-  .lobby-room-table-wrap {
-    grid-column: 2;
-    grid-row: 1;
-    min-height: 0;
-    height: 100%;
-  }
-
-  .lobby-room-preview {
-    grid-column: 2;
-    grid-row: 2;
-    height: auto;
-    align-self: end;
-  }
-
-  .lobby-room-sidebar {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-    min-height: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    overflow: hidden;
-  }
-}
-
-.lobby-room-title {
-  flex: none;
-  margin: 0 0 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: "Archivo Black", sans-serif;
-  font-size: 18px;
-  letter-spacing: 0.03em;
-  line-height: 1.2;
-  text-align: center;
-  text-transform: uppercase;
-  color: var(--lb-ink);
-}
-
-.lobby-room-table {
-  flex: 1 1 0;
-  min-height: 0;
-}
-
-.lobby-room-table-wrap {
-  padding: 16px 20px;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.lobby-room-sidebar > * {
-  width: 100%;
-  min-width: 0;
-}
-
-/* panel-striped variant */
-.lobby-panel-striped {
-  background:
-    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.02) 0 10px, rgba(255, 255, 255, 0) 10px 20px),
-    rgba(10, 13, 28, 0.72);
 }
 </style>
 
 <style>
 @import "~/assets/css/lobby.css";
+
+/* panel-striped variant; unscoped so LobbyPlayerGrid picks it up. Doubled
+   up so it beats .lobby-panel regardless of stylesheet order. */
+.lobby-panel.lobby-panel-striped {
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.02) 0 10px, rgba(255, 255, 255, 0) 10px 20px),
+    rgba(10, 13, 28, 0.72);
+}
 </style>

@@ -25,6 +25,13 @@ export function useLobbyStart(opts: {
   const allNonBotsReady = computed(
     () => nonBots.value.length > 0 && nonBots.value.every((p) => p.ready),
   );
+  // Who the room is waiting on, for the ready bar's "Waiting on …" line. The
+  // current user leads so the bar can say "you" first.
+  const waitingOn = computed(() => {
+    const pending = nonBots.value.filter((p) => !p.ready);
+    const me = pending.filter((p) => p.userId === opts.myId.value);
+    return [...me, ...pending.filter((p) => p.userId !== opts.myId.value)];
+  });
   const enoughPlayers = computed(() => opts.players.value.length >= MIN_PLAYERS);
   const canStart = computed(() => enoughPlayers.value && allNonBotsReady.value);
   const myReady = computed(
@@ -89,6 +96,7 @@ export function useLobbyStart(opts: {
   return {
     enoughPlayers,
     allNonBotsReady,
+    waitingOn,
     readyCount,
     canStart,
     myReady,

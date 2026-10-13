@@ -123,4 +123,27 @@ describe("useLobbyStart", () => {
     api.handleStart();
     expect(onStart).toHaveBeenCalledTimes(2);
   });
+
+  it("lists who the room is waiting on, current user first, bots never", () => {
+    const players = ref([
+      p("u1", false),
+      p("u2", true),
+      p("u3", false),
+      p("b1", false, "bot"),
+    ]);
+    const scope = effectScope();
+    const api = scope.run(() =>
+      useLobbyStart({
+        players,
+        myId: ref("u3"),
+        isHost: ref(false),
+        isStarting: ref(false),
+        onStart: vi.fn(),
+      }),
+    )!;
+    expect(api.waitingOn.value.map((x) => x.userId)).toEqual(["u3", "u1"]);
+    players.value = players.value.map((x) => ({ ...x, ready: true }));
+    expect(api.waitingOn.value).toEqual([]);
+    scope.stop();
+  });
 });

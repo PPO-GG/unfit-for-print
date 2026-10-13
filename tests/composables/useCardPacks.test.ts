@@ -119,6 +119,24 @@ describe("useCardPacks", () => {
     expect(tiles.value).toEqual([]);
   });
 
+  it("still loads the roster when the default-packs request fails", async () => {
+    vi.stubGlobal("$fetch", async (url: string) => {
+      if (url === "/api/cards/packs") {
+        return {
+          white: [{ packId: "Base", pack: "Base", total: 1, active: 1 }],
+          black: [],
+        };
+      }
+      throw new Error("default-packs down");
+    });
+
+    const { tiles, loaded, load } = useCardPacks();
+    await load();
+
+    expect(loaded.value).toBe(true);
+    expect(tiles.value.map((t) => [t.pack, t.isDefault])).toEqual([["Base", false]]);
+  });
+
   it("allows a retry after a failed load", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubGlobal("$fetch", async () => {

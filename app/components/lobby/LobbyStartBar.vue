@@ -1,79 +1,79 @@
 <template>
-  <footer class="lobby-startbar lobby-panel" :style="panelStyle">
-    <div class="lsb-state">
-      <div class="lsb-ring">
-        <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
-          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--lb-line-strong)" stroke-width="3" />
-          <circle
-            cx="24"
-            cy="24"
-            r="20"
-            fill="none"
-            :stroke="ringColor"
-            stroke-width="3"
-            :stroke-dasharray="`${ringDash} 126`"
-            stroke-linecap="round"
-            transform="rotate(-90 24 24)"
-          />
-        </svg>
-        <div class="lsb-ring-count">
-          {{ players.length }}<span>/{{ targetSeats }}</span>
-        </div>
-      </div>
-      <div class="lsb-labels">
-        <div class="lsb-label-main">{{ stateLabel }}</div>
-        <div class="lsb-label-sub">{{ stateSubLabel }}</div>
-      </div>
+  <footer class="lobby-startbar lobby-panel" :class="frameClass">
+    <div class="lsb-utils">
+      <button
+        class="lb-btn lb-btn--quiet lb-btn--icon lsb-leave"
+        :aria-label="t('lobby.bar.leave')"
+        :title="t('lobby.bar.leave')"
+        @click="$emit('leave')"
+      >
+        <UIcon name="i-solar-logout-2-bold-duotone" />
+      </button>
+      <button
+        class="lb-btn lb-btn--quiet lb-btn--icon lsb-app-settings"
+        :aria-label="t('lobby.bar.app_settings')"
+        :title="t('lobby.bar.app_settings')"
+        @click="$emit('open-app-settings')"
+      >
+        <UIcon name="i-solar-settings-bold-duotone" />
+      </button>
+    </div>
+
+    <div class="lsb-divider" aria-hidden="true" />
+
+    <ol class="lsb-pips" :aria-label="t('lobby.bar.pips_label')">
+      <li
+        v-for="pl in shownPips"
+        :key="pl.$id"
+        class="lsb-pip"
+        :class="{ 'lsb-pip--ready': isReady(pl) }"
+        :style="{ '--pip': playerAccent(pl) }"
+        :title="pl.name"
+      >
+        {{ playerInitials(pl) }}
+      </li>
+      <li v-if="extraPips > 0" class="lsb-pip lsb-pip--more">+{{ extraPips }}</li>
+    </ol>
+
+    <div class="lsb-status">
+      <div class="lsb-label-main">{{ stateLabel }}</div>
+      <div v-if="stateSubLabel" class="lsb-label-sub">{{ stateSubLabel }}</div>
     </div>
 
     <div class="lsb-spacer" />
 
     <div class="lsb-actions">
-      <button class="neon-btn neon-btn--danger lsb-btn lsb-btn--leave" @click="$emit('leave')">
-        <span aria-hidden="true">↩</span> LEAVE
-      </button>
-
       <button
-        v-if="isHost"
-        class="neon-btn neon-btn--ghost lsb-btn"
-        @click="$emit('add-bot')"
-      >
-        <span aria-hidden="true">🤖</span> ADD BOT
-      </button>
-
-      <button class="neon-btn lsb-btn lsb-btn--settings" @click="$emit('open-settings')">
-        <span aria-hidden="true">⚙</span> HOST SETTINGS
-      </button>
-
-      <button class="neon-btn neon-btn--ghost lsb-btn" @click="$emit('open-app-settings')">
-        <span aria-hidden="true">🔧</span> APP SETTINGS
-      </button>
-
-      <button
-        class="neon-btn lsb-btn"
-        :class="{ 'neon-btn--ready-active': myReady }"
+        v-if="!myReady"
+        class="lb-btn lb-btn--primary lsb-ready"
         @click="$emit('toggle-ready')"
       >
-        <span aria-hidden="true">✓</span>
-        {{ myReady ? "READY" : "READY UP" }}
+        <UIcon name="i-solar-check-circle-bold-duotone" />
+        {{ t("lobby.bar.ready_up") }}
+      </button>
+      <button
+        v-else
+        class="lb-btn lb-btn--secondary lsb-unready"
+        @click="$emit('toggle-ready')"
+      >
+        <UIcon name="i-solar-close-circle-bold-duotone" />
+        {{ t("lobby.bar.not_ready") }}
       </button>
 
       <button
-        v-if="isHost"
-        class="neon-btn lsb-btn lsb-btn--start"
-        :class="{ 'neon-btn--primary': canStart }"
+        v-if="isHost && myReady"
+        class="lb-btn lsb-start"
+        :class="canStart ? 'lb-btn--primary' : 'lb-btn--secondary'"
         :disabled="!canStart || isStarting"
         @click="handleStart"
       >
-        <span aria-hidden="true">▶</span>
-        <template v-if="isStarting">STARTING…</template>
-        <template v-else-if="canStart && countdown !== null && countdown > 0">START · {{ countdown }}</template>
-        <template v-else>START NOW</template>
+        <UIcon name="i-solar-play-bold" />
+        <template v-if="isStarting">{{ t("lobby.bar.starting") }}</template>
+        <template v-else-if="canStart && countdown !== null && countdown > 0">
+          {{ t("lobby.bar.start_now", { seconds: countdown }) }}
+        </template>
+        <template v-else>{{ t("lobby.bar.start") }}</template>
       </button>
-
-      <div v-else class="lsb-waiting-label">
-        {{ allNonBotsReady ? "Waiting for host…" : "Waiting for players…" }}
-      </div>
     </div>
   </footer>
 </template>
@@ -82,31 +82,34 @@
 import { toRef } from "vue";
 import type { Player } from "~/types/player";
 import { useLobbyStart, MIN_PLAYERS } from "~/composables/useLobbyStart";
+import { playerAccent, playerInitials } from "~/utils/playerColor";
+
+const MAX_PIPS = 10;
+const MAX_NAMES = 3;
 
 const props = defineProps<{
   players: Player[];
   myId: string;
   isHost: boolean;
   isStarting: boolean;
-  maxSeats: number;
 }>();
 
 const emit = defineEmits<{
   (e: "leave"): void;
-  (e: "open-settings"): void;
   (e: "open-app-settings"): void;
   (e: "toggle-ready"): void;
   (e: "start"): void;
-  (e: "add-bot"): void;
 }>();
+
+const { t } = useI18n();
 
 const {
   enoughPlayers,
-  allNonBotsReady,
   readyCount,
   canStart,
   myReady,
   countdown,
+  waitingOn,
   handleStart,
 } = useLobbyStart({
   players: toRef(props, "players"),
@@ -116,151 +119,106 @@ const {
   onStart: () => emit("start"),
 });
 
-// ── State labels + visual treatment ─────────────────────────────
+function isReady(p: Player): boolean {
+  return p.playerType === "bot" || !!p.ready;
+}
+
+const shownPips = computed(() => props.players.slice(0, MAX_PIPS));
+const extraPips = computed(() => Math.max(0, props.players.length - MAX_PIPS));
+
 const stateLabel = computed(() => {
+  if (props.isStarting) return t("lobby.bar.dealing");
   if (!enoughPlayers.value) {
-    const need = Math.max(0, MIN_PLAYERS - props.players.length);
-    return `NEED ${need} MORE`;
+    return t("lobby.bar.need_more", { count: Math.max(0, MIN_PLAYERS - props.players.length) });
   }
-  if (!allNonBotsReady.value) return "WAITING FOR READY";
-  if (countdown.value !== null && countdown.value > 0) return `STARTING IN ${countdown.value}`;
-  return "DEALING CARDS…";
+  // The countdown only arms on a false → true flip of canStart, so a room that
+  // loads already all-ready has canStart with no countdown. Show the count
+  // there rather than claiming cards are being dealt.
+  if (canStart.value && countdown.value !== null && countdown.value > 0) {
+    return t("lobby.bar.starting_in", { seconds: countdown.value });
+  }
+  return t("lobby.bar.ready_count", { ready: readyCount.value, total: props.players.length });
 });
 
 const stateSubLabel = computed(() => {
-  if (!enoughPlayers.value) return "At least 3 players required";
-  if (!allNonBotsReady.value) return `${readyCount.value}/${props.players.length} ready`;
-  return "Press cancel to stop auto-start";
+  if (props.isStarting) return "";
+  if (!enoughPlayers.value) return t("lobby.bar.need_more_sub");
+  if (canStart.value) return t("lobby.bar.everyone_in");
+  const names = waitingOn.value
+    .slice(0, MAX_NAMES)
+    .map((p) => (p.userId === props.myId ? t("lobby.bar.you") : p.name))
+    .join(", ");
+  const extra = waitingOn.value.length - MAX_NAMES;
+  const more = extra > 0 ? ` ${t("lobby.bar.and_more", { count: extra })}` : "";
+  return `${t("lobby.bar.waiting_on", { names })}${more}`;
 });
 
-const ringColor = computed(() => canStart.value ? "var(--lb-accent-lime)" : "var(--lb-accent)");
-
-const targetSeats = computed(() => {
-  if (props.players.length < 3) return 3;
-  return props.players.length;
-});
-
-const ringDash = computed(() => {
-  if (targetSeats.value <= 0) return 0;
-  const pct = Math.min(1, props.players.length / targetSeats.value);
-  return pct * 126;
-});
-
-const panelStyle = computed(() => {
-  if (canStart.value) {
-    return {
-      borderColor: "var(--lb-accent-lime)",
-      boxShadow: "0 0 40px -10px var(--lb-accent-lime)",
-    };
-  }
-  if (enoughPlayers.value) {
-    return {
-      borderColor: "var(--lb-accent)",
-      boxShadow: "0 0 30px -15px var(--lb-accent)",
-    };
-  }
-  return {
-    borderColor: "var(--lb-line-strong)",
-    boxShadow: "none",
-  };
+const frameClass = computed(() => {
+  if (canStart.value) return "lsb--go";
+  if (enoughPlayers.value) return "lsb--enough";
+  return "";
 });
 </script>
 
 <style scoped>
 .lobby-startbar {
   display: flex;
-  position: relative;
   align-items: center;
-  gap: 16px;
-  padding: 14px 20px;
+  gap: 14px;
+  padding: 10px 16px;
   margin: 0 20px 14px;
   flex-shrink: 0;
-  flex-wrap: wrap;
+  border-color: var(--lb-line-strong);
   transition: border-color 240ms ease, box-shadow 240ms ease;
 }
+.lsb--enough { border-color: var(--lb-accent); box-shadow: 0 0 30px -15px var(--lb-accent); }
+.lsb--go { border-color: var(--lb-accent-lime); box-shadow: 0 0 40px -10px var(--lb-accent-lime); }
 
-.lsb-state {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
+.lsb-utils { display: flex; gap: 4px; }
+.lsb-divider { width: 1px; height: 28px; background: var(--lb-line-strong); }
 
-.lsb-ring {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.lsb-pips { flex-shrink: 0; display: flex; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.lsb-pip {
   flex-shrink: 0;
-}
-
-.lsb-ring-count {
-  position: absolute;
-  inset: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--pip);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Archivo Black', sans-serif;
-  font-size: 13px;
-  color: var(--lb-ink);
+  font-size: 9px;
+  color: var(--lb-ink-dim);
+  opacity: 0.55;
+  transition: background 200ms ease, opacity 200ms ease, color 200ms ease;
 }
+.lsb-pip--ready { background: var(--pip); color: #0d0f1a; opacity: 1; }
+.lsb-pip--more { --pip: var(--lb-line-strong); opacity: 1; color: var(--lb-ink-dim); }
 
-.lsb-ring-count span {
-  color: var(--lb-ink-muted);
-  font-size: 11px;
-  margin-left: 1px;
-}
-
-.lsb-labels {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
+.lsb-status { display: flex; flex-direction: column; gap: 4px; flex: 0 1 auto; min-width: 0; }
 .lsb-label-main {
   font-family: 'Archivo Black', sans-serif;
-  font-size: 18px;
+  font-size: 15px;
   letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--lb-ink);
   line-height: 1;
 }
-
 .lsb-label-sub {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--lb-ink-muted);
-  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
 .lsb-spacer { flex: 1; }
+.lsb-actions { display: flex; align-items: center; gap: 8px; }
 
-.lsb-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+@media (prefers-reduced-motion: reduce) {
+  .lobby-startbar, .lsb-pip { transition: none; }
 }
-
-.lsb-btn {
-  padding: 8px 12px;
-  font-size: 11px;
-}
-
-.lsb-btn--start {
-  padding: 10px 14px;
-}
-
-.lsb-waiting-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--lb-ink-muted);
-}
-
 </style>
