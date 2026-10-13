@@ -23,6 +23,8 @@ export interface IssueContext {
   whiteDeckCount?: number;
   blackDeckCount?: number;
   isHost?: boolean;
+  /** Whether players draw their own cards. Short hands are normal when on. */
+  manualDraw?: boolean;
   /** Who has played and who was skipped this round. Ids, like `judgeId` —
    *  pseudonymous, and already the shape `handSizes` is keyed by. */
   submittedPlayerIds?: string[];

@@ -300,6 +300,12 @@ describe("game-diagnostic context fields", () => {
     expect(kept({ wsState: "vibing" }, "wsState")).toBeUndefined();
   });
 
+  // Without it, a manual-draw game's short hands read as a refill bug.
+  it("keeps the manual draw flag and drops a non-boolean one", () => {
+    expect(kept({ manualDraw: true }, "manualDraw")).toBe(true);
+    expect(kept({ manualDraw: "yes" }, "manualDraw")).toBeUndefined();
+  });
+
   // The cap on permanent anomaly groups is the whole reason the context
   // allowlist exists. None of these fields may widen it.
   it("does not let the new fields reach the fingerprint", () => {

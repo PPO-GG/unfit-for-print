@@ -23,6 +23,7 @@ function snapshot(over: Partial<WatchdogSnapshot> = {}): WatchdogSnapshot {
     skippedPlayerIds: [],
     handSizes: { judge: 10, alice: 10, bob: 10 },
     cardsPerPlayer: 10,
+    manualDraw: false,
     ...over,
   };
 }
@@ -202,6 +203,21 @@ describe("hand-underfilled", () => {
 
   it("stays quiet when a player has no hand entry at all", () => {
     expect(r.detect(snapshot({ handSizes: { judge: 10, alice: 10 } }))).toBe(false);
+  });
+
+  // With manual draw on, nextRound deals nobody anything — each player tops
+  // up by tapping the deck, and one who doesn't is short by choice. Lobbies
+  // DRUV and KTBU reported this every round: the white deck never moved while
+  // every hand shrank, which is exactly what a game nobody draws in looks like.
+  it("stays quiet under manual draw, where a short hand is the player's choice", () => {
+    expect(
+      r.detect(
+        snapshot({
+          manualDraw: true,
+          handSizes: { judge: 7, alice: 7, bob: 3 },
+        }),
+      ),
+    ).toBe(false);
   });
 });
 

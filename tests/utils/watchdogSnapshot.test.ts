@@ -94,6 +94,18 @@ describe("buildWatchdogSnapshot", () => {
 
     expect(snapshot?.cardsPerPlayer).toBe(10);
   });
+
+  it("carries the manual draw setting, off when settings are not loaded", () => {
+    const on = buildWatchdogSnapshot(
+      reactiveStub({ gameState: { phase: "submitting" }, settings: { manualDraw: true } }),
+    );
+    const unloaded = buildWatchdogSnapshot(
+      reactiveStub({ gameState: { phase: "submitting" }, settings: null }),
+    );
+
+    expect(on?.manualDraw).toBe(true);
+    expect(unloaded?.manualDraw).toBe(false);
+  });
 });
 
 describe("detectingRuleIds", () => {

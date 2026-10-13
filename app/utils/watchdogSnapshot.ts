@@ -43,6 +43,7 @@ export function buildWatchdogSnapshot(
     skippedPlayerIds: Array.isArray(gs.skippedPlayers) ? gs.skippedPlayers : [],
     handSizes,
     cardsPerPlayer: reactive.settings.value?.cardsPerPlayer ?? 10,
+    manualDraw: !!reactive.settings.value?.manualDraw,
   };
 }
 
