@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizePackSelection, packLabelsFor } from "~/utils/lobbyPackSelection";
+import { normalizePackSelection, packLabelsFor, packRoster, packTally } from "~/utils/lobbyPackSelection";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -57,5 +57,30 @@ describe("packLabelsFor", () => {
 
   it("passes a legacy name entry through unchanged", () => {
     expect(packLabelsFor(["Legacy Name"], {})).toEqual(["Legacy Name"]);
+  });
+});
+
+const tile = (id: string, white: number, black: number) =>
+  ({ id, pack: `P-${id}`, white, black, total: white + black, isDefault: false, legacyKey: id === "a" ? "old-a" : null }) as any;
+
+describe("packTally", () => {
+  const tiles = [tile("a", 10, 2), tile("b", 5, 1), tile("c", 1, 1)];
+
+  it("sums only the selected packs", () => {
+    expect(packTally(tiles, ["a", "c"])).toEqual({ packs: 2, white: 11, black: 3, all: false });
+  });
+
+  it("treats an empty selection as every pack, as game start does", () => {
+    expect(packTally(tiles, [])).toEqual({ packs: 3, white: 16, black: 4, all: true });
+  });
+
+  it("ignores ids the roster does not know", () => {
+    expect(packTally(tiles, ["a", "ghost"]).packs).toBe(1);
+  });
+});
+
+describe("packRoster", () => {
+  it("adapts tiles to the shape normalizePackSelection reads", () => {
+    expect(packRoster([tile("a", 1, 1)])).toEqual([{ id: "a", name: "P-a", legacyKey: "old-a" }]);
   });
 });

@@ -35,6 +35,8 @@ export interface PackTile {
   description?: string | null;
   official?: boolean;
   nsfw?: boolean;
+  /** Pre-0012_pack_ids key an old lobby may still hold; see normalizePackSelection. */
+  legacyKey?: string | null;
 }
 
 /** The `card_packs` fields `/api/cards/packs` exposes publicly. */
@@ -180,6 +182,8 @@ export function buildPackGallery(
                 description: row.description,
                 official: row.official,
                 nsfw: row.nsfw,
+                // Spread only when present so tiles without one keep their shape.
+                ...(row.legacyKey ? { legacyKey: row.legacyKey } : {}),
               }
             : {}),
         };

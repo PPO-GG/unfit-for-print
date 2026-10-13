@@ -1,3 +1,4 @@
+import type { PackTile } from "~/utils/cardPacks";
 import { isPackId } from "~/utils/packRef";
 
 /**
@@ -50,4 +51,32 @@ export function packLabelsFor(
   return entries
     .map((entry) => namesById[entry] ?? (isPackId(entry) ? null : entry))
     .filter((label): label is string => Boolean(label));
+}
+
+/** Which slice of the roster the rules editor's pack column is showing. */
+export type PackFilter = "all" | "selected" | "default";
+
+/**
+ * Pack/answer/prompt totals for a lobby's selection. An empty selection is
+ * every pack — that is what game/start deals from (fetchAllIds) — so it is
+ * tallied as the whole roster and flagged `all` for the "All packs" label.
+ */
+export function packTally(
+  tiles: PackTile[],
+  ids: string[],
+): { packs: number; white: number; black: number; all: boolean } {
+  const all = ids.length === 0;
+  const wanted = new Set(ids);
+  const chosen = all ? tiles : tiles.filter((tile) => wanted.has(tile.id));
+  return {
+    packs: chosen.length,
+    white: chosen.reduce((sum, tile) => sum + tile.white, 0),
+    black: chosen.reduce((sum, tile) => sum + tile.black, 0),
+    all,
+  };
+}
+
+/** Adapts roster tiles to the `{ id, name, legacyKey }` shape normalizePackSelection reads. */
+export function packRoster(tiles: PackTile[]): { id: string; name: string; legacyKey: string | null }[] {
+  return tiles.map((tile) => ({ id: tile.id, name: tile.pack, legacyKey: tile.legacyKey ?? null }));
 }
