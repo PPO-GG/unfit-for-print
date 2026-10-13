@@ -89,6 +89,8 @@ function copyLink() {
   min-height: 0;
   padding: 16px 20px;
   overflow: hidden;
+  container-type: size;
+  container-name: lpg;
 }
 .lpg-header {
   display: flex;
@@ -136,12 +138,15 @@ function copyLink() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   justify-items: center;
-  align-content: start;
+  align-content: safe center;
   gap: 18px;
   padding: 10px 10px 14px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--lb-line-strong) transparent;
 }
-.lpg-grid--crowded { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 14px; }
+@container lpg (min-width: 900px) {
+  .lpg-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); --lpc-max: 250px; }
+}
+.lpg-grid--crowded { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); --lpc-max: 200px; gap: 14px; }
 </style>

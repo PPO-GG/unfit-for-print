@@ -14,14 +14,14 @@
       <span v-if="label.series" class="ppt-series">{{ label.series }}</span>
       <span class="ppt-name">{{ label.name }}</span>
       <span class="ppt-foot">
-        <span class="ppt-counts">
-          <span class="ppt-count ppt-count--white"><i />{{ t("lobby.editor.answers_short", { count: tile.white }) }}</span>
-          <span class="ppt-count ppt-count--black"><i />{{ t("lobby.editor.prompts_short", { count: tile.black }) }}</span>
-        </span>
-        <span class="ppt-marks">
+        <span v-if="hasMarks" class="ppt-marks">
           <span v-if="tile.isDefault" class="ppt-mark ppt-mark--default">{{ t("lobby.editor.mark_default") }}</span>
           <span v-if="tile.official" class="ppt-mark">{{ t("labs.pack_official") }}</span>
           <span v-if="tile.nsfw" class="ppt-mark ppt-mark--nsfw">{{ t("labs.pack_nsfw") }}</span>
+        </span>
+        <span class="ppt-counts">
+          <span class="ppt-count ppt-count--white"><i />{{ t("lobby.editor.answers_short", { count: tile.white }) }}</span>
+          <span class="ppt-count ppt-count--black"><i />{{ t("lobby.editor.prompts_short", { count: tile.black }) }}</span>
         </span>
       </span>
     </button>
@@ -42,6 +42,7 @@ const props = defineProps<{
 defineEmits<{ (e: "toggle", id: string): void }>();
 
 const { t } = useI18n();
+const hasMarks = computed(() => Boolean(props.tile.isDefault || props.tile.official || props.tile.nsfw));
 const label = computed(() => packLabel(props.tile.pack, props.tile, props.seriesPrefix));
 </script>
 
@@ -108,9 +109,10 @@ const label = computed(() => packLabel(props.tile.pack, props.tile, props.series
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
-.ppt-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; }
+.ppt-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; margin-top: auto; }
 .ppt-counts {
   display: flex;
+  min-width: 0;
   gap: 8px;
   white-space: nowrap;
   font-family: 'JetBrains Mono', monospace;
@@ -120,7 +122,7 @@ const label = computed(() => packLabel(props.tile.pack, props.tile, props.series
 .ppt-count i { display: inline-block; width: 7px; height: 9px; margin-right: 3px; border-radius: 1px; vertical-align: -1px; }
 .ppt-count--white i { background: var(--lb-ink); }
 .ppt-count--black i { background: #0b0e1d; border: 1px solid var(--lb-ink-dim); }
-.ppt-marks { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.ppt-marks { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-start; min-width: 0; }
 .ppt-mark {
   padding: 1px 5px;
   border: 1px solid var(--lb-line-strong);

@@ -473,6 +473,7 @@ function toggleRequirePassword() {
   align-content: start;
   gap: 8px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
   scrollbar-width: thin;
   scrollbar-color: var(--lb-line-strong) transparent;

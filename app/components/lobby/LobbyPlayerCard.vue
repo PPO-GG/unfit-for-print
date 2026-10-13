@@ -105,7 +105,7 @@ const statusLabel = computed(() => {
 .lpc {
   position: relative;
   width: 100%;
-  max-width: 200px;
+  max-width: var(--lpc-max, 200px);
   aspect-ratio: 5 / 6;
   display: flex;
   flex-direction: column;
