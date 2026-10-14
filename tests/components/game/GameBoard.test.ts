@@ -428,6 +428,29 @@ describe("GameBoard.vue — compact layout", () => {
     w.unmount();
   });
 
+  // The chat sheet only exists in the compact tree. Left open across a flip
+  // to the desktop table, its flag kept swallowing Escape there for the rest
+  // of the session, and reopened the sheet on the way back.
+  it("closes the chat sheet when a tablet flips to the desktop table", async () => {
+    touchTabletFlag.value = true;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mountCompact();
+    await w.get(".cgl-stub .chat").trigger("click");
+    expect(w.get(".chat-stub").attributes("data-open")).toBe("true");
+
+    touchTabletFlag.value = false;
+    await w.vm.$nextTick();
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await w.vm.$nextTick();
+    expect(w.get(".esc-stub").attributes("data-open")).toBe("true");
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    touchTabletFlag.value = true;
+    await w.vm.$nextTick();
+    expect(w.get(".chat-stub").attributes("data-open")).toBe("false");
+    w.unmount();
+  });
+
   // A dialog on top (confirm, report, settings) closes itself on the same
   // ESC; toggling the menu too opened it behind the dialog being dismissed.
   it.each([true, false])("Escape leaves the menu alone while another dialog is open (compact=%s)", async (compact) => {

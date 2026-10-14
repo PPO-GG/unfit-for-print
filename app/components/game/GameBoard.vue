@@ -169,6 +169,12 @@ function handleMenuChat() {
     escMenuOpen.value = false;
   }
 }
+// The sheet lives only in the compact tree. A tablet that flips to the
+// desktop table with it open would otherwise keep a flag that swallows Escape
+// there, and reopen the sheet on the way back.
+watch(isCompactGame, () => {
+  chatOpen.value = false;
+});
 const { unread: chatUnread } = useChatUnread(
   computed(() => lobbyReactive.chat.value.length),
   chatOpen,
