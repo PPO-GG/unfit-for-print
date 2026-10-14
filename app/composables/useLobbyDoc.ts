@@ -23,6 +23,8 @@ import {
 import { teleportalHttpBase } from "~/utils/teleportalHttp";
 import { trackConnectionHealth } from "~/utils/connectionHealth";
 import { reviveConnectionOnReturn } from "~/utils/connectionRevival";
+import { useUserStore } from "~/stores/userStore";
+import { presenceParams } from "~/utils/syncPresence";
 
 
 // ─── Y.Doc Map Keys ─────────────────────────────────────────────────────────
@@ -261,6 +263,9 @@ export function useLobbyDoc(): LobbyDocResult {
       // The provider's default 2.5 s cap would have every client retry every
       // 2.5 s for as long as an outage lasts.
       maxBackoffTime: 10_000,
+      // Read on every (re)connect, so a sign-in after the first connect
+      // still reaches the worker.
+      params: () => presenceParams(useUserStore().user?.id),
     });
     const connection = createSyncConnection(provider);
 
