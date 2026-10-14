@@ -390,10 +390,12 @@
 }
 
 /* iOS Safari zooms the page when a focused input's font is under 16px. The
-   lobby chat input is smaller than that on purpose on
-   desktop, so only lift it on compact screens. Same thresholds as
+   lobby chat input is smaller than that on purpose on desktop, so only lift
+   it on compact screens and touch-first devices — an iPad zoomed into the
+   game's chat sheet and the lobby chat alike. Same queries as
+   COMPACT_MEDIA_QUERY and TOUCH_PRIMARY_MEDIA_QUERY in
    app/utils/compactViewport.ts. */
-@media (max-width: 767.98px), (max-height: 499.98px) {
+@media (max-width: 767.98px), (max-height: 499.98px), (hover: none) and (pointer: coarse) {
   .lobby-chat-input {
     font-size: max(16px, 1rem) !important;
   }
