@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.34.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.33.0...v3.34.0) (2026-10-14)
+
+
+### ✨ Features
+
+* game-over rating prompt and merged feedback modal ([#192](https://github.com/PPO-GG/unfit-for-print/issues/192)) ([c4b2b7e](https://github.com/PPO-GG/unfit-for-print/commit/c4b2b7e55453edfcd62e068c86704b0b41b8d36a))
+* richer lobby summaries and presence for the admin monitor ([#189](https://github.com/PPO-GG/unfit-for-print/issues/189)) ([24b800f](https://github.com/PPO-GG/unfit-for-print/commit/24b800fc2b52eadbc704db0bc0f9b7f0aed1bdf7))
+* **web:** give touch tablets the compact game table ([#188](https://github.com/PPO-GG/unfit-for-print/issues/188)) ([409c379](https://github.com/PPO-GG/unfit-for-print/commit/409c37917598dea4adb49e8bf7200572a26f4a28))
+* **web:** redesign the admin lobby monitor ([#191](https://github.com/PPO-GG/unfit-for-print/issues/191)) ([9bc2d6c](https://github.com/PPO-GG/unfit-for-print/commit/9bc2d6c714bc6179a9ff58ea0c09b1cfdde185c7))
+
 ## [3.33.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.32.0...v3.33.0) (2026-10-13)
 
 
