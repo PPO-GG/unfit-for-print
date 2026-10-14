@@ -20,6 +20,7 @@ import type { GameState } from "~/types/game";
 
 const playCard = vi.fn(() => ({ success: true }));
 const readHand = vi.fn(() => ["w-1", "w-2", "w-3"]);
+const drawCards = vi.fn(() => ({ success: false, reason: "Manual draw is not enabled" }));
 
 const botPlayer = { userId: "bot-1", playerType: "bot", name: "Bot 1" };
 
@@ -35,7 +36,7 @@ Object.assign(globalThis, {
     getPlayers: () => new Map([["bot-1", JSON.stringify({ name: "Bot 1" })]]),
   }),
   useLobbyMutations: () => ({ addPlayer: vi.fn(), removePlayer: vi.fn() }),
-  useYjsGameEngine: () => ({ playCard, readHand }),
+  useYjsGameEngine: () => ({ playCard, readHand, drawCards }),
   useLobbyReactive: () => {
     const own = state;
     return {
