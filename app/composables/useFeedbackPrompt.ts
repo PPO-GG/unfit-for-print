@@ -26,6 +26,8 @@ const offeredGames = new Set<string>();
  */
 export function useFeedbackPrompt() {
   const { send } = useFeedbackSender();
+  // Resolved at call time: tellMore runs from a click, outside Nuxt context.
+  const { open: openModal } = useFeedbackModal();
 
   function offer(o: { lobbyCode: string; gameEndTime: number | null; isSpectator: boolean }) {
     const key = `${o.lobbyCode}:${o.gameEndTime ?? "unknown"}`;
@@ -65,7 +67,7 @@ export function useFeedbackPrompt() {
   }
 
   function tellMore() {
-    useFeedbackModal().open({
+    openModal({
       mode: "idea",
       rating: rating.value,
       clientRef: clientRef.value,
