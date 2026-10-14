@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.34.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.34.0...v3.34.1) (2026-10-14)
+
+
+### 🐛 Bug Fixes
+
+* **bot:** draw cards for bots when manual draw is on ([#194](https://github.com/PPO-GG/unfit-for-print/issues/194)) ([67120fd](https://github.com/PPO-GG/unfit-for-print/commit/67120fdc7fb0ed3b9bbde9a05b58ca63558b6d55))
+* **web:** keep the confirm dialog above slideovers ([#193](https://github.com/PPO-GG/unfit-for-print/issues/193)) ([f887a80](https://github.com/PPO-GG/unfit-for-print/commit/f887a806c69027fcdfc235d6e1ccac4c97f52a61))
+
 ## [3.34.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.33.0...v3.34.0) (2026-10-14)
 
 
