@@ -8,7 +8,7 @@ import { consumeRateLimit } from "./rateLimit";
  * span. Nothing legitimate in these alerts needs markdown.
  */
 export function stripMarkdown(value: string): string {
-  return value.replace(/[`*_~|\[\]()<>]/g, "").replace(/\s+/g, " ").trim();
+  return value.replace(/[`*_~|\\[\]()<>]/g, "").replace(/\s+/g, " ").trim();
 }
 
 /**
