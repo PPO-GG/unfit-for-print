@@ -3,6 +3,7 @@ import {
   isCompactViewport,
   viewportOrientation,
   COMPACT_MEDIA_QUERY,
+  TOUCH_PRIMARY_MEDIA_QUERY,
 } from "~/utils/compactViewport";
 
 describe("isCompactViewport", () => {
@@ -33,5 +34,13 @@ describe("COMPACT_MEDIA_QUERY", () => {
     expect(COMPACT_MEDIA_QUERY).toBe(
       "(max-width: 767.98px), (max-height: 499.98px)",
     );
+  });
+});
+
+describe("TOUCH_PRIMARY_MEDIA_QUERY", () => {
+  // A finger as the primary pointer. A touchscreen laptop driven by a mouse
+  // reports hover + a fine pointer and must not match.
+  it("asks for a primary pointer that is coarse and cannot hover", () => {
+    expect(TOUCH_PRIMARY_MEDIA_QUERY).toBe("(hover: none) and (pointer: coarse)");
   });
 });

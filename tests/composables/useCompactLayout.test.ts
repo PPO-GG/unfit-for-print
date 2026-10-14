@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { effectScope, nextTick, type EffectScope } from "vue";
 import { useCompactLayout } from "~/composables/useCompactLayout";
-import { COMPACT_MEDIA_QUERY } from "~/utils/compactViewport";
+import { COMPACT_MEDIA_QUERY, TOUCH_PRIMARY_MEDIA_QUERY } from "~/utils/compactViewport";
 
 type Listener = (event: { matches: boolean }) => void;
 interface Registered {
@@ -10,7 +10,7 @@ interface Registered {
 }
 
 const original = window.matchMedia;
-let viewport = { width: 1280, height: 800 };
+let viewport = { width: 1280, height: 800, touch: false };
 let listeners: Registered[] = [];
 let scope: EffectScope;
 
@@ -18,6 +18,7 @@ function evaluate(query: string): boolean {
   const { width, height } = viewport;
   if (query === COMPACT_MEDIA_QUERY) return width < 768 || height < 500;
   if (query === "(orientation: landscape)") return width > height;
+  if (query === TOUCH_PRIMARY_MEDIA_QUERY) return viewport.touch;
   return false;
 }
 
@@ -43,8 +44,8 @@ function stubMatchMedia() {
   }) as unknown as typeof window.matchMedia;
 }
 
-function resizeTo(width: number, height: number) {
-  viewport = { width, height };
+function resizeTo(width: number, height: number, touch = viewport.touch) {
+  viewport = { width, height, touch };
   listeners
     .slice()
     .forEach(({ query, cb }) => cb({ matches: evaluate(query) }));
@@ -52,7 +53,7 @@ function resizeTo(width: number, height: number) {
 
 describe("useCompactLayout", () => {
   beforeEach(() => {
-    viewport = { width: 1280, height: 800 };
+    viewport = { width: 1280, height: 800, touch: false };
     listeners = [];
     stubMatchMedia();
     scope = effectScope();
@@ -93,5 +94,36 @@ describe("useCompactLayout", () => {
     const layout = scope.run(() => useCompactLayout())!;
     expect(typeof layout.width.value).toBe("number");
     expect(typeof layout.height.value).toBe("number");
+  });
+
+  describe("game layout", () => {
+    it.each([
+      // [label, width, height, touch, isCompactGame, isTouchTablet]
+      ["touch phone", 375, 812, true, true, false],
+      ["landscape touch phone", 844, 390, true, true, false],
+      ["touch tablet, landscape", 1024, 768, true, true, true],
+      ["touch tablet, portrait", 820, 1180, true, true, true],
+      ["touchscreen laptop with a mouse", 1280, 800, false, false, false],
+      ["desktop", 1920, 1080, false, false, false],
+      ["narrow desktop window", 600, 900, false, true, false],
+    ])("%s", (_label, w, h, touch, compactGame, tablet) => {
+      resizeTo(w, h, touch);
+      const { isCompactGame, isTouchTablet } = scope.run(() => useCompactLayout())!;
+      expect(isCompactGame.value).toBe(compactGame);
+      expect(isTouchTablet.value).toBe(tablet);
+    });
+
+    // Attaching a keyboard case with a trackpad can hand an iPad a fine
+    // pointer mid-game; the game table follows it like a rotation.
+    it("follows the input type when it changes", async () => {
+      resizeTo(1024, 768, true);
+      const { isCompactGame, isTouchTablet } = scope.run(() => useCompactLayout())!;
+      expect(isCompactGame.value).toBe(true);
+
+      resizeTo(1024, 768, false);
+      await nextTick();
+      expect(isCompactGame.value).toBe(false);
+      expect(isTouchTablet.value).toBe(false);
+    });
   });
 });

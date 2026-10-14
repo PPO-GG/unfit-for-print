@@ -4,12 +4,18 @@ import {
   useMediaQuery,
   useWindowSize,
 } from "@vueuse/core";
-import { COMPACT_MEDIA_QUERY } from "~/utils/compactViewport";
+import { COMPACT_MEDIA_QUERY, TOUCH_PRIMARY_MEDIA_QUERY } from "~/utils/compactViewport";
 
 /**
  * Reactive compact-layout state. Every surface that switches between the
- * desktop and phone layouts (game, lobby, game over) reads this, so the whole
- * app flips at one threshold.
+ * desktop and phone layouts (game, lobby, game over) reads `isCompact`, so
+ * they all flip at one size threshold.
+ *
+ * The game table alone also flips for touch-first devices: `isCompactGame`.
+ * Its desktop form is a hover-driven fan, which a finger cannot work, while
+ * the lobby and game over are tap-based and fine on a tablet. `isTouchTablet`
+ * marks the compact layout running on a screen bigger than it was designed
+ * for, and gates the tuning that makes use of the room.
  *
  * The decision comes from media queries, not from innerWidth/innerHeight:
  * media queries evaluate against the layout viewport, so an on-screen keyboard
@@ -29,9 +35,16 @@ export const useCompactLayout = createSharedComposable(() => {
   const { width, height } = useWindowSize();
   const compactMatches = useMediaQuery(COMPACT_MEDIA_QUERY);
   const landscapeMatches = useMediaQuery("(orientation: landscape)");
+  const touchPrimaryMatches = useMediaQuery(TOUCH_PRIMARY_MEDIA_QUERY);
   const isCompact = computed(() => compactMatches.value);
+  const isCompactGame = computed(
+    () => compactMatches.value || touchPrimaryMatches.value,
+  );
+  const isTouchTablet = computed(
+    () => touchPrimaryMatches.value && !compactMatches.value,
+  );
   const orientation = computed(() =>
     landscapeMatches.value ? "landscape" : "portrait",
   );
-  return { isCompact, orientation, width, height };
+  return { isCompact, isCompactGame, isTouchTablet, orientation, width, height };
 });
