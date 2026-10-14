@@ -16,9 +16,11 @@ vi.mock("gsap", () => ({
 }));
 vi.unmock("vue");
 
+const touchTablet = Vue.ref(false);
 vi.mock("~/composables/useCompactLayout", () => ({
   useCompactLayout: () => ({
-    isCompact: Vue.ref(true), orientation: Vue.ref("portrait"),
+    isCompact: Vue.ref(true), isCompactGame: Vue.ref(true),
+    isTouchTablet: touchTablet, orientation: Vue.ref("portrait"),
     width: Vue.ref(375), height: Vue.ref(812),
   }),
 }));
@@ -42,8 +44,8 @@ const pl = (userId: string, name: string, playerType = "player") =>
 
 const stubs = {
   CompactTopBar: {
-    props: ["pillLabel"],
-    template: "<div class=\"topbar\" @click=\"$emit('menu')\">{{ pillLabel }}<button class=\"tb-chat\" @click.stop=\"$emit('chat')\" /></div>",
+    props: ["pillLabel", "fitAvatars"],
+    template: "<div class=\"topbar\" :data-fit=\"String(!!fitAvatars)\" @click=\"$emit('menu')\">{{ pillLabel }}<button class=\"tb-chat\" @click.stop=\"$emit('chat')\" /></div>",
   },
   BlackCard: { props: ["fills", "scale"], template: '<div class="black" :data-fills="JSON.stringify(fills)" />' },
   CompactCardCarousel: {
@@ -98,7 +100,23 @@ const mk = (over: Record<string, unknown> = {}) =>
   mount(CompactGameLayout, { props: { ...base, ...over } as any, global: { stubs } });
 
 describe("CompactGameLayout", () => {
-  beforeEach(() => vi.useFakeTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+    touchTablet.value = false;
+  });
+
+  it("tunes itself for a tablet and leaves phones alone", () => {
+    const phone = mk();
+    expect(phone.classes()).not.toContain("cgl--tablet");
+    expect(phone.get(".topbar").attributes("data-fit")).toBe("false");
+    phone.unmount();
+
+    touchTablet.value = true;
+    const tablet = mk();
+    expect(tablet.classes()).toContain("cgl--tablet");
+    expect(tablet.get(".topbar").attributes("data-fit")).toBe("true");
+    tablet.unmount();
+  });
   afterEach(() => vi.useRealTimers());
 
   it("player picks, prompt fills live, submit emits immediately", async () => {

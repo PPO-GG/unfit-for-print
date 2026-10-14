@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cardBaseWidthPx, fitCardScale } from "~/utils/cardFit";
+import { cardBaseWidthPx, compactScaleCaps, fitCardScale } from "~/utils/cardFit";
 
 describe("cardBaseWidthPx", () => {
   it("mirrors the cards' clamp(10rem, 12vw, 18rem)", () => {
@@ -29,5 +29,17 @@ describe("fitCardScale", () => {
 
   it("falls back to min for an unmeasured (0×0) slot", () => {
     expect(fitCardScale(0, 0, base)).toBe(50);
+  });
+});
+
+describe("compactScaleCaps", () => {
+  it("keeps the phone caps", () => {
+    expect(compactScaleCaps(false)).toEqual({ prompt: 170, hand: 150 });
+  });
+
+  // fitCardScale still shrinks to the measured slot, so a higher cap only
+  // ever fills room that exists.
+  it("lets a tablet's cards grow into the extra room", () => {
+    expect(compactScaleCaps(true)).toEqual({ prompt: 240, hand: 210 });
   });
 });

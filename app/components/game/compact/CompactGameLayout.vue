@@ -5,7 +5,7 @@ import type { CardTexts } from "~/types/gamecards";
 import type { GameState } from "~/types/game";
 import type { CompactAction } from "~/utils/compactActionState";
 import { compactActionState } from "~/utils/compactActionState";
-import { cardBaseWidthPx, fitCardScale } from "~/utils/cardFit";
+import { cardBaseWidthPx, compactScaleCaps, fitCardScale } from "~/utils/cardFit";
 import { buildReadAloudText, resolveWhiteTextsViaApi } from "~/utils/readAloud";
 import { useCompactLayout } from "~/composables/useCompactLayout";
 import { useCompactMotion } from "~/composables/useCompactMotion";
@@ -60,7 +60,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const { playSfx } = useSfx();
 const prefs = useUserPrefsStore();
-const { orientation, width: viewportWidth } = useCompactLayout();
+const { orientation, width: viewportWidth, isTouchTablet } = useCompactLayout();
 const motion = useCompactMotion();
 
 const pick = computed(() => props.blackCard?.pick ?? 1);
@@ -184,13 +184,14 @@ const baseWidth = computed(() => {
     : 16;
   return cardBaseWidthPx(rem, viewportWidth.value);
 });
+const caps = computed(() => compactScaleCaps(isTouchTablet.value));
 const promptScale = computed(() =>
-  fitCardScale(promptW.value - 16, promptH.value - 8, baseWidth.value, { max: 170 }),
+  fitCardScale(promptW.value - 16, promptH.value - 8, baseWidth.value, { max: caps.value.prompt }),
 );
 // The slot also holds the label row 44 + track padding 34 (24 top for the
 // selected card's lift and badges, 10 bottom) + dots 10.
 const cardScale = computed(() =>
-  fitCardScale(Number.POSITIVE_INFINITY, carouselH.value - 88, baseWidth.value, { max: 150 }),
+  fitCardScale(Number.POSITIVE_INFINITY, carouselH.value - 88, baseWidth.value, { max: caps.value.hand }),
 );
 const judgeScale = computed(() =>
   pick.value > 1 ? Math.max(50, Math.round(cardScale.value * 0.8)) : cardScale.value,
@@ -338,7 +339,7 @@ onMounted(() => {
   <div
     ref="rootEl"
     class="cgl lobby-tokens"
-    :class="[`cgl--${orientation}`, `cgl--${view}`]"
+    :class="[`cgl--${orientation}`, `cgl--${view}`, { 'cgl--tablet': isTouchTablet }]"
   >
     <CompactTopBar
       class="cgl-top"
@@ -348,6 +349,7 @@ onMounted(() => {
       :pill-label="pill.label"
       :pill-tone="pill.tone"
       :unread="chatUnread"
+      :fit-avatars="isTouchTablet"
       @menu="emit('open-menu')"
       @chat="emit('open-chat')"
     />
@@ -520,6 +522,12 @@ onMounted(() => {
   justify-content: center;
 }
 .cgl-action { grid-area: action; }
+/* A full-width button on a 1024px screen reads as a banner, not a control. */
+.cgl--tablet .cgl-action {
+  width: 100%;
+  max-width: 32rem;
+  justify-self: center;
+}
 .cgl-row {
   display: flex;
   align-items: center;

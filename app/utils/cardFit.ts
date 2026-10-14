@@ -33,3 +33,15 @@ export function fitCardScale(
   const fit = Math.floor(Math.min(byWidth, byHeight) * 100);
   return Math.max(min, Math.min(max, fit));
 }
+
+/**
+ * Upper bounds for the compact layout's card scales.
+ *
+ * The phone caps keep a prompt from swallowing a tall portrait screen. A
+ * tablet running the compact layout has room they were never sized for, and
+ * its hand sat at the cap with the slot half-filled. fitCardScale still
+ * shrinks to the measured slot, so a higher cap only fills space that exists.
+ */
+export function compactScaleCaps(isTablet: boolean): { prompt: number; hand: number } {
+  return isTablet ? { prompt: 240, hand: 210 } : { prompt: 170, hand: 150 };
+}
