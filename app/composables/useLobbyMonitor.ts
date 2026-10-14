@@ -229,7 +229,7 @@ export function useLobbyMonitor(deps: LobbyMonitorDeps) {
     const live = status.value?.lobbies.filter((l) => l.hasLiveDoc).length ?? 0;
     const ok = await deps.confirm({
       title: "End every live game",
-      message: `End all ${live} live games and disconnect every player?\n\nEmergencies only.`,
+      message: `End ${live === 1 ? "the 1 live game" : `all ${live} live games`} and disconnect every player?\n\nEmergencies only.`,
       confirmButtonText: "End every game",
       confirmButtonColor: "error",
     });

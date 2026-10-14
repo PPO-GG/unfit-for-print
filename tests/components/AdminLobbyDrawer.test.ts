@@ -55,8 +55,10 @@ describe("AdminLobbyDrawer", () => {
     expect(live.find("[data-testid='action-end-game']").exists()).toBe(true);
     expect(live.find("[data-testid='action-remove']").exists()).toBe(true);
     expect(live.find("[data-testid='action-delete-record']").exists()).toBe(false);
+    expect(live.find("[data-testid='action-mark-finished']").exists()).toBe(false);
 
     const recordOnly = mountDrawer({ lobby: { ...liveLobby("AB12"), hasLiveDoc: false, teleportal: null } });
+    expect(recordOnly.find("[data-testid='action-mark-finished']").exists()).toBe(true);
     expect(recordOnly.find("[data-testid='action-end-game']").exists()).toBe(false);
     expect(recordOnly.find("[data-testid='action-delete-record']").exists()).toBe(true);
   });

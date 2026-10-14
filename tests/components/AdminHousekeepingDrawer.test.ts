@@ -19,9 +19,9 @@ const housekeeping = {
 };
 const server = { version: "2.0.0-durable", activeClients: 31, activeDocuments: 8, idleDocTtlSec: 600 };
 
-const mountIt = () =>
+const mountIt = (cleanupDisabled = false) =>
   mount(AdminHousekeepingDrawer, {
-    props: { open: true, housekeeping, server, liveGames: 8, livePlayers: 31 },
+    props: { open: true, housekeeping, server, liveGames: 8, livePlayers: 31, cleanupDisabled },
     global,
   });
 
@@ -34,6 +34,18 @@ describe("AdminHousekeepingDrawer", () => {
     expect(w.get("[data-testid='hk-empty']").text()).toContain("ZX2M · expires in about 1 min");
     expect(w.get("[data-testid='hk-no-record']").text()).toContain("GHST");
     expect(w.text()).toContain("2.0.0-durable");
+  });
+
+  it("turns clean-up off while the lobby status is unavailable", () => {
+    const off = mountIt(true);
+    expect(off.get("[data-testid='hk-prune-stale']").attributes("disabled")).toBeDefined();
+    expect(off.get("[data-testid='hk-prune-all']").attributes("disabled")).toBeDefined();
+    expect(off.text()).toContain("Clean-up is off until the lobby status loads again.");
+
+    const on = mountIt();
+    expect(on.get("[data-testid='hk-prune-stale']").attributes("disabled")).toBeUndefined();
+    expect(on.get("[data-testid='hk-prune-all']").attributes("disabled")).toBeUndefined();
+    expect(on.text()).not.toContain("Clean-up is off");
   });
 
   it("emits the clean-up actions", async () => {

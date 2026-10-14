@@ -62,7 +62,8 @@ const scorePct = (score: number) =>
 const can = computed(() => {
   const l = props.lobby;
   return {
-    markFinished: !!l?.registry && l.registry.status !== "complete",
+    // Postgres-only: reconcileLobbies copies a live doc's status straight back.
+    markFinished: !!l?.registry && l.registry.status !== "complete" && !l.hasLiveDoc,
     endGame: !!l?.hasLiveDoc,
     removeCompletely: !!l?.hasLiveDoc && !!l?.hasRegistry,
     deleteRecord: !!l?.hasRegistry && !l?.hasLiveDoc,
@@ -153,7 +154,7 @@ const can = computed(() => {
               <UButton data-testid="action-mark-finished" size="lg" block color="warning" variant="soft" @click="emit('markFinished', lobby)">
                 Mark finished
               </UButton>
-              <p class="mt-1 text-xs text-slate-500">Hides it from the public browser. Players stay connected.</p>
+              <p class="mt-1 text-xs text-slate-500">Hides this leftover lobby from the public browser.</p>
             </div>
             <div v-if="can.endGame">
               <UButton data-testid="action-end-game" size="lg" block color="error" variant="soft" @click="emit('endGame', lobby)">

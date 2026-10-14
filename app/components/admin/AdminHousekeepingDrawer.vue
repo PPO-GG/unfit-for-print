@@ -8,6 +8,8 @@ defineProps<{
   server: UnifiedStatusResponse["server"] | null;
   liveGames: number;
   livePlayers: number;
+  /** True while the sync worker is unreachable: pruning would delete rows of live games. */
+  cleanupDisabled: boolean;
 }>();
 const open = defineModel<boolean>("open", { required: true });
 const emit = defineEmits<{ pruneStale: []; pruneAll: []; endAll: []; endGame: [code: string] }>();
@@ -39,11 +41,14 @@ const list = (items: HousekeepingItem[]) =>
           <p v-if="housekeeping.finished.length" class="mt-2 text-sm text-slate-300">{{ list(housekeeping.finished) }}</p>
         </section>
 
+        <p v-if="cleanupDisabled" data-testid="hk-cleanup-off" class="text-xs text-amber-300">
+          Clean-up is off until the lobby status loads again.
+        </p>
         <div class="grid gap-2 sm:grid-cols-2">
-          <UButton data-testid="hk-prune-stale" size="lg" block color="warning" variant="soft" @click="emit('pruneStale')">
+          <UButton data-testid="hk-prune-stale" size="lg" block color="warning" variant="soft" :disabled="cleanupDisabled" @click="emit('pruneStale')">
             Clean up stale leftovers
           </UButton>
-          <UButton data-testid="hk-prune-all" size="lg" block color="neutral" variant="soft" @click="emit('pruneAll')">
+          <UButton data-testid="hk-prune-all" size="lg" block color="neutral" variant="soft" :disabled="cleanupDisabled" @click="emit('pruneAll')">
             Remove all database-only lobbies…
           </UButton>
         </div>
@@ -70,7 +75,7 @@ const list = (items: HousekeepingItem[]) =>
         <section class="rounded-lg border border-red-500/40 p-3">
           <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-red-300">Danger zone</p>
           <UButton data-testid="hk-end-all" size="lg" block color="error" variant="soft" :disabled="liveGames === 0" @click="emit('endAll')">
-            End every live game ({{ liveGames }}) &amp; disconnect {{ livePlayers }} players…
+            End every live game ({{ liveGames }}) &amp; disconnect {{ livePlayers }} {{ livePlayers === 1 ? "player" : "players" }}…
           </UButton>
           <p class="mt-1 text-xs text-slate-500">Emergencies only — e.g. a bad deploy left games in a broken state.</p>
         </section>

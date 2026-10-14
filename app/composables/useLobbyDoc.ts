@@ -264,8 +264,16 @@ export function useLobbyDoc(): LobbyDocResult {
       // 2.5 s for as long as an outage lasts.
       maxBackoffTime: 10_000,
       // Read on every (re)connect, so a sign-in after the first connect
-      // still reaches the worker.
-      params: () => presenceParams(useUserStore().user?.id),
+      // still reaches the worker. y-partyserver awaits this before the
+      // first socket opens, so it must never throw.
+      params: () => {
+        try {
+          return presenceParams(useUserStore().user?.id);
+        } catch {
+          // Presence is admin-only bookkeeping; never let it stop a connect.
+          return {};
+        }
+      },
     });
     const connection = createSyncConnection(provider);
 

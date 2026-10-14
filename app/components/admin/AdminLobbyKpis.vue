@@ -29,7 +29,7 @@ const discordShare = computed(() => {
     <div data-testid="kpi-players" class="rounded-xl border border-slate-800 bg-slate-900 p-4">
       <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Players now</p>
       <p class="text-3xl font-bold text-white tabular-nums">{{ kpis.players }}</p>
-      <p class="text-xs text-slate-500">{{ kpis.humans }} humans · {{ kpis.bots }} bots</p>
+      <p class="text-xs text-slate-500">{{ kpis.humans }} {{ kpis.humans === 1 ? "human" : "humans" }} · {{ kpis.bots }} {{ kpis.bots === 1 ? "bot" : "bots" }}</p>
     </div>
     <div data-testid="kpi-source" class="rounded-xl border border-slate-800 bg-slate-900 p-4">
       <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Where from (now)</p>
@@ -51,13 +51,13 @@ const discordShare = computed(() => {
       <template v-if="activity">
         <p class="text-3xl font-bold text-white tabular-nums">
           {{ activity.lobbiesCreated }}
-          <span class="text-sm font-medium text-slate-500">lobbies</span>
+          <span class="text-sm font-medium text-slate-500">{{ activity.lobbiesCreated === 1 ? "lobby" : "lobbies" }}</span>
         </p>
         <p class="text-xs text-slate-500">
-          {{ activity.uniquePlayers }} players<template v-if="discordShare !== null"> · Discord {{ discordShare }}%</template>
+          {{ activity.uniquePlayers }} {{ activity.uniquePlayers === 1 ? "player" : "players" }}<template v-if="discordShare !== null"> · Discord {{ discordShare }}%</template>
         </p>
         <p v-if="activity.playersBySource.unknown" class="text-xs text-slate-600">
-          {{ activity.playersBySource.unknown }} players from before tracking
+          {{ activity.playersBySource.unknown }} {{ activity.playersBySource.unknown === 1 ? "player" : "players" }} from before tracking
         </p>
       </template>
       <p v-else class="text-3xl font-bold text-slate-600">—</p>

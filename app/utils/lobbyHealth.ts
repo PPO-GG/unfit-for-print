@@ -27,7 +27,13 @@ export function lobbyHealth(
   if (anomaly) return { level: "red", reason: `Watchdog: ${anomaly.title}` };
 
   const active = isActivePhase(t.phase);
-  if (active && t.judgeId && t.idleSec >= JUDGE_GRACE_SEC && isOnline(lobby, t.judgeId) === false) {
+  // Bots never open a socket, and an empty room has no presence to judge by
+  // (it falls through to the "Nobody connected" rule below).
+  const judgeIsBot = t.players.find((p) => p.id === t.judgeId)?.isBot === true;
+  if (
+    active && t.clients > 0 && t.judgeId && !judgeIsBot
+    && t.idleSec >= JUDGE_GRACE_SEC && isOnline(lobby, t.judgeId) === false
+  ) {
     return { level: "red", reason: `Judge ${judgeName(lobby) ?? "?"} is offline` };
   }
   if (active && t.clients > 0 && t.idleSec >= STALL_SEC) {
