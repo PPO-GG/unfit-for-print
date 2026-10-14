@@ -224,6 +224,10 @@ export default defineNuxtConfig({
     issueRateLimitIp: Number(process.env.NUXT_ISSUE_RATE_LIMIT_IP ?? 30),
     issueRateLimitLobby: Number(process.env.NUXT_ISSUE_RATE_LIMIT_LOBBY ?? 60),
 
+    // Player feedback. The webhook gets one message per written comment
+    // (star-only ratings stay quiet); unset falls back to issueWebhookUrl.
+    feedbackWebhookUrl: process.env.NUXT_FEEDBACK_WEBHOOK_URL || "",
+
     // nuxt-auth-utils session cookie config. Without maxAge, h3 issues the
     // session cookie with no Expires/Max-Age, making it a browser-session
     // cookie that's wiped on browser close instead of persisting.
