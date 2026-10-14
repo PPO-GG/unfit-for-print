@@ -56,8 +56,44 @@ describe("FeedbackPrompt", () => {
     useFeedbackPrompt().offer(game);
     await nextTick();
     const card = w.get('[data-testid="feedback-prompt"]');
-    expect(card.attributes("aria-live")).toBe("polite");
     expect(card.attributes("aria-modal")).toBeUndefined();
+    expect(card.attributes("role")).toBeUndefined();
+  });
+
+  it("announces through a live region that exists before the card appears", async () => {
+    const w = mountPrompt();
+    const live = w.get('[data-testid="feedback-prompt-live"]');
+    expect(live.attributes("aria-live")).toBe("polite");
+    expect(live.text()).toBe("");
+    useFeedbackPrompt().offer(game);
+    await nextTick();
+    expect(w.get('[data-testid="feedback-prompt-live"]').element).toBe(live.element);
+    expect(live.text()).toBe("feedback.prompt_question");
+  });
+
+  it("does not send a rating when a keyboard player arrows across the stars", async () => {
+    const w = mount(FeedbackPrompt, { attachTo: document.body });
+    useFeedbackPrompt().offer(game);
+    await nextTick();
+    const star1 = w.get('[data-testid="star-1"]');
+    (star1.element as HTMLElement).focus();
+    await star1.trigger("keydown", { key: "ArrowRight" });
+    await w.get('[data-testid="star-2"]').trigger("keydown", { key: "ArrowRight" });
+    expect(send).not.toHaveBeenCalled();
+    expect(useFeedbackPrompt().stage.value).toBe("ask");
+    expect(localStorage.getItem("feedback-rated-at")).toBeNull();
+    w.unmount();
+  });
+
+  it("moves focus to Tell us more after a rating", async () => {
+    const w = mount(FeedbackPrompt, { attachTo: document.body });
+    useFeedbackPrompt().offer(game);
+    await nextTick();
+    await w.get('[data-testid="star-4"]').trigger("click");
+    await nextTick();
+    await nextTick();
+    expect(document.activeElement).toBe(w.get('[data-testid="feedback-prompt-more"]').element);
+    w.unmount();
   });
 
   it("closes on ✕ and records the dismissal", async () => {

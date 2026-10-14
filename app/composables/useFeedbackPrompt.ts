@@ -82,7 +82,17 @@ export function useFeedbackPrompt() {
     stage.value = "hidden";
   }
 
-  return { stage: readonly(stage), offer, rate, dismiss, done, tellMore, hide };
+  /**
+   * The next game started. An unanswered question counts as a dismissal so
+   * someone who ignores the card isn't asked again every game; a thanks
+   * card just goes (the rating is already recorded).
+   */
+  function expire() {
+    if (stage.value === "ask") markDismissed();
+    stage.value = "hidden";
+  }
+
+  return { stage: readonly(stage), offer, rate, dismiss, done, tellMore, hide, expire };
 }
 
 /** Test seam. */

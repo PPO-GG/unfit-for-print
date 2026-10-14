@@ -199,6 +199,12 @@ watch(delayedComplete, (shown) => {
     isSpectator: !me || me.playerType !== "player",
   });
 });
+// The next game starting retires the card. Keyed on isPlaying (true only once
+// rounds are under way), not delayedComplete going false: the auto-return
+// reset flips that too, and the card must survive the podium → lobby step.
+watch(isPlaying, (playing) => {
+  if (playing) feedbackPrompt.expire();
+});
 
 // ─── Bot Orchestration ──────────────────────────────────────────────────────
 const { removeOneBot, botPlayers } = useBots(lobby, players, isHost);

@@ -11,12 +11,14 @@
       type="button"
       role="radio"
       class="star-rating__star"
-      :class="{ 'is-on': star <= (hover ?? modelValue ?? 0) }"
+      :class="{ 'is-on': star <= (hover ?? focused ?? modelValue ?? 0) }"
       :aria-checked="modelValue === star"
       :aria-label="t('feedback.star_label', { n: star })"
-      :tabindex="(modelValue ?? 1) === star ? 0 : -1"
+      :tabindex="(focused ?? modelValue ?? 1) === star ? 0 : -1"
       :data-testid="`star-${star}`"
       @mouseenter="hover = star"
+      @focus="onFocus(star)"
+      @blur="onBlur"
       @click="select(star)"
       @keydown="onKey($event, star)"
     >
@@ -33,21 +35,39 @@ const emit = defineEmits<{ "update:modelValue": [value: number] }>();
 
 const { t } = useI18n();
 const hover = ref<number | null>(null);
+/** The star keyboard focus is on. Arrows move it and preview the
+ *  highlight; only a click commits — and a native button turns Enter and
+ *  Space into a click, so nothing here handles those keys. */
+const focused = ref<number | null>(null);
 
 function select(star: number) {
+  // A touch tap fires mouseenter with no mouseleave; don't leave it lit.
+  hover.value = null;
   emit("update:modelValue", star);
 }
 
-/** Radio-group keys: arrows move and select, clamped to 1–5, and focus
- *  follows so a keyboard player can see where they are. */
+function onFocus(star: number) {
+  focused.value = star;
+  hover.value = null;
+}
+
+function onBlur() {
+  focused.value = null;
+  hover.value = null;
+}
+
+/** Radio-group keys move focus (clamped to 1–5) without choosing, so a
+ *  keyboard player can reach every star before committing to one. */
 function onKey(e: KeyboardEvent, star: number) {
-  const step = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1
-    : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1
-    : 0;
-  if (step === 0) return;
+  let next: number;
+  if (e.key === "ArrowRight" || e.key === "ArrowUp") next = star + 1;
+  else if (e.key === "ArrowLeft" || e.key === "ArrowDown") next = star - 1;
+  else if (e.key === "Home") next = 1;
+  else if (e.key === "End") next = 5;
+  else return;
   e.preventDefault();
-  const next = Math.min(5, Math.max(1, star + step));
-  select(next);
+  next = Math.min(5, Math.max(1, next));
+  focused.value = next;
   const group = (e.currentTarget as HTMLElement).parentElement;
   (group?.children[next - 1] as HTMLElement | undefined)?.focus();
 }

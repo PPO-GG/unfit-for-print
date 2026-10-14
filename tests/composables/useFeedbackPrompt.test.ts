@@ -109,6 +109,32 @@ describe("useFeedbackPrompt", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  describe("expire() when the next game starts", () => {
+    it("counts an unanswered question as a dismissal", () => {
+      const p = useFeedbackPrompt();
+      p.offer(game);
+      p.expire();
+      expect(localStorage.getItem(DISMISSED_KEY)).not.toBeNull();
+      expect(p.stage.value).toBe("hidden");
+    });
+
+    it("just hides a thanks card without a dismissal", () => {
+      const p = useFeedbackPrompt();
+      p.offer(game);
+      p.rate(4);
+      p.expire();
+      expect(localStorage.getItem(DISMISSED_KEY)).toBeNull();
+      expect(p.stage.value).toBe("hidden");
+    });
+
+    it("does nothing when the card is already hidden", () => {
+      const p = useFeedbackPrompt();
+      p.expire();
+      expect(localStorage.getItem(DISMISSED_KEY)).toBeNull();
+      expect(p.stage.value).toBe("hidden");
+    });
+  });
+
   it("shares one state across callers", () => {
     useFeedbackPrompt().offer(game);
     expect(useFeedbackPrompt().stage.value).toBe("ask");
