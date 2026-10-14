@@ -17,9 +17,9 @@ vi.mock("~/server/utils/session", async (importOriginal) => {
   };
 });
 
-function mockEvent(body: unknown) {
+function mockEvent(body: unknown, headers: Record<string, string> = {}) {
   globalThis.readBody = async () => body;
-  return {} as any;
+  return { node: { req: { headers } } } as any;
 }
 
 async function clean() {
@@ -39,9 +39,9 @@ async function createLobby() {
   return handler(mockEvent({ lobbyName: "Stats" }));
 }
 
-async function join(code: string, name: string) {
+async function join(code: string, name: string, headers: Record<string, string> = {}) {
   const { default: handler } = await import("~/server/api/lobby/join.post");
-  return handler(mockEvent({ code, playerName: name }));
+  return handler(mockEvent({ code, playerName: name }, headers));
 }
 
 beforeEach(clean);
@@ -61,7 +61,7 @@ describe("activity stats", () => {
     await join(second.code, "Guest");
 
     const stats = await getActivityStats();
-    expect(stats).toEqual({ windowHours: 24, lobbiesCreated: 2, uniquePlayers: 2 });
+    expect(stats).toMatchObject({ windowHours: 24, lobbiesCreated: 2, uniquePlayers: 2 });
   });
 
   it("survives the lobby sweeper deleting the lobby and its players", async () => {
@@ -99,5 +99,33 @@ describe("activity stats", () => {
     await createLobby();
     const { default: handler } = await import("~/server/api/admin/stats/activity.get");
     expect(await handler({} as any)).toMatchObject({ lobbiesCreated: 1, uniquePlayers: 1 });
+  });
+
+  it("splits players and lobbies by where the request came from", async () => {
+    currentUserId = await newUser("Host");
+    const lobby = await createLobby();
+    currentUserId = await newUser("Activity guest", true);
+    await join(lobby.code, "Activity guest", { authorization: "Bearer token" });
+
+    const stats = await getActivityStats();
+    expect(stats.lobbiesBySource).toEqual({ web: 1, discord: 0, unknown: 0 });
+    expect(stats.playersBySource).toEqual({ web: 1, discord: 1, unknown: 0 });
+  });
+
+  it("counts rows recorded before the source column as unknown", async () => {
+    await db.insert(activityEvents).values({
+      kind: "player_joined",
+      lobbyId: crypto.randomUUID(),
+      userId: crypto.randomUUID(),
+    });
+    expect((await getActivityStats()).playersBySource).toEqual({ web: 0, discord: 0, unknown: 1 });
+  });
+
+  it("records a lobby created with a Discord instance as discord", async () => {
+    currentUserId = await newUser("Host");
+    const { default: handler } = await import("~/server/api/lobby/create.post");
+    await handler(mockEvent({ lobbyName: "Activity", discordInstanceId: "i-1" }));
+    const rows = await db.select().from(activityEvents);
+    expect(rows.map((r) => r.source)).toEqual(["discord", "discord"]);
   });
 });

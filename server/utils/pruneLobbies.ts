@@ -7,11 +7,16 @@ import { and, eq, inArray, isNull, lte, ne, notInArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, players, reports, submissions, users } from "~~/server/db/schema";
 import { getTeleportalHttpUrl, teleportalAdminHeaders } from "~~/server/utils/teleportal";
+import {
+  DEFAULT_COMPLETED_TTL_MS,
+  DEFAULT_ORPHAN_TTL_MS,
+  GUEST_ORPHAN_TTL_MS,
+} from "./pruneThresholds";
 
 export interface PruneLobbiesOptions {
   /** TTL for orphaned lobbies without a live Teleportal doc. Defaults to 2 hours. */
   orphanTtlMs?: number;
-  /** TTL for completed lobbies. Defaults to 24 hours. */
+  /** TTL for completed lobbies. Defaults to 1 hour. */
   completedTtlMs?: number;
   /** Force prune all orphaned lobbies regardless of age. */
   forceAllOrphans?: boolean;
@@ -26,10 +31,6 @@ export interface PruneLobbiesResult {
   teleportalOnline: boolean;
 }
 
-const DEFAULT_ORPHAN_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-const DEFAULT_COMPLETED_TTL_MS = 1 * 60 * 60 * 1000; // 1 hour
-const GUEST_ORPHAN_TTL_MS = 15 * 60 * 1000; // 15 minutes
-
 /**
  * Extracts the 4-character lobby code from a Teleportal document key.
  * e.g., "lobby/lobby-ABCD" -> "ABCD" or "lobby-ABCD" -> "ABCD"
@@ -40,7 +41,7 @@ function extractLobbyCode(docId: string): string {
 }
 
 /**
- * Prunes stale lobbies (orphans older than 2h and completed older than 24h) from the database.
+ * Prunes stale lobbies (orphans older than 2h and completed older than 1h) from the database.
  */
 export async function pruneStaleLobbies(
   options: PruneLobbiesOptions = {},

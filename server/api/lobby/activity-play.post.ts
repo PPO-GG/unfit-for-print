@@ -105,8 +105,8 @@ export default defineEventHandler(async (event) => {
   });
 
   if (result.created) {
-    await recordActivity("lobby_created", result.lobby.id, userId);
-    await recordActivity("player_joined", result.lobby.id, userId);
+    await recordActivity("lobby_created", result.lobby.id, userId, "discord");
+    await recordActivity("player_joined", result.lobby.id, userId, "discord");
   }
   return result;
 });

@@ -119,4 +119,66 @@ describe("mergeLobbies", () => {
     const result = mergeLobbies(docs, [], []);
     expect(result[0].code).toBe("ABCD");
   });
+
+  it("defaults the monitor fields when an old worker omits them", () => {
+    const [lobby] = mergeLobbies(makeTeleportalDoc("OLD1"), [makeAppwriteLobby("OLD1")], []);
+    expect(lobby!.teleportal).toMatchObject({
+      lobbyName: null,
+      isPrivate: null,
+      hostUserId: null,
+      judgeId: null,
+      scores: {},
+      maxPoints: null,
+      submittedIds: [],
+      onlinePlayerIds: null,
+      anonymousClients: null,
+    });
+  });
+
+  it("passes the new worker fields through", () => {
+    const [lobby] = mergeLobbies(
+      makeTeleportalDoc("NEW1", {
+        lobbyName: "Basement",
+        isPrivate: true,
+        hostUserId: "u1",
+        judgeId: "u2",
+        scores: { u1: 3 },
+        maxPoints: 7,
+        submittedIds: ["u1"],
+        onlinePlayerIds: ["u1"],
+        anonymousClients: 0,
+      }),
+      [],
+      [],
+    );
+    expect(lobby!.teleportal).toMatchObject({
+      lobbyName: "Basement",
+      isPrivate: true,
+      hostUserId: "u1",
+      judgeId: "u2",
+      scores: { u1: 3 },
+      maxPoints: 7,
+      submittedIds: ["u1"],
+      onlinePlayerIds: ["u1"],
+      anonymousClients: 0,
+    });
+    expect(lobby!.source).toBeNull();
+  });
+
+  it("derives the source and privacy from the registry row", () => {
+    const result = mergeLobbies(
+      { ...makeTeleportalDoc("DSC1"), ...makeTeleportalDoc("WEB1") },
+      [
+        makeAppwriteLobby("DSC1", { discordInstanceId: "i-1", isPrivate: false }),
+        makeAppwriteLobby("WEB1", { discordInstanceId: null, isPrivate: true }),
+        makeAppwriteLobby("ORPH", { discordInstanceId: "i-2" }),
+      ],
+      [],
+    );
+    const byCode = Object.fromEntries(result.map((l) => [l.code, l]));
+    expect(byCode.DSC1!.source).toBe("discord");
+    expect(byCode.WEB1!.source).toBe("web");
+    expect(byCode.WEB1!.registry!.isPrivate).toBe(true);
+    expect(byCode.ORPH!.source).toBe("discord");
+  });
 });

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { users } from "~~/server/db/schema";
-import { recordActivity } from "~~/server/utils/activity";
+import { recordActivity, requestSource } from "~~/server/utils/activity";
 import { createLobbyRow } from "~~/server/utils/createLobbyRow";
 import { requireNonGuest } from "~~/server/utils/session";
 
@@ -31,8 +31,9 @@ export default defineEventHandler(async (event) => {
     isPrivate: body.isPrivate,
   });
 
-  await recordActivity("lobby_created", lobby.id, userId);
-  await recordActivity("player_joined", lobby.id, userId);
+  const source = body.discordInstanceId ? "discord" : requestSource(event);
+  await recordActivity("lobby_created", lobby.id, userId, source);
+  await recordActivity("player_joined", lobby.id, userId, source);
 
   return lobby;
 });

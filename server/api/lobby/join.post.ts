@@ -6,7 +6,7 @@ import {
   MAX_LOBBY_SEATS,
 } from "~~/server/utils/lobbyCapacity";
 import { verifyLobbyPassword } from "~~/server/utils/lobbyPassword";
-import { recordActivity } from "~~/server/utils/activity";
+import { recordActivity, requestSource } from "~~/server/utils/activity";
 import { requireAuth } from "~~/server/utils/session";
 import { liveLobbyStatus } from "~~/server/utils/reconcileLobbies";
 
@@ -115,7 +115,7 @@ export default defineEventHandler(async (event) => {
     })
     .returning();
 
-  await recordActivity("player_joined", lobby.id, userId);
+  await recordActivity("player_joined", lobby.id, userId, requestSource(event));
 
   return { lobby, player };
 });
