@@ -19,6 +19,7 @@ const record = (code: string, over: Partial<LobbyRecord> = {}): LobbyRecord => (
   isPrivate: false,
   phase: "judging",
   round: 3,
+  submittedIds: [],
   ...over,
 });
 
