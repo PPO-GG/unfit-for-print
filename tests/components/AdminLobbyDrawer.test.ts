@@ -29,8 +29,8 @@ describe("AdminLobbyDrawer", () => {
     expect(rows[0]!.text()).toContain("Mo");
     expect(rows[0]!.text()).toContain("host");
     expect(rows[0]!.text()).toContain("judge");
-    expect(rows[0]!.text()).toContain("offline");
-    expect(rows[1]!.text()).toContain("online");
+    expect(rows[0]!.text()).toContain("● offline");
+    expect(rows[1]!.text()).toContain("● online");
     expect(rows[1]!.text()).toContain("played ✓");
     expect(rows[1]!.text()).toContain("3");
   });

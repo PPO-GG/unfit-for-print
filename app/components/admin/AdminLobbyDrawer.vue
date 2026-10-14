@@ -165,6 +165,7 @@ const can = computed(() => {
               <UButton data-testid="action-copy" size="lg" block color="neutral" variant="soft" @click="emit('copyCode', lobby.code)">
                 Copy lobby code
               </UButton>
+              <p class="mt-1 text-xs text-slate-500">Copies the code to your clipboard.</p>
             </div>
             <div v-if="can.removeCompletely">
               <UButton data-testid="action-remove" size="lg" block color="error" variant="soft" @click="emit('removeCompletely', lobby)">
