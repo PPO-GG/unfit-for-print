@@ -135,4 +135,20 @@ describe("normalizeFeedbackPayload", () => {
     const r = normalizeFeedbackPayload({ ...valid, lobbyCode: "A".repeat(50) });
     expect(r.ok && r.value.lobbyCode).toHaveLength(16);
   });
+
+  it("strips NUL bytes, which Postgres text columns reject", () => {
+    const r = normalizeFeedbackPayload({ ...valid, message: "hi\u0000there" });
+    expect(r.ok && r.value.message).toBe("hithere");
+    const lobby = normalizeFeedbackPayload({ ...valid, lobbyCode: "AB\u0000CD" });
+    expect(lobby.ok && lobby.value.lobbyCode).toBe("ABCD");
+  });
+
+  it("treats a NUL-only message as empty", () => {
+    const r = normalizeFeedbackPayload({
+      ...valid,
+      rating: undefined,
+      message: "\u0000",
+    });
+    expect(r).toEqual({ ok: false, reason: "empty feedback" });
+  });
 });

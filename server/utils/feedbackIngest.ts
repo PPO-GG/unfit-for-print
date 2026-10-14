@@ -31,10 +31,12 @@ export type NormalizeFeedbackResult =
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Truncate rather than reject: an overlong comment is still feedback. */
+/** Truncate rather than reject: an overlong comment is still feedback.
+ *  NUL is removed first — Postgres `text` rejects it, so a hand-built request
+ *  would otherwise pass validation and 500 at insert. */
 function clamp(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
+  const trimmed = value.replaceAll("\u0000", "").trim();
   if (trimmed.length === 0) return null;
   return trimmed.slice(0, max);
 }
