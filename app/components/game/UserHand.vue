@@ -13,7 +13,6 @@ import { useCardFlyCoords } from "@/composables/useCardFlyCoords";
 import { useCardPlayPreferences } from "@/composables/useCardPlayPreferences";
 import { useCardGesture } from "@/composables/useCardGesture";
 import { useWhiteDeckPosition } from "@/composables/useWhiteDeckPosition";
-import { useTouchDevice } from "@/composables/useTouchDevice";
 import { useCompactLayout } from "~/composables/useCompactLayout";
 import { SFX } from "~/config/sfx.config";
 import { isWithinFanFootprint } from "~/utils/fanFootprint";
@@ -95,10 +94,6 @@ const allSelected = computed(
 // width-only check so a landscape phone counts as mobile too.
 const { isCompact: isMobile, width: windowWidth } = useCompactLayout();
 
-const { isTouchDevice } = useTouchDevice();
-const isTabletTouch = computed(
-  () => !isMobile.value && isTouchDevice.value,
-);
 
 // Fan geometry
 const FAN = computed(() => {
@@ -130,8 +125,6 @@ function getBaseTransform(i: number) {
 }
 
 function animateCards() {
-  // Carousel mode uses CSS layout, not GSAP positioning
-  if (isTabletTouch.value) return;
   if (!cardRefs.value.length) return;
 
   const hovered = hoveredIndex.value;
@@ -217,13 +210,6 @@ watch(
     }
 
     nextTick(() => {
-      // Carousel mode: skip GSAP entrance, CSS handles layout
-      if (isTabletTouch.value) {
-        previousHandIds.clear();
-        newCards.forEach((id) => previousHandIds.add(id));
-        return;
-      }
-
       // Calculate deck offset for new cards
       let fromX = 0;
       let fromY = 80;
@@ -304,33 +290,18 @@ function doSubmitNow() {
   );
   snapshotCards(selectedEls);
 
-  // Animate selected cards out
-  if (isTabletTouch.value) {
-    // Carousel mode: simple fly-up animation
-    selectedEls.forEach((el, i) => {
-      gsap.to(el, {
-        y: -100,
-        scale: 0.5,
-        opacity: 0,
-        duration: 0.35,
-        ease: "power2.in",
-        delay: i * 0.05,
-      });
+  // Spin each played card out of the fan
+  selectedEls.forEach((el, i) => {
+    gsap.to(el, {
+      y: "-=130",
+      scale: 0.3,
+      opacity: 0,
+      rotation: `+=${(Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 20)}`,
+      duration: 0.4,
+      delay: i * 0.06,
+      ease: "power2.in",
     });
-  } else {
-    // Fan mode: dramatic spin exit
-    selectedEls.forEach((el, i) => {
-      gsap.to(el, {
-        y: "-=130",
-        scale: 0.3,
-        opacity: 0,
-        rotation: `+=${(Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 20)}`,
-        duration: 0.4,
-        delay: i * 0.06,
-        ease: "power2.in",
-      });
-    });
-  }
+  });
 
   justSubmitted.value = true;
   emit("select-cards", [...selectedCards.value]);
@@ -661,7 +632,7 @@ onUnmounted(() => {
   <div
     class="user-hand"
     :class="{
-      'user-hand--active': isHandActive || selectedCards.length > 0 || isMobile || isTabletTouch,
+      'user-hand--active': isHandActive || selectedCards.length > 0 || isMobile,
       'user-hand--gesture': gestureEnabled,
     }"
   >
@@ -713,79 +684,8 @@ onUnmounted(() => {
       class="hand-container"
       :class="{ 'hand-container--hidden': isSubmitting === false }"
     >
-      <!-- ═══ Tablet Touch: Scrollable Carousel ═══ -->
-      <div v-if="isTabletTouch" class="carousel-zone">
-        <div class="carousel-scroll" ref="handRef">
-          <div
-            v-for="(cardId, index) in props.cards"
-            :key="cardId"
-            ref="cardRefs"
-            class="carousel-card"
-            :class="{
-              'carousel-card--selected': selectedCards.includes(cardId),
-              'carousel-card--dimmed': selectedCards.length > 0 && !selectedCards.includes(cardId),
-              'carousel-card--draggable':
-                gestureEnabled && allSelected && selectedCards.includes(cardId),
-            }"
-            @click="onCardClick($event, cardId, index)"
-            @pointerdown="
-              gestureEnabled && allSelected
-                ? onPointerDown($event, cardId, index)
-                : undefined
-            "
-            @pointermove="gestureEnabled ? onPointerMove($event) : undefined"
-            @pointerup="gestureEnabled ? onPointerUp($event) : undefined"
-          >
-            <!-- Selection order badge (multi-pick) -->
-            <div
-              v-if="cardsToSelect > 1 && selectedCards.includes(cardId)"
-              class="selection-badge"
-            >
-              {{ selectionOrder(cardId) }}
-            </div>
-            <WhiteCard
-              :cardId="cardId"
-              :text="props.cardTexts?.[cardId]?.text"
-              :card-pack="props.cardTexts?.[cardId]?.pack"
-              :pack-display-name="props.cardTexts?.[cardId]?.packDisplayName"
-              :pack-series="props.cardTexts?.[cardId]?.packSeries"
-              :disableHover="true"
-              :flat="true"
-              :scale="75"
-            />
-          </div>
-          <DrawSlot
-            v-for="n in drawSlots"
-            :key="`draw-slot-${n}`"
-            class="hand-slot carousel-slot"
-            :scale="75"
-            @click.stop="emit('draw')"
-          />
-        </div>
-
-        <!-- Submit bar -->
-        <Transition name="submit-bar">
-          <div v-if="selectedCards.length > 0" class="submit-bar">
-            <div class="submit-bar-preview">
-              <span class="submit-bar-text">
-                {{ selectedCards.map(id => props.cardTexts?.[id]?.text || '...').join(' + ') }}
-              </span>
-            </div>
-            <button
-              class="submit-bar-button"
-              :class="{ 'submit-bar-button--ready': allSelected }"
-              :disabled="!allSelected"
-              @click="allSelected ? doSubmitNow() : undefined"
-            >
-              {{ allSelected ? t("game.play_cards", "PLAY") : t("game.selecting", `${selectedCards.length}/${cardsToSelect}`) }}
-            </button>
-          </div>
-        </Transition>
-      </div>
-
-      <!-- ═══ Desktop/Default: Fan Layout ═══ -->
+      <!-- ═══ Fan Layout ═══ -->
       <div
-        v-else
         ref="handRef"
         class="hand-zone"
         @mouseenter="handleMouseEnter"
@@ -1143,128 +1043,5 @@ onUnmounted(() => {
 /* ── Gesture mode: prevent scroll conflicts on touch ─────────── */
 .user-hand--gesture .hand-zone {
   touch-action: none;
-}
-
-/* ── Carousel Layout (Tablet Touch) ────────────────────────── */
-.carousel-zone {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  pointer-events: auto;
-}
-
-.carousel-scroll {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px 16px 8px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.carousel-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.carousel-card {
-  flex: 0 0 130px;
-  scroll-snap-align: start;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-              opacity 0.2s ease,
-              box-shadow 0.2s ease;
-  border-radius: 14px;
-}
-
-.carousel-slot {
-  flex: 0 0 auto;
-  scroll-snap-align: start;
-}
-
-.carousel-card--selected {
-  transform: translateY(-20px) scale(1.08);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 1),
-              0 4px 16px rgba(34, 197, 94, 0.4);
-  z-index: 10;
-}
-
-.carousel-card--dimmed {
-  opacity: 0.7;
-}
-
-.carousel-card--draggable {
-  cursor: grab;
-  touch-action: none;
-}
-
-.carousel-card--draggable:active {
-  cursor: grabbing;
-}
-
-/* ── Submit Bar ─────────────────────────────────────────────── */
-.submit-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  pointer-events: auto;
-}
-
-.submit-bar-preview {
-  flex: 1;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 8px;
-  padding: 8px 12px;
-  overflow: hidden;
-}
-
-.submit-bar-text {
-  font-size: 0.8rem;
-  color: rgba(34, 197, 94, 0.9);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-}
-
-.submit-bar-button {
-  flex-shrink: 0;
-  padding: 10px 24px;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: rgba(100, 116, 139, 0.3);
-  color: rgba(148, 163, 184, 0.6);
-  pointer-events: none;
-}
-
-.submit-bar-button--ready {
-  background: rgba(34, 197, 94, 1);
-  color: white;
-  pointer-events: auto;
-  box-shadow: 0 2px 12px rgba(34, 197, 94, 0.4);
-}
-
-.submit-bar-button--ready:active {
-  transform: scale(0.95);
-}
-
-/* Submit bar transitions */
-.submit-bar-enter-active {
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-.submit-bar-leave-active {
-  transition: all 0.2s ease;
-}
-.submit-bar-enter-from,
-.submit-bar-leave-to {
-  opacity: 0;
-  transform: translateY(10px);
 }
 </style>
