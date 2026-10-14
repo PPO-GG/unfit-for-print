@@ -522,11 +522,13 @@ onMounted(() => {
   justify-content: center;
 }
 .cgl-action { grid-area: action; }
-/* A full-width button on a 1024px screen reads as a banner, not a control. */
-.cgl--tablet .cgl-action {
-  width: 100%;
+/* A full-width button on a 1024px screen reads as a banner, not a control.
+   The button is capped rather than the bar, whose fade has to keep spanning
+   the cards above it. */
+.cgl--tablet .cgl-action :deep(.compact-action-btn) {
+  display: block;
   max-width: 32rem;
-  justify-self: center;
+  margin-inline: auto;
 }
 .cgl-row {
   display: flex;
