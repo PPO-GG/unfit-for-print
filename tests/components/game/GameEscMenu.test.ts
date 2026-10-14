@@ -15,8 +15,9 @@ vi.mock("~/stores/userPrefsStore", () => ({ useUserPrefsStore: () => ({}) }));
 vi.mock("~/composables/useMusicPlayer", () => ({
   useMusicPlayer: () => ({ isPlaying: { value: false }, toggle: vi.fn() }),
 }));
-vi.mock("~/composables/useReportProblem", () => ({
-  useReportProblem: () => ({ open: vi.fn() }),
+const openFeedback = vi.fn();
+vi.mock("~/composables/useFeedbackModal", () => ({
+  useFeedbackModal: () => ({ open: openFeedback }),
 }));
 
 import GameEscMenu from "~/components/game/GameEscMenu.vue";
@@ -41,6 +42,15 @@ describe("GameEscMenu", () => {
     expect(w.find(".esc-menu-grabber").exists()).toBe(true);
     expect(w.find(".esc-menu-hint").exists()).toBe(false);
     expect(w.find(".esc-menu-kbd").exists()).toBe(false);
+  });
+
+  // Mid-game, a broken thing is the likelier reason to open feedback.
+  it("opens feedback on the broken tab and closes the menu", async () => {
+    const w = mk();
+    const btn = w.findAll(".esc-menu-item").find((b) => b.text().includes("feedback.open"));
+    await btn!.trigger("click");
+    expect(openFeedback).toHaveBeenCalledWith({ mode: "broken" });
+    expect(w.emitted("close")).toHaveLength(1);
   });
 
   it("closes when the backdrop is tapped", async () => {

@@ -9,6 +9,7 @@ import { useJoinLobby } from "~/composables/useJoinLobby";
 import { useDynamicFavicon } from "~/composables/useDynamicFavicon";
 import { useAutoReturn, CELEBRATION_MS } from "~/composables/useAutoReturn";
 import { useSfx } from "~/composables/useSfx";
+import { useFeedbackPrompt } from "~/composables/useFeedbackPrompt";
 import GameOver from "~/components/game/GameOver.vue";
 import type { Lobby } from "~/types/lobby";
 import type { Player } from "~/types/player";
@@ -180,6 +181,29 @@ watch(isComplete, (complete) => {
       delayedCompleteTimeout = null;
     }
   }
+});
+
+// ─── Feedback Prompt ────────────────────────────────────────────────────────
+// Offered when the podium appears. The card lives in app.vue and survives the
+// auto-return to the lobby; useFeedbackPrompt decides whether to show it.
+const feedbackPrompt = useFeedbackPrompt();
+watch(delayedComplete, (shown) => {
+  if (!shown) return;
+  const me =
+    players.value.find((p) => p.userId === myId.value) ??
+    players.value.find((p) => p.$id === myId.value);
+  feedbackPrompt.offer({
+    lobbyCode: code,
+    gameEndTime: state.value?.gameEndTime ?? null,
+    // Not found counts as a spectator: never ask someone we can't place.
+    isSpectator: !me || me.playerType !== "player",
+  });
+});
+// The next game starting retires the card. Keyed on isPlaying (true only once
+// rounds are under way), not delayedComplete going false: the auto-return
+// reset flips that too, and the card must survive the podium → lobby step.
+watch(isPlaying, (playing) => {
+  if (playing) feedbackPrompt.expire();
 });
 
 // ─── Bot Orchestration ──────────────────────────────────────────────────────

@@ -2,10 +2,10 @@
 import type { LobbySettings } from "~/composables/useLobbyReactive";
 import { useUserPrefsStore } from "~/stores/userPrefsStore";
 import { useMusicPlayer } from "~/composables/useMusicPlayer";
-import { useReportProblem } from "~/composables/useReportProblem";
+import { useFeedbackModal } from "~/composables/useFeedbackModal";
 
 const { t } = useI18n();
-const { open: openReport } = useReportProblem();
+const { open: openFeedback } = useFeedbackModal();
 const prefs = useUserPrefsStore();
 const music = useMusicPlayer();
 
@@ -151,16 +151,17 @@ watch(
 
               <!-- Directly above Leave on purpose. A player who thinks the
                    round is stuck is already reaching for this menu to quit,
-                   and that is the report we most want to catch. -->
+                   and that is the report we most want to catch — so it opens
+                   on "Something's broken". -->
               <button
                 class="esc-menu-item"
                 @click="
-                  openReport();
+                  openFeedback({ mode: 'broken' });
                   emit('close');
                 "
               >
-                <UIcon name="i-solar-bug-bold-duotone" />
-                <span>{{ t("report.title", "Report a Problem") }}</span>
+                <UIcon name="i-solar-chat-square-like-bold-duotone" />
+                <span>{{ t("feedback.open", "Send feedback") }}</span>
               </button>
 
               <button

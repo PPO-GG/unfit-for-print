@@ -10,9 +10,10 @@
         :css-only="isDiscordActivity"
       />
       <InstallPwaBanner v-if="!isDiscordActivity" />
+      <FeedbackPrompt />
     </ClientOnly>
     <ConfirmDialog />
-    <ReportProblemModal />
+    <FeedbackModal />
     <SettingsSlideover
       v-if="!isGameRoute"
       v-model:open="uiStore.showSettings"

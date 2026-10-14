@@ -390,16 +390,16 @@
         >Changelog</NuxtLink
       >
 
-      <!-- A button, not a link: it opens the report modal mounted globally in
+      <!-- A button, not a link: it opens the feedback modal mounted globally in
            app.vue. It sits here rather than among the New Game / Join Game
            tiles because a bug reporter should be findable, not loud — and
            here it is reachable by guests, who hit the most bugs. -->
       <button
         type="button"
         class="hover:text-slate-300 transition-colors cursor-pointer"
-        @click="openReport()"
+        @click="openFeedback()"
       >
-        {{ t("report.title", "Report a Problem") }}
+        {{ t("feedback.open", "Send feedback") }}
       </button>
 
       <NuxtLink
@@ -454,7 +454,7 @@ import { SFX } from "~/config/sfx.config";
 import { useLobbyActions } from "~/composables/useLobbyActions";
 import { isAuthenticatedUser } from "~/composables/useUserUtils";
 import { useNotifications } from "~/composables/useNotifications";
-import { useReportProblem } from "~/composables/useReportProblem";
+import { useFeedbackModal } from "~/composables/useFeedbackModal";
 import { useIsAdmin } from "~/composables/useAdminCheck";
 import { useUiStore } from "~/stores/uiStore";
 import { useActivityPlay } from "~/composables/useActivityPlay";
@@ -465,7 +465,7 @@ const userPrefs = useUserPrefsStore();
 const userStore = useUserStore();
 const uiStore = useUiStore();
 const { notify } = useNotifications();
-const { open: openReport } = useReportProblem();
+const { open: openFeedback } = useFeedbackModal();
 const { isDiscordActivity: sdkIsDiscordActivity, inviteFriends } = useDiscordSDK();
 const isAdmin = useIsAdmin();
 const router = useRouter();

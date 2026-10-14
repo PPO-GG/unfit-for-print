@@ -6,7 +6,7 @@ import type { LobbySettings, ChatMessage } from "~/composables/useLobbyReactive"
 import { useLobbyStart, MIN_PLAYERS } from "~/composables/useLobbyStart";
 import { useChatUnread } from "~/composables/useChatUnread";
 import { useCompactLayout } from "~/composables/useCompactLayout";
-import { useReportProblem } from "~/composables/useReportProblem";
+import { useFeedbackModal } from "~/composables/useFeedbackModal";
 import { shareInvite } from "~/utils/shareInvite";
 
 type Tab = "players" | "chat" | "settings";
@@ -40,7 +40,7 @@ const { notify } = useNotifications();
 const config = useRuntimeConfig();
 const { isDiscordActivity } = useDiscordSDK();
 const { orientation } = useCompactLayout();
-const { open: openReport } = useReportProblem();
+const { open: openFeedback } = useFeedbackModal();
 
 // ── Tabs ──
 const tab = ref<Tab>("players");
@@ -277,7 +277,7 @@ watch(start.canStart, (ok) => {
           <button type="button" class="lc-sheet-btn lc-sheet-leave" @click="sheet(() => emit('leave'))">↩ {{ t("lobby.compact.leave") }}</button>
           <button v-if="isHost" type="button" class="lc-sheet-btn lc-sheet-bot" @click="sheet(() => emit('add-bot'))">🤖 {{ t("lobby.compact.add_bot") }}</button>
           <button type="button" class="lc-sheet-btn lc-sheet-app" @click="sheet(() => emit('open-app-settings'))">🔧 {{ t("lobby.compact.app_settings") }}</button>
-          <button type="button" class="lc-sheet-btn lc-sheet-report" @click="sheet(openReport)">⚠ {{ t("report.title", "Report a Problem") }}</button>
+          <button type="button" class="lc-sheet-btn lc-sheet-report" @click="sheet(() => openFeedback())">💬 {{ t("feedback.open", "Send feedback") }}</button>
         </div>
       </template>
     </UDrawer>

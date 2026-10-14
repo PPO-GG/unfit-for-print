@@ -1,8 +1,11 @@
-import { consumeRateLimit } from "./rateLimit";
+import { createWebhookThrottle, stripMarkdown } from "./webhookShared";
 import { RATE_WINDOW_MS, WEBHOOK_MAX_PER_WINDOW } from "./issueConstants";
 import type { RecordIssueResult } from "./issueStore";
 
-let suppressedSinceLastSend = 0;
+const throttle = createWebhookThrottle("issue:webhook", {
+  limit: WEBHOOK_MAX_PER_WINDOW,
+  windowMs: RATE_WINDOW_MS,
+});
 
 /**
  * Caps outbound alerts so a bad deploy cannot spray the channel — but counts
@@ -14,37 +17,13 @@ export function __shouldSendWebhook(): {
   send: boolean;
   suppressedCount: number;
 } {
-  const gate = consumeRateLimit("issue:webhook", {
-    limit: WEBHOOK_MAX_PER_WINDOW,
-    windowMs: RATE_WINDOW_MS,
-  });
-
-  if (gate.allowed) {
-    const carried = suppressedSinceLastSend;
-    suppressedSinceLastSend = 0;
-    return { send: true, suppressedCount: carried };
-  }
-
-  suppressedSinceLastSend += 1;
-  return { send: false, suppressedCount: suppressedSinceLastSend };
+  return throttle.shouldSend();
 }
 
 /** Test seam: forget the suppression carry-over. Separate from
  *  __resetRateLimits, which knows nothing about this counter. */
 export function __resetWebhookSuppression(): void {
-  suppressedSinceLastSend = 0;
-}
-
-/**
- * Strips Discord markdown from attacker-supplied text. The ingest route is
- * unauthenticated, so `title` is arbitrary text posted into the operator's
- * private alert channel one line above a real admin link. allowed_mentions
- * stops pings; it does not stop `[click me](https://evil.example)`, nor a
- * backtick that closes the code span this is interpolated into. Nothing
- * legitimate in these alerts needs markdown.
- */
-function stripMarkdown(value: string): string {
-  return value.replace(/[`*_~|\\[\]()<>]/g, "").replace(/\s+/g, " ").trim();
+  throttle.reset();
 }
 
 export function buildIssueWebhookBody(
