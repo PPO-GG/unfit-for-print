@@ -17,10 +17,10 @@ vi.mock("gsap", () => ({
 }));
 vi.unmock("vue");
 
-const openReport = vi.fn();
-vi.mock("~/composables/useReportProblem", () => ({
-  useReportProblem: () => ({ open: openReport }),
-  default: () => ({ open: openReport }),
+const openFeedback = vi.fn();
+vi.mock("~/composables/useFeedbackModal", () => ({
+  useFeedbackModal: () => ({ open: openFeedback }),
+  default: () => ({ open: openFeedback }),
 }));
 vi.mock("~/utils/shareInvite", () => ({ shareInvite: vi.fn(async () => "copied") }));
 vi.mock("~/composables/useCompactLayout", () => ({
@@ -225,7 +225,7 @@ describe("LobbyCompact", () => {
     expect(w.emitted("leave")).toHaveLength(1);
     expect(w.emitted("add-bot")).toHaveLength(1);
     expect(w.emitted("open-app-settings")).toHaveLength(1);
-    expect(openReport).toHaveBeenCalled();
+    expect(openFeedback).toHaveBeenCalledWith();
   });
 
   it("forwards kicks from the player list", async () => {

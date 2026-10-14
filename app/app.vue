@@ -12,7 +12,7 @@
       <InstallPwaBanner v-if="!isDiscordActivity" />
     </ClientOnly>
     <ConfirmDialog />
-    <ReportProblemModal />
+    <FeedbackModal />
     <SettingsSlideover
       v-if="!isGameRoute"
       v-model:open="uiStore.showSettings"
