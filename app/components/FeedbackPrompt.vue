@@ -105,6 +105,10 @@ watch(
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
   backdrop-filter: blur(8px);
   color: rgb(226 232 240); /* slate-200 */
+  /* The body font is Bebas Neue, an all-caps display face that turns a
+     sentence at this size into a squint. A question meant to be read at a
+     glance gets the readable body face instead. */
+  font-family: var(--font-body);
 }
 /* Phones: pinned to the top so it never covers GameOver's bottom
    "Continue to lobby" button. */
@@ -116,8 +120,9 @@ watch(
   width: auto;
 }
 .fbp-text {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
+  line-height: 1.35;
   margin-bottom: 0.5rem;
 }
 .fbp-close {
@@ -141,7 +146,8 @@ watch(
 .fbp-btn {
   padding: 0.375rem 0.75rem;
   border-radius: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   background: rgb(30 41 59); /* slate-800 */
 }
 .fbp-btn--primary {
