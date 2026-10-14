@@ -24,9 +24,10 @@ export interface YTestClient {
 export async function connectYClient(
   code: string,
   doc: Y.Doc = new Y.Doc(),
+  query = "",
 ): Promise<YTestClient> {
   const res = await SELF.fetch(
-    `https://sync.test/parties/lobby/${code}`,
+    `https://sync.test/parties/lobby/${code}${query}`,
     { headers: { Upgrade: "websocket" } },
   );
   const ws = res.webSocket;

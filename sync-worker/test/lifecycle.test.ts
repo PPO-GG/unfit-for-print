@@ -372,4 +372,30 @@ describe("LobbyRoom lifecycle", () => {
     // Let the close-time flush and registry push finish before teardown.
     await new Promise((resolve) => setTimeout(resolve, 1500));
   });
+
+  it("reports which players are connected, through hibernation", async () => {
+    const a = await connectYClient("PRES1", new Y.Doc(), "?pid=u1");
+    const b = await connectYClient("PRES1");
+    await a.synced;
+    await b.synced;
+    a.doc.getMap("gameState").set("phase", "submitting");
+    const row = await waitFor(async () => {
+      const r = await registryRow("PRES1");
+      return r?.record.onlinePlayerIds?.includes("u1") && r.record.clients === 2 ? r : undefined;
+    });
+    expect(row!.record.anonymousClients).toBe(1);
+
+    await evictDurableObject(roomStub("PRES1"), { webSockets: "hibernate" });
+    a.doc.getMap("gameState").set("phase", "judging");
+    const after = await waitFor(async () => {
+      const r = await registryRow("PRES1");
+      return r?.record.phase === "judging" ? r : undefined;
+    }, 5000);
+    expect(after!.record.onlinePlayerIds).toEqual(["u1"]);
+
+    a.close();
+    await waitFor(async () => (await registryRow("PRES1"))?.record.onlinePlayerIds?.length === 0);
+    b.close();
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  });
 });

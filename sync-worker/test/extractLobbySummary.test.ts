@@ -12,6 +12,7 @@ describe("extractLobbySummary", () => {
       isPrivate: undefined,
       phase: undefined,
       round: undefined,
+      submittedIds: [],
     });
   });
 
@@ -57,5 +58,57 @@ describe("extractLobbySummary", () => {
     expect(summary.status).toBeUndefined();
     expect(summary.isPrivate).toBeUndefined();
     expect(summary.round).toBeUndefined();
+  });
+
+  it("marks bots by playerType or provider, and carries playerType", () => {
+    const doc = new Y.Doc();
+    const players = doc.getMap("players");
+    players.set("b1", JSON.stringify({ name: "Jev", playerType: "bot", provider: "bot" }));
+    players.set("b2", JSON.stringify({ name: "Old", provider: "bot" }));
+    players.set("s1", JSON.stringify({ name: "Sam", playerType: "spectator" }));
+    expect(extractLobbySummary(doc).players).toEqual([
+      { id: "b1", name: "Jev", avatar: undefined, isBot: true, playerType: "bot" },
+      { id: "b2", name: "Old", avatar: undefined, isBot: true, playerType: undefined },
+      { id: "s1", name: "Sam", avatar: undefined, isBot: false, playerType: "spectator" },
+    ]);
+  });
+
+  it("reads host, judge, scores and win target", () => {
+    const doc = new Y.Doc();
+    doc.getMap("meta").set("hostUserId", "u1");
+    doc.getMap("gameState").set("judgeId", "u2");
+    doc.getMap("gameState").set("scores", JSON.stringify({ u1: 3, u2: 5, u3: "x" }));
+    doc.getMap("settings").set("maxPoints", 7);
+    expect(extractLobbySummary(doc)).toMatchObject({
+      hostUserId: "u1",
+      judgeId: "u2",
+      scores: { u1: 3, u2: 5 },
+      maxPoints: 7,
+    });
+  });
+
+  it("treats unparseable scores and a null judge as absent", () => {
+    const doc = new Y.Doc();
+    doc.getMap("gameState").set("scores", "{nope");
+    doc.getMap("gameState").set("judgeId", null);
+    const summary = extractLobbySummary(doc);
+    expect(summary.scores).toBeUndefined();
+    expect(summary.judgeId).toBeUndefined();
+  });
+
+  it("unions per-player submissions with the legacy blob, skipping empty plays", () => {
+    const doc = new Y.Doc();
+    const subs = doc.getMap("submissions");
+    subs.set("u1", JSON.stringify(["w1"]));
+    subs.set("u2", JSON.stringify([]));
+    subs.set("u3", "{bad");
+    doc.getMap("gameState").set("submissions", JSON.stringify({ u4: ["w9"], u1: ["w1"] }));
+    expect(extractLobbySummary(doc).submittedIds.sort()).toEqual(["u1", "u4"]);
+  });
+
+  it("reads a cleared legacy blob as no submissions", () => {
+    const doc = new Y.Doc();
+    doc.getMap("gameState").set("submissions", "{}");
+    expect(extractLobbySummary(doc).submittedIds).toEqual([]);
   });
 });

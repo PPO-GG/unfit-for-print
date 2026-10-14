@@ -99,7 +99,7 @@ describe("HTTP endpoints", () => {
   });
 
   it("snapshot is 404 for a registered lobby whose doc is still empty", async () => {
-    await getRegistry(env).upsert({ code: "EMPTYDOC1", clients: 1, lastActivity: Date.now(), players: [], meta: {} });
+    await getRegistry(env).upsert({ code: "EMPTYDOC1", clients: 1, lastActivity: Date.now(), players: [], meta: {}, submittedIds: [] });
     expect((await call("/snapshot/EMPTYDOC1")).status).toBe(404);
   });
 

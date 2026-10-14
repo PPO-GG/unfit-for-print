@@ -6,7 +6,7 @@ import type { LobbyRecord } from "../src/types";
 import { connectYClient, waitFor } from "./helpers";
 
 const record = (code: string, over: Partial<LobbyRecord> = {}): LobbyRecord => ({
-  code, clients: 1, lastActivity: Date.now(), players: [], meta: {}, ...over,
+  code, clients: 1, lastActivity: Date.now(), players: [], meta: {}, submittedIds: [], ...over,
 });
 
 describe("LobbyRegistry", () => {

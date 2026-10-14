@@ -30,6 +30,7 @@ import {
   MAX_SYNC_STEP2_BYTES,
   type MessageGuard,
 } from "./messageGuard";
+import { PLAYER_ID_KEY, playerIdFromUrl, summarizePresence } from "./presence";
 import { shouldPush } from "./pushPolicy";
 import { getRegistry } from "./registry";
 import { EXPIRY_MS } from "./registryViews";
@@ -134,6 +135,15 @@ export class LobbyRoom extends YServer {
       // Must not stop the alarm below from being set; the reaper stamps a
       // socket it finds without a connect time instead of reaping it.
       void reportError(this.env, err);
+    }
+    const playerId = playerIdFromUrl(ctx.request.url);
+    if (playerId) {
+      try {
+        this.#tagPlayer(connection, playerId);
+      } catch (err) {
+        // Presence is for the admin monitor only; never block a join on it.
+        void reportError(this.env, err);
+      }
     }
     await this.ctx.storage.delete(EXPIRES_AT_KEY);
     // Someone is here, so the alarm's job is reaping. Never move an alarm
@@ -392,6 +402,19 @@ export class LobbyRoom extends YServer {
     }));
   }
 
+  /** Records the socket's player id in its attachment, so it survives hibernation. */
+  #tagPlayer(conn: Connection, playerId: string): void {
+    conn.setState((prev: unknown) => ({
+      ...(prev && typeof prev === "object" ? prev : {}),
+      [PLAYER_ID_KEY]: playerId,
+    }));
+  }
+
+  #playerIdOf(conn: Connection): string | null {
+    const value = (conn.state as Record<string, unknown> | null)?.[PLAYER_ID_KEY];
+    return typeof value === "string" ? value : null;
+  }
+
   /**
    * The debounced save fires only on edits; flush so the final state is on
    * disk before the room goes quiet. A failed flush must not skip the
@@ -447,11 +470,18 @@ export class LobbyRoom extends YServer {
 
   async #push(code: string): Promise<void> {
     if (this.#wiped) return;
+    const presence = summarizePresence(
+      [...this.getConnections()].map((conn) => ({
+        open: conn.readyState === WS_OPEN,
+        playerId: this.#playerIdOf(conn),
+      })),
+    );
     const record: LobbyRecord = {
       ...extractLobbySummary(this.document),
       code,
       clients: this.openConnectionCount(),
       lastActivity: this.#lastActivity,
+      ...presence,
     };
     // lastActivity changes on every edit; push when something the registry
     // shows has changed, or when the registry's copy has gone stale.

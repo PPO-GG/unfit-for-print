@@ -19,6 +19,7 @@ const record = (code: string, over: Partial<LobbyRecord> = {}): LobbyRecord => (
   isPrivate: false,
   phase: "judging",
   round: 3,
+  submittedIds: [],
   ...over,
 });
 
@@ -36,6 +37,36 @@ describe("buildSummaryBody", () => {
 });
 
 describe("buildStatusBody", () => {
+  it("passes the monitor's extra fields through", () => {
+    const body = JSON.parse(
+      buildStatusBody(
+        [
+          record("AB12", {
+            hostUserId: "u1",
+            judgeId: "u2",
+            scores: { u1: 2 },
+            maxPoints: 7,
+            submittedIds: ["u1"],
+            onlinePlayerIds: ["u1"],
+            anonymousClients: 0,
+          }),
+        ],
+        31_000,
+      ),
+    );
+    expect(body.documents["lobby/lobby-AB12"]).toMatchObject({
+      lobbyName: "Party Night",
+      isPrivate: false,
+      hostUserId: "u1",
+      judgeId: "u2",
+      scores: { u1: 2 },
+      maxPoints: 7,
+      submittedIds: ["u1"],
+      onlinePlayerIds: ["u1"],
+      anonymousClients: 0,
+    });
+  });
+
   it("keys documents by lobby/lobby-CODE with Teleportal's fields", () => {
     const body = JSON.parse(buildStatusBody([record("AB12")], 31_000));
     expect(body).toMatchObject({
@@ -52,6 +83,9 @@ describe("buildStatusBody", () => {
       meta: { hostName: "Dylan", status: "playing" },
       phase: "judging",
       round: 3,
+      lobbyName: "Party Night",
+      isPrivate: false,
+      submittedIds: [],
     });
     expect(body).not.toHaveProperty("uptime");
     expect(body).not.toHaveProperty("memoryUsage");
