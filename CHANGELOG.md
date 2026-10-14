@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.33.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.32.0...v3.33.0) (2026-10-13)
+
+
+### ✨ Features
+
+* **web:** make manual draw obvious in the hand and on the deck ([#187](https://github.com/PPO-GG/unfit-for-print/issues/187)) ([2306c48](https://github.com/PPO-GG/unfit-for-print/commit/2306c4885f8548ad086ad77c813a89d6fdb087cb))
+* **web:** redesign the desktop lobby ([#185](https://github.com/PPO-GG/unfit-for-print/issues/185)) ([42e07df](https://github.com/PPO-GG/unfit-for-print/commit/42e07df6d0b541830918d11ea8c6dae921bb5389))
+
+
+### 🐛 Bug Fixes
+
+* answer sync closes that carry no status code ([#181](https://github.com/PPO-GG/unfit-for-print/issues/181)) ([fa6d639](https://github.com/PPO-GG/unfit-for-print/commit/fa6d639e190e23c15b5fdc7978bff3762ad53043))
+* **web:** drop the leftover game sidebar from the podium ([#182](https://github.com/PPO-GG/unfit-for-print/issues/182)) ([f9716d0](https://github.com/PPO-GG/unfit-for-print/commit/f9716d073656bf7f8288a31c628042a8c3776266))
+* **web:** keep the hand-underfilled watchdog quiet under manual draw ([#186](https://github.com/PPO-GG/unfit-for-print/issues/186)) ([fbf853a](https://github.com/PPO-GG/unfit-for-print/commit/fbf853ad063b6cae9fd61d95fc005e8aea8aa817))
+* **web:** repair rounds left waiting on a departed judge ([#183](https://github.com/PPO-GG/unfit-for-print/issues/183)) ([1003685](https://github.com/PPO-GG/unfit-for-print/commit/1003685f40a51a46f235b6f6d89cf8d7a20f28e6))
+
 ## [3.32.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.31.0...v3.32.0) (2026-10-08)
 
 
