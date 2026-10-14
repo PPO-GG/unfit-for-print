@@ -1,17 +1,23 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
   numeric,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 import type { IssueContext } from "~/types/issue";
 import type { DecorationLayers } from "#shared/decorationLayers";
+// Relative, not "#shared": drizzle-kit loads this file without Nuxt aliases,
+// and unlike the type-only imports above this one is a runtime value.
+import { FEEDBACK_SOURCES } from "../../shared/feedback";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -359,5 +365,48 @@ export const activityEvents = pgTable(
   },
   (table) => [
     index("activity_events_kind_created_idx").on(table.kind, table.createdAt),
+  ],
+);
+
+// Player feedback: one row per prompt or modal submission. Not folded into
+// issue_groups, which dedupes by fingerprint — 200 identical "4 stars" would
+// collapse into one group, and ratings need aggregates over time.
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Client-generated, random v4. The star tap and the later "Tell us more"
+    // share it so the follow-up enriches the same row; knowing it is the only
+    // way to touch the row, which is why the route needs no auth.
+    clientRef: uuid("client_ref").notNull().unique(),
+    rating: smallint("rating"),
+    topics: text("topics").array().notNull().default([]),
+    message: text("message"),
+    source: text("source", { enum: FEEDBACK_SOURCES }).notNull(),
+    // Bare uuid, no FK — same reasoning as issue_events.user_id: ingest is
+    // unauthenticated and guests are pruned.
+    userId: uuid("user_id"),
+    // Plain text, not a lobbies reference: the sweeper prunes lobbies and
+    // feedback must outlive them.
+    lobbyCode: text("lobby_code"),
+    gamesCompletedHint: integer("games_completed_hint"),
+    platform: text("platform"),
+    appVersion: text("app_version").notNull(),
+    /** Set when the Discord ping is claimed; the claim is what makes it fire
+     *  once per row however often the player resubmits. */
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("feedback_created_idx").on(table.createdAt.desc()),
+    check(
+      "feedback_rating_range",
+      sql`${table.rating} IS NULL OR ${table.rating} BETWEEN 1 AND 5`,
+    ),
   ],
 );
