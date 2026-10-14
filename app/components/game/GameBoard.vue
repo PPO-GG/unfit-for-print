@@ -147,8 +147,9 @@ function handleDeckDraw() {
   }
 }
 
-// ── Compact (phone) layout: narrow OR short, so landscape phones count ──
-const { isCompact } = useCompactLayout();
+// ── Compact layout: phone-sized screens, and touch-first devices of any size ──
+// The desktop fan is hover-driven, which a finger cannot work.
+const { isCompactGame } = useCompactLayout();
 
 // ── Immersion: ESC menu & chat ──
 const escMenuOpen = ref(false);
@@ -162,7 +163,7 @@ function openChat() {
   chatOpen.value = true;
 }
 function handleMenuChat() {
-  if (isCompact.value) openChat();
+  if (isCompactGame.value) openChat();
   else {
     gameChatRef.value?.toggleChat();
     escMenuOpen.value = false;
@@ -544,19 +545,19 @@ function handleNextRound() {
 <template>
   <div class="game-table-root" :class="tableLightingClass">
     <!-- Felt texture overlay -->
-    <div v-if="!isCompact" class="game-table-felt"></div>
+    <div v-if="!isCompactGame" class="game-table-felt"></div>
     <!-- Vignette -->
-    <div v-if="!isCompact" class="game-table-vignette"></div>
+    <div v-if="!isCompactGame" class="game-table-vignette"></div>
 
     <!-- Ambient floating particles -->
-    <div v-if="!isCompact" class="ambient-particles" aria-hidden="true" />
+    <div v-if="!isCompactGame" class="ambient-particles" aria-hidden="true" />
 
     <!-- FPS-style Chat Overlay (desktop only) -->
-    <GameChatOverlay v-if="!isCompact" ref="gameChatRef" />
+    <GameChatOverlay v-if="!isCompactGame" ref="gameChatRef" />
 
     <!-- Corner HUD Controls (desktop only) -->
     <CornerControls
-      v-if="!isCompact"
+      v-if="!isCompactGame"
       :unread-count="gameChatRef?.unreadCount ?? 0"
       @toggle-chat="gameChatRef?.toggleChat()"
       @toggle-settings="escMenuOpen = true"
@@ -566,7 +567,7 @@ function handleNextRound() {
     <!-- ESC Menu Overlay -->
     <GameEscMenu
       :open="escMenuOpen"
-      :sheet="isCompact"
+      :sheet="isCompactGame"
       :lobby-code="props.lobby?.code"
       :is-host="isHost"
       :game-settings="lobbyReactive.settings.value"
@@ -582,7 +583,7 @@ function handleNextRound() {
     />
 
     <!-- Compact (phone) layout -->
-    <template v-if="isCompact">
+    <template v-if="isCompactGame">
       <CompactGameLayout
         class="relative z-10"
         :phase="state?.phase || 'submitting'"

@@ -32,9 +32,14 @@ vi.mock("gsap", () => ({ gsap: { to: vi.fn(), set: vi.fn(), fromTo: vi.fn() } })
 // Controllable so both the desktop and the compact tree can be exercised.
 // The factory only reads it lazily, when useCompactLayout() runs during mount.
 const compactFlag = ref(false);
+// A touch-first device on a big screen: not compact by size, but the game
+// table still takes the compact layout.
+const touchTabletFlag = ref(false);
 vi.mock("~/composables/useCompactLayout", () => ({
   useCompactLayout: () => ({
     isCompact: compactFlag,
+    isCompactGame: computed(() => compactFlag.value || touchTabletFlag.value),
+    isTouchTablet: computed(() => touchTabletFlag.value && !compactFlag.value),
     orientation: ref("portrait"),
     width: ref(375),
     height: ref(812),
@@ -156,6 +161,7 @@ describe("GameBoard.vue — skip-judge soft lock (issue #99)", () => {
     gameState.value = { phase: "judging", roundWinner: null, round: 1 };
     isJudgeRef.value = false;
     compactFlag.value = false;
+    touchTabletFlag.value = false;
   });
 
   afterEach(() => {
@@ -241,6 +247,7 @@ describe("GameBoard.vue — skip-prompt control", () => {
     vi.useFakeTimers();
     isJudgeRef.value = true;
     compactFlag.value = false;
+    touchTabletFlag.value = false;
     gameState.value = {
       phase: "submitting",
       roundWinner: null,
@@ -300,6 +307,7 @@ describe("GameBoard.vue — compact layout", () => {
     (useUserStore() as any).user = { id: "host-1", $id: "host-1" };
     vi.clearAllMocks();
     compactFlag.value = false;
+    touchTabletFlag.value = false;
     isHostRef.value = true;
   });
 
@@ -327,6 +335,31 @@ describe("GameBoard.vue — compact layout", () => {
     const w = mountCompact();
     expect(w.get(".esc-stub").attributes("data-sheet")).toBe("false");
     expect(w.find(".chat-stub").exists()).toBe(false);
+    w.unmount();
+  });
+
+  it("gives a touch tablet the compact table and the menu sheet", async () => {
+    touchTabletFlag.value = true;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mountCompact();
+    expect(w.find(".cgl-stub").exists()).toBe(true);
+    await w.get(".cgl-stub .menu").trigger("click");
+    expect(w.get(".esc-stub").attributes("data-sheet")).toBe("true");
+    w.unmount();
+  });
+
+  // An iPad gaining a trackpad mid-game flips the rule; the board swaps
+  // trees the way a phone rotating across the size threshold already does.
+  it("swaps to the desktop table when the device stops being touch-first", async () => {
+    touchTabletFlag.value = true;
+    gameState.value = { phase: "submitting", roundWinner: null, round: 1 };
+    const w = mountCompact();
+    expect(w.find(".cgl-stub").exists()).toBe(true);
+
+    touchTabletFlag.value = false;
+    await Vue.nextTick();
+    expect(w.find(".cgl-stub").exists()).toBe(false);
+    expect(w.get(".esc-stub").attributes("data-sheet")).toBe("false");
     w.unmount();
   });
 
