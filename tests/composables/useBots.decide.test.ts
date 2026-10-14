@@ -8,6 +8,7 @@ import type { GameState } from "~/types/game";
 
 const playCard = vi.fn(() => ({ success: true }));
 const readHand = vi.fn(() => ["w-1", "w-2", "w-3"]);
+const drawCards = vi.fn(() => ({ success: false, reason: "Manual draw is not enabled" }));
 const revealCard = vi.fn(() => ({ success: true }));
 const selectWinner = vi.fn(() => ({ success: true }));
 const activityFetch = vi.fn();
@@ -27,7 +28,7 @@ Object.assign(globalThis, {
     getPlayers: () => new Map([["bot-1", JSON.stringify({ name: "Bot 1" })]]),
   }),
   useLobbyMutations: () => ({ addPlayer: vi.fn(), removePlayer: vi.fn() }),
-  useYjsGameEngine: () => ({ playCard, readHand, revealCard, selectWinner }),
+  useYjsGameEngine: () => ({ playCard, readHand, drawCards, revealCard, selectWinner }),
   useLobbyReactive: () => {
     const own = state;
     return {
@@ -73,7 +74,7 @@ let start: () => void;
 
 beforeEach(async () => {
   vi.useFakeTimers();
-  for (const fn of [playCard, readHand, revealCard, selectWinner, activityFetch]) {
+  for (const fn of [playCard, readHand, drawCards, revealCard, selectWinner, activityFetch]) {
     fn.mockClear();
   }
   activityFetch.mockReset();
@@ -167,6 +168,22 @@ describe("useBots — playing with /api/bot/decide", () => {
     await vi.advanceTimersByTimeAsync(BOT_DELAY_MS + 500);
 
     expect(playCard).toHaveBeenCalledWith(["w-2", "w-1"], "bot-1");
+  });
+
+  it("draws its hand first under manual draw, where nextRound deals nobody", async () => {
+    let hand: string[] = [];
+    readHand.mockImplementation(() => hand);
+    drawCards.mockImplementationOnce(() => {
+      hand = ["w-4", "w-5"];
+      return { success: true, drawnCount: 2 } as any;
+    });
+    activityFetch.mockResolvedValue({ cardIds: null });
+    start();
+    await push(submitting());
+    await vi.advanceTimersByTimeAsync(BOT_DELAY_MS + 500);
+
+    expect(drawCards).toHaveBeenCalledWith("bot-1");
+    expect(playCard).toHaveBeenCalledWith(["w-4"], "bot-1");
   });
 
   it("drops the play when the prompt is skipped while waiting on the server", async () => {

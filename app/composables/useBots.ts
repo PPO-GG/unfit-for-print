@@ -275,6 +275,11 @@ export function useBots(
     if (state.judgeId === botUserId) return false;
     if (state.submissions?.[botUserId]) return false;
 
+    // Under manual draw nextRound deals nobody — players top up by clicking
+    // the deck — so a bot has to draw for itself or its hand runs dry.
+    // drawCards is a no-op when manual draw is off.
+    engine.drawCards(botUserId);
+
     const hand = engine.readHand(botUserId);
     if (!hand || hand.length === 0) {
       console.warn(`[useBots] Bot ${botUserId} has no cards in hand`);
