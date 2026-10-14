@@ -32,4 +32,8 @@ export interface LobbyRecord extends LobbyDocSummary {
   code: string;
   clients: number;
   lastActivity: number;
+  /** Players with at least one open socket that sent a `pid`. */
+  onlinePlayerIds?: string[];
+  /** Open sockets that sent no `pid` (old clients). */
+  anonymousClients?: number;
 }

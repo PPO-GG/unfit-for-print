@@ -45,6 +45,15 @@ export function buildStatusBody(records: LobbyRecord[], now: number): string {
       meta: r.meta,
       phase: r.phase,
       round: r.round,
+      lobbyName: r.lobbyName,
+      isPrivate: r.isPrivate,
+      hostUserId: r.hostUserId,
+      judgeId: r.judgeId,
+      scores: r.scores,
+      maxPoints: r.maxPoints,
+      submittedIds: r.submittedIds,
+      onlinePlayerIds: r.onlinePlayerIds,
+      anonymousClients: r.anonymousClients,
     };
   }
   return JSON.stringify({
