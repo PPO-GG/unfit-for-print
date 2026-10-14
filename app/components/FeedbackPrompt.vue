@@ -83,7 +83,7 @@ watch(
   right: 0.75rem;
   left: 0.75rem;
   bottom: auto;
-  top: calc(env(safe-area-inset-top) + 0.75rem);
+  top: calc(var(--safe-top) + 0.75rem);
   width: auto;
 }
 .fbp-text {
