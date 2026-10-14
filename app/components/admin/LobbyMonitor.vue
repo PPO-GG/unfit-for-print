@@ -28,6 +28,7 @@ const { status, activity, error, lastUpdated, autoRefresh } = monitor;
 // One clock for every "ago" on the page.
 const now = ref(Date.now());
 let clock: ReturnType<typeof setInterval> | null = null;
+let unmounted = false;
 
 const search = ref("");
 const housekeepingOpen = ref(false);
@@ -52,7 +53,8 @@ const selectedCode = computed(() =>
 );
 const selected = computed(() => lobbies.value.find((l) => l.code === selectedCode.value) ?? null);
 const drawerOpen = computed({
-  get: () => !!selectedCode.value,
+  // Wait for the first status payload, or a deep link flashes "no longer live".
+  get: () => !!selectedCode.value && !!status.value,
   set: (value: boolean) => {
     if (!value) openLobby(null);
   },
@@ -90,10 +92,11 @@ onMounted(async () => {
   clock = setInterval(() => (now.value = Date.now()), 1000);
   document.addEventListener("visibilitychange", onVisibility);
   await monitor.refresh();
-  monitor.start();
+  if (!unmounted) monitor.start();
 });
 
 onUnmounted(() => {
+  unmounted = true;
   monitor.stop();
   if (clock) clearInterval(clock);
   document.removeEventListener("visibilitychange", onVisibility);
