@@ -52,6 +52,22 @@ describe("buildHousekeeping", () => {
     expect(hk.leftoverCount).toBe(4);
   });
 
+  it("counts a completed lobby as finished even while its room is live", () => {
+    const liveComplete = (code: string, createdAt: string): UnifiedLobby => {
+      const l = live(code, 2, 5);
+      return { ...l, registry: { ...l.registry!, status: "complete", createdAt } };
+    };
+    const hk = buildHousekeeping(
+      [liveComplete("LFIN", hoursAgo(2)), liveComplete("LNEW", hoursAgo(0.2))],
+      NOW,
+      600,
+    );
+    expect(hk.finished).toEqual([{ code: "LFIN", ageSec: 2 * 3600 }]);
+    expect(hk.dbOnlyStale).toEqual([]);
+    expect(hk.dbOnlyRecent).toEqual([]);
+    expect(hk.leftoverCount).toBe(1);
+  });
+
   it("never reports a negative expiry", () => {
     expect(buildHousekeeping([live("LATE", 0, 900)], NOW, 600).emptyRooms).toEqual([
       { code: "LATE", expiresInSec: 0 },

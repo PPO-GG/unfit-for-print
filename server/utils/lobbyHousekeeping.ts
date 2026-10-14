@@ -46,23 +46,25 @@ export function buildHousekeeping(
 
   for (const lobby of lobbies) {
     const t = lobby.teleportal;
-    if (t) {
-      if (t.clients === 0) {
-        hk.emptyRooms.push({ code: lobby.code, expiresInSec: Math.max(0, idleDocTtlSec - t.idleSec) });
-      }
-      if (!lobby.hasRegistry) hk.noRecord.push({ code: lobby.code, ageSec: t.idleSec });
-      continue;
-    }
     const r = lobby.registry;
-    if (!r) continue;
-    const ageMs = now - new Date(r.createdAt).getTime();
+    const ageMs = r ? now - new Date(r.createdAt).getTime() : 0;
     const item = { code: lobby.code, ageSec: Math.round(ageMs / 1000) };
+
+    if (t && t.clients === 0) {
+      hk.emptyRooms.push({ code: lobby.code, expiresInSec: Math.max(0, idleDocTtlSec - t.idleSec) });
+    }
+    if (t && !lobby.hasRegistry) {
+      hk.noRecord.push({ code: lobby.code, ageSec: t.idleSec });
+    }
+    if (!r) continue;
+
+    // Prune removes a completed lobby by age alone, even if its room is
+    // still live, so this check does not depend on the live doc.
     if (r.status === "complete") {
       if (ageMs >= DEFAULT_COMPLETED_TTL_MS) hk.finished.push(item);
-    } else if (ageMs >= DEFAULT_ORPHAN_TTL_MS) {
-      hk.dbOnlyStale.push(item);
-    } else {
-      hk.dbOnlyRecent.push(item);
+    } else if (!t) {
+      if (ageMs >= DEFAULT_ORPHAN_TTL_MS) hk.dbOnlyStale.push(item);
+      else hk.dbOnlyRecent.push(item);
     }
   }
 

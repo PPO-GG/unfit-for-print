@@ -16,7 +16,7 @@ import {
 export interface PruneLobbiesOptions {
   /** TTL for orphaned lobbies without a live Teleportal doc. Defaults to 2 hours. */
   orphanTtlMs?: number;
-  /** TTL for completed lobbies. Defaults to 24 hours. */
+  /** TTL for completed lobbies. Defaults to 1 hour. */
   completedTtlMs?: number;
   /** Force prune all orphaned lobbies regardless of age. */
   forceAllOrphans?: boolean;
@@ -41,7 +41,7 @@ function extractLobbyCode(docId: string): string {
 }
 
 /**
- * Prunes stale lobbies (orphans older than 2h and completed older than 24h) from the database.
+ * Prunes stale lobbies (orphans older than 2h and completed older than 1h) from the database.
  */
 export async function pruneStaleLobbies(
   options: PruneLobbiesOptions = {},
