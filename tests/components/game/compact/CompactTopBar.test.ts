@@ -91,4 +91,16 @@ describe("CompactTopBar", () => {
     expect(overflow.exists()).toBe(true);
     expect(overflow.text()).toBe("+2");
   });
+
+  // jsdom never lays the bar out, so a fitted bar measures 0px and must fall
+  // back to the phone's five rather than to nothing.
+  it("falls back to five avatars when a fitted bar has not been measured", () => {
+    const players = Array.from({ length: 7 }, (_, i) => player(`u${i}`, `P${i}`));
+    const w = mount(CompactTopBar, {
+      props: { ...base, players, fitAvatars: true },
+      global: { stubs: { Icon: true } },
+    });
+    expect(w.findAll("[data-player]")).toHaveLength(5);
+    expect(w.get(".ctb-av--more").text()).toBe("+2");
+  });
 });

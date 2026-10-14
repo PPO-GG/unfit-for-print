@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useElementSize } from "@vueuse/core";
 import type { Player } from "~/types/player";
 import { getPlayerAvatarUrl } from "~/composables/usePlayerAvatar";
+import { visibleAvatarCount } from "~/utils/avatarCap";
 
 const props = defineProps<{
   players: Player[];
@@ -10,11 +12,12 @@ const props = defineProps<{
   pillLabel: string;
   pillTone: "cyan" | "yellow" | "lime" | "muted";
   unread: number;
+  /** Fit the avatar row to the bar's width instead of the phone's five. */
+  fitAvatars?: boolean;
 }>();
 const emit = defineEmits<{ menu: []; chat: [] }>();
 const { t } = useI18n();
 
-const MAX_AVATARS = 5;
 const active = computed(() => {
   const nonSpectators = props.players.filter((p) => p.playerType !== "spectator");
   // Sort so judge comes first, stable otherwise
@@ -24,8 +27,13 @@ const active = computed(() => {
     return 0;
   });
 });
-const shown = computed(() => active.value.slice(0, MAX_AVATARS));
-const overflow = computed(() => Math.max(0, active.value.length - MAX_AVATARS));
+const avatarsEl = ref<HTMLElement | null>(null);
+const { width: avatarsWidth } = useElementSize(avatarsEl);
+const visibleCount = computed(() =>
+  visibleAvatarCount(active.value.length, props.fitAvatars ? avatarsWidth.value : null),
+);
+const shown = computed(() => active.value.slice(0, visibleCount.value));
+const overflow = computed(() => active.value.length - shown.value.length);
 
 function displayName(p: Player): string {
   return p.name?.trim() || t("compact.player_fallback");
@@ -41,7 +49,7 @@ function initials(p: Player): string {
       <Icon name="i-solar-hamburger-menu-broken" />
     </button>
     <span class="ctb-pill" :class="`ctb-pill--${pillTone}`">{{ pillLabel }}</span>
-    <div class="ctb-avatars">
+    <div ref="avatarsEl" class="ctb-avatars">
       <span
         v-for="p in shown"
         :key="p.userId"

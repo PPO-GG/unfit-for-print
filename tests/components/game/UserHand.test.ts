@@ -5,10 +5,6 @@ import { ref } from "vue";
 import UserHand from "~/components/game/UserHand.vue";
 
 (globalThis as any).useI18n = () => ({ t: (key: string) => key });
-// jsdom has no matchMedia, which the real composable calls on setup.
-vi.mock("~/composables/useTouchDevice", () => ({
-  useTouchDevice: () => ({ isTouchDevice: ref(false) }),
-}));
 vi.mock("~/composables/useCompactLayout", () => ({
   useCompactLayout: () => ({
     isCompact: ref(false),
