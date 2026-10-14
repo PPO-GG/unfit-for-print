@@ -25,8 +25,17 @@ export async function upsertFeedback(
   const db = useDb();
 
   return db.transaction(async (tx) => {
-    // FOR UPDATE so two near-simultaneous follow-ups cannot both see "no
-    // message yet" and both claim the ping.
+    // Reads whether the row already had a message. The FOR UPDATE locks
+    // nothing when the row doesn't exist yet, so it is not what makes two
+    // near-simultaneous writes safe. That comes from the upsert: ON CONFLICT
+    // DO UPDATE takes the row lock and waits for a concurrent writer to
+    // commit, so the loser's RETURNING sees the winner's notifiedAt, and the
+    // `notifiedAt === null` guard below stops it claiming the ping twice.
+    //
+    // notifiedAt is the *claim*, not proof of delivery: it is set here even
+    // when no webhook is configured or the alert is throttled. A comment made
+    // before a webhook was configured is therefore never posted later — it
+    // is only on /admin/feedback.
     const [prior] = await tx
       .select({ message: feedback.message })
       .from(feedback)

@@ -57,7 +57,9 @@ export default defineEventHandler(async (event) => {
         count: sql<number>`count(*)::int`,
       })
       .from(feedback)
-      .where(sql`${feedback.createdAt} >= date_trunc('week', now() at time zone 'UTC') - interval '11 weeks'`)
+      // Back to timestamptz before comparing: a bare UTC timestamp would be
+      // read in the session's TimeZone, shifting the bound off week starts.
+      .where(sql`${feedback.createdAt} >= (date_trunc('week', now() at time zone 'UTC') - interval '11 weeks') at time zone 'UTC'`)
       .groupBy(sql`1`),
     db
       .select({ rating: feedback.rating, count: sql<number>`count(*)::int` })

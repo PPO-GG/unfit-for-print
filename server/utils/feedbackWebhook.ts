@@ -7,6 +7,8 @@ import type { FeedbackRow } from "./feedbackStore";
 import { createWebhookThrottle, stripMarkdown } from "./webhookShared";
 
 const MESSAGE_PREVIEW_MAX = 300;
+/** Discord message flag: player-written URLs must not unfurl into previews. */
+const SUPPRESS_EMBEDS = 1 << 2;
 
 const throttle = createWebhookThrottle("feedback:webhook", {
   limit: FEEDBACK_WEBHOOK_MAX_PER_WINDOW,
@@ -46,6 +48,7 @@ export async function notifyFeedback(row: FeedbackRow): Promise<void> {
             content:
               "_Feedback alerts are being rate-limited. The next one that gets through will say how many were held back; all of it is on /admin/feedback._",
             allowed_mentions: { parse: [] },
+            flags: SUPPRESS_EMBEDS,
           },
         });
       }
@@ -60,7 +63,7 @@ export async function notifyFeedback(row: FeedbackRow): Promise<void> {
 
     await $fetch(url, {
       method: "POST",
-      body: { content, allowed_mentions: { parse: [] } },
+      body: { content, allowed_mentions: { parse: [] }, flags: SUPPRESS_EMBEDS },
     });
   } catch (err: any) {
     console.warn("[FeedbackWebhook] Failed to post:", err?.message || err);

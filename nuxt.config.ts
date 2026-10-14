@@ -227,8 +227,10 @@ export default defineNuxtConfig({
     // Player feedback. The webhook gets one message per written comment
     // (star-only ratings stay quiet); unset falls back to issueWebhookUrl.
     feedbackWebhookUrl: process.env.NUXT_FEEDBACK_WEBHOOK_URL || "",
-    // Per 10 minutes. A prompt plus its follow-up is 2 requests. 0 disables.
-    feedbackRateLimitIp: Number(process.env.NUXT_FEEDBACK_RATE_LIMIT_IP ?? 10),
+    // Per 10 minutes. A prompt plus its follow-up is 2 requests, and one IP
+    // can be a whole party (shared Wi-Fi, Discord's proxy), so this matches
+    // issueRateLimitIp. 0 disables.
+    feedbackRateLimitIp: Number(process.env.NUXT_FEEDBACK_RATE_LIMIT_IP ?? 30),
 
     // nuxt-auth-utils session cookie config. Without maxAge, h3 issues the
     // session cookie with no Expires/Max-Age, making it a browser-session

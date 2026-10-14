@@ -8,6 +8,7 @@ import {
   __resetFeedbackWebhookSuppression,
 } from "~/server/utils/feedbackWebhook";
 import type { FeedbackRow } from "~/server/utils/feedbackStore";
+import { FEEDBACK_WEBHOOK_MAX_PER_WINDOW } from "~/server/utils/feedbackConstants";
 
 const row = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -79,6 +80,22 @@ describe("notifyFeedback", () => {
     const [url, opts] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://discord.example/feedback");
     expect(opts.body.allowed_mentions).toEqual({ parse: [] });
+  });
+
+  // A player-written URL must not unfurl into an embed in the channel.
+  it("suppresses link embeds on the alert", async () => {
+    await notifyFeedback(row);
+    expect(fetchMock.mock.calls[0]![1].body.flags).toBe(4);
+  });
+
+  it("suppresses link embeds on the rate-limit notice too", async () => {
+    for (let i = 0; i < FEEDBACK_WEBHOOK_MAX_PER_WINDOW + 1; i++) {
+      await notifyFeedback(row);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(FEEDBACK_WEBHOOK_MAX_PER_WINDOW + 1);
+    const notice = fetchMock.mock.calls.at(-1)![1].body;
+    expect(notice.content).toContain("rate-limited");
+    expect(notice.flags).toBe(4);
   });
 
   it("falls back to the issue webhook when no feedback URL is set", async () => {
