@@ -50,11 +50,13 @@ const distMax = computed(() =>
 );
 
 function barPct(v: number, max: number): number {
+  if (v <= 0) return 0;
   return Math.max(4, Math.round((v / max) * 100));
 }
 
 function timeAgo(iso: string): string {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.round(mins / 60);
   if (hours < 48) return `${hours}h ago`;
@@ -89,13 +91,15 @@ function timeAgo(iso: string): string {
         </UCard>
         <UCard>
           <p class="text-xs uppercase tracking-wider text-slate-500">Distribution · 90d</p>
-          <div class="flex items-end gap-1 h-12 mt-2" aria-label="Star distribution">
+          <div class="flex gap-1 mt-2" aria-label="Star distribution">
             <div v-for="s in [1, 2, 3, 4, 5] as const" :key="s" class="flex-1 flex flex-col items-center gap-0.5">
-              <div
-                class="w-full rounded-sm bg-amber-500/70"
-                :style="{ height: `${barPct(data.distribution[s], distMax)}%` }"
-                :title="`${s}★: ${data.distribution[s]}`"
-              />
+              <div class="w-full h-12 flex items-end">
+                <div
+                  class="w-full rounded-sm bg-amber-500/70"
+                  :style="{ height: `${barPct(data.distribution[s], distMax)}%` }"
+                  :title="`${s}★: ${data.distribution[s]}`"
+                />
+              </div>
               <span class="text-[10px] text-slate-500">{{ s }}</span>
             </div>
           </div>
