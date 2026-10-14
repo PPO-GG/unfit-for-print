@@ -7,6 +7,11 @@ import { and, eq, inArray, isNull, lte, ne, notInArray } from "drizzle-orm";
 import { useDb } from "~~/server/db/client";
 import { lobbies, players, reports, submissions, users } from "~~/server/db/schema";
 import { getTeleportalHttpUrl, teleportalAdminHeaders } from "~~/server/utils/teleportal";
+import {
+  DEFAULT_COMPLETED_TTL_MS,
+  DEFAULT_ORPHAN_TTL_MS,
+  GUEST_ORPHAN_TTL_MS,
+} from "./pruneThresholds";
 
 export interface PruneLobbiesOptions {
   /** TTL for orphaned lobbies without a live Teleportal doc. Defaults to 2 hours. */
@@ -25,10 +30,6 @@ export interface PruneLobbiesResult {
   liveCount: number;
   teleportalOnline: boolean;
 }
-
-const DEFAULT_ORPHAN_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-const DEFAULT_COMPLETED_TTL_MS = 1 * 60 * 60 * 1000; // 1 hour
-const GUEST_ORPHAN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Extracts the 4-character lobby code from a Teleportal document key.

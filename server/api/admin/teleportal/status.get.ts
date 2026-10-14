@@ -6,6 +6,9 @@ import { desc } from "drizzle-orm";
 import { createError } from "h3";
 import { useDb } from "~~/server/db/client";
 import { lobbies } from "~~/server/db/schema";
+import { openIssuesByLobby, type LobbyIssue } from "~~/server/utils/lobbyIssues";
+import { buildHousekeeping, type Housekeeping } from "~~/server/utils/lobbyHousekeeping";
+import type { UnifiedLobby } from "~~/server/utils/mergeLobbies";
 import { requireAdmin } from "~~/server/utils/session";
 
 export interface UnifiedStatusResponse {
@@ -20,6 +23,9 @@ export interface UnifiedStatusResponse {
     memoryUsage?: { rss: string; heapUsed: string };
   };
   lobbies: UnifiedLobby[];
+  /** Open issue groups with a recent event, keyed by lobby code. */
+  issues: Record<string, LobbyIssue[]>;
+  housekeeping: Housekeeping;
 }
 
 export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> => {
@@ -42,6 +48,16 @@ export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> 
       [],
     );
 
+    const issues = await openIssuesByLobby(
+      db,
+      unifiedLobbies.map((l) => l.code),
+    );
+    const housekeeping = buildHousekeeping(
+      unifiedLobbies,
+      Date.now(),
+      teleportal.idleDocTtlSec ?? 600,
+    );
+
     return {
       server: {
         version: teleportal.version,
@@ -52,6 +68,8 @@ export default defineEventHandler(async (event): Promise<UnifiedStatusResponse> 
         memoryUsage: teleportal.memoryUsage,
       },
       lobbies: unifiedLobbies,
+      issues,
+      housekeeping,
     };
   } catch (err: any) {
     console.error("[admin/teleportal/status] Fetch failed:", err);
