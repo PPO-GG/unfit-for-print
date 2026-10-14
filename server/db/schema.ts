@@ -351,6 +351,8 @@ export const activityEvents = pgTable(
     kind: text("kind", { enum: ["lobby_created", "player_joined"] }).notNull(),
     lobbyId: uuid("lobby_id").notNull(),
     userId: uuid("user_id").notNull(),
+    /** Where the request came from. Null on rows recorded before 0014. */
+    source: text("source", { enum: ["web", "discord"] }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

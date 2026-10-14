@@ -1,4 +1,5 @@
 import { and, countDistinct, eq, gte, lt } from "drizzle-orm";
+import type { H3Event } from "h3";
 import { useDb } from "../db/client";
 import { activityEvents } from "../db/schema";
 
@@ -6,11 +7,35 @@ const RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type ActivityKind = (typeof activityEvents.$inferInsert)["kind"];
+export type ActivitySource = "web" | "discord";
+
+export interface SourceSplit {
+  web: number;
+  discord: number;
+  /** Rows recorded before the source column existed. */
+  unknown: number;
+}
 
 export interface ActivityStats {
   windowHours: number;
   lobbiesCreated: number;
   uniquePlayers: number;
+  lobbiesBySource: SourceSplit;
+  /** A user seen from both web and Discord counts once in each. */
+  playersBySource: SourceSplit;
+}
+
+/**
+ * Whether a request came from the Discord Activity. Its client authenticates
+ * with a Bearer token (requireAuth has already verified it by the time this
+ * runs); the website uses the session cookie. Reads the raw node headers
+ * rather than h3's getHeader so route tests can pass a bare event.
+ */
+export function requestSource(event: H3Event): ActivitySource {
+  const headers = (event as { node?: { req?: { headers?: Record<string, unknown> } } })
+    ?.node?.req?.headers;
+  const auth = headers?.authorization;
+  return typeof auth === "string" && auth.startsWith("Bearer ") ? "discord" : "web";
 }
 
 /**
@@ -22,12 +47,22 @@ export async function recordActivity(
   kind: ActivityKind,
   lobbyId: string,
   userId: string,
+  source: ActivitySource,
 ): Promise<void> {
   try {
-    await useDb().insert(activityEvents).values({ kind, lobbyId, userId });
+    await useDb().insert(activityEvents).values({ kind, lobbyId, userId, source });
   } catch (err: any) {
     console.warn("[activity] Failed to record", kind, err?.message || err);
   }
+}
+
+function split(rows: { source: string | null; n: number }[]): SourceSplit {
+  const result: SourceSplit = { web: 0, discord: 0, unknown: 0 };
+  for (const row of rows) {
+    const key = row.source === "web" || row.source === "discord" ? row.source : "unknown";
+    result[key] += Number(row.n);
+  }
+  return result;
 }
 
 /**
@@ -39,32 +74,30 @@ export async function recordActivity(
 export async function getActivityStats(windowMs = DAY_MS): Promise<ActivityStats> {
   const db = useDb();
   const since = new Date(Date.now() - windowMs);
+  const inWindow = (kind: ActivityKind) =>
+    and(eq(activityEvents.kind, kind), gte(activityEvents.createdAt, since));
 
-  const [[lobbiesRow], [playersRow]] = await Promise.all([
+  const [[lobbiesRow], [playersRow], lobbySources, playerSources] = await Promise.all([
+    db.select({ n: countDistinct(activityEvents.lobbyId) }).from(activityEvents).where(inWindow("lobby_created")),
+    db.select({ n: countDistinct(activityEvents.userId) }).from(activityEvents).where(inWindow("player_joined")),
     db
-      .select({ n: countDistinct(activityEvents.lobbyId) })
+      .select({ source: activityEvents.source, n: countDistinct(activityEvents.lobbyId) })
       .from(activityEvents)
-      .where(
-        and(
-          eq(activityEvents.kind, "lobby_created"),
-          gte(activityEvents.createdAt, since),
-        ),
-      ),
+      .where(inWindow("lobby_created"))
+      .groupBy(activityEvents.source),
     db
-      .select({ n: countDistinct(activityEvents.userId) })
+      .select({ source: activityEvents.source, n: countDistinct(activityEvents.userId) })
       .from(activityEvents)
-      .where(
-        and(
-          eq(activityEvents.kind, "player_joined"),
-          gte(activityEvents.createdAt, since),
-        ),
-      ),
+      .where(inWindow("player_joined"))
+      .groupBy(activityEvents.source),
   ]);
 
   return {
     windowHours: Math.round(windowMs / (60 * 60 * 1000)),
     lobbiesCreated: lobbiesRow?.n ?? 0,
     uniquePlayers: playersRow?.n ?? 0,
+    lobbiesBySource: split(lobbySources),
+    playersBySource: split(playerSources),
   };
 }
 
