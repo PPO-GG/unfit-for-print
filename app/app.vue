@@ -10,6 +10,7 @@
         :css-only="isDiscordActivity"
       />
       <InstallPwaBanner v-if="!isDiscordActivity" />
+      <FeedbackPrompt />
     </ClientOnly>
     <ConfirmDialog />
     <FeedbackModal />
