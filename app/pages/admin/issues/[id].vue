@@ -74,7 +74,10 @@ const { data } = await useFetch<{ group: IssueGroup; events: IssueEvent[] }>(
       <p class="text-xs text-slate-500 mb-2">
         {{ new Date(ev.createdAt).toLocaleString() }} ·
         {{ ev.platform ?? "unknown" }} · v{{ ev.appVersion }}
-        <template v-if="ev.lobbyCode"> · lobby {{ ev.lobbyCode }}</template>
+        <template v-if="ev.lobbyCode">
+          · lobby
+          <NuxtLink :to="`/admin/lobbies?lobby=${ev.lobbyCode}`" class="text-cyan-300 hover:underline">{{ ev.lobbyCode }}</NuxtLink>
+        </template>
       </p>
       <p class="font-mono text-sm break-words mb-2">{{ ev.message }}</p>
       <pre
