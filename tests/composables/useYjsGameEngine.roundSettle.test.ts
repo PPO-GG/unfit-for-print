@@ -98,13 +98,15 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-// Every test in this suite: whatever it was checking, the doc it leaves
-// behind must not be one the watchdog would report as a wedged game.
-afterEach(expectTrackedDocsUnwedged);
-
+// Registered first so it runs last: Vitest runs afterEach in reverse, and
+// the wedge check needs the fake timers still on to settle pending rounds.
 afterEach(() => {
   vi.useRealTimers();
 });
+
+// Every test in this suite: whatever it was checking, the doc it leaves
+// behind must not be one the watchdog would report as a wedged game.
+afterEach(expectTrackedDocsUnwedged);
 
 describe("useYjsGameEngine — the round that never leaves `submitting`", () => {
   it("advances once both simultaneous submissions have converged", () => {

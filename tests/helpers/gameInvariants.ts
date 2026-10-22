@@ -94,6 +94,8 @@ export function expectNoWedgedState(
 interface TrackedDoc {
   stub: LobbyDocResult;
   opts: InvariantOptions;
+  /** Whether fake timers were on when the doc was registered. */
+  fakeTimers: boolean;
 }
 
 let tracked: TrackedDoc[] = [];
@@ -104,7 +106,7 @@ export function watchDoc<T extends LobbyDocResult>(
   stub: T,
   opts: InvariantOptions = {},
 ): T {
-  tracked.push({ stub, opts });
+  tracked.push({ stub, opts, fakeTimers: vi.isFakeTimers() });
   return stub;
 }
 
@@ -145,6 +147,19 @@ export function expectTrackedDocsUnwedged(): void {
   // the last submission. This is why the two suites that exist to test the
   // transition itself run on fake timers.
   const usingFakeTimers = vi.isFakeTimers();
+
+  // Vitest runs afterEach hooks in reverse, so a suite that registers
+  // `afterEach(vi.useRealTimers)` after this check restores real timers
+  // first — dropping the pending ones — and every stalled round would pass
+  // as "mid-transition". Fail instead of skipping the rules.
+  if (!usingFakeTimers && docs.some((d) => d.fakeTimers)) {
+    throw new Error(
+      "expectTrackedDocsUnwedged ran after fake timers were turned off. " +
+        "Register afterEach(vi.useRealTimers) before afterEach(expectTrackedDocsUnwedged), " +
+        "so the check runs first.",
+    );
+  }
+
   if (usingFakeTimers) vi.advanceTimersByTime(10_000);
 
   for (const { stub, opts } of docs) {
