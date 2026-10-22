@@ -122,22 +122,11 @@ onMounted(scan);
 
 <template>
   <div class="max-w-5xl mx-auto px-4 py-8">
-    <!-- Breadcrumb -->
-    <div class="flex items-center gap-2 mb-1 text-sm text-slate-400">
-      <NuxtLink to="/admin" class="hover:text-white transition-colors">Admin</NuxtLink>
-      <UIcon name="i-solar-alt-arrow-right-linear" class="text-xs" />
-      <NuxtLink to="/admin/cards" class="hover:text-white transition-colors">Card Manager</NuxtLink>
-      <UIcon name="i-solar-alt-arrow-right-linear" class="text-xs" />
-      <span class="text-white">Pick Mismatches</span>
-    </div>
-
     <div class="flex flex-wrap items-end justify-between gap-4 mt-3 mb-6">
-      <div>
-        <h1 class="text-4xl font-bold tracking-tight">Pick Mismatches</h1>
-        <p class="text-slate-400 mt-1">
-          Black cards with two or more blanks whose pick count doesn't match
-        </p>
-      </div>
+      <ScreenTitle
+        title="Pick Mismatches"
+        subtitle="Black cards with two or more blanks whose pick count doesn't match"
+      />
       <div class="flex flex-wrap gap-2">
         <UButton
           color="neutral"

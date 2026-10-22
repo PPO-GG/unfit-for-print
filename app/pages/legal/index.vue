@@ -20,14 +20,7 @@ const links = [
 
 <template>
   <div class="max-w-4xl mx-auto px-6 sm:px-10 py-12">
-    <NuxtLink
-      to="/"
-      class="inline-flex items-center gap-1 text-muted hover:text-highlighted transition-colors mb-8"
-    >
-      <UIcon name="i-solar-arrow-left-line-duotone" />
-      Back to home
-    </NuxtLink>
-    <h1 class="text-2xl font-semibold mb-6">Legal</h1>
+    <ScreenTitle title="Legal" class="mb-6" />
     <ul class="flex flex-col gap-2">
       <li v-for="link in links" :key="link.to">
         <NuxtLink

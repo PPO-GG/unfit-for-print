@@ -335,25 +335,11 @@ onMounted(() => loadCards());
 
 <template>
   <div class="max-w-5xl mx-auto px-4 py-8">
-    <!-- Breadcrumb -->
-    <div class="flex items-center gap-2 mb-1 text-sm text-slate-400">
-      <NuxtLink to="/admin" class="hover:text-white transition-colors"
-        >Admin</NuxtLink
-      >
-      <UIcon name="i-solar-alt-arrow-right-linear" class="text-xs" />
-      <NuxtLink to="/admin/cards" class="hover:text-white transition-colors"
-        >Card Manager</NuxtLink
-      >
-      <UIcon name="i-solar-alt-arrow-right-linear" class="text-xs" />
-      <span class="text-white">Find Duplicates</span>
-    </div>
-
     <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-4xl font-bold tracking-tight">Duplicate Scanner</h1>
-        <p class="text-slate-400 mt-1">
-          Group near-duplicate cards and disable the copies you don't want
-        </p>
+      <ScreenTitle
+        title="Duplicate Scanner"
+        subtitle="Group near-duplicate cards and disable the copies you don't want"
+      >
         <div v-if="packScope" class="flex items-center gap-2 mt-2">
           <UBadge color="primary" variant="soft" data-testid="pack-scope-badge">
             Scoped to {{ packScope.length }} pack{{ packScope.length === 1 ? "" : "s" }}
@@ -366,15 +352,7 @@ onMounted(() => loadCards());
             Clear scope
           </button>
         </div>
-      </div>
-      <UButton
-        to="/admin/cards"
-        variant="ghost"
-        color="neutral"
-        icon="i-solar-alt-arrow-left-linear"
-      >
-        Back to Cards
-      </UButton>
+      </ScreenTitle>
     </div>
 
     <!-- Config panel -->

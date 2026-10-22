@@ -4,32 +4,8 @@ definePageMeta({ middleware: "admin" });
 
 <template>
   <div class="max-w-3xl mx-auto px-4 py-8">
-    <!-- Breadcrumb -->
-    <div class="flex items-center gap-2 mb-1 text-sm text-slate-400">
-      <NuxtLink to="/admin" class="hover:text-white transition-colors"
-        >Admin</NuxtLink
-      >
-      <UIcon name="i-solar-alt-arrow-right-linear" class="text-xs" />
-      <NuxtLink to="/admin/cards" class="hover:text-white transition-colors"
-        >Card Manager</NuxtLink
-      >
-      <UIcon name="i-solar-alt-arrow-right-linear" class="text-xs" />
-      <span class="text-white">Upload Pack</span>
-    </div>
-
     <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-4xl font-bold tracking-tight">Upload Pack</h1>
-        <p class="text-slate-400 mt-1">Seed new card packs from a JSON file</p>
-      </div>
-      <UButton
-        to="/admin/cards"
-        variant="ghost"
-        color="neutral"
-        icon="i-solar-alt-arrow-left-linear"
-      >
-        Back to Cards
-      </UButton>
+      <ScreenTitle title="Upload Pack" subtitle="Seed new card packs from a JSON file" />
     </div>
 
     <!-- Upload card — uses the already refactored component -->

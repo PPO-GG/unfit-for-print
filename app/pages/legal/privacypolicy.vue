@@ -18,14 +18,8 @@ const content = md.render(privacypolicy);
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto px-6 sm:px-10 py-12">
-    <NuxtLink
-      to="/"
-      class="inline-flex items-center gap-1 text-muted hover:text-highlighted transition-colors mb-8"
-    >
-      <UIcon name="i-solar-arrow-left-line-duotone" />
-      Back to home
-    </NuxtLink>
+  <!-- Top padding clears the layout's fixed back button. -->
+  <div class="max-w-4xl mx-auto px-6 sm:px-10 pt-24 pb-12">
     <div class="prose prose-invert max-w-none" v-html="content" />
   </div>
 </template>

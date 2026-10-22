@@ -211,9 +211,7 @@ const navLinks = [
     <div class="lg:pl-[256px] max-w-6xl mx-auto px-6 sm:px-10 lg:pr-16">
       <div class="py-8 min-w-0">
         <div class="mb-12 pb-10 border-b border-default">
-          <h1 class="text-5xl font-bold tracking-tight text-highlighted mb-3">
-            About Unfit for Print
-          </h1>
+          <ScreenTitle title="About Unfit for Print" class="mb-3" />
           <p class="text-2xl text-muted max-w-2xl leading-relaxed">
             <strong class="text-default">Unfit for Print</strong> is an online
             party card game for 3+ players, built by
