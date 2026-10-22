@@ -441,6 +441,8 @@ onMounted(() => {
   max-width: 1600px;
   margin: auto;
   padding: 1.5rem;
+  /* Clears the layout's fixed back button. */
+  padding-top: 5rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -811,6 +813,7 @@ onMounted(() => {
 @media (max-width: 800px) {
   .labs-shell {
     padding: 1rem;
+    padding-top: 4.5rem;
   }
   .labs-hero {
     grid-template-columns: 1fr;
