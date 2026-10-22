@@ -405,6 +405,7 @@
   "nav.admin_decorations": "Decorations",
   "nav.admin_issues": "Issues",
   "nav.back": "Back",
+  "nav.back_to": "Back to {name}",
   "nav.legal": "Legal",
   "nav.about": "About",
   "nav.creategame": "New Game",
