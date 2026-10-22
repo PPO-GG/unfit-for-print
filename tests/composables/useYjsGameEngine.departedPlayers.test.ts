@@ -110,11 +110,13 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 
-afterEach(expectTrackedDocsUnwedged);
-
+// Registered first so it runs last: Vitest runs afterEach in reverse, and
+// the wedge check needs the fake timers still on to settle pending rounds.
 afterEach(() => {
   vi.useRealTimers();
 });
+
+afterEach(expectTrackedDocsUnwedged);
 
 describe("leaving while the host starts the next round", () => {
   it("merges into a round whose judge has left, holding a hand", () => {
