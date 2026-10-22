@@ -30,3 +30,15 @@ export function showsScreenBack(path: string): boolean {
 export function getBreadcrumbBackLabelKey(path: string): string {
   return SCREEN_LABEL_KEYS[getBreadcrumbBackPath(path)] ?? "nav.back";
 }
+
+export interface BackButtonEdges {
+  right: number;
+  bottom: number;
+}
+
+export function titleClearance(
+  _back: BackButtonEdges | null,
+  _title: { left: number; top: number },
+): number {
+  return -1;
+}

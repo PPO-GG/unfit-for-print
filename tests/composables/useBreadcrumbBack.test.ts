@@ -4,6 +4,7 @@ import {
   getBreadcrumbBackPath,
   SCREEN_LABEL_KEYS,
   showsScreenBack,
+  titleClearance,
 } from "~/composables/useBreadcrumbBack";
 import en from "../../i18n/locales/en.json";
 
@@ -57,5 +58,25 @@ describe("getBreadcrumbBackLabelKey", () => {
       expect(messages[key], key).toEqual(expect.any(String));
       expect((messages[key] as string).length, key).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("titleClearance", () => {
+  const back = { right: 140, bottom: 60 };
+
+  it("pads past the button when the title starts beside it", () => {
+    expect(titleClearance(back, { left: 24, top: 24 })).toBe(128);
+  });
+
+  it("does not pad a title that starts below the button", () => {
+    expect(titleClearance(back, { left: 24, top: 96 })).toBe(0);
+  });
+
+  it("does not pad a title that already starts right of the button", () => {
+    expect(titleClearance(back, { left: 320, top: 24 })).toBe(0);
+  });
+
+  it("does not pad when there is no back button", () => {
+    expect(titleClearance(null, { left: 24, top: 24 })).toBe(0);
   });
 });
