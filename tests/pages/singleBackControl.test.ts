@@ -20,14 +20,16 @@ const pages = vueFiles(pagesDir).map((path) => ({
 }));
 
 const FORBIDDEN = [
-  "arrow-left-broken",
-  "arrow-left-line-duotone",
-  '"i-lucide-arrow-left"',
   "Back to home",
   "Back to Cards",
   ">Card Manager</NuxtLink",
   ">Admin</NuxtLink",
 ];
+
+// Any left-arrow icon on a page is a back control, except these in-page ones.
+const ALLOWED_LEFT_ARROWS: Record<string, number> = {
+  "admin/cards/duplicates.vue": 1, // "Prev" cluster button
+};
 
 const TITLE_PAGES = [
   "about.vue",
@@ -46,13 +48,29 @@ const TITLE_PAGES = [
   "admin/cards/duplicates.vue",
 ];
 
+function backLinkMarkers(source: string, allowedLeftArrows = 0): string[] {
+  const flat = source.replace(/\s+>/g, ">");
+  const found = FORBIDDEN.filter((marker) => flat.includes(marker));
+  const leftArrows = flat.split("arrow-left").length - 1;
+  if (leftArrows > allowedLeftArrows) found.push(`${leftArrows}× arrow-left icon`);
+  return found;
+}
+
+describe("backLinkMarkers", () => {
+  it.each([
+    '<UButton to="/admin/cards" icon="i-solar-alt-arrow-left-linear">Cards</UButton>',
+    '<UButton icon="i-solar-alt-arrow-left-bold-duotone" @click="back" />',
+    '<NuxtLink to="/"><UIcon name="i-solar-arrow-left-line-duotone" /></NuxtLink>',
+  ])("flags a re-added back control: %s", (source) => {
+    expect(backLinkMarkers(source)).not.toEqual([]);
+  });
+});
+
 describe("one back control per screen", () => {
   it.each(pages.map((p) => [p.page, p.source]))(
     "%s has no back link of its own",
-    (_page, source) => {
-      for (const marker of FORBIDDEN) {
-        expect(source.replace(/\s+>/g, ">"), marker).not.toContain(marker);
-      }
+    (page, source) => {
+      expect(backLinkMarkers(source, ALLOWED_LEFT_ARROWS[page] ?? 0)).toEqual([]);
     },
   );
 
