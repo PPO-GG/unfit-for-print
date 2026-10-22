@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.35.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.34.1...v3.35.0) (2026-10-22)
+
+
+### ✨ Features
+
+* **web:** one game-styled back button per screen ([#196](https://github.com/PPO-GG/unfit-for-print/issues/196)) ([caf779e](https://github.com/PPO-GG/unfit-for-print/commit/caf779ed90b6b2a690444eeffeea89ec499996dd))
+
+
+### 🐛 Bug Fixes
+
+* **web:** clear sync-worker sharp and undici alerts ([#199](https://github.com/PPO-GG/unfit-for-print/issues/199)) ([33ef8a6](https://github.com/PPO-GG/unfit-for-print/commit/33ef8a6101c62d75b254a3a680e8e7e0a987de57))
+* **web:** let the host recover a round with every play in ([#197](https://github.com/PPO-GG/unfit-for-print/issues/197)) ([f4e13c8](https://github.com/PPO-GG/unfit-for-print/commit/f4e13c8938408e06859ea4c5846bc899f9badd10))
+
 ## [3.34.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.34.0...v3.34.1) (2026-10-14)
 
 
