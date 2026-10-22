@@ -230,3 +230,80 @@ describe("useYjsGameEngine — the round that never leaves `submitting`", () => 
     expect(phase(stub)).toBe("judging");
   });
 });
+
+describe("useYjsGameEngine.recoverSettledRound", () => {
+  /**
+   * Lobby EK34: each play reaches the other client only after every resync
+   * attempt on both clients has already run. Nothing is left to look again,
+   * so the round sits in `submitting` with every card on the table.
+   */
+  function strandRound() {
+    const docA = new Y.Doc();
+    const docB = new Y.Doc();
+    const stubA = wrapDoc(docA);
+    const stubB = wrapDoc(docB);
+
+    seedSubmitting(stubA, ["judge-1", "alice", "bob"]);
+    sync(docA, docB);
+
+    engineFor(stubA, "alice").playCard(["alice-c0"]);
+    engineFor(stubB, "bob").playCard(["bob-c0"]);
+    vi.advanceTimersByTime(60_000);
+    sync(docA, docB);
+
+    return { docA, docB, stubA, stubB };
+  }
+
+  it("is needed: a slow enough link strands a complete round", () => {
+    const { docA, docB, stubA } = strandRound();
+
+    expect(phase(stubA)).toBe("submitting");
+    expect(vi.getTimerCount()).toBe(0);
+
+    engineFor(stubA, "judge-1").recoverSettledRound();
+    sync(docA, docB);
+  });
+
+  it("moves a stranded round to judging on the host", () => {
+    const { docA, docB, stubA, stubB } = strandRound();
+
+    expect(engineFor(stubA, "judge-1").recoverSettledRound()).toBe(true);
+    sync(docA, docB);
+
+    expect(phase(stubA)).toBe("judging");
+    expect(phase(stubB)).toBe("judging");
+  });
+
+  it("does nothing on a client that is not the host", () => {
+    const { docA, docB, stubA } = strandRound();
+
+    expect(engineFor(stubA, "alice").recoverSettledRound()).toBe(false);
+    expect(phase(stubA)).toBe("submitting");
+
+    engineFor(stubA, "judge-1").recoverSettledRound();
+    sync(docA, docB);
+  });
+
+  it("writes nothing while a player still holds their play", () => {
+    const doc = new Y.Doc();
+    const stub = wrapDoc(doc);
+    seedSubmitting(stub, ["judge-1", "alice", "bob"]);
+    engineFor(stub, "alice").playCard(["alice-c0"]);
+    vi.advanceTimersByTime(60_000);
+    const before = Y.encodeStateVector(doc);
+
+    expect(engineFor(stub, "judge-1").recoverSettledRound()).toBe(false);
+    expect(Y.encodeStateVector(doc)).toEqual(before);
+    expect(phase(stub)).toBe("submitting");
+  });
+
+  it("writes nothing once the round has moved on", () => {
+    const { docA, docB, stubA } = strandRound();
+    engineFor(stubA, "judge-1").recoverSettledRound();
+    sync(docA, docB);
+    const before = Y.encodeStateVector(docA);
+
+    expect(engineFor(stubA, "judge-1").recoverSettledRound()).toBe(false);
+    expect(Y.encodeStateVector(docA)).toEqual(before);
+  });
+});

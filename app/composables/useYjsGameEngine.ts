@@ -1396,6 +1396,8 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     return departed.size > 0 || judgeGone;
   };
 
+  const recoverSettledRound = (): boolean => false;
+
   // ── Manual Draw ──────────────────────────────────────────────────────
   // When manualDraw setting is enabled, players draw their own cards
   // by clicking the white deck instead of auto-receiving them.
@@ -1462,6 +1464,7 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     markReturnedToLobby,
     handlePlayerLeave,
     reconcileDepartedPlayers,
+    recoverSettledRound,
     replenishWhiteDeck,
     drawCards,
   };

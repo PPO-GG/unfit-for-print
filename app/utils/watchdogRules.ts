@@ -193,3 +193,7 @@ export const RECOVERABLE_RULE_IDS = ["judge-missing", "too-few-players"];
 export function shouldRecoverDeparted(state: WatchdogState): boolean {
   return RECOVERABLE_RULE_IDS.some((id) => state[id]?.reported);
 }
+
+export function shouldRecoverSettled(_state: WatchdogState): boolean {
+  return false;
+}
