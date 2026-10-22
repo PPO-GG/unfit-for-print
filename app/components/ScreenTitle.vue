@@ -2,7 +2,7 @@
   <header
     ref="root"
     class="screen-title lobby-tokens"
-    :style="{ paddingLeft: `${clearance}px` }"
+    :style="{ paddingLeft: clearance }"
   >
     <h1 class="screen-title__heading">{{ title }}</h1>
     <p v-if="subtitle" class="screen-title__subtitle">{{ subtitle }}</p>
@@ -12,20 +12,27 @@
 
 <script lang="ts" setup>
 import { computed, inject, useTemplateRef } from "vue";
-import { useElementBounding, useWindowScroll } from "@vueuse/core";
+import { useElementBounding, useMounted, useWindowScroll } from "@vueuse/core";
 import { BACK_BUTTON_EDGES, titleClearance } from "~/composables/useBreadcrumbBack";
 
 // Game-styled page heading. When it starts on the same row as the layout's
-// fixed back button, it pads itself past the button's right edge.
+// fixed back button, it pads itself past the button's right edge. Until both
+// are measured (server render, hydration) it assumes it shares that row,
+// which most title pages do, so the first paint never draws it under the button.
 defineProps<{ title: string; subtitle?: string }>();
+
+const UNMEASURED_CLEARANCE = "calc(var(--screen-back-right, 8.5rem) + 0.75rem)";
 
 const backEdges = inject(BACK_BUTTON_EDGES, null);
 const root = useTemplateRef("root");
+const isMounted = useMounted();
 const { left, top } = useElementBounding(root);
 const { y: scrollY } = useWindowScroll();
-const clearance = computed(() =>
-  titleClearance(backEdges?.value ?? null, { left: left.value, top: top.value + scrollY.value }),
-);
+const clearance = computed(() => {
+  const back = backEdges?.value;
+  if (!isMounted.value || !back) return UNMEASURED_CLEARANCE;
+  return `${titleClearance(back, { left: left.value, top: top.value + scrollY.value })}px`;
+});
 </script>
 
 <style scoped>

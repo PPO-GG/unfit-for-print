@@ -34,3 +34,11 @@ describe("ScreenTitle", () => {
     expect(wrapper.find(".screen-title .scope").text()).toBe("Scoped to 2 packs");
   });
 });
+
+describe("ScreenTitle before it can measure", () => {
+  it("pads for the back button on the first render", () => {
+    const wrapper = mount(ScreenTitle, { props: { title: "Upload Pack" } });
+
+    expect(wrapper.find(".screen-title").attributes("style")).toContain("var(--screen-back-right");
+  });
+});
