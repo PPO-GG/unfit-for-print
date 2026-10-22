@@ -11,12 +11,22 @@ export function getBreadcrumbBackPath(path: string): string {
   return segments.length > 0 ? `/${segments.join("/")}` : "/";
 }
 
-export const SCREEN_LABEL_KEYS: Readonly<Record<string, string>> = {};
+/** i18n key naming each screen that is ever a back-button destination. */
+export const SCREEN_LABEL_KEYS: Readonly<Record<string, string>> = {
+  "/": "nav.home",
+  "/legal": "nav.legal",
+  "/admin": "nav.admin",
+  "/admin/cards": "nav.admin_cards",
+  "/admin/decorations": "nav.admin_decorations",
+  "/admin/issues": "nav.admin_issues",
+};
 
-export function showsScreenBack(_path: string): boolean {
-  return false;
+/** Home and the game room have their own exits, so they get no back button. */
+export function showsScreenBack(path: string): boolean {
+  return path !== "/" && !path.startsWith("/game/");
 }
 
-export function getBreadcrumbBackLabelKey(_path: string): string {
-  return "";
+/** Names the parent screen; a parent missing from the map reads "Back". */
+export function getBreadcrumbBackLabelKey(path: string): string {
+  return SCREEN_LABEL_KEYS[getBreadcrumbBackPath(path)] ?? "nav.back";
 }
