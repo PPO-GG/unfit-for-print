@@ -38,15 +38,7 @@ const { data } = await useFetch<{ group: IssueGroup; events: IssueEvent[] }>(
 
 <template>
   <div class="p-6 max-w-5xl mx-auto">
-    <div class="flex items-center gap-3 mb-6">
-      <NuxtLink
-        to="/admin/issues"
-        class="text-slate-400 hover:text-white transition-colors"
-      >
-        <UIcon name="i-solar-arrow-left-broken" class="text-xl" />
-      </NuxtLink>
-      <h1 class="text-2xl font-bold break-words">{{ data?.group?.title }}</h1>
-    </div>
+    <ScreenTitle :title="data?.group?.title ?? ''" class="mb-6" />
 
     <UCard class="mb-6">
       <dl class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

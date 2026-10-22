@@ -17,6 +17,7 @@ import AdminDecoContextStrip from "~/components/admin/AdminDecoContextStrip.vue"
 import AdminDecoListing from "~/components/admin/AdminDecoListing.vue";
 import AdminDecoOwners from "~/components/admin/AdminDecoOwners.vue";
 import AdminDecoDeleteModal from "~/components/admin/AdminDecoDeleteModal.vue";
+import ScreenTitle from "~/components/ScreenTitle.vue";
 
 definePageMeta({ middleware: "admin" });
 
@@ -187,8 +188,7 @@ onBeforeRouteLeave(async () => {
 
     <template v-else>
       <div class="flex items-center gap-3">
-        <UButton to="/admin/decorations" icon="i-lucide-arrow-left" variant="ghost" color="neutral" aria-label="Back to decorations" />
-        <h1 class="text-2xl font-bold">{{ listing.name || "Untitled" }}</h1>
+        <ScreenTitle :title="listing.name || 'Untitled'" />
         <UBadge :color="listing.enabled ? 'success' : 'neutral'" variant="subtle">{{ listing.enabled ? "Live" : "Hidden" }}</UBadge>
         <span v-if="dirty" data-testid="unsaved" class="text-sm text-amber-400">Unsaved changes</span>
         <div class="ml-auto flex items-center gap-2">

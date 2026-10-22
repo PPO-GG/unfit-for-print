@@ -27,6 +27,7 @@
 <script lang="ts" setup>
 import { useElementBounding } from "@vueuse/core";
 import {
+  BACK_BUTTON_EDGES,
   getBreadcrumbBackLabelKey,
   getBreadcrumbBackPath,
   showsScreenBack,
@@ -36,7 +37,15 @@ const route = useRoute();
 const { t } = useI18n();
 
 const backButton = useTemplateRef("backButton");
-const { right: backRight } = useElementBounding(backButton);
+const { right: backRight, bottom: backBottom } = useElementBounding(backButton);
+
+// ScreenTitle uses these edges; full-width bars (Card Explorer) use the CSS var.
+provide(
+  BACK_BUTTON_EDGES,
+  computed(() =>
+    backRight.value > 0 ? { right: backRight.value, bottom: backBottom.value } : null,
+  ),
+);
 const backEdgeStyle = computed(() =>
   backRight.value > 0 ? { "--screen-back-right": `${backRight.value}px` } : undefined,
 );

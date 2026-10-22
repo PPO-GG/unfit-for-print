@@ -24,4 +24,13 @@ describe("ScreenTitle", () => {
 
     expect(wrapper.find(".screen-title__subtitle").exists()).toBe(false);
   });
+
+  it("renders extra heading content below the title", () => {
+    const wrapper = mount(ScreenTitle, {
+      props: { title: "Duplicate Scanner" },
+      slots: { default: '<span class="scope">Scoped to 2 packs</span>' },
+    });
+
+    expect(wrapper.find(".screen-title .scope").text()).toBe("Scoped to 2 packs");
+  });
 });

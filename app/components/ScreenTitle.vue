@@ -1,24 +1,31 @@
 <template>
-  <header ref="root" class="screen-title lobby-tokens" :style="clearanceStyle">
+  <header
+    ref="root"
+    class="screen-title lobby-tokens"
+    :style="{ paddingLeft: `${clearance}px` }"
+  >
     <h1 class="screen-title__heading">{{ title }}</h1>
     <p v-if="subtitle" class="screen-title__subtitle">{{ subtitle }}</p>
+    <slot />
   </header>
 </template>
 
 <script lang="ts" setup>
-import { computed, useTemplateRef } from "vue";
-import { useElementBounding } from "@vueuse/core";
+import { computed, inject, useTemplateRef } from "vue";
+import { useElementBounding, useWindowScroll } from "@vueuse/core";
+import { BACK_BUTTON_EDGES, titleClearance } from "~/composables/useBreadcrumbBack";
 
-// Game-styled page heading. When it starts under the layout's fixed back
-// button, it pads itself past the button's right edge, which the layout
-// publishes as --screen-back-right. A wide centred page needs no padding.
+// Game-styled page heading. When it starts on the same row as the layout's
+// fixed back button, it pads itself past the button's right edge.
 defineProps<{ title: string; subtitle?: string }>();
 
+const backEdges = inject(BACK_BUTTON_EDGES, null);
 const root = useTemplateRef("root");
-const { left } = useElementBounding(root);
-const clearanceStyle = computed(() => ({
-  paddingLeft: `max(0px, calc(var(--screen-back-right, 8.5rem) + 0.75rem - ${left.value}px))`,
-}));
+const { left, top } = useElementBounding(root);
+const { y: scrollY } = useWindowScroll();
+const clearance = computed(() =>
+  titleClearance(backEdges?.value ?? null, { left: left.value, top: top.value + scrollY.value }),
+);
 </script>
 
 <style scoped>

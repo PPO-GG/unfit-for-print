@@ -11,6 +11,7 @@ import type { StarterId } from "#shared/decorationPresets";
 import { useNotifications } from "~/composables/useNotifications";
 import AdminDecoTile from "~/components/admin/AdminDecoTile.vue";
 import AdminDecoNewModal from "~/components/admin/AdminDecoNewModal.vue";
+import ScreenTitle from "~/components/ScreenTitle.vue";
 
 definePageMeta({ middleware: "admin" });
 
@@ -104,10 +105,7 @@ onMounted(fetchCatalog);
 <template>
   <div class="mx-auto flex max-w-7xl flex-col gap-6 p-6">
     <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Decorations</h1>
-        <p class="mt-1 text-slate-400">Avatar decorations: build the look, then list it</p>
-      </div>
+      <ScreenTitle title="Decorations" subtitle="Avatar decorations: build the look, then list it" />
       <div class="flex gap-2">
         <UButton data-testid="catalog-prune" variant="ghost" color="neutral" icon="i-lucide-brush-cleaning" :loading="pruning" @click="prune">
           Clean up unused files

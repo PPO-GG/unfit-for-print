@@ -1,3 +1,5 @@
+import type { InjectionKey, Ref } from "vue";
+
 /**
  * Returns the route one path segment above the current page.
  *
@@ -31,14 +33,26 @@ export function getBreadcrumbBackLabelKey(path: string): string {
   return SCREEN_LABEL_KEYS[getBreadcrumbBackPath(path)] ?? "nav.back";
 }
 
+/** Viewport edges of the layout's fixed back button, provided to titles. */
 export interface BackButtonEdges {
   right: number;
   bottom: number;
 }
 
+export const BACK_BUTTON_EDGES: InjectionKey<Readonly<Ref<BackButtonEdges | null>>> =
+  Symbol("backButtonEdges");
+
+const TITLE_GAP_PX = 12;
+
+/**
+ * Left padding a page title needs to clear the back button. `title.top` is
+ * measured from the top of the document, so the answer does not change as
+ * the page scrolls under the fixed button.
+ */
 export function titleClearance(
-  _back: BackButtonEdges | null,
-  _title: { left: number; top: number },
+  back: BackButtonEdges | null,
+  title: { left: number; top: number },
 ): number {
-  return -1;
+  if (!back || title.top >= back.bottom) return 0;
+  return Math.max(0, back.right + TITLE_GAP_PX - title.left);
 }

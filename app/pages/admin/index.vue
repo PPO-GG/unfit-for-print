@@ -13,12 +13,10 @@ const isAdmin = useIsAdmin();
     <ClientOnly>
     <div v-if="isAdmin" class="p-6 max-w-7xl mx-auto space-y-10">
       <!-- Header -->
-      <div>
-        <h1 class="text-5xl font-bold">Admin Dashboard</h1>
-        <p class="text-gray-400 text-xl mt-1">
-          Manage cards, monitor lobbies, and administer users
-        </p>
-      </div>
+      <ScreenTitle
+        title="Admin Dashboard"
+        subtitle="Manage cards, monitor lobbies, and administer users"
+      />
 
       <!-- ── Card Management Section ─────────────────────────────────────────── -->
       <section>

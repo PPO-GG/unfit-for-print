@@ -295,14 +295,11 @@ const latestStats = computed(() => {
       </div>
 
       <!-- Title -->
-      <h1
-        class="text-5xl font-bold tracking-tight text-highlighted leading-none mb-3"
-      >
-        Changelog
-      </h1>
-      <p class="text-base text-muted leading-relaxed mb-6 max-w-xs">
-        Every feature, fix, and improvement shipped to Unfit for Print.
-      </p>
+      <ScreenTitle
+        title="Changelog"
+        subtitle="Every feature, fix, and improvement shipped to Unfit for Print."
+        class="mb-6 max-w-xs"
+      />
 
       <!-- GitHub link -->
       <UButton
@@ -376,10 +373,11 @@ const latestStats = computed(() => {
           class="font-mono"
         />
       </div>
-      <h1 class="text-4xl font-bold tracking-tight text-highlighted mb-2">
-        Changelog
-      </h1>
-      <p class="text-muted mb-4">Every feature, fix, and improvement.</p>
+      <ScreenTitle
+        title="Changelog"
+        subtitle="Every feature, fix, and improvement."
+        class="mb-4"
+      />
       <UButton
         to="https://github.com/PPO-GG/unfit-for-print"
         target="_blank"

@@ -6,15 +6,7 @@ definePageMeta({
 
 <template>
   <div class="p-6 max-w-[100rem] w-full mx-auto">
-    <div class="flex items-center gap-3 mb-6">
-      <NuxtLink
-        to="/admin"
-        class="text-slate-400 hover:text-white transition-colors"
-      >
-        <UIcon name="i-solar-arrow-left-broken" class="text-xl" />
-      </NuxtLink>
-      <h1 class="text-3xl font-bold">User Manager</h1>
-    </div>
+    <ScreenTitle title="User Manager" class="mb-6" />
     <ClientOnly>
       <AdminUserManager />
     </ClientOnly>

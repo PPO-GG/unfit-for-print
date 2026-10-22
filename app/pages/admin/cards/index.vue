@@ -371,9 +371,7 @@ const CARD_CHIPS: { id: CardFilter; label: string }[] = [
 
 <template>
   <div class="h-[100dvh] min-w-[1100px] flex flex-col overflow-hidden">
-    <header class="flex items-center gap-2 pl-24 pr-4 py-2.5 border-b border-slate-700/60 bg-slate-900/70">
-      <NuxtLink to="/admin" class="text-xs text-slate-400 hover:text-white">Admin</NuxtLink>
-      <span class="text-slate-600 text-xs">/</span>
+    <header class="flex items-center gap-2 pl-[calc(var(--screen-back-right,8.5rem)+0.75rem)] pr-4 py-2.5 border-b border-slate-700/60 bg-slate-900/70">
       <span class="text-xs text-white font-medium">Cards</span>
       <span class="text-xs text-slate-500">{{ plural(roster.packs.value.length, "pack") }} · {{ plural(totalCards, "card") }}</span>
       <span class="flex-1" />
