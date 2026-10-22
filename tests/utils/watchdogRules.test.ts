@@ -10,6 +10,7 @@ import {
   WATCHDOG_RULES,
   evaluateRules,
   shouldRecoverDeparted,
+  shouldRecoverSettled,
   type WatchdogSnapshot,
   type WatchdogState,
 } from "~/utils/watchdogRules";
@@ -337,6 +338,51 @@ describe("shouldRecoverDeparted", () => {
     const stalled = snapshot({ phase: "submitting-complete" });
     let s = evaluateRules(WATCHDOG_RULES, stalled, 0, {}).state;
     s = evaluateRules(WATCHDOG_RULES, stalled, 60_000, s).state;
+    expect(shouldRecoverDeparted(s)).toBe(false);
+  });
+});
+
+describe("shouldRecoverSettled", () => {
+  // Lobby EK34: synced host, both plays in, phase still submitting 78s later.
+  const settled = snapshot({ submittedPlayerIds: ["alice", "bob"] });
+
+  it("waits for the rule's threshold, like the report does", () => {
+    const first = evaluateRules(WATCHDOG_RULES, settled, 0, {});
+    expect(shouldRecoverSettled(first.state)).toBe(false);
+
+    const later = evaluateRules(WATCHDOG_RULES, settled, 20_000, first.state);
+    expect(shouldRecoverSettled(later.state)).toBe(true);
+  });
+
+  it("keeps asking on every tick while the state persists", () => {
+    let s = evaluateRules(WATCHDOG_RULES, settled, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, settled, 20_000, s).state;
+    s = evaluateRules(WATCHDOG_RULES, settled, 35_000, s).state;
+    expect(shouldRecoverSettled(s)).toBe(true);
+  });
+
+  it("stops once the round moves on", () => {
+    let s = evaluateRules(WATCHDOG_RULES, settled, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, settled, 20_000, s).state;
+    s = evaluateRules(
+      WATCHDOG_RULES,
+      snapshot({ phase: "judging", submittedPlayerIds: ["alice", "bob"] }),
+      35_000,
+      s,
+    ).state;
+    expect(shouldRecoverSettled(s)).toBe(false);
+  });
+
+  it("is not triggered by the departed-player rules", () => {
+    const kickedToTwo = snapshot({ activePlayerIds: ["judge", "alice"] });
+    let s = evaluateRules(WATCHDOG_RULES, kickedToTwo, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, kickedToTwo, 60_000, s).state;
+    expect(shouldRecoverSettled(s)).toBe(false);
+  });
+
+  it("does not make the departed-player repair run", () => {
+    let s = evaluateRules(WATCHDOG_RULES, settled, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, settled, 20_000, s).state;
     expect(shouldRecoverDeparted(s)).toBe(false);
   });
 });
