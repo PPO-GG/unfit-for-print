@@ -10,3 +10,13 @@ export function getBreadcrumbBackPath(path: string): string {
 
   return segments.length > 0 ? `/${segments.join("/")}` : "/";
 }
+
+export const SCREEN_LABEL_KEYS: Readonly<Record<string, string>> = {};
+
+export function showsScreenBack(_path: string): boolean {
+  return false;
+}
+
+export function getBreadcrumbBackLabelKey(_path: string): string {
+  return "";
+}
