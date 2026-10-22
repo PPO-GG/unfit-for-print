@@ -9,3 +9,9 @@ allowBuilds:
   esbuild: true
   workerd: true
   sharp: false
+
+# vitest-pool-workers pins wrangler and miniflare exactly, so its copy of
+# miniflare keeps vulnerable sharp and undici. Force the patched versions.
+overrides:
+  sharp: ">=0.35.5"
+  undici: ">=7.29.1"
