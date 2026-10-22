@@ -1396,7 +1396,30 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     return departed.size > 0 || judgeGone;
   };
 
-  const recoverSettledRound = (): boolean => false;
+  // ── Recover Settled Round ─────────────────────────────────────────────
+  // Every check that ends a round runs on the client that made a play: in
+  // playCard, then on scheduleSubmittingResync's timers. If each play reaches
+  // the other clients only after all of those have run — a slow link, or a
+  // backgrounded Discord tab whose timers the browser throttles — every card
+  // is on the table and nobody ever looks again (lobby EK34).
+  //
+  // This is the host's after-the-fact repair, driven by the watchdog's
+  // `submitting-settled` rule. Same rule as the resync attempts, same
+  // straight-to-judging write. Idempotent: anything but a complete round
+  // still in `submitting` writes nothing.
+
+  const recoverSettledRound = (): boolean => {
+    if (getMeta().get("hostUserId") !== myId()) return false;
+
+    const state = readGameState();
+    if (state.phase !== "submitting") return false;
+    if (!roundIsComplete(state)) return false;
+
+    requireDoc().transact(() => {
+      getGameState().set("phase", "judging");
+    });
+    return true;
+  };
 
   // ── Manual Draw ──────────────────────────────────────────────────────
   // When manualDraw setting is enabled, players draw their own cards

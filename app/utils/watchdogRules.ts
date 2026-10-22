@@ -176,8 +176,9 @@ export function evaluateRules(
  * Rules the host repairs as well as reports. Both describe a round still
  * referencing someone who has left — a leave that crossed nextRound (lobby
  * B36R), or a kick — and both have one unambiguous repair, the engine's
- * reconcileDepartedPlayers. The other rules are still report-only: what the
- * right repair is for them depends on why the round stalled.
+ * reconcileDepartedPlayers. `submitting-settled` has its own repair, below.
+ * The other rules are still report-only: what the right repair is for them
+ * depends on why the round stalled.
  */
 export const RECOVERABLE_RULE_IDS = ["judge-missing", "too-few-players"];
 
@@ -194,6 +195,13 @@ export function shouldRecoverDeparted(state: WatchdogState): boolean {
   return RECOVERABLE_RULE_IDS.some((id) => state[id]?.reported);
 }
 
-export function shouldRecoverSettled(_state: WatchdogState): boolean {
-  return false;
+/**
+ * Whether the host should move a settled round on to judging this tick. The
+ * inbox showed `submitting-settled` is real (lobby EK34: synced host, both
+ * plays in, 78s stalled), and it has one repair — the same re-check the resync
+ * timers make, run by a client that is still looking. Reads `reported` for
+ * the same reason as shouldRecoverDeparted.
+ */
+export function shouldRecoverSettled(state: WatchdogState): boolean {
+  return !!state["submitting-settled"]?.reported;
 }

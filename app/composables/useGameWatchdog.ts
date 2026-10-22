@@ -5,6 +5,7 @@ import {
   WATCHDOG_RULES,
   evaluateRules,
   shouldRecoverDeparted,
+  shouldRecoverSettled,
   type WatchdogSnapshot,
   type WatchdogState,
 } from "~/utils/watchdogRules";
@@ -29,12 +30,15 @@ type LobbyReactive = ReturnType<typeof useLobbyReactive>;
  * referencing a player who has left (`RECOVERABLE_RULE_IDS`): the inbox showed
  * those are real (lobby B36R) and have exactly one repair, so once such a rule
  * has held past its threshold the host runs `recoverDeparted` — the engine's
- * reconcileDepartedPlayers — on every tick until it clears. The report goes
- * out first, so it still describes the broken state.
+ * reconcileDepartedPlayers — on every tick until it clears. A round with every
+ * play in that never left `submitting` (lobby EK34) gets `recoverSettled`, the
+ * engine's recoverSettledRound, the same way. The report goes out first, so it
+ * still describes the broken state.
  */
 export function useGameWatchdog(
   reactive: LobbyReactive,
   recoverDeparted?: () => unknown,
+  recoverSettled?: () => unknown,
 ) {
   // The reporter already dedupes, caps per session, and never throws.
   const { report } = useIssueReporter();
@@ -81,6 +85,14 @@ export function useGameWatchdog(
         // A repair that throws must not take the watchdog's timer with it;
         // the next tick tries again while the rule still holds.
         console.error("[GameWatchdog] Departed-player recovery failed:", err);
+      }
+    }
+
+    if (recoverSettled && shouldRecoverSettled(state)) {
+      try {
+        recoverSettled();
+      } catch (err) {
+        console.error("[GameWatchdog] Settled-round recovery failed:", err);
       }
     }
   };
