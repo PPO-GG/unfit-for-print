@@ -568,6 +568,10 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
       if (!doc.value) return;
 
       const state = readGameState();
+      if (state.phase === "submitting-complete") {
+        settleSubmittingComplete();
+        return;
+      }
       if (state.phase !== "submitting") return;
       if (!roundIsComplete(state)) return;
 
@@ -1490,5 +1494,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
     recoverSettledRound,
     replenishWhiteDeck,
     drawCards,
+    settleSubmittingComplete,
   };
 }

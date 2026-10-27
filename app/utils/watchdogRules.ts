@@ -205,3 +205,12 @@ export function shouldRecoverDeparted(state: WatchdogState): boolean {
 export function shouldRecoverSettled(state: WatchdogState): boolean {
   return !!state["submitting-settled"]?.reported;
 }
+
+/**
+ * Whether the host should recover a stalled settle timer this tick: the settle
+ * timer never fired and the phase has been stuck at submitting-complete past
+ * threshold. Reads `reported` for the same reason as shouldRecoverDeparted.
+ */
+export function shouldRecoverSettleStalled(state: WatchdogState): boolean {
+  return !!state["settle-stalled"]?.reported;
+}
