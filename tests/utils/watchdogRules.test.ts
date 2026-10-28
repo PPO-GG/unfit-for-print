@@ -11,6 +11,7 @@ import {
   evaluateRules,
   shouldRecoverDeparted,
   shouldRecoverSettled,
+  shouldRecoverSettleStalled,
   type WatchdogSnapshot,
   type WatchdogState,
 } from "~/utils/watchdogRules";
@@ -341,6 +342,40 @@ describe("shouldRecoverDeparted", () => {
     expect(shouldRecoverDeparted(s)).toBe(false);
   });
 });
+
+describe("shouldRecoverSettleStalled", () => {
+  const stalled = snapshot({ phase: "submitting-complete" });
+
+  it("waits for the settle-stalled threshold", () => {
+    const first = evaluateRules(WATCHDOG_RULES, stalled, 0, {});
+    expect(shouldRecoverSettleStalled(first.state)).toBe(false);
+
+    const later = evaluateRules(WATCHDOG_RULES, stalled, 10_000, first.state);
+    expect(shouldRecoverSettleStalled(later.state)).toBe(true);
+  });
+
+  it("keeps asking on every tick while the state persists", () => {
+    let s = evaluateRules(WATCHDOG_RULES, stalled, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, stalled, 10_000, s).state;
+    s = evaluateRules(WATCHDOG_RULES, stalled, 25_000, s).state;
+    expect(shouldRecoverSettleStalled(s)).toBe(true);
+  });
+
+  it("stops once the phase leaves submitting-complete", () => {
+    let s = evaluateRules(WATCHDOG_RULES, stalled, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, stalled, 10_000, s).state;
+    s = evaluateRules(WATCHDOG_RULES, snapshot({ phase: "judging" }), 20_000, s).state;
+    expect(shouldRecoverSettleStalled(s)).toBe(false);
+  });
+
+  it("ignores other rules", () => {
+    const missingJudge = snapshot({ phase: "judging", judgeId: "ghost" });
+    let s = evaluateRules(WATCHDOG_RULES, missingJudge, 0, {}).state;
+    s = evaluateRules(WATCHDOG_RULES, missingJudge, 30_000, s).state;
+    expect(shouldRecoverSettleStalled(s)).toBe(false);
+  });
+});
+
 
 describe("shouldRecoverSettled", () => {
   // Lobby EK34: synced host, both plays in, phase still submitting 78s later.

@@ -160,4 +160,47 @@ describe("useYjsGameEngine — deferred submitting -> judging transition", () =>
 
     expect(() => vi.advanceTimersByTime(500)).not.toThrow();
   });
+
+  it("settles to judging via resync timer if phase is still submitting-complete", () => {
+    const { stub } = makeStubDoc();
+    seedOneShortOfComplete(stub);
+
+    const engine = useYjsGameEngine(stub);
+    engine.playCard(["w3"], "p-3");
+    expect(phaseOf(stub)).toBe("submitting-complete");
+
+    // At 1500ms, the first SUBMIT_RESYNC_DELAYS_MS tick runs and catches submitting-complete
+    vi.advanceTimersByTime(1500);
+    expect(phaseOf(stub)).toBe("judging");
+  });
+
+  it("exposes settleSubmittingComplete to manually unwedge stuck submitting-complete", () => {
+    const { stub } = makeStubDoc();
+    seedOneShortOfComplete(stub);
+
+    const engine = useYjsGameEngine(stub);
+    engine.playCard(["w3"], "p-3");
+    expect(phaseOf(stub)).toBe("submitting-complete");
+
+    engine.settleSubmittingComplete();
+    expect(phaseOf(stub)).toBe("judging");
+  });
+
+  it("downgrades stuck submitting-complete back to submitting if submissions are incomplete", () => {
+    const { stub } = makeStubDoc();
+    seedOneShortOfComplete(stub);
+
+    const engine = useYjsGameEngine(stub);
+    engine.playCard(["w3"], "p-3");
+    expect(phaseOf(stub)).toBe("submitting-complete");
+
+    // Another active player joined, so 2 submissions are no longer enough for 3 eligible
+    stub.getPlayers().set(
+      "p-4",
+      JSON.stringify({ userId: "p-4", name: "p-4", playerType: "player" }),
+    );
+
+    engine.settleSubmittingComplete();
+    expect(phaseOf(stub)).toBe("submitting");
+  });
 });

@@ -59,6 +59,7 @@ useGameWatchdog(
   reactive,
   engine.reconcileDepartedPlayers,
   engine.recoverSettledRound,
+  engine.settleSubmittingComplete,
 );
 
 // ─── Reactive State from Y.Doc ──────────────────────────────────────────────
@@ -76,6 +77,29 @@ const {
   mySubmission,
   isHost,
 } = reactive;
+
+// ─── Submitting-Complete Fallback Settle ─────────────────────────────────────
+// The submitting -> judging transition is deferred by 500ms so the "all cards
+// in" animation can play. If the submitting client backgrounds on mobile
+// Discord, loses connection, or crashes, its local 500ms setTimeout never
+// fires. The host watches for `submitting-complete` and settles after 2s as a
+// proactive fallback so players don't have to wait for the watchdog tick.
+let settleFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+  () => [reactive.gameState.value?.phase, reactive.isHost.value] as const,
+  ([phase, isHost]) => {
+    if (settleFallbackTimer) {
+      clearTimeout(settleFallbackTimer);
+      settleFallbackTimer = null;
+    }
+    if (phase === "submitting-complete" && isHost) {
+      settleFallbackTimer = setTimeout(() => {
+        engine.settleSubmittingComplete();
+      }, 2000);
+    }
+  },
+  { immediate: true },
+);
 
 // Wrap the Y.Doc gameState ref in a computed so it satisfies ComputedRef<>
 // expected by useDynamicFavicon and useAutoReturn.
@@ -501,6 +525,10 @@ onMounted(async () => {
 // explicitly leaving via handleLeave, tear down the Y.Doc connection so the
 // Teleportal server doesn't retain ghost clients and stale documents.
 onBeforeUnmount(() => {
+  if (settleFallbackTimer) {
+    clearTimeout(settleFallbackTimer);
+    settleFallbackTimer = null;
+  }
   if (!selfLeaving.value && lobbyDoc.connected.value) {
     console.log("[GamePage] Unmounting — disconnecting lobby Y.Doc");
     lobbyDoc.disconnect();

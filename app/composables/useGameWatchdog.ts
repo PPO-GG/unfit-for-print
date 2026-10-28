@@ -6,6 +6,7 @@ import {
   evaluateRules,
   shouldRecoverDeparted,
   shouldRecoverSettled,
+  shouldRecoverSettleStalled,
   type WatchdogSnapshot,
   type WatchdogState,
 } from "~/utils/watchdogRules";
@@ -39,6 +40,7 @@ export function useGameWatchdog(
   reactive: LobbyReactive,
   recoverDeparted?: () => unknown,
   recoverSettled?: () => unknown,
+  recoverSettleStalled?: () => unknown,
 ) {
   // The reporter already dedupes, caps per session, and never throws.
   const { report } = useIssueReporter();
@@ -95,14 +97,24 @@ export function useGameWatchdog(
         console.error("[GameWatchdog] Settled-round recovery failed:", err);
       }
     }
+
+    if (recoverSettleStalled && shouldRecoverSettleStalled(state)) {
+      try {
+        recoverSettleStalled();
+      } catch (err) {
+        console.error("[GameWatchdog] Settle-stalled recovery failed:", err);
+      }
+    }
   };
 
   // Guarded rather than relying on the timer never firing: this composable's
   // caller renders on the server too, and an interval started there would run
   // detached from any real game.
-  if (import.meta.client) {
+  if (import.meta.client || typeof window !== "undefined") {
     useIntervalFn(tick, TICK_MS);
   }
+
+  return { tick };
 }
 
 export default useGameWatchdog;
