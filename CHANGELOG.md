@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.35.2](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.1...v3.35.2) (2026-10-28)
+
+
+### 🐛 Bug Fixes
+
+* clear Trivy image findings and Dependabot alerts ([#203](https://github.com/PPO-GG/unfit-for-print/issues/203)) ([36bd934](https://github.com/PPO-GG/unfit-for-print/commit/36bd934c603bfffb2d29858ae11b6a5e819a0a00))
+
 ## [3.35.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.0...v3.35.1) (2026-10-28)
 
 
