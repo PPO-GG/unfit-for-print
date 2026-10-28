@@ -14,4 +14,4 @@ allowBuilds:
 # miniflare keeps vulnerable sharp and undici. Force the patched versions.
 overrides:
   sharp: ">=0.35.5"
-  undici: ">=7.29.1"
+  undici: ">=7.30.1 <8"
