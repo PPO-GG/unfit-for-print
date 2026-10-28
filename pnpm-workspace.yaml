@@ -60,7 +60,7 @@ shamefullyHoist: true
 # They are ranges rather than pins so a patched release is picked up without
 # an edit here.
 overrides:
-  devalue: ">=5.6.4"
+  devalue: ">=5.9.3 <6"
   h3: ">=1.15.9"
   srvx: ">=0.11.13"
   picomatch: ">=4.0.4"
@@ -88,6 +88,8 @@ overrides:
   qs: ">=6.16.0"
   "@tiptap/core": ">=3.30.5"
   "@tiptap/pm": ">=3.30.5"
+  fast-uri: ">=3.1.7 <4"
+  source-map-js: ">=1.2.2"
 
 # pnpm 12 asks for an explicit decision on every dependency that wants to run
 # a build script, and scaffolds this block with placeholder strings.

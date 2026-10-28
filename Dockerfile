@@ -20,6 +20,15 @@ FROM node:22-slim AS production
 
 WORKDIR /app
 
+# The base image ships npm, npx and corepack, and nothing at runtime uses
+# them -- the server and the HEALTHCHECK below are plain `node`. npm bundles
+# its own dependency tree (pacote, sigstore, ip-address, brace-expansion,
+# picomatch), which Trivy flags and which our overrides cannot reach because
+# it never goes through our lockfile. Removing it is the only fix that does
+# not wait on a new Node release.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
 COPY --from=builder --chown=node:node /app/.output ./.output
 
 # The node images ship an unprivileged `node` user (uid 1000). Nitro serves
