@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.35.3](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.2...v3.35.3) (2026-10-31)
+
+
+### 🐛 Bug Fixes
+
+* **web:** end the game at the points limit the host set ([#205](https://github.com/PPO-GG/unfit-for-print/issues/205)) ([b5bee09](https://github.com/PPO-GG/unfit-for-print/commit/b5bee09aaba5b7d1a62cdb1c500460605d1a203b))
+
 ## [3.35.2](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.1...v3.35.2) (2026-10-28)
 
 
