@@ -156,9 +156,6 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
         gs.get("revealedCards"),
         {},
       ),
-      config: safeParseJson<{ maxPoints: number }>(gs.get("config"), {
-        maxPoints: 10,
-      }),
       promptSerial: (gs.get("promptSerial") as number) ?? 0,
       blackSkipUsed: safeParseJson<boolean>(gs.get("blackSkipUsed"), false),
     };
@@ -716,7 +713,9 @@ export function useYjsGameEngine(lobbyDoc: LobbyDocResult) {
 
       // Check win condition
       const maxScore = Math.max(...Object.values(scores));
-      const winScore = state.config?.maxPoints || 10;
+      const winScore =
+        safeParseJson<number>(lobbyDoc.getSettings().get("maxPoints"), 10) ||
+        10;
 
       if (maxScore >= winScore) {
         finalPhase = "complete";

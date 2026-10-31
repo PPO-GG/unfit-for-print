@@ -76,13 +76,14 @@ function seedJudging(
     /** Defaults to "game-1"; pass null for a doc started before gameId existed. */
     gameId?: string | null;
     scores?: Record<string, number>;
+    maxPoints?: number;
   },
 ) {
   stub.getMeta().set("hostUserId", "host-1");
 
   const settings = stub.getSettings();
   settings.set("cardPacks", JSON.stringify(["base"]));
-  settings.set("maxPoints", 10);
+  settings.set("maxPoints", opts.maxPoints ?? 10);
 
   const players = stub.getPlayers();
   const ids = new Set([opts.judgeId, ...Object.keys(opts.submissions)]);
@@ -125,7 +126,6 @@ function seedJudging(
       pick: 1,
     }),
   );
-  gs.set("config", JSON.stringify({ maxPoints: 10 }));
 }
 
 beforeEach(() => {
@@ -409,6 +409,41 @@ describe("useYjsGameEngine round stats reporting", () => {
     expect(calls[0]!.winnerId).toBeNull();
     expect(calls[0]!.gameOver).toBe(true);
     expect(calls[0]!.participantIds).toContain("p-2");
+  });
+});
+
+describe("useYjsGameEngine.selectWinner win condition", () => {
+  const judgeAt = (score: number, maxPoints: number) => {
+    stubFetch();
+    const stub = makeStubDoc();
+    seedJudging(stub, {
+      judgeId: "judge-1",
+      submissions: { "p-2": ["w1"], "p-3": ["w3"] },
+      scores: { "judge-1": 0, "p-2": score, "p-3": 0 },
+      maxPoints,
+    });
+    useYjsGameEngine(stub).selectWinner("p-2");
+    return stub.getGameState().get("phase");
+  };
+
+  it("ends the game when the winner reaches a limit below 10", () => {
+    expect(judgeAt(4, 5)).toBe("complete");
+  });
+
+  it("keeps playing while the winner is short of the limit", () => {
+    expect(judgeAt(3, 5)).toBe("roundEnd");
+  });
+
+  it("keeps playing past 10 when the limit is higher", () => {
+    expect(judgeAt(9, 15)).toBe("roundEnd");
+  });
+
+  it("ends the game on the round a player reaches a limit above 10", () => {
+    expect(judgeAt(14, 15)).toBe("complete");
+  });
+
+  it("ends the game on the next win when a score is already past the limit", () => {
+    expect(judgeAt(5, 5)).toBe("complete");
   });
 });
 
