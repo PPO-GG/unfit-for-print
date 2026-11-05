@@ -1,9 +1,14 @@
 // @vitest-environment node
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { useDb } from "~/server/db/client";
 import { lobbies, players, users } from "~/server/db/schema";
+import { signActivityToken } from "~/server/utils/activityToken";
+import {
+  ADMIN_READ_ACTOR,
+  ADMIN_READ_TOKEN_PREFIX,
+} from "~/server/utils/adminReadToken";
 import {
   requireAdmin,
   requireAuth,
@@ -108,6 +113,108 @@ describe("requireAdmin", () => {
     mockSessionUserId = user.id;
 
     await expect(requireAdmin(mockEvent())).resolves.toBe(user.id);
+  });
+});
+
+describe("requireAdmin with the read token", () => {
+  const TOKEN = `${ADMIN_READ_TOKEN_PREFIX}${"a".repeat(40)}`;
+
+  function bearerEvent(token: string, method = "GET") {
+    return {
+      node: { req: { method, headers: { authorization: `Bearer ${token}` } } },
+    } as any;
+  }
+
+  beforeEach(() => {
+    vi.stubEnv("NUXT_ADMIN_READ_TOKEN", TOKEN);
+    vi.stubEnv("NUXT_ACTIVITY_TOKEN_SECRET", "test-activity-secret");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each(["GET", "HEAD"])("accepts the correct token on %s", async (method) => {
+    await expect(requireAdmin(bearerEvent(TOKEN, method))).resolves.toBe(
+      ADMIN_READ_ACTOR,
+    );
+  });
+
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "refuses the correct token on %s with 403",
+    async (method) => {
+      await expect(requireAdmin(bearerEvent(TOKEN, method))).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    },
+  );
+
+  it("refuses the correct token with 403 when the method is missing", async () => {
+    const event = { node: { req: { headers: { authorization: `Bearer ${TOKEN}` } } } } as any;
+    await expect(requireAdmin(event)).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("refuses a wrong secret with 401", async () => {
+    const wrong = `${ADMIN_READ_TOKEN_PREFIX}${"b".repeat(40)}`;
+    await expect(requireAdmin(bearerEvent(wrong))).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+
+  it("refuses a token of a different length with 401", async () => {
+    await expect(requireAdmin(bearerEvent(TOKEN.slice(0, -1)))).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+
+  it("refuses any ufr_ token with 401 when no token is configured", async () => {
+    vi.stubEnv("NUXT_ADMIN_READ_TOKEN", undefined);
+    await expect(requireAdmin(bearerEvent(TOKEN))).rejects.toMatchObject({
+      statusCode: 401,
+    });
+  });
+
+  it("refuses a bare prefix with 401 when the configured token is empty", async () => {
+    vi.stubEnv("NUXT_ADMIN_READ_TOKEN", "");
+    await expect(
+      requireAdmin(bearerEvent(ADMIN_READ_TOKEN_PREFIX)),
+    ).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it("still accepts an admin session while a token is configured", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ name: "A", isAdmin: true })
+      .returning();
+    mockSessionUserId = user.id;
+
+    await expect(requireAdmin(mockEvent())).resolves.toBe(user.id);
+  });
+
+  it("still refuses a non-admin session while a token is configured", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ name: "U", isAdmin: false })
+      .returning();
+    mockSessionUserId = user.id;
+
+    await expect(requireAdmin(mockEvent())).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("still accepts an admin's Activity token while a token is configured", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({ name: "A", isAdmin: true })
+      .returning();
+
+    await expect(
+      requireAdmin(bearerEvent(signActivityToken(user.id), "POST")),
+    ).resolves.toBe(user.id);
+  });
+
+  it("is not accepted by requireAuth on non-admin routes", async () => {
+    await expect(requireAuth(bearerEvent(TOKEN))).rejects.toMatchObject({
+      statusCode: 401,
+    });
   });
 });
 
