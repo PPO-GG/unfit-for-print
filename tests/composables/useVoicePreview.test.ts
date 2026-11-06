@@ -10,6 +10,7 @@ describe("useVoicePreview", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("initializes with null activeVoiceId and false isLoading", () => {
@@ -20,11 +21,8 @@ describe("useVoicePreview", () => {
 
   it("handles kokoro speech preview API call", async () => {
     const mockBlob = new Blob(["fake-audio"], { type: "audio/mpeg" });
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      blob: () => Promise.resolve(mockBlob),
-    });
-    global.fetch = mockFetch;
+    const mockFetch = vi.fn().mockResolvedValue(mockBlob);
+    vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: mockFetch }));
 
     const playMock = vi.fn().mockResolvedValue(undefined);
     const pauseMock = vi.fn();
@@ -56,10 +54,11 @@ describe("useVoicePreview", () => {
       "/api/kokoro-speak",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({
+        responseType: "blob",
+        body: {
           text: PREVIEW_TTS_TEXT,
           voice: "af_bella",
-        }),
+        },
       }),
     );
     expect(playMock).toHaveBeenCalled();
@@ -68,5 +67,22 @@ describe("useVoicePreview", () => {
     stopPreview();
     expect(activeVoiceId.value).toBeNull();
     expect(pauseMock).toHaveBeenCalled();
+  });
+
+  it("stops the preview and clears loading when the request fails", async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error("401"));
+    vi.stubGlobal("useNuxtApp", () => ({ $activityFetch: mockFetch }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { activeVoiceId, isLoading, playPreview } = useVoicePreview();
+    await playPreview({
+      provider: "kokoro",
+      voiceId: "kokoro-af_bella",
+      apiVoice: "af_bella",
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(activeVoiceId.value).toBeNull();
+    expect(isLoading.value).toBe(false);
   });
 });
