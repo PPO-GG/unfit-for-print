@@ -4,8 +4,8 @@
 // Choice primitive is used: a bot asks "which of these", and Jev answers with a
 // probability for every option. Server-only — the key never reaches a client.
 //
-// The key is read from process.env at call time, like the other external
-// service keys (ELEVENLABS_API_KEY, OPENAI_API_KEY), rather than through
+// The key is read from process.env at call time, like NUXT_KOKORO_URL,
+// rather than through
 // runtimeConfig, whose process.env reads are fixed at build time.
 
 const JEV_URL = "https://api.typesafe.ai/v1/systemone";

@@ -207,9 +207,6 @@ importers:
       '@discord/embedded-app-sdk':
         specifier: ^2.5.0
         version: 2.5.0
-      '@elevenlabs/elevenlabs-js':
-        specifier: ^2.65.0
-        version: 2.65.0
       '@fontsource/inter':
         specifier: ^5.3.0
         version: 5.3.0
@@ -1181,10 +1178,6 @@ packages:
 
   '@dxup/unimport@0.1.2':
     resolution: {integrity: sha512-/B8YJGPzaYq1NbsQmwgP8EZqg40NpTw4ZB3suuI0TplbxKHeK94jeaawLmVhCv+YwUnOpiWEz9U6SeThku/8JQ==}
-
-  '@elevenlabs/elevenlabs-js@2.65.0':
-    resolution: {integrity: sha512-nsGpFW20tuxEdVkyJ2YttLhKAI/CcCnvaVN6v6SnUepEV8bnCLKQXwH/AdaQYDuXNOFnyl6avcdquLvI8URV7Q==}
-    engines: {node: '>=18.0.0'}
 
   '@emnapi/core@1.11.2':
     resolution: {integrity: sha512-TC8MkTuZUtcTSiFeuC0ksCh9QIJ5+F21MvZ4Wn4ORfYaFJ/0dsiudv5tVkejgwZlwQ39jL9WWDe2lz8x0WglOA==}
@@ -4337,9 +4330,6 @@ packages:
   combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
-
-  command-exists@1.2.9:
-    resolution: {integrity: sha512-LTQ/SGc+s0Xc0Fu5WaKnR0YiygZkm9eKFvyS+fRsU7/ZWFF8ykFM6Pc9aCVf1+xasOOZpO3BAVgVrKvsqKHV7w==}
 
   commander@11.1.0:
     resolution: {integrity: sha512-yPVavfyCcRhmorC7rWlkHn15b4wDVgVmBA7kV4QVBsF7kv/9TKJAbAXVTxvTnwP8HHKjRCJDClKbciiYS7p0DQ==}
@@ -10702,16 +10692,6 @@ snapshots:
 
   '@dxup/unimport@0.1.2': {}
 
-  '@elevenlabs/elevenlabs-js@2.65.0':
-    dependencies:
-      command-exists: 1.2.9
-      node-fetch: 2.7.0
-      ws: 8.21.3
-    transitivePeerDependencies:
-      - bufferutil
-      - encoding
-      - utf-8-validate
-
   '@emnapi/core@1.11.2':
     dependencies:
       '@emnapi/wasi-threads': 1.2.2
@@ -14434,8 +14414,6 @@ snapshots:
   combined-stream@1.0.8:
     dependencies:
       delayed-stream: 1.0.0
-
-  command-exists@1.2.9: {}
 
   commander@11.1.0: {}
 

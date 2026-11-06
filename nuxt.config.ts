@@ -193,7 +193,6 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     // Server-only secrets
-    elevenlabsApiKey: process.env.NUXT_ELEVENLABS_API_KEY,
     discordClientSecret: process.env.NUXT_DISCORD_CLIENT_SECRET,
     discordPublicKey: process.env.NUXT_DISCORD_PUBLIC_KEY,
     discordApplicationId: process.env.NUXT_DISCORD_APPLICATION_ID,

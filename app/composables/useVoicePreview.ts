@@ -86,22 +86,14 @@ export function useVoicePreview() {
         ...(descriptor.speed != null && { speed: descriptor.speed }),
       };
 
-      const response = await fetch("/api/kokoro-speak", {
+      // $activityFetch adds the Activity Bearer token inside Discord, which
+      // /api/kokoro-speak's requireAuth needs. A non-2xx throws into the catch.
+      const { $activityFetch } = useNuxtApp();
+      const blob = await $activityFetch<Blob>("/api/kokoro-speak", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        responseType: "blob",
+        body: payload,
       });
-
-      if (!response.ok) {
-        console.error(
-          `Preview TTS error (${descriptor.provider}):`,
-          await response.text(),
-        );
-        stopPreview();
-        return;
-      }
-
-      const blob = await response.blob();
       currentBlobUrl = URL.createObjectURL(blob);
 
       const audio = new Audio(currentBlobUrl);
