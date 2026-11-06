@@ -130,7 +130,7 @@ Three Y.Doc quirks worth knowing before editing the engine:
 
 ### Server (`server/`)
 
-~80 Nitro routes, deliberately narrow: auth, lobby CRUD/discovery, card queries, TTS proxies (`speak`, `openai-speak`, `google-speak`, `kokoro-speak`), Discord webhooks, bots, reports, and `/api/admin/*`.
+~80 Nitro routes, deliberately narrow: auth, lobby CRUD/discovery, card queries, one TTS proxy (`kokoro-speak`: `requireAuth`, 20 calls/min per user and 300 overall, upstream from `NUXT_KOKORO_URL` because Kokoro has no auth of its own — keep it on a private address), Discord webhooks, bots, reports, and `/api/admin/*`.
 
 - DB handle: `useDb()` from `server/db/client.ts` (lazy `pg` Pool + Drizzle singleton).
 - Auth guards: `server/utils/session.ts` — `requireAuth`, `requirePlayerInLobby`, `requireHost`. Auth accepts **either** a Nuxt session cookie **or** a `Bearer` Discord-Activity token (`server/utils/activityToken.ts`).

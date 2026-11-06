@@ -51,9 +51,7 @@ services:
       NUXT_R2_ACCESS_KEY_ID: ${NUXT_R2_ACCESS_KEY_ID}
       NUXT_R2_SECRET_ACCESS_KEY: ${NUXT_R2_SECRET_ACCESS_KEY}
       NUXT_R2_BUCKET: ${NUXT_R2_BUCKET:-decoration-images}
-      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      GOOGLE_TTS_API_KEY: ${GOOGLE_TTS_API_KEY}
+      NUXT_KOKORO_URL: ${NUXT_KOKORO_URL:-}
       TYPESAFE_API_KEY: ${TYPESAFE_API_KEY}
     ports:
       # Host 3000 is already claimed by the `teleportal` service above, so
