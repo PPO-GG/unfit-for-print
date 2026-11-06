@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.36.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.36.0...v3.36.1) (2026-11-06)
+
+
+### 🐛 Bug Fixes
+
+* **server:** require auth and rate limits on Kokoro TTS ([#210](https://github.com/PPO-GG/unfit-for-print/issues/210)) ([736e1fe](https://github.com/PPO-GG/unfit-for-print/commit/736e1feb9cd0656617b7db661b0581ac0e15a910))
+
 ## [3.36.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.3...v3.36.0) (2026-11-06)
 
 
