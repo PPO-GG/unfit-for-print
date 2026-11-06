@@ -3,6 +3,7 @@ import { createError, getHeader, type H3Event } from "h3";
 import { useDb } from "../db/client";
 import { lobbies, players, users } from "../db/schema";
 import { verifyActivityToken } from "./activityToken";
+import { checkAdminReadToken } from "./adminReadToken";
 
 /** Resolves the authenticated user from an Activity token or Nuxt session. */
 export async function requireAuth(event: H3Event): Promise<string> {
@@ -129,8 +130,14 @@ export async function requireNonGuest(event: H3Event): Promise<string> {
   return userId;
 }
 
-/** Ensures the authenticated user is currently an admin. */
+/**
+ * Ensures the authenticated user is currently an admin. Also accepts the
+ * read-only admin token on GET/HEAD (see `adminReadToken.ts`).
+ */
 export async function requireAdmin(event: H3Event): Promise<string> {
+  const readToken = checkAdminReadToken(event);
+  if (readToken !== "absent") return readToken;
+
   const userId = await requireAuth(event);
   const db = useDb();
 
