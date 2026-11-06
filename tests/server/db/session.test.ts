@@ -157,12 +157,14 @@ describe("requireAdmin with the read token", () => {
     const wrong = `${ADMIN_READ_TOKEN_PREFIX}${"b".repeat(40)}`;
     await expect(requireAdmin(bearerEvent(wrong))).rejects.toMatchObject({
       statusCode: 401,
+      statusMessage: "Invalid token",
     });
   });
 
   it("refuses a token of a different length with 401", async () => {
     await expect(requireAdmin(bearerEvent(TOKEN.slice(0, -1)))).rejects.toMatchObject({
       statusCode: 401,
+      statusMessage: "Invalid token",
     });
   });
 
@@ -170,6 +172,7 @@ describe("requireAdmin with the read token", () => {
     vi.stubEnv("NUXT_ADMIN_READ_TOKEN", undefined);
     await expect(requireAdmin(bearerEvent(TOKEN))).rejects.toMatchObject({
       statusCode: 401,
+      statusMessage: "Invalid token",
     });
   });
 
@@ -177,7 +180,7 @@ describe("requireAdmin with the read token", () => {
     vi.stubEnv("NUXT_ADMIN_READ_TOKEN", "");
     await expect(
       requireAdmin(bearerEvent(ADMIN_READ_TOKEN_PREFIX)),
-    ).rejects.toMatchObject({ statusCode: 401 });
+    ).rejects.toMatchObject({ statusCode: 401, statusMessage: "Invalid token" });
   });
 
   it("still accepts an admin session while a token is configured", async () => {
