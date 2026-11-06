@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.36.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.3...v3.36.0) (2026-11-06)
+
+
+### ✨ Features
+
+* **server:** accept a read-only admin token on admin GET routes ([#208](https://github.com/PPO-GG/unfit-for-print/issues/208)) ([0b6af82](https://github.com/PPO-GG/unfit-for-print/commit/0b6af828737195e62ca249f0e40120d5c8ea9847))
+
 ## [3.35.3](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.2...v3.35.3) (2026-10-31)
 
 
