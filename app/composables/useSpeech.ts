@@ -90,29 +90,16 @@ export function useSpeech(options: TTSOptions = {}) {
         throw new Error(`Unknown provider: ${provider}`);
       }
 
-      // /api/kokoro-speak authenticates via requireAuth, which reads the
-      // session cookie automatically sent with same-origin requests — no
-      // manual Authorization header needed.
-      const response = await fetch(endpoint, {
+      // /api/kokoro-speak calls requireAuth. $activityFetch adds the
+      // Activity Bearer token inside Discord, where the session cookie is not
+      // sent; on the web the cookie goes with the same-origin request. It
+      // throws on any non-2xx, which the catch below handles.
+      const { $activityFetch } = useNuxtApp();
+      const blob = await $activityFetch<Blob>(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        responseType: "blob",
+        body: payload,
       });
-
-      const contentType = response.headers.get("Content-Type") || "";
-      if (!response.ok || !contentType.includes("audio")) {
-        console.error(
-          `TTS response error (${provider}):`,
-          await response.text(),
-        );
-        isSpeaking.value = false;
-        await playNext();
-        return;
-      }
-
-      const blob = await response.blob();
       audio.src = URL.createObjectURL(blob);
       applyTtsVolume(audio, userPrefs.ttsVolume);
 
