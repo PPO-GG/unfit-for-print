@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.36.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.36.0...v3.36.1) (2026-11-09)
+
+
+### 🐛 Bug Fixes
+
+* **server:** require auth and rate limits on Kokoro TTS ([#210](https://github.com/PPO-GG/unfit-for-print/issues/210)) ([736e1fe](https://github.com/PPO-GG/unfit-for-print/commit/736e1feb9cd0656617b7db661b0581ac0e15a910))
+* **web:** keep the confirm dialog above the in-game menu ([#213](https://github.com/PPO-GG/unfit-for-print/issues/213)) ([25d5d27](https://github.com/PPO-GG/unfit-for-print/commit/25d5d27873285fafe4ca08afe24383db2dd2ec54))
+
 ## [3.36.0](https://github.com/PPO-GG/unfit-for-print/compare/v3.35.3...v3.36.0) (2026-11-06)
 
 
