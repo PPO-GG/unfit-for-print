@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [3.36.2](https://github.com/PPO-GG/unfit-for-print/compare/v3.36.1...v3.36.2) (2026-11-18)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** clear open Dependabot alerts ([#214](https://github.com/PPO-GG/unfit-for-print/issues/214)) ([c20bbbd](https://github.com/PPO-GG/unfit-for-print/commit/c20bbbd57410febecc1f584858b0fa2be826e561))
+
 ## [3.36.1](https://github.com/PPO-GG/unfit-for-print/compare/v3.36.0...v3.36.1) (2026-11-09)
 
 
